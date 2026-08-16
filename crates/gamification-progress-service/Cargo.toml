@@ -1,0 +1,18 @@
+[package]
+name = "gamification-progress-service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { workspace = true }
+tonic = { workspace = true }
+sqlx = { workspace = true }
+fred = { workspace = true }
+serde = { workspace = true }
+uuid = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+proto = { path = "../proto" }
+common = { path = "../common" }
+dotenvy = { workspace = true }
+

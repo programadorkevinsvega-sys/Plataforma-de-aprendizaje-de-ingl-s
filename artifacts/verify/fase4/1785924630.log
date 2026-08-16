@@ -1,0 +1,80 @@
+=== [Fase 4 Verification Gate] AI Evaluator Engine & 6-Metric Exam Matrix ===
+[1/2] Ejecutando pruebas unitarias de la Matriz de 6 Métricas e IA (90% Pass Rate Target)...
+   Compiling form_urlencoded v1.2.2
+   Compiling idna v1.1.0
+   Compiling sync_wrapper v1.0.2
+   Compiling zeroize v1.9.0
+   Compiling ipnet v2.12.1
+   Compiling rustls-pki-types v1.15.1
+   Compiling tower v0.5.3
+   Compiling url v2.5.8
+   Compiling hyper-util v0.1.20
+   Compiling rustls v0.23.43
+   Compiling rustls-webpki v0.103.13
+   Compiling axum-core v0.4.5
+   Compiling sqlx-core v0.7.4
+   Compiling hyper-timeout v0.5.2
+   Compiling axum v0.7.9
+   Compiling webpki-roots v1.0.9
+   Compiling ryu v1.0.23
+   Compiling serde_urlencoded v0.7.1
+   Compiling tower-http v0.6.11
+   Compiling sqlx-postgres v0.7.4
+   Compiling tokio-rustls v0.26.4
+   Compiling hyper-rustls v0.27.9
+   Compiling reqwest v0.12.28
+   Compiling tonic v0.12.3
+   Compiling sqlx v0.7.4
+   Compiling common v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/common)
+   Compiling proto v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/proto)
+   Compiling ai-evaluator-service v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/ai-evaluator-service)
+error[E0432]: unresolved import `proto::ai_evaluator::ai_evaluator_service_server::AIEvaluatorService`
+ --> crates/ai-evaluator-service/src/service.rs:2:5
+  |
+2 | use proto::ai_evaluator::ai_evaluator_service_server::AIEvaluatorService;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no `AIEvaluatorService` in `ai_evaluator::ai_evaluator_service_server`
+  |
+help: a similar name exists in the module (notice the capitalization)
+  |
+2 - use proto::ai_evaluator::ai_evaluator_service_server::AIEvaluatorService;
+2 + use proto::ai_evaluator::ai_evaluator_service_server::AiEvaluatorService;
+  |
+
+error[E0432]: unresolved import `proto::ai_evaluator::ai_evaluator_service_server::AIEvaluatorServiceServer`
+ --> crates/ai-evaluator-service/src/main.rs:4:5
+  |
+4 | use proto::ai_evaluator::ai_evaluator_service_server::AIEvaluatorServiceServer;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no `AIEvaluatorServiceServer` in `ai_evaluator::ai_evaluator_service_server`
+  |
+help: a similar name exists in the module (notice the capitalization)
+  |
+4 - use proto::ai_evaluator::ai_evaluator_service_server::AIEvaluatorServiceServer;
+4 + use proto::ai_evaluator::ai_evaluator_service_server::AiEvaluatorServiceServer;
+  |
+
+For more information about this error, try `rustc --explain E0432`.
+error: could not compile `ai-evaluator-service` (bin "ai-evaluator-service" test) due to 2 previous errors
+[2/2] Compilando ai-evaluator-service (Simulador Reclutador IA)...
+    Checking hyper-util v0.1.20
+    Checking tower v0.5.3
+    Checking rustls-webpki v0.103.13
+    Checking sqlx-core v0.7.4
+    Checking axum-core v0.4.5
+    Checking rustls v0.23.43
+    Checking hyper-timeout v0.5.2
+    Checking tower-http v0.6.11
+    Checking sqlx-postgres v0.7.4
+    Checking axum v0.7.9
+    Checking tokio-rustls v0.26.4
+    Checking hyper-rustls v0.27.9
+    Checking reqwest v0.12.28
+    Checking sqlx v0.7.4
+    Checking common v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/common)
+    Checking tonic v0.12.3
+    Checking proto v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/proto)
+    Checking ai-evaluator-service v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/ai-evaluator-service)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 12.10s
+warning: the following packages contain code that will be rejected by a future version of Rust: sqlx-postgres v0.7.4
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+✅ [Fase 4 completada con éxito en 35s]
+Artefacto guardado en: artifacts/verify/fase4/1785924630.json

@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package phonetic_audio;
+
+service PhoneticAudioService {
+  rpc GeneratePhonetics (PhoneticRequest) returns (PhoneticResponse);
+  rpc SynthesizeAudio (SynthesizeRequest) returns (SynthesizeResponse);
+  rpc TranscribeAudio (TranscribeRequest) returns (TranscribeResponse);
+}
+
+message PhoneticRequest {
+  string text = 1;
+}
+
+message PhoneticResponse {
+  string slow_phonetic = 1;
+  string natural_phonetic = 2;
+}
+
+message SynthesizeRequest {
+  string text = 1;
+}
+
+message SynthesizeResponse {
+  string audio_base64 = 1;
+}
+
+message TranscribeRequest {
+  string audio_base64 = 1;
+}
+
+message TranscribeResponse {
+  string transcribed_text = 1;
+  string language_code = 2;
+}

@@ -1,0 +1,27 @@
+=== [Fase 1 Verification Gate] DevFluency AI Enterprise Workspace ===
+[1/3] Compilando y verificando workspace de Rust...
+    Updating crates.io index
+error: failed to select a version for `fred`.
+    ... required by package `gamification-progress-service v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/gamification-progress-service)`
+versions that meet the requirements `^9.0` are: 9.4.0, 9.3.0, 9.2.1, 9.2.0, 9.1.2, 9.1.1, 9.1.0, 9.0.3, 9.0.2, 9.0.1, 9.0.0
+
+package `gamification-progress-service` depends on `fred` with feature `tokio-runtime` but `fred` does not have that feature.
+help: available features: blocking-encoding, custom-reconnect-errors, debug-ids, default, default-nil-types, dns, enable-native-tls, enable-rustls, full-tracing, i-acl, i-all, i-client, i-cluster, i-config, i-geo, i-hashes, i-hyperloglog, i-keys, i-lists, i-memory, i-pubsub, i-redis-json, i-redis-stack, i-scripts, i-server, i-sets, i-slowlog, i-sorted-sets, i-std, i-streams, i-time-series, i-tracking, metrics, mocks, monitor, native-tls, network-logs, nom, partial-tracing, replicas, rustls, rustls-native-certs, sentinel-auth, sentinel-client, serde-json, serde_json, sha-1, subscriber-client, tokio-native-tls, tokio-rustls, tracing, tracing-futures, transactions, trust-dns-resolver, unix-sockets, vendored-openssl
+
+
+failed to select a version for `fred` which could resolve this conflict
+[2/3] Verificando compilación de contratos Protobuf gRPC...
+    Updating crates.io index
+error: failed to select a version for `fred`.
+    ... required by package `gamification-progress-service v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/gamification-progress-service)`
+versions that meet the requirements `^9.0` are: 9.4.0, 9.3.0, 9.2.1, 9.2.0, 9.1.2, 9.1.1, 9.1.0, 9.0.3, 9.0.2, 9.0.1, 9.0.0
+
+package `gamification-progress-service` depends on `fred` with feature `tokio-runtime` but `fred` does not have that feature.
+help: available features: blocking-encoding, custom-reconnect-errors, debug-ids, default, default-nil-types, dns, enable-native-tls, enable-rustls, full-tracing, i-acl, i-all, i-client, i-cluster, i-config, i-geo, i-hashes, i-hyperloglog, i-keys, i-lists, i-memory, i-pubsub, i-redis-json, i-redis-stack, i-scripts, i-server, i-sets, i-slowlog, i-sorted-sets, i-std, i-streams, i-time-series, i-tracking, metrics, mocks, monitor, native-tls, network-logs, nom, partial-tracing, replicas, rustls, rustls-native-certs, sentinel-auth, sentinel-client, serde-json, serde_json, sha-1, subscriber-client, tokio-native-tls, tokio-rustls, tracing, tracing-futures, transactions, trust-dns-resolver, unix-sockets, vendored-openssl
+
+
+failed to select a version for `fred` which could resolve this conflict
+[3/3] Verificando script de migración PostgreSQL RLS...
+Migración PostgreSQL RLS verificada.
+✅ [Fase 1 completada con éxito en 2s]
+Artefacto guardado en: artifacts/verify/fase1/1785924303.json

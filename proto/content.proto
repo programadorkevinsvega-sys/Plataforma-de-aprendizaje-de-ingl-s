@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package content;
+
+service ContentService {
+  rpc GetVocabularyWord (GetVocabularyWordRequest) returns (VocabularyWordResponse);
+  rpc ListVocabularyWords (ListVocabularyWordsRequest) returns (ListVocabularyWordsResponse);
+  rpc GetRandomInterviewQuestion (GetRandomInterviewQuestionRequest) returns (InterviewQuestionResponse);
+}
+
+message ContextSentence {
+  string id = 1;
+  string english_text = 2;
+  string spanish_phonetic = 3;
+  string spanish_translation = 4;
+  string audio_url = 5;
+  string spanish_phonetic_natural = 6;
+}
+
+message VocabularyWordResponse {
+  string id = 1;
+  string word = 2;
+  string spanish_phonetic = 3;
+  string spanish_translation = 4;
+  string category = 5;
+  string level = 6;
+  repeated ContextSentence context_sentences = 7;
+  string spanish_phonetic_natural = 8;
+}
+
+message GetVocabularyWordRequest {
+  string word_id = 1;
+}
+
+message ListVocabularyWordsRequest {
+  string level = 1;
+  string category = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+  string user_id = 5;
+}
+
+message ListVocabularyWordsResponse {
+  repeated VocabularyWordResponse words = 1;
+  int32 total = 2;
+}
+
+message GetRandomInterviewQuestionRequest {
+  string category = 1;
+  string level = 2;
+}
+
+message InterviewQuestionResponse {
+  string id = 1;
+  string question = 2;
+  string category = 3;
+  string difficulty = 4;
+}

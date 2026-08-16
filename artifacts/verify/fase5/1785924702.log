@@ -1,0 +1,62 @@
+=== [Fase 5 Verification Gate] Anki SM-2 SRS & Gamification Engine ===
+[1/2] Ejecutando pruebas unitarias del Algoritmo Anki SM-2...
+   Compiling chrono v0.4.45
+   Compiling sqlx-core v0.7.4
+   Compiling sqlx-postgres v0.7.4
+   Compiling sqlx v0.7.4
+   Compiling common v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/common)
+   Compiling srs-engine-service v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/srs-engine-service)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.09s
+warning: the following packages contain code that will be rejected by a future version of Rust: sqlx-postgres v0.7.4
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/main.rs (target/debug/deps/srs_engine_service-46f19e19167c5b2c)
+
+running 2 tests
+test domain::tests::test_anki_sm2_failed_review_resets_interval ... ok
+test domain::tests::test_anki_sm2_first_successful_review ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[2/2] Ejecutando pruebas unitarias de Gamificación (XP, Rachas, Niveles)...
+   Compiling futures-util v0.3.33
+   Compiling form_urlencoded v1.2.2
+   Compiling rustls v0.23.43
+   Compiling rustls-webpki v0.103.13
+   Compiling crc16 v0.4.0
+   Compiling url v2.5.8
+   Compiling bytes-utils v0.1.4
+   Compiling cookie-factory v0.3.2
+   Compiling redis-protocol v5.0.1
+   Compiling arc-swap v1.9.2
+   Compiling float-cmp v0.9.0
+   Compiling urlencoding v2.1.3
+   Compiling semver v1.0.28
+   Compiling axum-core v0.4.5
+   Compiling sqlx-core v0.7.4
+   Compiling hyper-util v0.1.20
+   Compiling tower v0.5.3
+   Compiling hyper-timeout v0.5.2
+   Compiling sqlx-postgres v0.7.4
+   Compiling axum v0.7.9
+   Compiling tower v0.4.13
+   Compiling futures-executor v0.3.33
+   Compiling futures v0.3.33
+   Compiling tokio-rustls v0.26.4
+   Compiling fred v9.4.0
+   Compiling tonic v0.12.3
+   Compiling sqlx v0.7.4
+   Compiling common v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/common)
+   Compiling proto v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/proto)
+   Compiling gamification-progress-service v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/gamification-progress-service)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 24.71s
+warning: the following packages contain code that will be rejected by a future version of Rust: sqlx-postgres v0.7.4
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/main.rs (target/debug/deps/gamification_progress_service-37780f707d039451)
+
+running 1 test
+test domain::tests::test_gamification_xp_and_level_progression ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+✅ [Fase 5 completada con éxito en 32s]
+Artefacto guardado en: artifacts/verify/fase5/1785924702.json

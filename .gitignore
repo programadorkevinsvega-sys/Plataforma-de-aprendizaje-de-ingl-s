@@ -1,0 +1,13 @@
+# Rust build target
+/target
+
+# Environment credentials file
+.env
+!.env.example
+
+# Verification artifacts
+/artifacts/verify/*.log
+
+# Operating system files
+.DS_Store
+Thumbs.db

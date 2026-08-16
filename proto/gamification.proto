@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package gamification;
+
+service GamificationService {
+  rpc GetUserStats (GetUserStatsRequest) returns (UserStatsResponse);
+  rpc AddXp (AddXpRequest) returns (UserStatsResponse);
+  rpc RecordLearningProgress (RecordLearningProgressRequest) returns (UserStatsResponse);
+  rpc InitUserStats (InitUserStatsRequest) returns (UserStatsResponse);
+  rpc GetLeaderboard (GetLeaderboardRequest) returns (LeaderboardResponse);
+  rpc GetUserAchievements (GetUserAchievementsRequest) returns (UserAchievementsResponse);
+}
+
+message GetUserStatsRequest {
+  string user_id = 1;
+}
+
+message AddXpRequest {
+  string user_id = 1;
+  int32 xp_amount = 2;
+  int32 words_learned_delta = 3;
+}
+
+message RecordLearningProgressRequest {
+  string user_id = 1;
+  int32 xp_amount = 2;
+  int32 coins_amount = 3;
+  int32 words_learned_delta = 4;
+}
+
+message InitUserStatsRequest {
+  string user_id = 1;
+}
+
+message UserStatsResponse {
+  string user_id = 1;
+  int32 xp = 2;
+  int32 streak_days = 3;
+  int32 coins = 4;
+  int32 words_learned = 5;
+  int32 sentences_mastered = 6;
+  string current_level = 7;
+}
+
+message GetLeaderboardRequest {
+  int32 limit = 1;
+}
+
+message LeaderboardEntry {
+  string user_id = 1;
+  string full_name = 2;
+  string current_level = 3;
+  int32 xp = 4;
+  int32 streak_days = 5;
+}
+
+message LeaderboardResponse {
+  repeated LeaderboardEntry entries = 1;
+}
+
+message GetUserAchievementsRequest {
+  string user_id = 1;
+}
+
+message Achievement {
+  string id = 1;
+  string emoji = 2;
+  string title = 3;
+  string description = 4;
+  bool unlocked = 5;
+  int32 progress = 6;
+  int32 max_progress = 7;
+  string category = 8;
+}
+
+message UserAchievementsResponse {
+  repeated Achievement achievements = 1;
+}

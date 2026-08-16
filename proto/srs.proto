@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package srs;
+
+service SrsService {
+  rpc GetDueCards (GetDueCardsRequest) returns (GetDueCardsResponse);
+  rpc ReviewCard (ReviewCardRequest) returns (ReviewCardResponse);
+  rpc AddCardsToDeck (AddCardsToDeckRequest) returns (AddCardsToDeckResponse);
+}
+
+message AddCardsToDeckRequest {
+  string user_id = 1;
+  string word_id = 2; // ID de la palabra aprendida, para buscar sus oraciones
+}
+
+message AddCardsToDeckResponse {
+  int32 cards_added = 1;
+}
+
+message GetDueCardsRequest {
+  string user_id = 1;
+  int32 limit = 2;
+}
+
+message SrsCard {
+  string id = 1;
+  string sentence_id = 2;
+  string english_text = 3;
+  string spanish_phonetic = 4;
+  string spanish_translation = 5;
+  float easiness_factor = 6;
+  int32 interval_days = 7;
+  int32 repetitions = 8;
+  string next_review = 9;
+}
+
+message GetDueCardsResponse {
+  repeated SrsCard cards = 1;
+  int32 total = 2;
+}
+
+message ReviewCardRequest {
+  string user_id = 1;
+  string card_id = 2;
+  int32 grade = 3;  // 0-5 (SM-2 grade)
+}
+
+message ReviewCardResponse {
+  string card_id = 1;
+  int32 new_interval_days = 2;
+  float new_easiness_factor = 3;
+  string next_review_at = 4;
+}

@@ -1,0 +1,39 @@
+mod domain;
+mod jwt;
+mod service;
+
+use proto::auth::auth_service_server::AuthServiceServer;
+use service::MyAuthService;
+use sqlx::postgres::PgPoolOptions;
+use std::net::SocketAddr;
+use std::sync::Arc;
+use tonic::transport::Server;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    dotenvy::dotenv().ok();
+    tracing_subscriber::fmt::init();
+
+    let database_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "postgres://postgres:Kevins1612522026@127.0.0.1:5432/devfluency_db".to_string());
+
+    let pool = PgPoolOptions::new()
+        .max_connections(10)
+        .connect(&database_url)
+        .await
+        .expect("❌ No se pudo conectar a PostgreSQL. Verifica DATABASE_URL y que el contenedor esté corriendo.");
+
+    let pool = Arc::new(pool);
+
+    let addr: SocketAddr = "0.0.0.0:50051".parse()?;
+    let auth_service = MyAuthService::new(pool);
+
+    println!("🔒 [Fase 2] auth-identity-service gRPC Server corriendo en {}", addr);
+
+    Server::builder()
+        .add_service(AuthServiceServer::new(auth_service))
+        .serve(addr)
+        .await?;
+
+    Ok(())
+}
