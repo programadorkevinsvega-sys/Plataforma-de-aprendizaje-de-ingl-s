@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 TIMESTAMP=$(date +%s)
 ARTIFACT_DIR="artifacts/verify/fase4"
