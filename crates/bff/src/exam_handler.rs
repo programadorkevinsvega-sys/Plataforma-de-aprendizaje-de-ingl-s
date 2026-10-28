@@ -414,9 +414,19 @@ pub async fn transcribe_ws_handler(
         .get("sec-websocket-protocol")
         .and_then(|value| value.to_str().ok())
         .unwrap_or_default();
-    let ticket = offered_protocols
+    let protocol_values: Vec<&str> = offered_protocols
         .split(',')
         .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .collect();
+    if !protocol_values.iter().any(|protocol| *protocol == TRANSCRIBE_WS_PROTOCOL) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "message": "Subprotocolo WebSocket no compatible", "code": "WS_PROTOCOL_REQUIRED" })),
+        ));
+    }
+    let ticket = protocol_values
+        .iter()
         .find_map(|protocol| protocol.strip_prefix(TRANSCRIBE_TICKET_PROTOCOL_PREFIX))
         .filter(|ticket| !ticket.is_empty())
         .ok_or_else(|| (
@@ -496,19 +506,22 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
 
     let transcribe_client = TranscribeClient::new(&sdk_config);
 
-    let transcribe_result = transcribe_client
-        .start_stream_transcription()
-        .language_code(language)
-        .media_sample_rate_hertz(16000)
-        .media_encoding(MediaEncoding::Pcm)
-        .audio_stream(audio_stream.into())
-        .send()
-        .await;
+    let transcribe_result = tokio::time::timeout(
+        Duration::from_secs(30),
+        transcribe_client
+            .start_stream_transcription()
+            .language_code(language)
+            .media_sample_rate_hertz(16000)
+            .media_encoding(MediaEncoding::Pcm)
+            .audio_stream(audio_stream.into())
+            .send(),
+    )
+    .await;
 
     let mut stream_response = match transcribe_result {
-        Ok(r) => r,
-        Err(_error) => {
-            tracing::error!("No se pudo iniciar la sesión AWS Transcribe");
+        Ok(Ok(response)) => response,
+        Ok(Err(_error)) | Err(_) => {
+            tracing::error!("No se pudo iniciar la sesión AWS Transcribe dentro del límite de tiempo");
             let msg = serde_json::json!({
                 "error": "No se pudo iniciar la transcripción."
             }).to_string();
