@@ -85,12 +85,14 @@ fn validate_evaluation_input(body: &EvaluateAnswerBody) -> Result<(), (StatusCod
         || body.question.trim().is_empty()
         || body.question.chars().count() > MAX_QUESTION_CHARS
         || body.answer.chars().count() > MAX_ANSWER_CHARS
+        || body.answer.split_whitespace().count() < 12
         || body.audio_base64.as_ref().is_some_and(|audio| audio.len() > MAX_AUDIO_BASE64_CHARS)
+        || body.audio_base64.as_ref().is_some_and(|audio| !audio.is_empty())
     {
         return Err((
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({
-                "message": "La pregunta o respuesta supera los límites permitidos o contiene campos inválidos.",
+                "message": "La respuesta debe tener al menos 12 palabras, respetar los límites permitidos y no incluir audio sin transcribir.",
                 "code": "INVALID_EVALUATION_INPUT"
             })),
         ));
@@ -166,13 +168,9 @@ pub async fn evaluate_answer_handler(
         .into_inner()
         .current_level;
 
-    let response_text = if body.answer.is_empty() && body.audio_base64.is_some() {
-        format!("[Audio Transcrito]: Respuesta oral a la pregunta '{}'", body.question)
-    } else if !body.answer.is_empty() {
-        body.answer
-    } else {
-        format!("Respuesta a: {}", body.question)
-    };
+    // El audio se procesa en el WebSocket de transcripción. Este endpoint solo
+    // evalúa el texto transcrito; no convierte un payload de audio en respuesta.
+    let response_text = body.answer;
 
     let mut request = tonic::Request::new(EvaluateExamAnswerRequest {
         user_id,
@@ -762,7 +760,7 @@ mod evaluation_input_validation_tests {
         EvaluateAnswerBody {
             question_id: "question-123".to_string(),
             question: "Tell me about a backend system you improved.".to_string(),
-            answer: "I measured the bottleneck, added tracing, and improved p95 latency.".to_string(),
+            answer: "I measured the bottleneck carefully, added tracing, and improved our production p95 latency significantly.".to_string(),
             audio_base64: None,
         }
     }
@@ -783,6 +781,21 @@ mod evaluation_input_validation_tests {
     fn rejects_audio_payload_over_limit() {
         let mut input = valid_input();
         input.audio_base64 = Some("A".repeat(MAX_AUDIO_BASE64_CHARS + 1));
+        assert!(validate_evaluation_input(&input).is_err());
+    }
+
+
+    #[test]
+    fn rejects_answer_below_minimum_word_count() {
+        let mut input = valid_input();
+        input.answer = "I fixed a bug.".to_string();
+        assert!(validate_evaluation_input(&input).is_err());
+    }
+
+    #[test]
+    fn rejects_raw_audio_payload_and_requires_transcription_first() {
+        let mut input = valid_input();
+        input.audio_base64 = Some("AAECAwQ=".to_string());
         assert!(validate_evaluation_input(&input).is_err());
     }
 
