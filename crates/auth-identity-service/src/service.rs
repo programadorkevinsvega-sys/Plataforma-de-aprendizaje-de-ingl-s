@@ -464,3 +464,88 @@ mod refresh_token_tests {
         assert_eq!(hash, hash_refresh_token(&token));
     }
 }
+
+
+#[cfg(test)]
+mod refresh_token_integration_tests {
+    use super::{generate_refresh_token, hash_refresh_token, MyAuthService};
+    use proto::auth::auth_service_server::AuthService;
+    use proto::auth::{RefreshTokenRequest, RevokeRefreshTokenRequest};
+    use sqlx::{postgres::PgPoolOptions, Row};
+    use std::sync::Arc;
+    use tonic::Code;
+    use uuid::Uuid;
+
+    /// Requires the CI-provided TEST_DATABASE_URL after the repository migrations
+    /// have been applied. The test creates and removes its own user.
+    #[tokio::test]
+    async fn refresh_rotation_replay_and_logout_revocation_are_enforced() -> Result<(), Box<dyn std::error::Error>> {
+        let Ok(database_url) = std::env::var("TEST_DATABASE_URL") else {
+            eprintln!("TEST_DATABASE_URL is not configured; skipping refresh-token integration test");
+            return Ok(());
+        };
+
+        let prior_secret = std::env::var("JWT_SECRET").ok();
+        std::env::set_var("JWT_SECRET", "refresh-token-test-secret-0123456789abcdef");
+        let pool = PgPoolOptions::new()
+            .max_connections(2)
+            .connect(&database_url)
+            .await?;
+        let user_id = Uuid::new_v4();
+        let email = format!("refresh-{}@example.invalid", user_id);
+        sqlx::query(
+            "INSERT INTO users (id, email, password_hash, full_name, target_role, current_level) VALUES ($1, $2, 'not-a-login-hash', 'Refresh Integration', 'BACKEND', 'A2')"
+        )
+        .bind(user_id)
+        .bind(&email)
+        .execute(&pool)
+        .await?;
+
+        let initial_token = generate_refresh_token();
+        sqlx::query(
+            "INSERT INTO auth_refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL '30 days')"
+        )
+        .bind(user_id)
+        .bind(hash_refresh_token(&initial_token))
+        .execute(&pool)
+        .await?;
+
+        let service = MyAuthService::new(Arc::new(pool.clone()));
+        let rotated = service.refresh_token(tonic::Request::new(RefreshTokenRequest {
+            refresh_token: initial_token.clone(),
+        })).await?.into_inner();
+
+        assert_eq!(rotated.user_id, user_id.to_string());
+        assert!(!rotated.access_token.is_empty());
+        assert_ne!(rotated.refresh_token, initial_token);
+
+        let replay = service.refresh_token(tonic::Request::new(RefreshTokenRequest {
+            refresh_token: initial_token,
+        })).await.unwrap_err();
+        assert_eq!(replay.code(), Code::Unauthenticated);
+
+        let revoked = service.revoke_refresh_token(tonic::Request::new(RevokeRefreshTokenRequest {
+            refresh_token: rotated.refresh_token.clone(),
+        })).await?.into_inner();
+        assert!(revoked.revoked);
+
+        let after_logout = service.refresh_token(tonic::Request::new(RefreshTokenRequest {
+            refresh_token: rotated.refresh_token,
+        })).await.unwrap_err();
+        assert_eq!(after_logout.code(), Code::Unauthenticated);
+
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(user_id)
+            .execute(&pool)
+            .await?;
+        pool.close().await;
+
+        if let Some(secret) = prior_secret {
+            std::env::set_var("JWT_SECRET", secret);
+        } else {
+            std::env::remove_var("JWT_SECRET");
+        }
+
+        Ok(())
+    }
+}
