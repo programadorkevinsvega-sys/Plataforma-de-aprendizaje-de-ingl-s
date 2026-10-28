@@ -24,6 +24,7 @@ async fn learning_progress_ledger_is_isolated_by_transaction_local_user_context(
     let user_a = Uuid::new_v4();
     let user_b = Uuid::new_v4();
     let word_id = Uuid::new_v4();
+    let other_word_id = Uuid::new_v4();
 
     sqlx::query(&format!("CREATE ROLE {role} NOLOGIN NOBYPASSRLS"))
         .execute(&mut conn)
@@ -40,9 +41,10 @@ async fn learning_progress_ledger_is_isolated_by_transaction_local_user_context(
     .await?;
 
     sqlx::query(
-        "INSERT INTO vocabulary_words (id, word, spanish_phonetic, spanish_translation, category, level) VALUES ($1, 'rls-word', 'phonetic', 'translation', 'test', 'A1')"
+        "INSERT INTO vocabulary_words (id, word, spanish_phonetic, spanish_translation, category, level) VALUES ($1, 'rls-word', 'phonetic', 'translation', 'test', 'A1'), ($2, 'rls-other-word', 'phonetic', 'translation', 'test', 'A1')"
     )
     .bind(word_id)
+    .bind(other_word_id)
     .execute(&mut conn)
     .await?;
 
@@ -95,7 +97,7 @@ async fn learning_progress_ledger_is_isolated_by_transaction_local_user_context(
         "INSERT INTO learning_progress_events (user_id, word_id, xp_amount, coins_amount, words_learned_delta) VALUES ($1, $2, 10, 2, 1)"
     )
     .bind(user_b)
-    .bind(Uuid::new_v4())
+    .bind(other_word_id)
     .execute(&mut *write_tx)
     .await;
     assert!(cross_user_insert.is_err(), "RLS WITH CHECK must block cross-user ledger writes");
@@ -119,8 +121,9 @@ async fn learning_progress_ledger_is_isolated_by_transaction_local_user_context(
         .bind(user_b)
         .execute(&mut conn)
         .await?;
-    sqlx::query("DELETE FROM vocabulary_words WHERE id = $1")
+    sqlx::query("DELETE FROM vocabulary_words WHERE id = $1 OR id = $2")
         .bind(word_id)
+        .bind(other_word_id)
         .execute(&mut conn)
         .await?;
     sqlx::query(&format!("DROP OWNED BY {role}"))
