@@ -21,7 +21,7 @@ use user_handler::{
 };
 
 use axum::{
-    http::Method,
+    http::{header::{AUTHORIZATION, CONTENT_TYPE}, HeaderValue, Method},
     routing::{get, patch, post},
     Router,
 };
@@ -31,8 +31,9 @@ use proto::content::content_service_client::ContentServiceClient;
 use proto::gamification::gamification_service_client::GamificationServiceClient;
 use proto::srs::srs_service_client::SrsServiceClient;
 use std::net::SocketAddr;
+use std::str::FromStr;
 use tonic::transport::Channel;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::{AllowOrigin, CorsLayer};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -41,6 +42,64 @@ pub struct AppState {
     pub srs_client: SrsServiceClient<Channel>,
     pub ai_client: AiEvaluatorServiceClient<Channel>,
     pub gamification_client: GamificationServiceClient<Channel>,
+}
+
+
+/// Parse comma-separated exact HTTP(S) origins. Wildcards and URL paths are rejected.
+fn parse_cors_allowed_origins(raw: Option<&str>) -> Result<Vec<HeaderValue>, &'static str> {
+    let raw = raw
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("http://localhost:3000");
+    let mut origins = Vec::new();
+
+    for origin in raw.split(',').map(str::trim).filter(|value| !value.is_empty()) {
+        if origin == "*" {
+            return Err("CORS_ALLOWED_ORIGINS no puede usar el comodín '*'");
+        }
+
+        let authority = origin
+            .strip_prefix("https://")
+            .or_else(|| origin.strip_prefix("http://"))
+            .ok_or("CORS_ALLOWED_ORIGINS solo admite orígenes HTTP(S)")?;
+        if authority.is_empty() || authority.chars().any(|c| matches!(c, '/' | '?' | '#')) {
+            return Err("Cada origen CORS debe incluir solo esquema, host y puerto; no rutas");
+        }
+
+        let value = HeaderValue::from_str(origin)
+            .map_err(|_| "CORS_ALLOWED_ORIGINS contiene un origen inválido")?;
+        if !origins.iter().any(|previous: &HeaderValue| previous == &value) {
+            origins.push(value);
+        }
+    }
+
+    if origins.is_empty() {
+        return Err("CORS_ALLOWED_ORIGINS debe contener al menos un origen");
+    }
+    Ok(origins)
+}
+
+#[cfg(test)]
+mod cors_configuration_tests {
+    use super::parse_cors_allowed_origins;
+
+    #[test]
+    fn defaults_to_local_frontend_origin() {
+        let origins = parse_cors_allowed_origins(None).unwrap();
+        assert_eq!(origins.len(), 1);
+        assert_eq!(origins[0].to_str().unwrap(), "http://localhost:3000");
+    }
+
+    #[test]
+    fn accepts_multiple_explicit_origins_without_duplicates() {
+        let origins = parse_cors_allowed_origins(Some("https://app.example.com, http://localhost:3000, https://app.example.com")).unwrap();
+        assert_eq!(origins.len(), 2);
+    }
+
+    #[test]
+    fn rejects_wildcard_and_origins_with_paths() {
+        assert!(parse_cors_allowed_origins(Some("*")).is_err());
+        assert!(parse_cors_allowed_origins(Some("https://app.example.com/path")).is_err());
+    }
 }
 
 #[tokio::main]
@@ -68,8 +127,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         gamification_client,
     };
 
+    let allowed_origins = parse_cors_allowed_origins(
+        std::env::var("CORS_ALLOWED_ORIGINS").ok().as_deref(),
+    )
+    .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidInput, message))?;
+
     let cors = CorsLayer::new()
-        .allow_origin(Any)
+        .allow_origin(AllowOrigin::list(allowed_origins))
         .allow_methods([
             Method::GET,
             Method::POST,
@@ -78,7 +142,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Method::DELETE,
             Method::OPTIONS,
         ])
-        .allow_headers(Any);
+        .allow_headers([AUTHORIZATION, CONTENT_TYPE]);
 
     let app = Router::new()
         // Health
