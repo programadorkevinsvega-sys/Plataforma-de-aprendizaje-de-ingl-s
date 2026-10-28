@@ -33,7 +33,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let pool = Arc::new(pool);
 
-    let addr: SocketAddr = "0.0.0.0:50051".parse()?;
+    let configured_addr = std::env::var("AUTH_SERVICE_BIND_ADDR").ok();
+    let addr: SocketAddr = common::parse_bind_addr(configured_addr.as_deref(), "127.0.0.1:50051")?;
     let auth_service = MyAuthService::new(pool);
 
     println!("🔒 [Fase 2] auth-identity-service gRPC Server corriendo en {}", addr);
