@@ -603,31 +603,31 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
             ws_msg = socket.recv() => {
                 match ws_msg {
                     Some(Ok(Message::Binary(data))) => {
-                        // Ignore any frames queued after the client requests stop.
-                        if stop_received {
-                            continue;
-                        }
-                        let chunk_bytes = data.len();
-                        if chunk_bytes == 0 || chunk_bytes > TRANSCRIBE_MAX_CHUNK_BYTES {
-                            let msg = serde_json::json!({
-                                "error": "Tamaño de fragmento de audio no permitido."
-                            }).to_string();
-                            let _ = socket.send(Message::Text(msg.into())).await;
-                            break;
-                        }
-                        if total_audio_bytes.saturating_add(chunk_bytes) > TRANSCRIBE_MAX_AUDIO_BYTES {
-                            let msg = serde_json::json!({
-                                "error": "La sesión de transcripción superó el límite de audio."
-                            }).to_string();
-                            let _ = socket.send(Message::Text(msg.into())).await;
-                            break;
-                        }
-                        total_audio_bytes += chunk_bytes;
-                        let Some(sender) = audio_sender.as_ref() else {
-                            break;
-                        };
-                        if sender.send(data.to_vec()).await.is_err() {
-                            break;
+                        // Ignore late audio frames after stop, but keep polling
+                        // the result channel so a noisy client cannot starve "done".
+                        if !stop_received {
+                            let chunk_bytes = data.len();
+                            if chunk_bytes == 0 || chunk_bytes > TRANSCRIBE_MAX_CHUNK_BYTES {
+                                let msg = serde_json::json!({
+                                    "error": "Tamaño de fragmento de audio no permitido."
+                                }).to_string();
+                                let _ = socket.send(Message::Text(msg.into())).await;
+                                break;
+                            }
+                            if total_audio_bytes.saturating_add(chunk_bytes) > TRANSCRIBE_MAX_AUDIO_BYTES {
+                                let msg = serde_json::json!({
+                                    "error": "La sesión de transcripción superó el límite de audio."
+                                }).to_string();
+                                let _ = socket.send(Message::Text(msg.into())).await;
+                                break;
+                            }
+                            total_audio_bytes += chunk_bytes;
+                            let Some(sender) = audio_sender.as_ref() else {
+                                break;
+                            };
+                            if sender.send(data.to_vec()).await.is_err() {
+                                break;
+                            }
                         }
                     }
                     Some(Ok(Message::Text(text))) => {
