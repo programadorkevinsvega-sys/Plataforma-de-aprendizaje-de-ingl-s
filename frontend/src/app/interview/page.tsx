@@ -7,6 +7,51 @@ import { Sidebar } from '@/presentation/components/Sidebar'
 import { getContainer } from '@/infrastructure/di/container'
 import type { ExamResult } from '@/domain/entities/ExamResult'
 
+const TRANSCRIBE_WS_PROTOCOL = 'devfluency.transcribe.v1'
+
+function waitForWebSocketOpen(socket: WebSocket, timeoutMs: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (socket.readyState === WebSocket.OPEN) {
+      resolve()
+      return
+    }
+    if (socket.readyState === WebSocket.CLOSED || socket.readyState === WebSocket.CLOSING) {
+      reject(new Error('La conexión WebSocket se cerró antes de abrirse.'))
+      return
+    }
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    let cleanup = () => {}
+    const handleOpen = () => {
+      cleanup()
+      resolve()
+    }
+    const handleError = () => {
+      cleanup()
+      reject(new Error('No se pudo abrir la conexión WebSocket de transcripción.'))
+    }
+    const handleClose = () => {
+      cleanup()
+      reject(new Error('El servidor cerró el WebSocket antes de iniciar la transcripción.'))
+    }
+
+    cleanup = () => {
+      if (timeoutId !== undefined) clearTimeout(timeoutId)
+      socket.removeEventListener('open', handleOpen)
+      socket.removeEventListener('error', handleError)
+      socket.removeEventListener('close', handleClose)
+    }
+    timeoutId = setTimeout(() => {
+      cleanup()
+      reject(new Error('Se agotó el tiempo de espera del WebSocket de transcripción.'))
+    }, timeoutMs)
+
+    socket.addEventListener('open', handleOpen, { once: true })
+    socket.addEventListener('error', handleError, { once: true })
+    socket.addEventListener('close', handleClose, { once: true })
+  })
+}
+
 export default function InterviewPage() {
   const router = useRouter()
   const [questionId, setQuestionId] = useState('')
@@ -64,10 +109,12 @@ export default function InterviewPage() {
   const workletNodeRef = useRef<AudioWorkletNode | null>(null)
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
+  const intentionalWsShutdownRef = useRef(false)
   const [partialTranscript, setPartialTranscript] = useState('')
 
   const handleStartRecording = async () => {
     let activeStream: MediaStream | null = null
+    intentionalWsShutdownRef.current = false
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
@@ -85,12 +132,30 @@ export default function InterviewPage() {
         .replace(/^http/, 'ws')
       const ws = new WebSocket(
         `${bffWsUrl}/api/v1/exam/transcribe/ws`,
-        ['devfluency.transcribe.v1', `ticket.${ticket}`],
+        [TRANSCRIBE_WS_PROTOCOL, `ticket.${ticket}`],
       )
       wsRef.current = ws
 
       ws.onopen = () => console.log('🔌 [WS Transcribe] Conexión abierta')
-      ws.onerror = (e) => console.error('❌ [WS Transcribe] Error:', e)
+      ws.onerror = () => console.warn('No se pudo mantener la conexión WebSocket de transcripción')
+      ws.onclose = () => {
+        if (intentionalWsShutdownRef.current || wsRef.current !== ws) return
+
+        activeStream?.getTracks().forEach((track) => track.stop())
+        workletNodeRef.current?.disconnect()
+        sourceNodeRef.current?.disconnect()
+        sourceNodeRef.current?.mediaStream.getTracks().forEach((track) => track.stop())
+        workletNodeRef.current = null
+        sourceNodeRef.current = null
+        if (audioContextRef.current) {
+          void audioContextRef.current.close()
+          audioContextRef.current = null
+        }
+        wsRef.current = null
+        setIsRecording(false)
+        setIsTranscribing(false)
+        setTranscript((previous) => previous || '[La conexión de transcripción se cerró inesperadamente.]')
+      }
       ws.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data as string) as {
@@ -120,12 +185,22 @@ export default function InterviewPage() {
         }
       }
 
+      // No iniciar el AudioWorklet hasta que el handshake esté completado:
+      // así no se pierden los primeros chunks mientras el socket sigue CONNECTING.
+      await waitForWebSocketOpen(ws, 10_000)
+      if (ws.protocol !== TRANSCRIBE_WS_PROTOCOL) {
+        throw new Error('El servidor no negoció el subprotocolo de transcripción esperado.')
+      }
+
       // 2. Crear AudioContext a 16kHz
       const audioCtx = new AudioContext({ sampleRate: 16000 })
       audioContextRef.current = audioCtx
 
       // 3. Cargar el AudioWorklet desde /pcm-worklet-processor.js (public/)
       await audioCtx.audioWorklet.addModule('/pcm-worklet-processor.js')
+      if (ws.readyState !== WebSocket.OPEN) {
+        throw new Error('El WebSocket se cerró antes de iniciar la captura de audio.')
+      }
 
       const workletNode = new AudioWorkletNode(audioCtx, 'pcm-worklet-processor')
       workletNodeRef.current = workletNode
@@ -175,7 +250,8 @@ export default function InterviewPage() {
     await audioContextRef.current?.close()
     audioContextRef.current = null
 
-    // Enviar señal de fin al BFF (cierra la sesión de Transcribe)
+    // Enviar señal de fin al BFF (cierra la sesión de Transcribe después del resultado final).
+    intentionalWsShutdownRef.current = true
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send('stop')
     }
