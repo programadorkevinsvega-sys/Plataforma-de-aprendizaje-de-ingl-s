@@ -67,6 +67,7 @@ pub async fn record_progress_handler(
         xp_amount: 10,
         coins_amount: 2,
         words_learned_delta: 1,
+        word_id: payload.word_id.clone(),
     });
     attach_bearer_metadata(&headers, &mut gamification_req)?;
 
@@ -80,12 +81,19 @@ pub async fn record_progress_handler(
             )
         })?;
     
-    let stats = gamification_res.into_inner();
+    let result = gamification_res.into_inner();
+    let stats = result.stats.ok_or_else(|| (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(serde_json::json!({
+            "message": "El servicio de gamificación no devolvió estadísticas.",
+            "code": "GAMIFICATION_RESPONSE_INVALID"
+        })),
+    ))?;
 
     Ok(Json(ProgressResponseDto {
         success: true,
-        xp_gained: 10,
-        coins_gained: 2,
+        xp_gained: result.xp_gained,
+        coins_gained: result.coins_gained,
         cards_added_to_deck: cards_added,
         new_streak: stats.streak_days,
     }))
