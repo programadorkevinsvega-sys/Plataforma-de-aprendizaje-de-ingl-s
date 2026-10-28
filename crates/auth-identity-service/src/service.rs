@@ -21,6 +21,32 @@ impl MyAuthService {
     }
 }
 
+fn authenticated_user_id<T>(request: &Request<T>) -> Result<Uuid, Status> {
+    let token = request
+        .metadata()
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| Status::unauthenticated("Token de usuario requerido"))?;
+
+    let claims = JwtService::validate_token(token)
+        .map_err(|_| Status::unauthenticated("Token de usuario inválido"))?;
+    Uuid::parse_str(&claims.sub)
+        .map_err(|_| Status::unauthenticated("Identidad de usuario inválida"))
+}
+
+fn enforce_user_scope(authenticated_user_id: Uuid, requested_user_id: &str) -> Result<Uuid, Status> {
+    let requested_user_id = Uuid::parse_str(requested_user_id)
+        .map_err(|_| Status::invalid_argument("user_id inválido"))?;
+    if requested_user_id != authenticated_user_id {
+        return Err(Status::permission_denied(
+            "No puedes acceder a los datos de otro usuario",
+        ));
+    }
+    Ok(requested_user_id)
+}
+
 #[tonic::async_trait]
 impl AuthService for MyAuthService {
     async fn register(
@@ -154,9 +180,9 @@ impl AuthService for MyAuthService {
         &self,
         request: Request<GetUserProfileRequest>,
     ) -> Result<Response<UserProfileResponse>, Status> {
+        let authenticated_user_id = authenticated_user_id(&request)?;
         let req = request.into_inner();
-        let user_id = Uuid::parse_str(&req.user_id)
-            .map_err(|_| Status::invalid_argument("user_id inválido"))?;
+        let user_id = enforce_user_scope(authenticated_user_id, &req.user_id)?;
 
         let row: Option<(Uuid, String, String, String, String)> = sqlx::query_as(
             "SELECT id, email, full_name, target_role, current_level FROM users WHERE id = $1"
@@ -182,13 +208,10 @@ impl AuthService for MyAuthService {
         &self,
         request: Request<UpdateUserProfileRequest>,
     ) -> Result<Response<UserProfileResponse>, Status> {
+        let authenticated_user_id = authenticated_user_id(&request)?;
         let req = request.into_inner();
-        tracing::info!("👤 [AUTH] Solicitud de actualización de perfil para user_id: {}", req.user_id);
-        let user_id = Uuid::parse_str(&req.user_id)
-            .map_err(|e| {
-                tracing::error!("❌ [AUTH] user_id inválido '{}': {}", req.user_id, e);
-                Status::invalid_argument("user_id inválido")
-            })?;
+        let user_id = enforce_user_scope(authenticated_user_id, &req.user_id)?;
+        tracing::info!("👤 [AUTH] Solicitud de actualización de perfil para usuario autenticado");
 
         let row: Option<(Uuid, String, String, String, String)> = sqlx::query_as(
             r#"
@@ -226,5 +249,33 @@ impl AuthService for MyAuthService {
             target_role,
             current_level,
         }))
+    }
+}
+
+
+#[cfg(test)]
+mod authorization_tests {
+    use super::enforce_user_scope;
+    use tonic::Code;
+    use uuid::Uuid;
+
+    #[test]
+    fn permits_access_to_own_profile() {
+        let user_id = Uuid::new_v4();
+        assert_eq!(enforce_user_scope(user_id, &user_id.to_string()).unwrap(), user_id);
+    }
+
+    #[test]
+    fn rejects_access_to_another_users_profile() {
+        let authenticated_user = Uuid::new_v4();
+        let other_user = Uuid::new_v4();
+        let error = enforce_user_scope(authenticated_user, &other_user.to_string()).unwrap_err();
+        assert_eq!(error.code(), Code::PermissionDenied);
+    }
+
+    #[test]
+    fn rejects_malformed_profile_id() {
+        let error = enforce_user_scope(Uuid::new_v4(), "not-a-uuid").unwrap_err();
+        assert_eq!(error.code(), Code::InvalidArgument);
     }
 }

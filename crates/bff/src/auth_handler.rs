@@ -1,4 +1,4 @@
-use axum::{extract::Request, http::StatusCode, Json};
+use axum::{extract::Request, http::{HeaderMap, StatusCode}, Json};
 use serde::{Deserialize, Serialize};
 
 use crate::AppState;
@@ -45,6 +45,31 @@ pub struct MeResponseDto {
 }
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
+
+
+/// Obtiene un bearer token de una cabecera HTTP Authorization válida.
+pub fn extract_bearer_token(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .filter(|token| !token.is_empty())
+        .map(str::to_owned)
+}
+
+/// Propaga el JWT del usuario a las operaciones gRPC que acceden al perfil.
+pub fn attach_bearer_token<T>(
+    request: &mut tonic::Request<T>,
+    token: &str,
+) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    let value = tonic::metadata::MetadataValue::try_from(format!("Bearer {token}"))
+        .map_err(|_| (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({ "message": "Token inválido", "code": "INVALID_TOKEN" })),
+        ))?;
+    request.metadata_mut().insert("authorization", value);
+    Ok(())
+}
 
 pub async fn register_handler(
     axum::extract::State(mut state): axum::extract::State<AppState>,
@@ -116,13 +141,7 @@ pub async fn me_handler(
     axum::extract::State(mut state): axum::extract::State<AppState>,
     req: Request,
 ) -> Result<Json<MeResponseDto>, (StatusCode, Json<serde_json::Value>)> {
-    let token = req
-        .headers()
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "))
-        .unwrap_or("")
-        .to_string();
+    let token = extract_bearer_token(req.headers()).unwrap_or_default();
 
     if token.is_empty() {
         return Err((
@@ -131,7 +150,7 @@ pub async fn me_handler(
         ));
     }
 
-    let request = tonic::Request::new(proto::auth::ValidateTokenRequest { token });
+    let request = tonic::Request::new(proto::auth::ValidateTokenRequest { token: token.clone() });
 
     match state.auth_client.validate_token(request).await {
         Ok(res) => {
@@ -144,21 +163,21 @@ pub async fn me_handler(
             }
 
             // Consultar perfil completo en PostgreSQL a través de auth_client
-            let profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
+            let mut profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
                 user_id: inner.user_id.clone(),
             });
+            attach_bearer_token(&mut profile_req, &token)?;
 
-            let (full_name, target_role, current_level) = match state.auth_client.get_user_profile(profile_req).await {
-                Ok(pres) => {
-                    let p = pres.into_inner();
-                    (p.full_name, p.target_role, p.current_level)
-                }
-                Err(_) => (
-                    "Usuario DevFluency".to_string(),
-                    "SOFTWARE_ENGINEER".to_string(),
-                    "A2".to_string(),
-                ),
-            };
+            let profile = state.auth_client.get_user_profile(profile_req).await.map_err(|_| (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "message": "No se pudo recuperar el perfil autenticado",
+                    "code": "PROFILE_UNAVAILABLE"
+                })),
+            ))?;
+            let profile = profile.into_inner();
+            let (full_name, target_role, current_level) =
+                (profile.full_name, profile.target_role, profile.current_level);
 
             Ok(Json(MeResponseDto {
                 user_id: inner.user_id,
