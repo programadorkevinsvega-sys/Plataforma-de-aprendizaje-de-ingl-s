@@ -1,9 +1,9 @@
 use sqlx::{Connection, PgConnection};
 use uuid::Uuid;
 
-/// Requires TEST_DATABASE_URL to point to a disposable PostgreSQL database.
-/// The test applies the repository migrations and exercises the real user_stats
-/// policies using a non-owner, NOBYPASSRLS role.
+/// Requires TEST_DATABASE_URL to point to a disposable PostgreSQL database
+/// initialized by the CI migration step. Exercises the actual user_stats policies
+/// using a non-owner, NOBYPASSRLS role.
 #[tokio::test]
 async fn rls_context_is_transaction_local_and_scopes_user_stats() -> Result<(), Box<dyn std::error::Error>> {
     let Ok(database_url) = std::env::var("TEST_DATABASE_URL") else {
@@ -12,12 +12,12 @@ async fn rls_context_is_transaction_local_and_scopes_user_stats() -> Result<(), 
     };
 
     let mut conn = PgConnection::connect(&database_url).await?;
-    sqlx::raw_sql(include_str!("../../../migrations/20260805000000_init_schema.sql"))
-        .execute(&mut conn)
-        .await?;
-    sqlx::raw_sql(include_str!("../../../migrations/20261028000000_rls_force_and_leaderboard.sql"))
-        .execute(&mut conn)
-        .await?;
+    let schema_ready: bool = sqlx::query_scalar(
+        "SELECT to_regclass('public.user_stats') IS NOT NULL AND to_regclass('public.user_srs_progress') IS NOT NULL AND to_regclass('public.ai_exam_sessions') IS NOT NULL"
+    )
+    .fetch_one(&mut conn)
+    .await?;
+    assert!(schema_ready, "apply repository migrations before running RLS integration tests");
 
     let suffix = Uuid::new_v4().simple().to_string();
     let role = format!("rls_test_role_{suffix}");
