@@ -501,18 +501,12 @@ mod learning_progress_idempotency_tests {
 
             // CI applies all migrations before tests. Check the actual schema and
             // fail rather than silently testing without the idempotency ledger.
-            let schema_ready: bool = sqlx::query_scalar(
-                "SELECT to_regclass('public.learning_progress_events') IS NOT NULL AND to_regclass('public.last_study_date') IS NULL"
-            )
-            .fetch_one(&pool)
-            .await
-            .unwrap_or(false);
             let ledger_ready: bool = sqlx::query_scalar(
                 "SELECT to_regclass('public.learning_progress_events') IS NOT NULL"
             )
             .fetch_one(&pool)
             .await?;
-            assert!(schema_ready || ledger_ready, "apply migrations before running this integration test");
+            assert!(ledger_ready, "apply migrations before running this integration test");
 
             let user_id = Uuid::new_v4();
             let first_word = Uuid::new_v4();
