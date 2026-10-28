@@ -7,6 +7,50 @@ import { Sidebar } from '@/presentation/components/Sidebar'
 import { getContainer } from '@/infrastructure/di/container'
 import type { ExamResult } from '@/domain/entities/ExamResult'
 
+const TRANSCRIBE_WS_PROTOCOL = 'devfluency.transcribe.v1'
+
+function waitForWebSocketOpen(socket: WebSocket, timeoutMs: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (socket.readyState === WebSocket.OPEN) {
+      resolve()
+      return
+    }
+    if (socket.readyState === WebSocket.CLOSED || socket.readyState === WebSocket.CLOSING) {
+      reject(new Error('La conexión WebSocket se cerró antes de abrirse.'))
+      return
+    }
+
+    let timeoutId: ReturnType<typeof setTimeout>
+    const cleanup = () => {
+      clearTimeout(timeoutId)
+      socket.removeEventListener('open', handleOpen)
+      socket.removeEventListener('error', handleError)
+      socket.removeEventListener('close', handleClose)
+    }
+    const handleOpen = () => {
+      cleanup()
+      resolve()
+    }
+    const handleError = () => {
+      cleanup()
+      reject(new Error('No se pudo abrir la conexión WebSocket de transcripción.'))
+    }
+    const handleClose = () => {
+      cleanup()
+      reject(new Error('El servidor cerró el WebSocket antes de iniciar la transcripción.'))
+    }
+
+    timeoutId = setTimeout(() => {
+      cleanup()
+      reject(new Error('Se agotó el tiempo de espera del WebSocket de transcripción.'))
+    }, timeoutMs)
+
+    socket.addEventListener('open', handleOpen, { once: true })
+    socket.addEventListener('error', handleError, { once: true })
+    socket.addEventListener('close', handleClose, { once: true })
+  })
+}
+
 export default function InterviewPage() {
   const router = useRouter()
   const [questionId, setQuestionId] = useState('')
@@ -85,7 +129,7 @@ export default function InterviewPage() {
         .replace(/^http/, 'ws')
       const ws = new WebSocket(
         `${bffWsUrl}/api/v1/exam/transcribe/ws`,
-        ['devfluency.transcribe.v1', `ticket.${ticket}`],
+        [TRANSCRIBE_WS_PROTOCOL, `ticket.${ticket}`],
       )
       wsRef.current = ws
 
@@ -118,6 +162,13 @@ export default function InterviewPage() {
         } catch {
           // Ignorar mensajes no-JSON
         }
+      }
+
+      // No iniciar el AudioWorklet hasta que el handshake esté completado:
+      // así no se pierden los primeros chunks mientras el socket sigue CONNECTING.
+      await waitForWebSocketOpen(ws, 10_000)
+      if (ws.protocol !== TRANSCRIBE_WS_PROTOCOL) {
+        throw new Error('El servidor no negoció el subprotocolo de transcripción esperado.')
       }
 
       // 2. Crear AudioContext a 16kHz
