@@ -37,7 +37,10 @@ interface BffErrorBody {
  * - Limpiar la sesión ante un 401 para cortar cualquier fuga entre tenants.
  */
 export class BffHttpClient {
-  private refreshInFlight: Promise<ReturnType<typeof toAuthSession>> | null = null
+  private refreshInFlight: {
+    refreshToken: string
+    promise: Promise<ReturnType<typeof toAuthSession>>
+  } | null = null
 
   constructor(
     private readonly baseUrl: string = BFF_BASE_URL,
@@ -53,32 +56,51 @@ export class BffHttpClient {
     refreshToken: string,
     timeoutMs: number,
   ): Promise<ReturnType<typeof toAuthSession>> {
-    if (!this.refreshInFlight) {
-      this.refreshInFlight = (async () => {
-        const refreshedDto = await this.request<Record<string, unknown>>(
-          '/api/v1/auth/refresh',
-          {
-            method: 'POST',
-            body: { refresh_token: refreshToken },
-            skipAuth: true,
-            skipRefresh: true,
-            timeoutMs,
-          },
-        )
-        const refreshedSession = toAuthSession(refreshedDto)
-        if (!refreshedSession.accessToken || !refreshedSession.refreshToken) {
-          throw new Error('El BFF devolvió una sesión renovada incompleta')
-        }
-
-        this.session.clear()
-        this.session.save(refreshedSession)
-        return refreshedSession
-      })().finally(() => {
-        this.refreshInFlight = null
-      })
+    if (this.refreshInFlight?.refreshToken === refreshToken) {
+      return this.refreshInFlight.promise
     }
 
-    return this.refreshInFlight!
+    const promise = (async () => {
+      const current = this.session.toSession()
+      if (!current || current.refreshToken !== refreshToken) {
+        throw new Error('La sesión cambió antes de iniciar la renovación')
+      }
+
+      const refreshedDto = await this.request<Record<string, unknown>>(
+        '/api/v1/auth/refresh',
+        {
+          method: 'POST',
+          body: { refresh_token: refreshToken },
+          skipAuth: true,
+          skipRefresh: true,
+          timeoutMs,
+        },
+      )
+      const refreshedSession = toAuthSession(refreshedDto)
+      if (!refreshedSession.accessToken || !refreshedSession.refreshToken) {
+        throw new Error('El BFF devolvió una sesión renovada incompleta')
+      }
+
+      // Nunca reemplazar una sesión distinta que haya iniciado mientras el
+      // refresh estaba en vuelo (p. ej., logout seguido de otro login).
+      const latest = this.session.toSession()
+      if (!latest || latest.refreshToken !== refreshToken) {
+        throw new Error('La sesión cambió durante la renovación')
+      }
+
+      this.session.clear()
+      this.session.save(refreshedSession)
+      return refreshedSession
+    })()
+
+    const flight = { refreshToken, promise }
+    this.refreshInFlight = flight
+    void promise.finally(() => {
+      if (this.refreshInFlight === flight) this.refreshInFlight = null
+    }).catch(() => {
+      // El consumidor de refreshSession gestiona el rechazo.
+    })
+    return promise
   }
 
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -103,10 +125,12 @@ export class BffHttpClient {
       'Content-Type': 'application/json',
       Accept: 'application/json',
     }
+    let requestAccessToken: string | null = null
 
     if (!skipAuth) {
       const token = this.session.getAccessToken()
       if (!token) throw new UnauthorizedError('No hay sesión activa')
+      requestAccessToken = token
       headers.Authorization = `Bearer ${token}`
 
       const tenantId = this.session.getTenantId()
@@ -157,22 +181,50 @@ export class BffHttpClient {
     if (response.status === 401) {
       if (!skipAuth && !skipRefresh) {
         const currentSession = this.session.toSession()
-        if (currentSession?.refreshToken) {
-          try {
-            await this.refreshSession(currentSession.refreshToken, timeoutMs)
 
-            // Las respuestas 401 concurrentes comparten una sola rotación.
-            // Reintentar una sola vez: un nuevo 401 no vuelve a disparar refresh.
-            return await this.request<T>(path, { ...options, skipRefresh: true })
+        // Una respuesta tardía puede pertenecer a la sesión anterior. Si ya
+        // se renovó o cambió de usuario, no consumas el refresh token nuevo.
+        if (
+          requestAccessToken &&
+          currentSession?.accessToken &&
+          currentSession.accessToken !== requestAccessToken
+        ) {
+          return await this.request<T>(path, { ...options, skipRefresh: true })
+        }
+
+        const refreshToken = currentSession?.refreshToken
+        if (refreshToken) {
+          try {
+            await this.refreshSession(refreshToken, timeoutMs)
           } catch {
-            this.session.clear()
-            this.onUnauthorized?.()
+            // No borrar una sesión nueva si la renovación de una sesión vieja
+            // terminó después de que el usuario volviera a iniciar sesión.
+            const latest = this.session.toSession()
+            if (latest?.refreshToken === refreshToken) {
+              this.session.clear()
+              this.onUnauthorized?.()
+            }
             throw new UnauthorizedError('La sesión expiró o el refresh token fue rechazado.')
           }
+
+          // Fuera del try/catch de refresh: errores de la petición reintentada
+          // (p. ej., 403/500) no deben convertirse en 401 ni borrar la sesión.
+          return await this.request<T>(path, { ...options, skipRefresh: true })
         }
       }
 
       if (!skipAuth) {
+        const latest = this.session.toSession()
+        if (
+          requestAccessToken &&
+          latest?.accessToken &&
+          latest.accessToken !== requestAccessToken
+        ) {
+          return await this.request<T>(path, { ...options, skipRefresh: true })
+        }
+        if (!requestAccessToken || !latest) {
+          throw new UnauthorizedError(message || undefined)
+        }
         this.session.clear()
         this.onUnauthorized?.()
         throw new UnauthorizedError(message || undefined)
