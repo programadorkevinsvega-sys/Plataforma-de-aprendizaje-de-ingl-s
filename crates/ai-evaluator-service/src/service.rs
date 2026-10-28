@@ -15,6 +15,7 @@ impl AiEvaluatorService for MyAIEvaluatorService {
         &self,
         request: Request<EvaluateExamAnswerRequest>,
     ) -> Result<Response<EvaluateExamAnswerResponse>, Status> {
+        common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let req = request.into_inner();
 
         let metrics = EvaluatorEngine::evaluate_response_async(
@@ -63,6 +64,7 @@ impl AiEvaluatorService for MyAIEvaluatorService {
         &self,
         request: Request<GenerateTargetedDrillRequest>,
     ) -> Result<Response<GenerateTargetedDrillResponse>, Status> {
+        common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let req = request.into_inner();
 
         let exercises = vec![
