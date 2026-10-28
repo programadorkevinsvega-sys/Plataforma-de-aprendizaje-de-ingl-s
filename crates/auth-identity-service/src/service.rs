@@ -501,6 +501,15 @@ mod refresh_token_integration_tests {
         .execute(&pool)
         .await?;
 
+        let expired_token = generate_refresh_token();
+        sqlx::query(
+            "INSERT INTO auth_refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() - INTERVAL '1 day')"
+        )
+        .bind(user_id)
+        .bind(hash_refresh_token(&expired_token))
+        .execute(&pool)
+        .await?;
+
         let initial_token = generate_refresh_token();
         sqlx::query(
             "INSERT INTO auth_refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL '30 days')"
@@ -511,6 +520,19 @@ mod refresh_token_integration_tests {
         .await?;
 
         let service = MyAuthService::new(Arc::new(pool.clone()));
+        let expired = service.refresh_token(tonic::Request::new(RefreshTokenRequest {
+            refresh_token: expired_token,
+        })).await.unwrap_err();
+        assert_eq!(expired.code(), Code::Unauthenticated);
+
+        let stored_hash: String = sqlx::query_scalar(
+            "SELECT token_hash FROM auth_refresh_tokens WHERE user_id = $1 AND token_hash = $2"
+        )
+        .bind(user_id)
+        .bind(hash_refresh_token(&initial_token))
+        .fetch_one(&pool)
+        .await?;
+        assert_ne!(stored_hash, initial_token, "database must not store the raw refresh token");
         let rotated = service.refresh_token(tonic::Request::new(RefreshTokenRequest {
             refresh_token: initial_token.clone(),
         })).await?.into_inner();
@@ -533,6 +555,30 @@ mod refresh_token_integration_tests {
             refresh_token: rotated.refresh_token,
         })).await.unwrap_err();
         assert_eq!(after_logout.code(), Code::Unauthenticated);
+
+        // Concurrent refresh attempts using one token must never both succeed.
+        let concurrent_token = generate_refresh_token();
+        sqlx::query(
+            "INSERT INTO auth_refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL '30 days')"
+        )
+        .bind(user_id)
+        .bind(hash_refresh_token(&concurrent_token))
+        .execute(&pool)
+        .await?;
+
+        let (concurrent_a, concurrent_b) = tokio::join!(
+            service.refresh_token(tonic::Request::new(RefreshTokenRequest {
+                refresh_token: concurrent_token.clone(),
+            })),
+            service.refresh_token(tonic::Request::new(RefreshTokenRequest {
+                refresh_token: concurrent_token,
+            })),
+        );
+        let success_count = [concurrent_a.is_ok(), concurrent_b.is_ok()]
+            .into_iter()
+            .filter(|success| *success)
+            .count();
+        assert_eq!(success_count, 1, "a refresh token must be usable once, including under race");
 
         sqlx::query("DELETE FROM users WHERE id = $1")
             .bind(user_id)
