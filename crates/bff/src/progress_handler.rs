@@ -1,5 +1,5 @@
 use crate::AppState;
-use crate::srs_handler::validate_token_from_headers;
+use crate::srs_handler::{attach_bearer_metadata, validate_token_from_headers};
 use axum::{
     extract::State,
     http::{HeaderMap, StatusCode},
@@ -34,10 +34,11 @@ pub async fn record_progress_handler(
     let mut srs_client = state.srs_client.clone();
 
     // 1. Agregar cartas al mazo (SRS)
-    let srs_req = tonic::Request::new(AddCardsToDeckRequest {
+    let mut srs_req = tonic::Request::new(AddCardsToDeckRequest {
         user_id: user_id.clone(),
         word_id: payload.word_id.clone(),
     });
+    attach_bearer_metadata(&headers, &mut srs_req)?;
 
     let srs_res = srs_client
         .add_cards_to_deck(srs_req)
@@ -52,12 +53,13 @@ pub async fn record_progress_handler(
     let cards_added = srs_res.into_inner().cards_added;
 
     // 2. Registrar progreso de gamificación (+10 XP, +2 Coins, +1 Palabra aprendida)
-    let gamification_req = tonic::Request::new(RecordLearningProgressRequest {
+    let mut gamification_req = tonic::Request::new(RecordLearningProgressRequest {
         user_id: user_id.clone(),
         xp_amount: 10,
         coins_amount: 2,
         words_learned_delta: 1,
     });
+    attach_bearer_metadata(&headers, &mut gamification_req)?;
 
     let gamification_res = gamification_client
         .record_learning_progress(gamification_req)

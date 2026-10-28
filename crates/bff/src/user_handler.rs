@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::AppState;
 use crate::auth_handler::{attach_bearer_token, extract_bearer_token};
-use crate::srs_handler::validate_token_from_headers;
+use crate::srs_handler::{attach_bearer_metadata, validate_token_from_headers};
 
 #[derive(Deserialize)]
 pub struct UpdateProfileBody {
@@ -91,7 +91,8 @@ pub async fn progress_summary_real_handler(
     ))?;
     let target_role = profile.into_inner().target_role;
 
-    let stats_req = tonic::Request::new(proto::gamification::GetUserStatsRequest { user_id });
+    let mut stats_req = tonic::Request::new(proto::gamification::GetUserStatsRequest { user_id });
+    attach_bearer_metadata(&headers, &mut stats_req)?;
     match state.gamification_client.get_user_stats(stats_req).await {
         Ok(res) => {
             let s = res.into_inner();
@@ -119,7 +120,8 @@ pub async fn leaderboard_handler(
     // Only logged in users can see the leaderboard
     let _user_id = validate_token_from_headers(&headers, &mut state).await?;
 
-    let req = tonic::Request::new(proto::gamification::GetLeaderboardRequest { limit: 50 });
+    let mut req = tonic::Request::new(proto::gamification::GetLeaderboardRequest { limit: 50 });
+    attach_bearer_metadata(&headers, &mut req)?;
     match state.gamification_client.get_leaderboard(req).await {
         Ok(res) => {
             let entries = res.into_inner().entries;
@@ -149,7 +151,8 @@ pub async fn achievements_handler(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
 
-    let req = tonic::Request::new(proto::gamification::GetUserAchievementsRequest { user_id });
+    let mut req = tonic::Request::new(proto::gamification::GetUserAchievementsRequest { user_id });
+    attach_bearer_metadata(&headers, &mut req)?;
     match state.gamification_client.get_user_achievements(req).await {
         Ok(res) => {
             let achievements = res.into_inner().achievements;
