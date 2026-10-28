@@ -37,6 +37,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+      - name: Apply database migrations for integration tests
+        run: |
+          for migration in migrations/*.sql; do
+            echo "Applying $migration"
+            psql "$TEST_DATABASE_URL" --set ON_ERROR_STOP=1 --file "$migration"
+          done
       - name: Install stable Rust
         run: |
           rustup toolchain install stable --profile minimal --component rustfmt --component clippy
