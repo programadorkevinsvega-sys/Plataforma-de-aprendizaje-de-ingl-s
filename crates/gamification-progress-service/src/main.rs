@@ -24,12 +24,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🏆 [Fase 5] gamification-progress-service listo.");
     println!("🔥 Nivel Actual: {}, XP: {}, Monedas: 💎 {}", demo.get_level(), demo.xp, demo.coins);
 
-    let database_url = std::env::var("DATABASE_URL").map_err(|_| {
-        std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "DATABASE_URL debe estar configurada; no se usa una credencial predeterminada",
-        )
-    })?;
+    let database_url = std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "postgres://postgres:Kevins1612522026@127.0.0.1:5432/devfluency_db".to_string());
 
     let pool = PgPoolOptions::new()
         .max_connections(10)
@@ -38,8 +34,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("❌ No se pudo conectar a PostgreSQL en gamification-progress-service.");
 
     let pool = Arc::new(pool);
-    let configured_addr = std::env::var("GAMIFICATION_SERVICE_BIND_ADDR").ok();
-    let addr: SocketAddr = common::parse_bind_addr(configured_addr.as_deref(), "127.0.0.1:50056")?;
+    let addr: SocketAddr = "0.0.0.0:50056".parse()?;
     let gamification_service = MyGamificationService::new(pool);
 
     println!("🏆 [Fase 5] gamification-progress-service gRPC Server corriendo en {}", addr);

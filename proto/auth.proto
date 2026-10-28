@@ -6,6 +6,8 @@ service AuthService {
   rpc Register (RegisterRequest) returns (AuthResponse);
   rpc Login (LoginRequest) returns (AuthResponse);
   rpc ValidateToken (ValidateTokenRequest) returns (ValidateTokenResponse);
+  rpc RefreshToken (RefreshTokenRequest) returns (AuthResponse);
+  rpc RevokeRefreshToken (RevokeRefreshTokenRequest) returns (RevokeRefreshTokenResponse);
   rpc GetUserProfile (GetUserProfileRequest) returns (UserProfileResponse);
   rpc UpdateUserProfile (UpdateUserProfileRequest) returns (UserProfileResponse);
 }
@@ -30,6 +32,18 @@ message AuthResponse {
   string email = 5;
   string current_level = 6;
   string target_role = 7;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message RevokeRefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message RevokeRefreshTokenResponse {
+  bool revoked = 1;
 }
 
 message ValidateTokenRequest {

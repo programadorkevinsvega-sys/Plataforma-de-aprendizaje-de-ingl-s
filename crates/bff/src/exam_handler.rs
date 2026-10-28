@@ -544,6 +544,7 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
     // Canal mpsc: el hilo WebSocket envía chunks PCM al stream de Transcribe
     // Tamaño 512: buffer suficiente para ráfagas sin bloquear el hilo receptor
     let (audio_tx, audio_rx) = mpsc::channel::<Vec<u8>>(512);
+    let mut audio_tx = Some(audio_tx);
 
     // Convertir el canal mpsc en un Stream de AudioEvents para Transcribe
     let audio_stream = {
@@ -635,11 +636,14 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
 
     // Limitar duración y volumen de datos para contener abuso/coste de AWS.
     let mut total_audio_bytes = 0usize;
+    let mut stop_received = false;
     let duration_limit = tokio::time::sleep(Duration::from_secs(TRANSCRIBE_MAX_DURATION_SECONDS));
     tokio::pin!(duration_limit);
 
-    // Loop principal: recibir chunks PCM del WebSocket y reenviarlos a Transcribe.
+    // Loop principal. Al recibir "stop" se cierra la entrada de audio, pero
+    // seguimos drenando los resultados de Transcribe para entregar la última frase.
     loop {
+        let audio_sender = audio_tx.as_ref().cloned();
         tokio::select! {
             _ = &mut duration_limit => {
                 let msg = serde_json::json!({
@@ -652,31 +656,40 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
             ws_msg = socket.recv() => {
                 match ws_msg {
                     Some(Ok(Message::Binary(data))) => {
-                        let chunk_bytes = data.len();
-                        if chunk_bytes == 0 || chunk_bytes > TRANSCRIBE_MAX_CHUNK_BYTES {
-                            let msg = serde_json::json!({
-                                "error": "Tamaño de fragmento de audio no permitido."
-                            }).to_string();
-                            let _ = socket.send(Message::Text(msg.into())).await;
-                            break;
-                        }
-                        if total_audio_bytes.saturating_add(chunk_bytes) > TRANSCRIBE_MAX_AUDIO_BYTES {
-                            let msg = serde_json::json!({
-                                "error": "La sesión de transcripción superó el límite de audio."
-                            }).to_string();
-                            let _ = socket.send(Message::Text(msg.into())).await;
-                            break;
-                        }
-                        total_audio_bytes += chunk_bytes;
-                        if audio_tx.send(data.to_vec()).await.is_err() {
-                            break;
+                        // Ignore late audio frames after stop, but keep polling
+                        // the result channel so a noisy client cannot starve "done".
+                        if !stop_received {
+                            let chunk_bytes = data.len();
+                            if chunk_bytes == 0 || chunk_bytes > TRANSCRIBE_MAX_CHUNK_BYTES {
+                                let msg = serde_json::json!({
+                                    "error": "Tamaño de fragmento de audio no permitido."
+                                }).to_string();
+                                let _ = socket.send(Message::Text(msg.into())).await;
+                                break;
+                            }
+                            if total_audio_bytes.saturating_add(chunk_bytes) > TRANSCRIBE_MAX_AUDIO_BYTES {
+                                let msg = serde_json::json!({
+                                    "error": "La sesión de transcripción superó el límite de audio."
+                                }).to_string();
+                                let _ = socket.send(Message::Text(msg.into())).await;
+                                break;
+                            }
+                            total_audio_bytes += chunk_bytes;
+                            let Some(sender) = audio_sender.as_ref() else {
+                                break;
+                            };
+                            if sender.send(data.to_vec()).await.is_err() {
+                                break;
+                            }
                         }
                     }
                     Some(Ok(Message::Text(text))) => {
-                        if text.trim() == "stop" {
-                            println!("🛑 [WS Transcribe] Cliente envió 'stop', cerrando stream");
-                            drop(audio_tx); // Señala fin del stream a Transcribe
-                            break;
+                        if text.trim() == "stop" && !stop_received {
+                            tracing::info!("Cliente solicitó finalizar la transcripción");
+                            // Dropping the sender lets AWS finish the input stream;
+                            // the loop stays alive until final results have been sent.
+                            audio_tx.take();
+                            stop_received = true;
                         }
                     }
                     Some(Ok(Message::Close(_))) | None => break,
@@ -691,7 +704,14 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
             result = ws_rx_results.recv() => {
                 match result {
                     Some(json_str) => {
+                        let done = serde_json::from_str::<serde_json::Value>(&json_str)
+                            .ok()
+                            .and_then(|value| value.get("done").and_then(|flag| flag.as_bool()))
+                            .unwrap_or(false);
                         if socket.send(Message::Text(json_str.into())).await.is_err() {
+                            break;
+                        }
+                        if done {
                             break;
                         }
                     }

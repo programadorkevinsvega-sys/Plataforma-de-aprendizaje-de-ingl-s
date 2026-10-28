@@ -6,7 +6,7 @@ mod request_limiter;
 mod srs_handler;
 mod user_handler;
 
-use auth_handler::{login_handler, me_handler, register_handler};
+use auth_handler::{login_handler, me_handler, refresh_handler, register_handler};
 use content_handler::{
     mark_word_complete_handler, synthesize_speech_handler, today_lesson_handler,
     vocabulary_list_handler,
@@ -156,6 +156,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Auth
         .route("/api/v1/auth/register", post(register_handler))
         .route("/api/v1/auth/login", post(login_handler))
+        .route("/api/v1/auth/refresh", post(refresh_handler))
         .route("/api/v1/auth/me", get(me_handler))
         .route("/api/v1/auth/logout", post(logout_handler))
         // Progress / Dashboard
