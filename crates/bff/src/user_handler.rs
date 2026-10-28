@@ -3,13 +3,36 @@ use serde::{Deserialize, Serialize};
 
 use crate::AppState;
 use crate::auth_handler::{attach_bearer_token, extract_bearer_token};
-use crate::srs_handler::validate_token_from_headers;
+use crate::srs_handler::{attach_bearer_metadata, validate_token_from_headers};
 
 #[derive(Deserialize)]
 pub struct UpdateProfileBody {
     pub full_name: Option<String>,
     pub target_role: Option<String>,
     pub current_level: Option<String>,
+}
+
+const MAX_PROFILE_NAME_CHARS: usize = 120;
+const MAX_PROFILE_ROLE_CHARS: usize = 80;
+const MAX_PROFILE_LEVEL_CHARS: usize = 20;
+
+fn validate_update_profile_body(body: &UpdateProfileBody) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    let has_value = body.full_name.as_ref().is_some_and(|value| !value.trim().is_empty())
+        || body.target_role.as_ref().is_some_and(|value| !value.trim().is_empty())
+        || body.current_level.as_ref().is_some_and(|value| !value.trim().is_empty());
+    let too_long = body.full_name.as_ref().is_some_and(|value| value.chars().count() > MAX_PROFILE_NAME_CHARS)
+        || body.target_role.as_ref().is_some_and(|value| value.chars().count() > MAX_PROFILE_ROLE_CHARS)
+        || body.current_level.as_ref().is_some_and(|value| value.chars().count() > MAX_PROFILE_LEVEL_CHARS);
+    if !has_value || too_long {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "message": "Debes enviar al menos un campo de perfil válido y respetar los límites de tamaño.",
+                "code": "INVALID_PROFILE_INPUT"
+            })),
+        ));
+    }
+    Ok(())
 }
 
 #[derive(Serialize)]
@@ -28,6 +51,7 @@ pub async fn update_profile_handler(
     Json(body): Json<UpdateProfileBody>,
 ) -> Result<Json<UserProfileDto>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
+    validate_update_profile_body(&body)?;
     let token = extract_bearer_token(&headers).ok_or_else(|| (
         StatusCode::UNAUTHORIZED,
         Json(serde_json::json!({ "message": "Token requerido", "code": "MISSING_TOKEN" })),
@@ -52,9 +76,9 @@ pub async fn update_profile_handler(
                 current_level: p.current_level,
             }))
         }
-        Err(e) => Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "message": format!("Error actualizando perfil: {}", e.message()) })),
+        Err(_error) => Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({ "message": "No se pudo actualizar el perfil.", "code": "PROFILE_UPDATE_UNAVAILABLE" })),
         )),
     }
 }
@@ -91,7 +115,8 @@ pub async fn progress_summary_real_handler(
     ))?;
     let target_role = profile.into_inner().target_role;
 
-    let stats_req = tonic::Request::new(proto::gamification::GetUserStatsRequest { user_id });
+    let mut stats_req = tonic::Request::new(proto::gamification::GetUserStatsRequest { user_id });
+    attach_bearer_metadata(&headers, &mut stats_req)?;
     match state.gamification_client.get_user_stats(stats_req).await {
         Ok(res) => {
             let s = res.into_inner();
@@ -104,9 +129,9 @@ pub async fn progress_summary_real_handler(
                 "target_role": target_role
             })))
         }
-        Err(e) => Err((
+        Err(_error) => Err((
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "message": format!("Servicio de gamificación no disponible: {}", e.message()) })),
+            Json(serde_json::json!({ "message": "El servicio de gamificación no está disponible.", "code": "GAMIFICATION_UNAVAILABLE" })),
         )),
     }
 }
@@ -119,7 +144,8 @@ pub async fn leaderboard_handler(
     // Only logged in users can see the leaderboard
     let _user_id = validate_token_from_headers(&headers, &mut state).await?;
 
-    let req = tonic::Request::new(proto::gamification::GetLeaderboardRequest { limit: 50 });
+    let mut req = tonic::Request::new(proto::gamification::GetLeaderboardRequest { limit: 50 });
+    attach_bearer_metadata(&headers, &mut req)?;
     match state.gamification_client.get_leaderboard(req).await {
         Ok(res) => {
             let entries = res.into_inner().entries;
@@ -136,8 +162,11 @@ pub async fn leaderboard_handler(
             }
             Ok(Json(serde_json::json!(mapped_entries)))
         }
-        Err(e) => {
-            Err((StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e.message() }))))
+        Err(_error) => {
+            Err((StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
+                "message": "El ranking no está disponible.",
+                "code": "LEADERBOARD_UNAVAILABLE"
+            }))))
         }
     }
 }
@@ -149,7 +178,8 @@ pub async fn achievements_handler(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
 
-    let req = tonic::Request::new(proto::gamification::GetUserAchievementsRequest { user_id });
+    let mut req = tonic::Request::new(proto::gamification::GetUserAchievementsRequest { user_id });
+    attach_bearer_metadata(&headers, &mut req)?;
     match state.gamification_client.get_user_achievements(req).await {
         Ok(res) => {
             let achievements = res.into_inner().achievements;
@@ -168,8 +198,11 @@ pub async fn achievements_handler(
             }
             Ok(Json(serde_json::json!(mapped_achievements)))
         }
-        Err(e) => {
-            Err((StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e.message() }))))
+        Err(_error) => {
+            Err((StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
+                "message": "Los logros no están disponibles.",
+                "code": "ACHIEVEMENTS_UNAVAILABLE"
+            }))))
         }
     }
 }

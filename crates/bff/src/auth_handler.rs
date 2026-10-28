@@ -20,6 +20,52 @@ pub struct LoginDto {
     pub password: String,
 }
 
+const MAX_EMAIL_CHARS: usize = 254;
+const MAX_PASSWORD_CHARS: usize = 128;
+const MAX_FULL_NAME_CHARS: usize = 120;
+const MAX_TARGET_ROLE_CHARS: usize = 80;
+const MAX_CURRENT_LEVEL_CHARS: usize = 20;
+
+fn validate_register_input(payload: &RegisterDto) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    if payload.email.trim().is_empty()
+        || payload.email.chars().count() > MAX_EMAIL_CHARS
+        || !payload.email.contains('@')
+        || payload.password.is_empty()
+        || payload.password.chars().count() > MAX_PASSWORD_CHARS
+        || payload.full_name.trim().is_empty()
+        || payload.full_name.chars().count() > MAX_FULL_NAME_CHARS
+        || payload.target_role.as_ref().is_some_and(|value| value.chars().count() > MAX_TARGET_ROLE_CHARS)
+        || payload.current_level.as_ref().is_some_and(|value| value.chars().count() > MAX_CURRENT_LEVEL_CHARS)
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "message": "Los campos de registro no cumplen el formato o los límites permitidos.",
+                "code": "INVALID_REGISTRATION_INPUT"
+            })),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_login_input(payload: &LoginDto) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    if payload.email.trim().is_empty()
+        || payload.email.chars().count() > MAX_EMAIL_CHARS
+        || !payload.email.contains('@')
+        || payload.password.is_empty()
+        || payload.password.chars().count() > MAX_PASSWORD_CHARS
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "message": "Las credenciales tienen un formato o tamaño no válido.",
+                "code": "INVALID_LOGIN_INPUT"
+            })),
+        ));
+    }
+    Ok(())
+}
+
 // ─── DTOs de salida ─────────────────────────────────────────────────────────
 
 #[derive(Debug, Serialize)]
@@ -75,6 +121,7 @@ pub async fn register_handler(
     axum::extract::State(mut state): axum::extract::State<AppState>,
     Json(payload): Json<RegisterDto>,
 ) -> Result<Json<AuthResponseDto>, (StatusCode, Json<serde_json::Value>)> {
+    validate_register_input(&payload)?;
     let request = tonic::Request::new(proto::auth::RegisterRequest {
         email: payload.email.clone(),
         password: payload.password,
@@ -100,10 +147,13 @@ pub async fn register_handler(
                 target_role: if inner.target_role.is_empty() { "Software Developer".to_string() } else { inner.target_role },
             }))
         }
-        Err(status) => Err((
-            StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "message": status.message(), "code": "REGISTER_ERROR" })),
-        )),
+        Err(status) => {
+            tracing::warn!(code = ?status.code(), "Falló una solicitud de registro");
+            Err((
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({ "message": "No se pudo completar el registro.", "code": "REGISTER_ERROR" })),
+            ))
+        },
     }
 }
 
@@ -111,6 +161,7 @@ pub async fn login_handler(
     axum::extract::State(mut state): axum::extract::State<AppState>,
     Json(payload): Json<LoginDto>,
 ) -> Result<Json<AuthResponseDto>, (StatusCode, Json<serde_json::Value>)> {
+    validate_login_input(&payload)?;
     let request = tonic::Request::new(proto::auth::LoginRequest {
         email: payload.email,
         password: payload.password,
@@ -129,10 +180,13 @@ pub async fn login_handler(
                 target_role: if inner.target_role.is_empty() { "Software Developer".to_string() } else { inner.target_role },
             }))
         }
-        Err(status) => Err((
-            StatusCode::UNAUTHORIZED,
-            Json(serde_json::json!({ "message": status.message(), "code": "INVALID_CREDENTIALS" })),
-        )),
+        Err(status) => {
+            tracing::warn!(code = ?status.code(), "Falló un intento de login");
+            Err((
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({ "message": "Correo o contraseña incorrectos.", "code": "INVALID_CREDENTIALS" })),
+            ))
+        },
     }
 }
 
@@ -189,9 +243,53 @@ pub async fn me_handler(
                 valid: true,
             }))
         }
-        Err(status) => Err((
+        Err(_status) => Err((
             StatusCode::UNAUTHORIZED,
-            Json(serde_json::json!({ "message": status.message(), "code": "TOKEN_VALIDATION_ERROR" })),
+            Json(serde_json::json!({ "message": "No se pudo validar la sesión.", "code": "TOKEN_VALIDATION_ERROR" })),
         )),
+    }
+}
+
+
+#[cfg(test)]
+mod auth_input_validation_tests {
+    use super::{validate_login_input, validate_register_input, LoginDto, RegisterDto};
+
+    fn valid_register() -> RegisterDto {
+        RegisterDto {
+            email: "student@example.com".to_string(),
+            password: "a-long-enough-test-password".to_string(),
+            full_name: "Student Example".to_string(),
+            target_role: Some("Backend Engineer".to_string()),
+            current_level: Some("B1".to_string()),
+        }
+    }
+
+    #[test]
+    fn accepts_registration_within_limits() {
+        assert!(validate_register_input(&valid_register()).is_ok());
+    }
+
+    #[test]
+    fn rejects_oversized_registration_fields() {
+        let mut payload = valid_register();
+        payload.full_name = "x".repeat(121);
+        assert!(validate_register_input(&payload).is_err());
+    }
+
+    #[test]
+    fn rejects_invalid_email_before_calling_auth_service() {
+        let mut payload = valid_register();
+        payload.email = "not-an-email".to_string();
+        assert!(validate_register_input(&payload).is_err());
+    }
+
+    #[test]
+    fn rejects_oversized_login_password() {
+        let payload = LoginDto {
+            email: "student@example.com".to_string(),
+            password: "x".repeat(129),
+        };
+        assert!(validate_login_input(&payload).is_err());
     }
 }
