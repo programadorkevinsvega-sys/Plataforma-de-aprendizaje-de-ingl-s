@@ -1379,6 +1379,7 @@ dependencies = [
  "common",
  "dotenvy",
  "fred",
+ "jsonwebtoken",
  "proto",
  "serde",
  "sqlx",

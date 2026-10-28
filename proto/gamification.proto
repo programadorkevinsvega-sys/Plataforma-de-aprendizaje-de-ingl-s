@@ -5,7 +5,7 @@ package gamification;
 service GamificationService {
   rpc GetUserStats (GetUserStatsRequest) returns (UserStatsResponse);
   rpc AddXp (AddXpRequest) returns (UserStatsResponse);
-  rpc RecordLearningProgress (RecordLearningProgressRequest) returns (UserStatsResponse);
+  rpc RecordLearningProgress (RecordLearningProgressRequest) returns (RecordLearningProgressResponse);
   rpc InitUserStats (InitUserStatsRequest) returns (UserStatsResponse);
   rpc GetLeaderboard (GetLeaderboardRequest) returns (LeaderboardResponse);
   rpc GetUserAchievements (GetUserAchievementsRequest) returns (UserAchievementsResponse);
@@ -26,6 +26,15 @@ message RecordLearningProgressRequest {
   int32 xp_amount = 2;
   int32 coins_amount = 3;
   int32 words_learned_delta = 4;
+  // Stable idempotency key; for the BFF learning flow this is the vocabulary word UUID.
+  string word_id = 5;
+}
+
+message RecordLearningProgressResponse {
+  UserStatsResponse stats = 1;
+  int32 xp_gained = 2;
+  int32 coins_gained = 3;
+  bool applied = 4;
 }
 
 message InitUserStatsRequest {
