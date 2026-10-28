@@ -18,3 +18,13 @@ pub async fn set_current_user_id(
         .await?;
     Ok(())
 }
+
+/// Enables the explicit leaderboard read policy for the current transaction.
+/// Call only after verifying a valid user identity and setting that user's
+/// RLS context; PostgreSQL resets this flag at transaction end.
+pub async fn set_leaderboard_read_scope(conn: &mut PgConnection) -> Result<(), sqlx::Error> {
+    sqlx::query("SELECT set_config('app.allow_leaderboard', 'true', true)")
+        .execute(conn)
+        .await?;
+    Ok(())
+}
