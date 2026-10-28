@@ -36,9 +36,7 @@ impl GamificationService for MyGamificationService {
         &self,
         request: Request<GetUserStatsRequest>,
     ) -> Result<Response<UserStatsResponse>, Status> {
-        let req = request.into_inner();
-        let user_id = Uuid::parse_str(&req.user_id)
-            .map_err(|_| Status::invalid_argument("user_id inválido"))?;
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
 
         let row: Option<(i32, i32, i32, i32, i32)> = sqlx::query_as(
             "SELECT xp, streak_days, coins, words_learned, sentences_mastered FROM user_stats WHERE user_id = $1"
@@ -65,9 +63,8 @@ impl GamificationService for MyGamificationService {
         &self,
         request: Request<AddXpRequest>,
     ) -> Result<Response<UserStatsResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let req = request.into_inner();
-        let user_id = Uuid::parse_str(&req.user_id)
-            .map_err(|_| Status::invalid_argument("user_id inválido"))?;
 
         let mut domain_stats = UserGamificationStats::new(user_id);
         domain_stats.add_xp(req.xp_amount);
@@ -109,9 +106,8 @@ impl GamificationService for MyGamificationService {
         &self,
         request: Request<RecordLearningProgressRequest>,
     ) -> Result<Response<UserStatsResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let req = request.into_inner();
-        let user_id = Uuid::parse_str(&req.user_id)
-            .map_err(|_| Status::invalid_argument("user_id inválido"))?;
 
         let row: Option<(i32, i32, i32, i32, i32)> = sqlx::query_as(
             r#"
@@ -156,9 +152,7 @@ impl GamificationService for MyGamificationService {
         &self,
         request: Request<InitUserStatsRequest>,
     ) -> Result<Response<UserStatsResponse>, Status> {
-        let req = request.into_inner();
-        let user_id = Uuid::parse_str(&req.user_id)
-            .map_err(|_| Status::invalid_argument("user_id inválido"))?;
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
 
         sqlx::query(
             "INSERT INTO user_stats (user_id, xp, streak_days, coins, words_learned, sentences_mastered) VALUES ($1, 0, 0, 50, 0, 0) ON CONFLICT (user_id) DO NOTHING"
@@ -183,6 +177,7 @@ impl GamificationService for MyGamificationService {
         &self,
         request: Request<proto::gamification::GetLeaderboardRequest>,
     ) -> Result<Response<proto::gamification::LeaderboardResponse>, Status> {
+        common::authenticated_user_id(&request)?;
         let req = request.into_inner();
         let limit = if req.limit <= 0 { 50 } else { req.limit };
 
@@ -222,9 +217,7 @@ impl GamificationService for MyGamificationService {
         &self,
         request: Request<proto::gamification::GetUserAchievementsRequest>,
     ) -> Result<Response<proto::gamification::UserAchievementsResponse>, Status> {
-        let req = request.into_inner();
-        let user_id = Uuid::parse_str(&req.user_id)
-            .map_err(|_| Status::invalid_argument("user_id inválido"))?;
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
 
         // 1. Get user_stats
         let stats_row: Option<(i32, i32, i32)> = sqlx::query_as(
