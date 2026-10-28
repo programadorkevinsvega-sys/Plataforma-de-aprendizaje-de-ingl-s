@@ -13,6 +13,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
 
+    common::validate_jwt_configuration().map_err(|error| {
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, error.to_string())
+    })?;
+
     let bedrock = AwsBedrockClient::new();
     println!("🤖 [AWS Bedrock AI Texto Client Inicializado]: Modelo {}", bedrock.model_id);
 

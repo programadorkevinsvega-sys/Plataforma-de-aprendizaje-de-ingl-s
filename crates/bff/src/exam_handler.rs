@@ -8,7 +8,7 @@ use proto::ai_evaluator::{EvaluateExamAnswerRequest, GenerateTargetedDrillReques
 use serde::{Deserialize, Serialize};
 
 use crate::AppState;
-use crate::srs_handler::validate_token_from_headers;
+use crate::srs_handler::{attach_bearer_metadata, validate_token_from_headers};
 
 #[derive(Serialize)]
 pub struct InterviewQuestionDto {
@@ -72,11 +72,12 @@ pub async fn next_question_handler(
     State(mut state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<InterviewQuestionDto>, (StatusCode, Json<serde_json::Value>)> {
-    let user_id = validate_token_from_headers(&headers, &mut state).await.unwrap_or_default();
+    let user_id = validate_token_from_headers(&headers, &mut state).await?;
     let user_level = if !user_id.is_empty() {
-        let profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
+        let mut profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
             user_id: user_id.clone(),
         });
+        attach_bearer_metadata(&headers, &mut profile_req)?;
         match state.auth_client.get_user_profile(profile_req).await {
             Ok(pres) => pres.into_inner().current_level,
             Err(_) => "A0".to_string(),
@@ -117,9 +118,10 @@ pub async fn evaluate_answer_handler(
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
 
     let user_level = if !user_id.is_empty() {
-        let profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
+        let mut profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
             user_id: user_id.clone(),
         });
+        attach_bearer_metadata(&headers, &mut profile_req)?;
         match state.auth_client.get_user_profile(profile_req).await {
             Ok(pres) => pres.into_inner().current_level,
             Err(_) => "A0".to_string(),
@@ -136,12 +138,13 @@ pub async fn evaluate_answer_handler(
         format!("Respuesta a: {}", body.question)
     };
 
-    let request = tonic::Request::new(EvaluateExamAnswerRequest {
+    let mut request = tonic::Request::new(EvaluateExamAnswerRequest {
         user_id,
         question_id: body.question_id,
         user_text_response: response_text,
         target_level: user_level,
     });
+    attach_bearer_metadata(&headers, &mut request)?;
 
     match state.ai_client.evaluate_exam_answer(request).await {
         Ok(res) => {
@@ -181,10 +184,11 @@ pub async fn get_drill_handler(
 ) -> Result<Json<DrillDto>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
 
-    let request = tonic::Request::new(GenerateTargetedDrillRequest {
+    let mut request = tonic::Request::new(GenerateTargetedDrillRequest {
         user_id,
         weak_skills: vec!["Pronunciación".to_string(), "Fluidez".to_string()],
     });
+    attach_bearer_metadata(&headers, &mut request)?;
 
     match state.ai_client.generate_targeted_drill(request).await {
         Ok(res) => {
