@@ -4,8 +4,15 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::Response,
 };
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use proto::ai_evaluator::{EvaluateExamAnswerRequest, GenerateTargetedDrillRequest};
 use serde::{Deserialize, Serialize};
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::{Mutex, OnceLock},
+    time::{Instant, SystemTime, UNIX_EPOCH},
+};
+use uuid::Uuid;
 
 use crate::AppState;
 use crate::srs_handler::{attach_bearer_metadata, validate_token_from_headers};
@@ -213,6 +220,172 @@ pub async fn get_drill_handler(
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct TranscribeTicketClaims {
+    sub: String,
+    purpose: String,
+    jti: String,
+    exp: usize,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TranscribeTicketDto {
+    pub ticket: String,
+    pub expires_in_seconds: u64,
+}
+
+const TRANSCRIBE_TICKET_TTL_SECONDS: usize = 60;
+const TRANSCRIBE_TICKET_MAX_PER_MINUTE: usize = 5;
+const TRANSCRIBE_MAX_DURATION_SECONDS: u64 = 300;
+const TRANSCRIBE_MAX_AUDIO_BYTES: usize = 9 * 1024 * 1024;
+const TRANSCRIBE_MAX_CHUNK_BYTES: usize = 8192;
+const TRANSCRIBE_WS_PROTOCOL: &str = "devfluency.transcribe.v1";
+const TRANSCRIBE_TICKET_PROTOCOL_PREFIX: &str = "ticket.";
+
+static TICKET_REQUESTS: OnceLock<Mutex<HashMap<String, VecDeque<Instant>>>> = OnceLock::new();
+static USED_TRANSCRIBE_TICKETS: OnceLock<Mutex<HashMap<String, usize>>> = OnceLock::new();
+
+fn unix_time_seconds() -> usize {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs() as usize)
+        .unwrap_or(0)
+}
+
+fn configured_jwt_secret() -> Result<String, &'static str> {
+    let secret = std::env::var("JWT_SECRET")
+        .map_err(|_| "La autenticación no está configurada")?;
+    if secret.trim().is_empty() || secret.as_bytes().len() < 32 {
+        return Err("La autenticación no está configurada");
+    }
+    Ok(secret)
+}
+
+fn encode_transcribe_ticket(
+    subject: &str,
+    jti: &str,
+    expires_at: usize,
+    secret: &str,
+) -> Result<String, jsonwebtoken::errors::Error> {
+    let claims = TranscribeTicketClaims {
+        sub: subject.to_owned(),
+        purpose: "transcribe".to_owned(),
+        jti: jti.to_owned(),
+        exp: expires_at,
+    };
+    encode(
+        &Header::new(Algorithm::HS256),
+        &claims,
+        &EncodingKey::from_secret(secret.as_bytes()),
+    )
+}
+
+fn decode_transcribe_ticket(
+    token: &str,
+    secret: &str,
+) -> Result<TranscribeTicketClaims, ()> {
+    if secret.trim().is_empty() || secret.as_bytes().len() < 32 {
+        return Err(());
+    }
+    let mut validation = Validation::new(Algorithm::HS256);
+    validation.validate_exp = true;
+    validation.required_spec_claims.insert("sub".to_string());
+    decode::<TranscribeTicketClaims>(
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &validation,
+    )
+    .map(|data| data.claims)
+    .map_err(|_| ())
+}
+
+fn allow_ticket_request(user_id: &str) -> bool {
+    let requests = TICKET_REQUESTS.get_or_init(|| Mutex::new(HashMap::new()));
+    let Ok(mut requests) = requests.lock() else {
+        return false;
+    };
+    let now = Instant::now();
+    requests.retain(|_, times| {
+        while times.front().is_some_and(|time| now.duration_since(*time).as_secs() >= 60) {
+            times.pop_front();
+        }
+        !times.is_empty()
+    });
+    let times = requests.entry(user_id.to_owned()).or_default();
+    if times.len() >= TRANSCRIBE_TICKET_MAX_PER_MINUTE {
+        return false;
+    }
+    times.push_back(now);
+    true
+}
+
+fn consume_transcribe_ticket(jti: &str, expires_at: usize) -> bool {
+    let now = unix_time_seconds();
+    if expires_at <= now {
+        return false;
+    }
+    let tickets = USED_TRANSCRIBE_TICKETS.get_or_init(|| Mutex::new(HashMap::new()));
+    let Ok(mut tickets) = tickets.lock() else {
+        return false;
+    };
+    tickets.retain(|_, expires| *expires > now);
+    if tickets.contains_key(jti) {
+        return false;
+    }
+    tickets.insert(jti.to_owned(), expires_at);
+    true
+}
+
+fn websocket_origin_allowed(origin: &str, configured_origins: Option<&str>) -> bool {
+    let Some(configured_origins) = configured_origins.filter(|value| !value.trim().is_empty()) else {
+        return origin == "http://localhost:3000";
+    };
+    configured_origins
+        .split(',')
+        .map(str::trim)
+        .any(|allowed| !allowed.is_empty() && allowed == origin)
+}
+
+/// POST /api/v1/exam/transcribe/ticket
+/// Crea un ticket de corta vida, ligado exclusivamente a la apertura del stream de transcripción.
+pub async fn create_transcribe_ticket_handler(
+    State(mut state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<TranscribeTicketDto>, (StatusCode, Json<serde_json::Value>)> {
+    let user_id = validate_token_from_headers(&headers, &mut state).await?;
+    if !allow_ticket_request(&user_id) {
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(serde_json::json!({
+                "message": "Demasiadas solicitudes de transcripción. Intenta más tarde.",
+                "code": "TRANSCRIBE_RATE_LIMITED"
+            })),
+        ));
+    }
+
+    let secret = configured_jwt_secret().map_err(|_| (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(serde_json::json!({
+            "message": "La autenticación no está configurada.",
+            "code": "AUTH_CONFIGURATION_UNAVAILABLE"
+        })),
+    ))?;
+    let expires_at = unix_time_seconds() + TRANSCRIBE_TICKET_TTL_SECONDS;
+    let jti = Uuid::new_v4().to_string();
+    let ticket = encode_transcribe_ticket(&user_id, &jti, expires_at, &secret).map_err(|_| (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(serde_json::json!({
+            "message": "No se pudo autorizar la transcripción.",
+            "code": "TRANSCRIBE_TICKET_ERROR"
+        })),
+    ))?;
+
+    Ok(Json(TranscribeTicketDto {
+        ticket,
+        expires_in_seconds: TRANSCRIBE_TICKET_TTL_SECONDS as u64,
+    }))
+}
+
 /// GET /api/v1/exam/transcribe/ws — WebSocket de transcripción en tiempo real
 /// Protocolo:
 ///   Cliente → Servidor: frames Binary con chunks PCM-16 de 640 bytes (20ms a 16kHz)
@@ -220,8 +393,61 @@ pub async fn get_drill_handler(
 ///   Cliente → Servidor: frame Text "stop" para cerrar la sesión
 pub async fn transcribe_ws_handler(
     ws: WebSocketUpgrade,
-) -> Response {
-    ws.on_upgrade(handle_transcribe_socket)
+    headers: HeaderMap,
+) -> Result<Response, (StatusCode, Json<serde_json::Value>)> {
+    let origin = headers
+        .get("origin")
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({ "message": "Origen WebSocket requerido", "code": "WS_ORIGIN_REQUIRED" })),
+        ))?;
+    let allowed_origins = std::env::var("CORS_ALLOWED_ORIGINS").ok();
+    if !websocket_origin_allowed(origin, allowed_origins.as_deref()) {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({ "message": "Origen WebSocket no permitido", "code": "WS_ORIGIN_DENIED" })),
+        ));
+    }
+
+    let offered_protocols = headers
+        .get("sec-websocket-protocol")
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default();
+    let ticket = offered_protocols
+        .split(',')
+        .map(str::trim)
+        .find_map(|protocol| protocol.strip_prefix(TRANSCRIBE_TICKET_PROTOCOL_PREFIX))
+        .filter(|ticket| !ticket.is_empty())
+        .ok_or_else(|| (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({ "message": "Ticket de transcripción requerido", "code": "WS_TICKET_REQUIRED" })),
+        ))?;
+
+    let secret = configured_jwt_secret().map_err(|_| (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(serde_json::json!({ "message": "La autenticación no está configurada.", "code": "AUTH_CONFIGURATION_UNAVAILABLE" })),
+    ))?;
+    let claims = decode_transcribe_ticket(ticket, &secret).map_err(|_| (
+        StatusCode::UNAUTHORIZED,
+        Json(serde_json::json!({ "message": "Ticket de transcripción inválido o expirado", "code": "WS_TICKET_INVALID" })),
+    ))?;
+    if claims.purpose != "transcribe" || Uuid::parse_str(&claims.sub).is_err() {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({ "message": "Ticket no autorizado para transcripción", "code": "WS_TICKET_SCOPE_INVALID" })),
+        ));
+    }
+    if !consume_transcribe_ticket(&claims.jti, claims.exp) {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({ "message": "Ticket de transcripción ya utilizado o expirado", "code": "WS_TICKET_REPLAYED" })),
+        ));
+    }
+
+    Ok(ws
+        .protocols([TRANSCRIBE_WS_PROTOCOL])
+        .on_upgrade(handle_transcribe_socket))
 }
 
 async fn handle_transcribe_socket(mut socket: WebSocket) {
@@ -231,7 +457,7 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
         types::error::AudioStreamError,
         Client as TranscribeClient,
     };
-    use std::env;
+    use std::{env, time::Duration};
     use tokio::sync::mpsc;
 
     let region = Region::new(env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string()));
@@ -281,9 +507,11 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
 
     let mut stream_response = match transcribe_result {
         Ok(r) => r,
-        Err(e) => {
-            eprintln!("❌ [WS Transcribe] Error iniciando sesión: {:?}", e);
-            let msg = serde_json::json!({ "error": format!("{:?}", e) }).to_string();
+        Err(_error) => {
+            tracing::error!("No se pudo iniciar la sesión AWS Transcribe");
+            let msg = serde_json::json!({
+                "error": "No se pudo iniciar la transcripción."
+            }).to_string();
             let _ = socket.send(Message::Text(msg.into())).await;
             return;
         }
@@ -335,14 +563,41 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
         }
     });
 
-    // Loop principal: recibir chunks del WebSocket y reenviarlos a Transcribe
+    // Limitar duración y volumen de datos para contener abuso/coste de AWS.
+    let mut total_audio_bytes = 0usize;
+    let duration_limit = tokio::time::sleep(Duration::from_secs(TRANSCRIBE_MAX_DURATION_SECONDS));
+    tokio::pin!(duration_limit);
+
+    // Loop principal: recibir chunks PCM del WebSocket y reenviarlos a Transcribe.
     loop {
         tokio::select! {
+            _ = &mut duration_limit => {
+                let msg = serde_json::json!({
+                    "error": "La sesión de transcripción alcanzó su duración máxima."
+                }).to_string();
+                let _ = socket.send(Message::Text(msg.into())).await;
+                break;
+            }
             // Mensajes entrantes del cliente (chunks PCM binarios o "stop" de texto)
             ws_msg = socket.recv() => {
                 match ws_msg {
                     Some(Ok(Message::Binary(data))) => {
-                        // Chunk PCM-16 de 640 bytes (20ms)
+                        let chunk_bytes = data.len();
+                        if chunk_bytes == 0 || chunk_bytes > TRANSCRIBE_MAX_CHUNK_BYTES {
+                            let msg = serde_json::json!({
+                                "error": "Tamaño de fragmento de audio no permitido."
+                            }).to_string();
+                            let _ = socket.send(Message::Text(msg.into())).await;
+                            break;
+                        }
+                        if total_audio_bytes.saturating_add(chunk_bytes) > TRANSCRIBE_MAX_AUDIO_BYTES {
+                            let msg = serde_json::json!({
+                                "error": "La sesión de transcripción superó el límite de audio."
+                            }).to_string();
+                            let _ = socket.send(Message::Text(msg.into())).await;
+                            break;
+                        }
+                        total_audio_bytes += chunk_bytes;
                         if audio_tx.send(data.to_vec()).await.is_err() {
                             break;
                         }
@@ -377,4 +632,79 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
     }
 
     println!("✅ [WS Transcribe] Sesión cerrada");
+}
+
+
+#[cfg(test)]
+mod transcription_ticket_tests {
+    use super::{
+        allow_ticket_request, consume_transcribe_ticket, decode_transcribe_ticket,
+        encode_transcribe_ticket, unix_time_seconds, websocket_origin_allowed,
+        TRANSCRIBE_TICKET_MAX_PER_MINUTE,
+    };
+    use uuid::Uuid;
+
+    const SECRET: &str = "transcribe-ticket-test-secret-0123456789abcdef";
+
+    #[test]
+    fn ticket_is_signed_scoped_and_short_lived() {
+        let now = unix_time_seconds();
+        let subject = Uuid::new_v4().to_string();
+        let jti = Uuid::new_v4().to_string();
+        let token = encode_transcribe_ticket(&subject, &jti, now + 60, SECRET).unwrap();
+        let claims = decode_transcribe_ticket(&token, SECRET).unwrap();
+
+        assert_eq!(claims.sub, subject);
+        assert_eq!(claims.jti, jti);
+        assert_eq!(claims.purpose, "transcribe");
+        assert!(claims.exp <= now + 60);
+        assert!(decode_transcribe_ticket(&token, "wrong-secret-that-is-long-enough-000").is_err());
+    }
+
+    #[test]
+    fn expired_tickets_are_rejected() {
+        let now = unix_time_seconds();
+        let token = encode_transcribe_ticket(
+            &Uuid::new_v4().to_string(),
+            &Uuid::new_v4().to_string(),
+            now.saturating_sub(1),
+            SECRET,
+        ).unwrap();
+        assert!(decode_transcribe_ticket(&token, SECRET).is_err());
+    }
+
+    #[test]
+    fn ticket_can_be_consumed_only_once_per_bff_process() {
+        let jti = format!("test-{}", Uuid::new_v4());
+        let expires = unix_time_seconds() + 60;
+        assert!(consume_transcribe_ticket(&jti, expires));
+        assert!(!consume_transcribe_ticket(&jti, expires));
+    }
+
+    #[test]
+    fn ticket_requests_are_rate_limited_per_user() {
+        let user = format!("rate-limit-{}", Uuid::new_v4());
+        for _ in 0..TRANSCRIBE_TICKET_MAX_PER_MINUTE {
+            assert!(allow_ticket_request(&user));
+        }
+        assert!(!allow_ticket_request(&user));
+    }
+
+    #[test]
+    fn websocket_origin_must_match_an_exact_allowlisted_origin() {
+        assert!(websocket_origin_allowed(
+            "https://app.example.com",
+            Some("https://app.example.com, http://localhost:3000"),
+        ));
+        assert!(!websocket_origin_allowed(
+            "https://evil.example.com",
+            Some("https://app.example.com, http://localhost:3000"),
+        ));
+        assert!(!websocket_origin_allowed(
+            "http://localhost:3000.attacker.invalid",
+            Some("http://localhost:3000"),
+        ));
+        assert!(websocket_origin_allowed("http://localhost:3000", None));
+        assert!(!websocket_origin_allowed("https://app.example.com", None));
+    }
 }

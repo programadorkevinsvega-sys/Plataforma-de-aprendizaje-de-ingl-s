@@ -60,6 +60,15 @@ export class BffAIEvaluatorRepository implements IAIEvaluatorRepository {
     return toWeaknessDrill(payload, toMetricScores(dto))
   }
 
+  async createTranscribeTicket(): Promise<string> {
+    const dto = await this.http.post<Dto>('/api/v1/exam/transcribe/ticket', {})
+    const ticket = dto.ticket
+    if (typeof ticket !== 'string' || ticket.length === 0) {
+      throw new Error('El BFF no devolvió un ticket válido de transcripción')
+    }
+    return ticket
+  }
+
   async transcribeAudio(audioBase64: string, mimeType: string): Promise<string> {
     const dto = await this.http.post<Dto>(
       '/api/v1/exam/transcribe',

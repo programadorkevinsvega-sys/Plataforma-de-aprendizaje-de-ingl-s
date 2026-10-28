@@ -18,6 +18,8 @@ export interface IAIEvaluatorRepository {
   evaluateAnswer(input: EvaluateAnswerInput): Promise<ExamResult>
   /** Dril quirúrgico de 20 minutos sobre las 2 métricas más débiles. */
   getWeaknessDrill(examResultId: string): Promise<WeaknessDrill>
+  /** Solicita un ticket temporal para abrir el WebSocket autenticado de AWS Transcribe. */
+  createTranscribeTicket(): Promise<string>
   /** Transcribe audio del micrófono con AWS Transcribe. */
   transcribeAudio(audioBase64: string, mimeType: string): Promise<string>
 }

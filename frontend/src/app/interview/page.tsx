@@ -68,6 +68,10 @@ export default function InterviewPage() {
 
   const handleStartRecording = async () => {
     try {
+      // El WebSocket no acepta Authorization desde el navegador; solicita un
+      // ticket de transcripción de corta vida mediante el cliente HTTP autenticado.
+      const container = getContainer()
+      const ticket = await container.repositories.evaluator.createTranscribeTicket()
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
       })
@@ -75,7 +79,10 @@ export default function InterviewPage() {
       // 1. Abrir WebSocket al BFF ANTES de iniciar el audio
       const bffWsUrl = (process.env.NEXT_PUBLIC_BFF_URL || 'http://localhost:8080')
         .replace(/^http/, 'ws')
-      const ws = new WebSocket(`${bffWsUrl}/api/v1/exam/transcribe/ws`)
+      const ws = new WebSocket(
+        `${bffWsUrl}/api/v1/exam/transcribe/ws`,
+        ['devfluency.transcribe.v1', `ticket.${ticket}`],
+      )
       wsRef.current = ws
 
       ws.onopen = () => console.log('🔌 [WS Transcribe] Conexión abierta')
@@ -138,7 +145,7 @@ export default function InterviewPage() {
       console.log('🎙️ [AudioWorklet] Grabación iniciada — chunks PCM-16 de 20ms por WebSocket')
     } catch (err) {
       console.error('Error iniciando grabación:', err)
-      alert('No se pudo acceder al micrófono. Permite el acceso en tu navegador.')
+      alert('No se pudo iniciar la transcripción segura. Verifica tu sesión y permite el acceso al micrófono.')
     }
   }
 
