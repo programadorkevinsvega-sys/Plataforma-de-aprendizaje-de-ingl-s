@@ -58,13 +58,19 @@ impl AuthService for MyAuthService {
         let email = Email::parse(&req.email)
             .map_err(|e| Status::invalid_argument(e.to_string()))?;
 
-        // Verificar si el usuario ya existe
+        // Mantener usuario y estadísticas en la misma transacción.
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| Status::internal("No se pudo iniciar el registro"))?;
+
         let existing: Option<(uuid::Uuid,)> =
             sqlx::query_as("SELECT id FROM users WHERE email = $1")
                 .bind(email.as_str())
-                .fetch_optional(self.pool.as_ref())
+                .fetch_optional(&mut *tx)
                 .await
-                .map_err(|e| Status::internal(e.to_string()))?;
+                .map_err(|_| Status::internal("No se pudo comprobar el correo"))?;
 
         if existing.is_some() {
             return Err(Status::already_exists("El usuario ya existe con ese correo"));
@@ -90,21 +96,38 @@ impl AuthService for MyAuthService {
         .bind(&user.full_name)
         .bind(&user.target_role)
         .bind(&user.current_level)
-        .execute(self.pool.as_ref())
+        .execute(&mut *tx)
         .await
-        .map_err(|e| Status::internal(format!("Error al guardar usuario: {}", e)))?;
+        .map_err(|error| match &error {
+            sqlx::Error::Database(database_error)
+                if database_error.code().as_deref() == Some("23505") =>
+            {
+                Status::already_exists("El usuario ya existe con ese correo")
+            }
+            _ => {
+                tracing::error!("Error de base de datos registrando usuario");
+                Status::internal("No se pudo registrar el usuario")
+            }
+        })?;
 
         // Inicializar stats de gamificación
         sqlx::query(
             "INSERT INTO user_stats (user_id, xp, streak_days, coins, words_learned, sentences_mastered) VALUES ($1, 0, 0, 50, 0, 0) ON CONFLICT (user_id) DO NOTHING"
         )
         .bind(user.id)
-        .execute(self.pool.as_ref())
+        .execute(&mut *tx)
         .await
-        .map_err(|e| Status::internal(format!("Error al inicializar stats: {}", e)))?;
+        .map_err(|_| {
+            tracing::error!("Error inicializando estadísticas del nuevo usuario");
+            Status::internal("No se pudo inicializar el perfil del usuario")
+        })?;
 
         let access_token = JwtService::generate_token(user.id, email.as_str(), &user.target_role)
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(|_| Status::internal("No se pudo crear la sesión de usuario"))?;
+
+        tx.commit()
+            .await
+            .map_err(|_| Status::internal("No se pudo confirmar el registro"))?;
 
         Ok(Response::new(AuthResponse {
             user_id: user.id.to_string(),
