@@ -155,6 +155,17 @@ impl SrsService for MySrsService {
         common::set_current_user_id(&mut *tx, user_id).await
             .map_err(|_| Status::internal("No se pudo establecer el contexto de usuario RLS"))?;
 
+        let word_exists: bool = sqlx::query_scalar(
+            "SELECT EXISTS (SELECT 1 FROM vocabulary_words WHERE id = $1)"
+        )
+        .bind(word_id)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudo validar la palabra"))?;
+        if !word_exists {
+            return Err(Status::not_found("Palabra de vocabulario no encontrada"));
+        }
+
         // Insertar todas las oraciones asociadas a esa palabra en la tabla de repaso (si no existen ya)
         // Programamos el primer repaso para mañana (NOW() + 1 day) con valores base SM-2
         let res = sqlx::query(
