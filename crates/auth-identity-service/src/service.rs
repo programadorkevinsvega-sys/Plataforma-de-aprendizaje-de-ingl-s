@@ -471,7 +471,7 @@ mod refresh_token_integration_tests {
     use super::{generate_refresh_token, hash_refresh_token, MyAuthService};
     use proto::auth::auth_service_server::AuthService;
     use proto::auth::{RefreshTokenRequest, RevokeRefreshTokenRequest};
-    use sqlx::{postgres::PgPoolOptions, Row};
+    use sqlx::postgres::PgPoolOptions;
     use std::sync::Arc;
     use tonic::Code;
     use uuid::Uuid;
