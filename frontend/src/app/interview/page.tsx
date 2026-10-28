@@ -20,13 +20,8 @@ function waitForWebSocketOpen(socket: WebSocket, timeoutMs: number): Promise<voi
       return
     }
 
-    let timeoutId: ReturnType<typeof setTimeout>
-    const cleanup = () => {
-      clearTimeout(timeoutId)
-      socket.removeEventListener('open', handleOpen)
-      socket.removeEventListener('error', handleError)
-      socket.removeEventListener('close', handleClose)
-    }
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    let cleanup = () => {}
     const handleOpen = () => {
       cleanup()
       resolve()
@@ -40,6 +35,12 @@ function waitForWebSocketOpen(socket: WebSocket, timeoutMs: number): Promise<voi
       reject(new Error('El servidor cerró el WebSocket antes de iniciar la transcripción.'))
     }
 
+    cleanup = () => {
+      if (timeoutId !== undefined) clearTimeout(timeoutId)
+      socket.removeEventListener('open', handleOpen)
+      socket.removeEventListener('error', handleError)
+      socket.removeEventListener('close', handleClose)
+    }
     timeoutId = setTimeout(() => {
       cleanup()
       reject(new Error('Se agotó el tiempo de espera del WebSocket de transcripción.'))
