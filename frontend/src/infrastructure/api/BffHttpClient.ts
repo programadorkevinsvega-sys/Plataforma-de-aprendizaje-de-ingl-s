@@ -37,6 +37,8 @@ interface BffErrorBody {
  * - Limpiar la sesión ante un 401 para cortar cualquier fuga entre tenants.
  */
 export class BffHttpClient {
+  private refreshInFlight: Promise<ReturnType<typeof toAuthSession>> | null = null
+
   constructor(
     private readonly baseUrl: string = BFF_BASE_URL,
     private readonly session: SessionStorage = sessionStorageAdapter,
@@ -45,6 +47,35 @@ export class BffHttpClient {
 
   get baseUrlValue(): string {
     return this.baseUrl
+  }
+
+  private refreshSession(refreshToken: string, timeoutMs: number) {
+    if (!this.refreshInFlight) {
+      this.refreshInFlight = (async () => {
+        const refreshedDto = await this.request<Record<string, unknown>>(
+          '/api/v1/auth/refresh',
+          {
+            method: 'POST',
+            body: { refresh_token: refreshToken },
+            skipAuth: true,
+            skipRefresh: true,
+            timeoutMs,
+          },
+        )
+        const refreshedSession = toAuthSession(refreshedDto)
+        if (!refreshedSession.accessToken || !refreshedSession.refreshToken) {
+          throw new Error('El BFF devolvió una sesión renovada incompleta')
+        }
+
+        this.session.clear()
+        this.session.save(refreshedSession)
+        return refreshedSession
+      })().finally(() => {
+        this.refreshInFlight = null
+      })
+    }
+
+    return this.refreshInFlight
   }
 
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -125,24 +156,9 @@ export class BffHttpClient {
         const currentSession = this.session.toSession()
         if (currentSession?.refreshToken) {
           try {
-            const refreshedDto = await this.request<Record<string, unknown>>(
-              '/api/v1/auth/refresh',
-              {
-                method: 'POST',
-                body: { refresh_token: currentSession.refreshToken },
-                skipAuth: true,
-                skipRefresh: true,
-                timeoutMs,
-              },
-            )
-            const refreshedSession = toAuthSession(refreshedDto)
-            if (!refreshedSession.accessToken || !refreshedSession.refreshToken) {
-              throw new Error('El BFF devolvió una sesión renovada incompleta')
-            }
+            await this.refreshSession(currentSession.refreshToken, timeoutMs)
 
-            this.session.clear()
-            this.session.save(refreshedSession)
-
+            // Las respuestas 401 concurrentes comparten una sola rotación.
             // Reintentar una sola vez: un nuevo 401 no vuelve a disparar refresh.
             return await this.request<T>(path, { ...options, skipRefresh: true })
           } catch {
