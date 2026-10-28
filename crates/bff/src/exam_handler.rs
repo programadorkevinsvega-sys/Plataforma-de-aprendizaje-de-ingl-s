@@ -456,6 +456,10 @@ pub async fn transcribe_ws_handler(
     }
 
     Ok(ws
+        // Rechaza mensajes grandes en el transporte antes de construir un frame
+        // que exceda el límite de audio permitido por esta ruta.
+        .max_message_size(TRANSCRIBE_MAX_CHUNK_BYTES)
+        .max_frame_size(TRANSCRIBE_MAX_CHUNK_BYTES)
         .protocols([TRANSCRIBE_WS_PROTOCOL])
         .on_upgrade(handle_transcribe_socket))
 }
