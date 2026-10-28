@@ -64,8 +64,13 @@ export class BffAuthRepository implements IAuthRepository {
   }
 
   async logout(): Promise<void> {
+    const refreshToken = this.session.toSession()?.refreshToken
     try {
-      await this.http.post<void>('/api/v1/auth/logout')
+      await this.http.post<void>(
+        '/api/v1/auth/logout',
+        { refresh_token: refreshToken ?? '' },
+        { skipRefresh: true },
+      )
     } catch {
       // La sesión local se destruye incluso si el BFF no responde.
     } finally {
