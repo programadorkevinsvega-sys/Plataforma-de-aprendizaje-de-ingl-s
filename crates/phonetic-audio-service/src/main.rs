@@ -75,7 +75,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    let addr = "0.0.0.0:50054".parse()?;
+    let configured_addr = std::env::var("PHONETIC_SERVICE_BIND_ADDR").ok();
+    let addr = common::parse_bind_addr(configured_addr.as_deref(), "127.0.0.1:50054")?;
     let service = PhoneticAudioServiceImpl { aws_audio, engine };
 
     tracing::info!("🎙️ [AUDIO] gRPC Server escuchando en {}", addr);

@@ -26,7 +26,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("❌ No se pudo conectar a PostgreSQL en content-vocabulary-service.");
 
     let pool = Arc::new(pool);
-    let addr: SocketAddr = "0.0.0.0:50052".parse()?;
+    let configured_addr = std::env::var("CONTENT_SERVICE_BIND_ADDR").ok();
+    let addr: SocketAddr = common::parse_bind_addr(configured_addr.as_deref(), "127.0.0.1:50052")?;
     let content_service = MyContentService::new(pool);
 
     println!("📚 [Fase 3] content-vocabulary-service gRPC Server corriendo en {}", addr);

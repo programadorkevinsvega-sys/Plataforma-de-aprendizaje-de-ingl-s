@@ -27,7 +27,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("❌ No se pudo conectar a PostgreSQL en srs-engine-service.");
 
     let pool = Arc::new(pool);
-    let addr: SocketAddr = "0.0.0.0:50055".parse()?;
+    let configured_addr = std::env::var("SRS_SERVICE_BIND_ADDR").ok();
+    let addr: SocketAddr = common::parse_bind_addr(configured_addr.as_deref(), "127.0.0.1:50055")?;
     let srs_service = MySrsService::new(pool);
 
     println!("🧠 [Fase 5] srs-engine-service Anki SM-2 gRPC Server corriendo en {}", addr);

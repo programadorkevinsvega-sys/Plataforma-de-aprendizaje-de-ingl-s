@@ -115,7 +115,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .layer(cors)
         .with_state(state);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
+    let configured_addr = std::env::var("BFF_HTTP_BIND_ADDR").ok();
+    let addr: SocketAddr = common::parse_bind_addr(configured_addr.as_deref(), "127.0.0.1:8080")?;
     println!("🚀 [Fase 2] BFF HTTP Gateway corriendo en http://{}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
