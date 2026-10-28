@@ -5,7 +5,7 @@ pub mod vo;
 
 pub use auth::{authenticated_user_id, ensure_authenticated_user, validate_jwt_configuration, JwtClaims, JwtValidationError, validate_jwt_token};
 pub use error::DomainError;
-pub use rls::set_current_user_id;
+pub use rls::{set_current_user_id, set_leaderboard_read_scope};
 pub use vo::{Email, ScoreMetric, SpanishPhoneticText};
 
 /// Parse a configurable listener address while keeping a safe loopback default.
