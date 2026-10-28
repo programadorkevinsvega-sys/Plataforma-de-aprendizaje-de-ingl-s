@@ -232,7 +232,7 @@ pub async fn refresh_handler(
                 },
             }))
         }
-        Err(status) => Err((
+        Err(_status) => Err((
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({
                 "message": "Refresh token inválido, expirado o revocado",
