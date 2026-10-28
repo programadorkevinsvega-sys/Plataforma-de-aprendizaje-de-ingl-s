@@ -14,8 +14,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
 
-    let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://postgres:Kevins1612522026@127.0.0.1:5432/devfluency_db".to_string());
+    jwt::JwtService::validate_configuration().map_err(|error| {
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, error.to_string())
+    })?;
+
+    let database_url = std::env::var("DATABASE_URL").map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "DATABASE_URL debe estar configurada; no se usa una credencial predeterminada",
+        )
+    })?;
 
     let pool = PgPoolOptions::new()
         .max_connections(10)
