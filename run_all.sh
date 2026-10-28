@@ -24,6 +24,9 @@ else
   exit 1
 fi
 
+: "${DATABASE_URL:?DATABASE_URL debe configurarse en .env}"
+: "${JWT_SECRET:?JWT_SECRET debe configurarse en .env con al menos 32 bytes}"
+
 export RUST_LOG=${RUST_LOG:-info}
 
 # Lista de PIDs para apagar todo limpiamente al presionar Ctrl+C
@@ -91,7 +94,11 @@ if [ -d "$SCRIPT_DIR/migrations" ]; then
   const fs = require("fs");
   const { Client } = require("pg");
   async function run() {
-    const dbUrl = process.env.DATABASE_URL || "postgres://postgres:Kevins1612522026@127.0.0.1:5432/devfluency_db";
+    const dbUrl = process.env.DATABASE_URL;
+    if (!dbUrl) {
+      console.error("DATABASE_URL debe estar configurada; no se usa una credencial predeterminada.");
+      process.exit(1);
+    }
     const client = new Client({ connectionString: dbUrl });
     try {
       await client.connect();
@@ -101,14 +108,16 @@ if [ -d "$SCRIPT_DIR/migrations" ]; then
         const sql = fs.readFileSync(`migrations/${file}`, "utf8");
         await client.query(sql);
       }
-      await client.end();
       console.log("  ✅ Todas las migraciones SQL fueron aplicadas.");
     } catch (e) {
-      console.error("  ⚠️ Error conectando a PostgreSQL para migraciones:", e.message);
+      console.error("Error ejecutando migraciones de PostgreSQL:", e.message);
+      process.exitCode = 1;
+    } finally {
+      await client.end().catch(() => {});
     }
   }
   run();
-  ' || true
+  '
 fi
 
 # 3. Iniciar Microservicios gRPC en Orden Estricto con Readiness Probes

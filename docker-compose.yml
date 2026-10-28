@@ -1,20 +1,18 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
     container_name: devfluency_db
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Kevins1612522026
-      POSTGRES_DB: devfluency_db
+      POSTGRES_USER: ${POSTGRES_USER:-devfluency_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-devfluency_db}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./migrations/20260805000000_init_schema.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./migrations/20260805000000_init_schema.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d devfluency_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-devfluency_user} -d ${POSTGRES_DB:-devfluency_db}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,13 +20,13 @@ services:
   redis:
     image: redis:7.2-alpine
     container_name: devfluency_redis
-    command: redis-server --requirepass Kevins1612522026
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?Define REDIS_PASSWORD in .env}"]
     ports:
-      - "6379:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "Kevins1612522026", "ping"]
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a ${REDIS_PASSWORD:?Define REDIS_PASSWORD in .env} ping"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -36,10 +34,10 @@ services:
   nats:
     image: nats:2.10-alpine
     container_name: devfluency_nats
-    command: "-js --user nats_admin --pass Kevins1612522026"
+    command: ["-js", "--user", "${NATS_USERNAME:-nats_admin}", "--pass", "${NATS_PASSWORD:?Define NATS_PASSWORD in .env}"]
     ports:
-      - "4222:4222"
-      - "8222:8222"
+      - "127.0.0.1:${NATS_PORT:-4222}:4222"
+      - "127.0.0.1:8222:8222"
     volumes:
       - nats_data:/data
 
