@@ -16,3 +16,6 @@ proto = { path = "../proto" }
 common = { path = "../common" }
 dotenvy = { workspace = true }
 
+
+[dev-dependencies]
+jsonwebtoken = { workspace = true }
