@@ -26,9 +26,8 @@ impl SrsService for MySrsService {
         &self,
         request: Request<GetDueCardsRequest>,
     ) -> Result<Response<GetDueCardsResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let req = request.into_inner();
-        let user_id = Uuid::parse_str(&req.user_id)
-            .map_err(|_| Status::invalid_argument("user_id inválido"))?;
         let limit = if req.limit <= 0 { 20 } else { req.limit };
 
         let rows: Vec<(Uuid, Uuid, f32, i32, i32, String, String, String, String)> =
@@ -75,11 +74,10 @@ impl SrsService for MySrsService {
         &self,
         request: Request<ReviewCardRequest>,
     ) -> Result<Response<ReviewCardResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let req = request.into_inner();
         let card_id = Uuid::parse_str(&req.card_id)
             .map_err(|_| Status::invalid_argument("card_id inválido"))?;
-        let user_id = Uuid::parse_str(&req.user_id)
-            .map_err(|_| Status::invalid_argument("user_id inválido"))?;
 
         // Buscar estado actual de la tarjeta
         let row: Option<(f32, i32, i32)> = sqlx::query_as(
@@ -132,9 +130,8 @@ impl SrsService for MySrsService {
         &self,
         request: Request<AddCardsToDeckRequest>,
     ) -> Result<Response<AddCardsToDeckResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let req = request.into_inner();
-        let user_id = Uuid::parse_str(&req.user_id)
-            .map_err(|_| Status::invalid_argument("user_id inválido"))?;
         let word_id = Uuid::parse_str(&req.word_id)
             .map_err(|_| Status::invalid_argument("word_id inválido"))?;
 
