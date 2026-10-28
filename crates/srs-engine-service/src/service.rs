@@ -29,6 +29,10 @@ impl SrsService for MySrsService {
         let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let req = request.into_inner();
         let limit = if req.limit <= 0 { 20 } else { req.limit };
+        let mut tx = self.pool.begin().await
+            .map_err(|_| Status::internal("No se pudo iniciar la consulta de repaso"))?;
+        common::set_current_user_id(&mut *tx, user_id).await
+            .map_err(|_| Status::internal("No se pudo establecer el contexto de usuario RLS"))?;
 
         let rows: Vec<(Uuid, Uuid, f32, i32, i32, String, String, String, String)> =
             sqlx::query_as(
@@ -45,9 +49,11 @@ impl SrsService for MySrsService {
             )
             .bind(user_id)
             .bind(limit as i64)
-            .fetch_all(self.pool.as_ref())
+            .fetch_all(&mut *tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(|_| Status::internal("No se pudieron consultar las tarjetas"))?;
+        tx.commit().await
+            .map_err(|_| Status::internal("No se pudo cerrar la consulta de repaso"))?;
 
         let cards: Vec<SrsCard> = rows
             .into_iter()
@@ -79,13 +85,19 @@ impl SrsService for MySrsService {
         let card_id = Uuid::parse_str(&req.card_id)
             .map_err(|_| Status::invalid_argument("card_id inválido"))?;
 
+        // El contexto RLS y la lectura/escritura de esta tarjeta comparten transacción.
+        let mut tx = self.pool.begin().await
+            .map_err(|_| Status::internal("No se pudo iniciar la revisión"))?;
+        common::set_current_user_id(&mut *tx, user_id).await
+            .map_err(|_| Status::internal("No se pudo establecer el contexto de usuario RLS"))?;
+
         // Buscar estado actual de la tarjeta
         let row: Option<(f32, i32, i32)> = sqlx::query_as(
             "SELECT easiness_factor::float4, interval_days, repetitions FROM user_srs_progress WHERE id = $1 AND user_id = $2"
         )
         .bind(card_id)
         .bind(user_id)
-        .fetch_optional(self.pool.as_ref())
+        .fetch_optional(&mut *tx)
         .await
         .map_err(|e| Status::internal(e.to_string()))?;
 
@@ -114,9 +126,12 @@ impl SrsService for MySrsService {
         .bind(next_review)
         .bind(card_id)
         .bind(user_id)
-        .execute(self.pool.as_ref())
+        .execute(&mut *tx)
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(|_| Status::internal("No se pudo actualizar la tarjeta"))?;
+
+        tx.commit().await
+            .map_err(|_| Status::internal("No se pudo confirmar la revisión"))?;
 
         Ok(Response::new(ReviewCardResponse {
             card_id: card_id.to_string(),
@@ -135,6 +150,11 @@ impl SrsService for MySrsService {
         let word_id = Uuid::parse_str(&req.word_id)
             .map_err(|_| Status::invalid_argument("word_id inválido"))?;
 
+        let mut tx = self.pool.begin().await
+            .map_err(|_| Status::internal("No se pudo iniciar el alta de tarjetas"))?;
+        common::set_current_user_id(&mut *tx, user_id).await
+            .map_err(|_| Status::internal("No se pudo establecer el contexto de usuario RLS"))?;
+
         // Insertar todas las oraciones asociadas a esa palabra en la tabla de repaso (si no existen ya)
         // Programamos el primer repaso para mañana (NOW() + 1 day) con valores base SM-2
         let res = sqlx::query(
@@ -148,12 +168,14 @@ impl SrsService for MySrsService {
         )
         .bind(user_id)
         .bind(word_id)
-        .execute(self.pool.as_ref())
+        .execute(&mut *tx)
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(|_| Status::internal("No se pudieron añadir las tarjetas"))?;
+        let cards_added = res.rows_affected() as i32;
 
-        Ok(Response::new(AddCardsToDeckResponse {
-            cards_added: res.rows_affected() as i32,
-        }))
+        tx.commit().await
+            .map_err(|_| Status::internal("No se pudo confirmar el alta de tarjetas"))?;
+
+        Ok(Response::new(AddCardsToDeckResponse { cards_added }))
     }
 }
