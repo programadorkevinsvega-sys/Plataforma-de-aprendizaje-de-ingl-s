@@ -76,6 +76,9 @@ impl ContentService for MyContentService {
         &self,
         request: Request<ListVocabularyWordsRequest>,
     ) -> Result<Response<ListVocabularyWordsResponse>, Status> {
+        if !request.get_ref().user_id.is_empty() {
+            common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        }
         let req = request.into_inner();
         let limit = if req.limit <= 0 { 20 } else { req.limit };
         let offset = if req.offset < 0 { 0 } else { req.offset };
