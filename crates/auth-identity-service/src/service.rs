@@ -110,6 +110,12 @@ impl AuthService for MyAuthService {
             }
         })?;
 
+        // Establecer la identidad en la misma transacción para que RLS permita
+        // insertar las estadísticas propias sin abrir acceso a otras filas.
+        common::set_current_user_id(&mut *tx, user.id)
+            .await
+            .map_err(|_| Status::internal("No se pudo establecer el contexto de usuario"))?;
+
         // Inicializar stats de gamificación
         sqlx::query(
             "INSERT INTO user_stats (user_id, xp, streak_days, coins, words_learned, sentences_mastered) VALUES ($1, 0, 0, 50, 0, 0) ON CONFLICT (user_id) DO NOTHING"
