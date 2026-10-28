@@ -13,6 +13,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
 
+    common::validate_jwt_configuration().map_err(|error| {
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, error.to_string())
+    })?;
+
     let database_url = std::env::var("DATABASE_URL").map_err(|_| {
         std::io::Error::new(
             std::io::ErrorKind::InvalidInput,

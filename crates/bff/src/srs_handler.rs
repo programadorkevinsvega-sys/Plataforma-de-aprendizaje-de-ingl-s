@@ -36,6 +36,29 @@ pub struct ReviewBody {
     pub grade: Option<i32>,
 }
 
+pub(crate) fn attach_bearer_metadata<T>(
+    headers: &HeaderMap,
+    request: &mut tonic::Request<T>,
+) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    let token = headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Bearer "))
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({ "message": "Token requerido", "code": "MISSING_TOKEN" })),
+        ))?;
+
+    let value = tonic::metadata::MetadataValue::try_from(format!("Bearer {token}"))
+        .map_err(|_| (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({ "message": "Token inválido", "code": "INVALID_TOKEN" })),
+        ))?;
+    request.metadata_mut().insert("authorization", value);
+    Ok(())
+}
+
 /// GET /api/v1/srs/due
 pub async fn get_due_cards_handler(
     State(mut state): State<AppState>,
@@ -43,10 +66,11 @@ pub async fn get_due_cards_handler(
 ) -> Result<Json<DueCardsDto>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
 
-    let request = tonic::Request::new(GetDueCardsRequest {
+    let mut request = tonic::Request::new(GetDueCardsRequest {
         user_id,
         limit: 20,
     });
+    attach_bearer_metadata(&headers, &mut request)?;
 
     match state.srs_client.get_due_cards(request).await {
         Ok(res) => {
@@ -80,11 +104,12 @@ pub async fn review_card_handler(
 ) -> Result<Json<ReviewOutcomeDto>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
 
-    let request = tonic::Request::new(ReviewCardRequest {
+    let mut request = tonic::Request::new(ReviewCardRequest {
         user_id,
         card_id,
         grade: body.grade.unwrap_or(3),
     });
+    attach_bearer_metadata(&headers, &mut request)?;
 
     match state.srs_client.review_card(request).await {
         Ok(res) => {
