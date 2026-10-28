@@ -4,7 +4,7 @@ use proto::content::ListVocabularyWordsRequest;
 use serde::Serialize;
 
 use crate::AppState;
-use crate::srs_handler::validate_token_from_headers;
+use crate::srs_handler::{attach_bearer_metadata, validate_token_from_headers};
 
 #[derive(Serialize)]
 pub struct ContextSentenceDto {
@@ -51,9 +51,10 @@ pub async fn vocabulary_list_handler(
     let mut client = state.content_client.clone();
 
     let user_level = if !user_id.is_empty() {
-        let profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
+        let mut profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
             user_id: user_id.clone(),
         });
+        attach_bearer_metadata(&headers, &mut profile_req)?;
         match state.auth_client.get_user_profile(profile_req).await {
             Ok(pres) => pres.into_inner().current_level,
             Err(_) => "A0".to_string(),
@@ -62,13 +63,16 @@ pub async fn vocabulary_list_handler(
         "A0".to_string()
     };
 
-    let request = tonic::Request::new(ListVocabularyWordsRequest {
+    let mut request = tonic::Request::new(ListVocabularyWordsRequest {
         level: user_level,
         category: "".to_string(),
         limit: 1000,
         offset: 0,
         user_id,
     });
+    if !request.get_ref().user_id.is_empty() {
+        attach_bearer_metadata(&headers, &mut request)?;
+    }
 
     match client.list_vocabulary_words(request).await {
         Ok(res) => {
@@ -109,9 +113,10 @@ pub async fn today_lesson_handler(
     let mut client = state.content_client.clone();
 
     let user_level = if !user_id.is_empty() {
-        let profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
+        let mut profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
             user_id: user_id.clone(),
         });
+        attach_bearer_metadata(&headers, &mut profile_req)?;
         match state.auth_client.get_user_profile(profile_req).await {
             Ok(pres) => pres.into_inner().current_level,
             Err(_) => "A0".to_string(),
@@ -120,13 +125,16 @@ pub async fn today_lesson_handler(
         "A0".to_string()
     };
 
-    let request = tonic::Request::new(ListVocabularyWordsRequest {
+    let mut request = tonic::Request::new(ListVocabularyWordsRequest {
         level: user_level.clone(),
         category: "".to_string(),
         limit: 5,
         offset: 0,
         user_id,
     });
+    if !request.get_ref().user_id.is_empty() {
+        attach_bearer_metadata(&headers, &mut request)?;
+    }
 
     match client.list_vocabulary_words(request).await {
         Ok(res) => {
