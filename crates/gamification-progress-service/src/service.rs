@@ -593,6 +593,31 @@ mod learning_progress_idempotency_tests {
             .await?;
             assert_eq!(totals, (20, 54, 2));
 
+            // The idempotency key is (user_id, word_id), not word_id alone:
+            // another user can earn the reward for the same shared vocabulary word.
+            let user_b = Uuid::new_v4();
+            let email_b = format!("idempotency-{}@example.invalid", user_b);
+            sqlx::query(
+                "INSERT INTO users (id, email, password_hash, full_name) VALUES ($1, $2, 'not-a-login-hash', 'Second Idempotency User')"
+            )
+            .bind(user_b)
+            .bind(&email_b)
+            .execute(&pool)
+            .await?;
+            sqlx::query(
+                "INSERT INTO user_stats (user_id, xp, streak_days, coins, words_learned, sentences_mastered, last_study_date) VALUES ($1, 0, 0, 50, 0, 0, CURRENT_DATE - INTERVAL '2 days')"
+            )
+            .bind(user_b)
+            .execute(&pool)
+            .await?;
+
+            let token_b = signed_token(user_b, &email_b)?;
+            let other_user_award = service.record_learning_progress(progress_request(
+                user_b, first_word, &token_b, 10, 2, 1
+            )?).await?.into_inner();
+            assert!(other_user_award.applied);
+            assert_eq!(other_user_award.stats.expect("user B stats").xp, 10);
+
             let event_count: i64 = sqlx::query_scalar(
                 "SELECT COUNT(*) FROM learning_progress_events WHERE user_id = $1"
             )
@@ -600,9 +625,17 @@ mod learning_progress_idempotency_tests {
             .fetch_one(&pool)
             .await?;
             assert_eq!(event_count, 2);
+            let user_b_event_count: i64 = sqlx::query_scalar(
+                "SELECT COUNT(*) FROM learning_progress_events WHERE user_id = $1"
+            )
+            .bind(user_b)
+            .fetch_one(&pool)
+            .await?;
+            assert_eq!(user_b_event_count, 1);
 
-            sqlx::query("DELETE FROM users WHERE id = $1")
+            sqlx::query("DELETE FROM users WHERE id = $1 OR id = $2")
                 .bind(user_id)
+                .bind(user_b)
                 .execute(&pool)
                 .await?;
             sqlx::query("DELETE FROM vocabulary_words WHERE id = $1 OR id = $2")
