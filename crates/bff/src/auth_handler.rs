@@ -20,6 +20,11 @@ pub struct LoginDto {
     pub password: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct RefreshDto {
+    pub refresh_token: String,
+}
+
 const MAX_EMAIL_CHARS: usize = 254;
 const MAX_PASSWORD_CHARS: usize = 128;
 const MAX_FULL_NAME_CHARS: usize = 120;
@@ -72,6 +77,7 @@ fn validate_login_input(payload: &LoginDto) -> Result<(), (StatusCode, Json<serd
 pub struct AuthResponseDto {
     pub user_id: String,
     pub access_token: String,
+    pub refresh_token: String,
     pub full_name: String,
     pub email: String,
     pub current_level: String,
@@ -141,6 +147,7 @@ pub async fn register_handler(
                 tenant_id: inner.user_id.clone(),
                 user_id: inner.user_id,
                 access_token: inner.access_token,
+                refresh_token: inner.refresh_token,
                 full_name: inner.full_name,
                 email: inner.email,
                 current_level,
@@ -174,6 +181,7 @@ pub async fn login_handler(
                 tenant_id: inner.user_id.clone(),
                 user_id: inner.user_id,
                 access_token: inner.access_token,
+                refresh_token: inner.refresh_token,
                 full_name: inner.full_name,
                 email: inner.email,
                 current_level: inner.current_level,
@@ -246,6 +254,44 @@ pub async fn me_handler(
         Err(_status) => Err((
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({ "message": "No se pudo validar la sesión.", "code": "TOKEN_VALIDATION_ERROR" })),
+        )),
+    }
+}
+
+
+/// POST /api/v1/auth/refresh — consume and rotate a one-time refresh token.
+pub async fn refresh_handler(
+    axum::extract::State(mut state): axum::extract::State<AppState>,
+    Json(payload): Json<RefreshDto>,
+) -> Result<Json<AuthResponseDto>, (StatusCode, Json<serde_json::Value>)> {
+    let request = tonic::Request::new(proto::auth::RefreshTokenRequest {
+        refresh_token: payload.refresh_token,
+    });
+
+    match state.auth_client.refresh_token(request).await {
+        Ok(res) => {
+            let inner = res.into_inner();
+            Ok(Json(AuthResponseDto {
+                tenant_id: inner.user_id.clone(),
+                user_id: inner.user_id,
+                access_token: inner.access_token,
+                refresh_token: inner.refresh_token,
+                full_name: inner.full_name,
+                email: inner.email,
+                current_level: inner.current_level,
+                target_role: if inner.target_role.is_empty() {
+                    "Software Developer".to_string()
+                } else {
+                    inner.target_role
+                },
+            }))
+        }
+        Err(_status) => Err((
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "message": "Refresh token inválido, expirado o revocado",
+                "code": "INVALID_REFRESH_TOKEN"
+            })),
         )),
     }
 }
