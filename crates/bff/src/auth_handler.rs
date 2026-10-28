@@ -71,6 +71,53 @@ fn validate_login_input(payload: &LoginDto) -> Result<(), (StatusCode, Json<serd
     Ok(())
 }
 
+
+fn normalize_email_for_rate_limit(email: &str) -> String {
+    email.trim().to_ascii_lowercase()
+}
+
+fn allow_auth_attempt(
+    email: &str,
+    action: &str,
+    quotas: &[(&str, usize, u64)],
+) -> bool {
+    let normalized_email = normalize_email_for_rate_limit(email);
+    if normalized_email.is_empty() {
+        return false;
+    }
+
+    let key = format!("email:{normalized_email}");
+    let mut allowed = true;
+    for (window_name, limit, seconds) in quotas {
+        // Evaluate each window even when another one is exhausted so the longer
+        // window continues counting rejected attempts.
+        let window_allowed = crate::request_limiter::allow_request(
+            &key,
+            &format!("auth-{action}-{window_name}"),
+            *limit,
+            std::time::Duration::from_secs(*seconds),
+        );
+        allowed = window_allowed && allowed;
+    }
+    allowed
+}
+
+fn allow_login_attempt(email: &str) -> bool {
+    allow_auth_attempt(
+        email,
+        "login",
+        &[("minute", 5, 60), ("hour", 20, 3600)],
+    )
+}
+
+fn allow_registration_attempt(email: &str) -> bool {
+    allow_auth_attempt(
+        email,
+        "registration",
+        &[("hour", 3, 3600), ("day", 10, 86400)],
+    )
+}
+
 // ─── DTOs de salida ─────────────────────────────────────────────────────────
 
 #[derive(Debug, Serialize)]
@@ -128,6 +175,15 @@ pub async fn register_handler(
     Json(payload): Json<RegisterDto>,
 ) -> Result<Json<AuthResponseDto>, (StatusCode, Json<serde_json::Value>)> {
     validate_register_input(&payload)?;
+    if !allow_registration_attempt(&payload.email) {
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(serde_json::json!({
+                "message": "Se alcanzó el límite temporal de registros para este correo.",
+                "code": "REGISTRATION_RATE_LIMITED"
+            })),
+        ));
+    }
     let request = tonic::Request::new(proto::auth::RegisterRequest {
         email: payload.email.clone(),
         password: payload.password,
@@ -169,6 +225,15 @@ pub async fn login_handler(
     Json(payload): Json<LoginDto>,
 ) -> Result<Json<AuthResponseDto>, (StatusCode, Json<serde_json::Value>)> {
     validate_login_input(&payload)?;
+    if !allow_login_attempt(&payload.email) {
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(serde_json::json!({
+                "message": "Se alcanzó el límite temporal de intentos de acceso para este correo.",
+                "code": "LOGIN_RATE_LIMITED"
+            })),
+        ));
+    }
     let request = tonic::Request::new(proto::auth::LoginRequest {
         email: payload.email,
         password: payload.password,
@@ -337,5 +402,45 @@ mod auth_input_validation_tests {
             password: "x".repeat(129),
         };
         assert!(validate_login_input(&payload).is_err());
+    }
+}
+
+
+#[cfg(test)]
+mod auth_rate_limit_tests {
+    use super::{allow_login_attempt, allow_registration_attempt, normalize_email_for_rate_limit};
+    use uuid::Uuid;
+
+    #[test]
+    fn rate_limit_identifier_is_trimmed_and_case_normalized() {
+        assert_eq!(
+            normalize_email_for_rate_limit("  Student@Example.COM "),
+            "student@example.com",
+        );
+    }
+
+    #[test]
+    fn login_attempts_are_limited_per_normalized_email() {
+        let email = format!("login-{}@example.invalid", Uuid::new_v4());
+        for _ in 0..5 {
+            assert!(allow_login_attempt(&email));
+        }
+        assert!(!allow_login_attempt(&email.to_ascii_uppercase()));
+    }
+
+    #[test]
+    fn registrations_have_a_separate_per_email_quota() {
+        let email = format!("register-{}@example.invalid", Uuid::new_v4());
+        for _ in 0..3 {
+            assert!(allow_registration_attempt(&email));
+        }
+        assert!(!allow_registration_attempt(&email));
+        assert!(allow_login_attempt(&email), "registration and login quotas are independent");
+    }
+
+    #[test]
+    fn rejects_an_empty_rate_limit_identifier() {
+        assert!(!allow_login_attempt("  "));
+        assert!(!allow_registration_attempt(""));
     }
 }
