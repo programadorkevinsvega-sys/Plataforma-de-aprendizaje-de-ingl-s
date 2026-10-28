@@ -47,21 +47,23 @@ pub async fn vocabulary_list_handler(
     State(mut state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<VocabularyListDto>, (StatusCode, Json<serde_json::Value>)> {
-    let user_id = validate_token_from_headers(&headers, &mut state).await.unwrap_or_default();
+    let user_id = validate_token_from_headers(&headers, &mut state).await?;
     let mut client = state.content_client.clone();
 
-    let user_level = if !user_id.is_empty() {
-        let mut profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
-            user_id: user_id.clone(),
-        });
-        attach_bearer_metadata(&headers, &mut profile_req)?;
-        match state.auth_client.get_user_profile(profile_req).await {
-            Ok(pres) => pres.into_inner().current_level,
-            Err(_) => "A0".to_string(),
-        }
-    } else {
-        "A0".to_string()
-    };
+    let mut profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
+        user_id: user_id.clone(),
+    });
+    attach_bearer_metadata(&headers, &mut profile_req)?;
+    let user_level = state.auth_client.get_user_profile(profile_req).await
+        .map_err(|_| (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({
+                "message": "No se pudo recuperar el perfil autenticado.",
+                "code": "PROFILE_UNAVAILABLE"
+            })),
+        ))?
+        .into_inner()
+        .current_level;
 
     let mut request = tonic::Request::new(ListVocabularyWordsRequest {
         level: user_level,
@@ -70,9 +72,7 @@ pub async fn vocabulary_list_handler(
         offset: 0,
         user_id,
     });
-    if !request.get_ref().user_id.is_empty() {
-        attach_bearer_metadata(&headers, &mut request)?;
-    }
+    attach_bearer_metadata(&headers, &mut request)?;
 
     match client.list_vocabulary_words(request).await {
         Ok(res) => {
@@ -97,9 +97,9 @@ pub async fn vocabulary_list_handler(
             let total = inner.total;
             Ok(Json(VocabularyListDto { items, total }))
         }
-        Err(e) => Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "message": e.message(), "code": "CONTENT_ERROR" })),
+        Err(_error) => Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({ "message": "El servicio de contenido no está disponible.", "code": "CONTENT_UNAVAILABLE" })),
         )),
     }
 }
@@ -109,21 +109,23 @@ pub async fn today_lesson_handler(
     State(mut state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<LessonDto>, (StatusCode, Json<serde_json::Value>)> {
-    let user_id = validate_token_from_headers(&headers, &mut state).await.unwrap_or_default();
+    let user_id = validate_token_from_headers(&headers, &mut state).await?;
     let mut client = state.content_client.clone();
 
-    let user_level = if !user_id.is_empty() {
-        let mut profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
-            user_id: user_id.clone(),
-        });
-        attach_bearer_metadata(&headers, &mut profile_req)?;
-        match state.auth_client.get_user_profile(profile_req).await {
-            Ok(pres) => pres.into_inner().current_level,
-            Err(_) => "A0".to_string(),
-        }
-    } else {
-        "A0".to_string()
-    };
+    let mut profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
+        user_id: user_id.clone(),
+    });
+    attach_bearer_metadata(&headers, &mut profile_req)?;
+    let user_level = state.auth_client.get_user_profile(profile_req).await
+        .map_err(|_| (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({
+                "message": "No se pudo recuperar el perfil autenticado.",
+                "code": "PROFILE_UNAVAILABLE"
+            })),
+        ))?
+        .into_inner()
+        .current_level;
 
     let mut request = tonic::Request::new(ListVocabularyWordsRequest {
         level: user_level.clone(),
@@ -132,9 +134,7 @@ pub async fn today_lesson_handler(
         offset: 0,
         user_id,
     });
-    if !request.get_ref().user_id.is_empty() {
-        attach_bearer_metadata(&headers, &mut request)?;
-    }
+    attach_bearer_metadata(&headers, &mut request)?;
 
     match client.list_vocabulary_words(request).await {
         Ok(res) => {
@@ -164,27 +164,33 @@ pub async fn today_lesson_handler(
                 words,
             }))
         }
-        Err(e) => Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "message": e.message(), "code": "LESSON_ERROR" })),
+        Err(_error) => Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({ "message": "No se pudo recuperar la lección.", "code": "LESSON_UNAVAILABLE" })),
         )),
     }
 }
 
 /// POST /api/v1/content/speech — TTS real via AWS Polly Neural
 pub async fn synthesize_speech_handler(
+    State(mut state): State<AppState>,
+    headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let _user_id = validate_token_from_headers(&headers, &mut state).await?;
     let text = body
         .get("text")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
 
-    if text.is_empty() {
+    if text.trim().is_empty() || text.chars().count() > 500 {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "error": "El campo 'text' es requerido" })),
+            Json(serde_json::json!({
+                "message": "El texto debe contener entre 1 y 500 caracteres.",
+                "code": "INVALID_SPEECH_TEXT"
+            })),
         ));
     }
 
@@ -212,6 +218,15 @@ pub async fn synthesize_speech_handler(
         .get("rate")
         .and_then(|v| v.as_str())
         .unwrap_or("");
+    if !req_rate.is_empty() && !matches!(req_rate, "slow" | "medium" | "fast") {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "message": "La velocidad de voz no es válida.",
+                "code": "INVALID_SPEECH_RATE"
+            })),
+        ));
+    }
 
     let default_voice = env::var("AWS_POLLY_VOICE_ID").unwrap_or_else(|_| "Matthew".to_string());
     let voice_id_str = if !req_voice.is_empty() { req_voice } else { default_voice.as_str() };
@@ -245,7 +260,7 @@ pub async fn synthesize_speech_handler(
         (text.clone(), TextType::Text)
     };
 
-    println!("🔊 [BFF TTS Request] Petición de audio (Voz: {}, Rate: {}) recibida para: \"{}\"", voice_id_str, if req_rate.is_empty() { "normal" } else { req_rate }, &text[..text.len().min(40)]);
+    tracing::info!("Solicitud de síntesis de voz recibida (voz={}, rate={})", voice_id_str, if req_rate.is_empty() { "normal" } else { req_rate });
 
     match polly_client
         .synthesize_speech()
@@ -265,7 +280,7 @@ pub async fn synthesize_speech_handler(
                         &base64::engine::general_purpose::STANDARD,
                         &bytes_vec,
                     );
-                    println!("✅ [Polly TTS Exitoso] {} bytes MP3 generados para: \"{}...\"", bytes_vec.len(), &text[..text.len().min(40)]);
+                    tracing::info!("Polly TTS generó {} bytes MP3 para la voz {}", bytes_vec.len(), voice_id_str);
                     Ok(Json(serde_json::json!({
                         "audio_base64": audio_b64,
                         "format": "mp3",
@@ -273,20 +288,20 @@ pub async fn synthesize_speech_handler(
                         "text": text,
                     })))
                 }
-                Err(e) => {
-                    eprintln!("❌ [AWS Polly Stream Error]: {:?}", e);
+                Err(_error) => {
+                    tracing::error!("Error interno recopilando el stream de audio de Polly");
                     Err((
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(serde_json::json!({ "error": format!("Error recopilando stream de Polly: {:?}", e) })),
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        Json(serde_json::json!({ "message": "El servicio de síntesis de voz no está disponible.", "code": "TTS_UNAVAILABLE" })),
                     ))
                 }
             }
         }
-        Err(e) => {
-            eprintln!("❌ [AWS Polly Synthesize Error]: {:?}", e);
+        Err(_error) => {
+            tracing::error!("Error interno solicitando síntesis de voz a Polly");
             Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({ "error": format!("Error AWS Polly: {:?}", e) })),
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({ "message": "El servicio de síntesis de voz no está disponible.", "code": "TTS_UNAVAILABLE" })),
             ))
         }
     }

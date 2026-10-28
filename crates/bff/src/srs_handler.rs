@@ -88,9 +88,9 @@ pub async fn get_due_cards_handler(
             }).collect();
             Ok(Json(DueCardsDto { cards, total: inner.total }))
         }
-        Err(e) => Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "message": e.message(), "code": "SRS_ERROR" })),
+        Err(_error) => Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({ "message": "El servicio de repaso no está disponible.", "code": "SRS_UNAVAILABLE" })),
         )),
     }
 }
@@ -103,6 +103,15 @@ pub async fn review_card_handler(
     Json(body): Json<ReviewBody>,
 ) -> Result<Json<ReviewOutcomeDto>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
+    if card_id.trim().is_empty() || card_id.len() > 128 || body.grade.is_some_and(|grade| !(0..=5).contains(&grade)) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "message": "El identificador de tarjeta o la calificación no son válidos.",
+                "code": "INVALID_SRS_REVIEW"
+            })),
+        ));
+    }
 
     let mut request = tonic::Request::new(ReviewCardRequest {
         user_id,
@@ -121,9 +130,9 @@ pub async fn review_card_handler(
                 next_review_at: inner.next_review_at,
             }))
         }
-        Err(e) => Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "message": e.message(), "code": "SRS_REVIEW_ERROR" })),
+        Err(_error) => Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({ "message": "No se pudo registrar la revisión.", "code": "SRS_REVIEW_UNAVAILABLE" })),
         )),
     }
 }
@@ -151,7 +160,10 @@ pub async fn validate_token_from_headers(
     match state.auth_client.validate_token(validate_req).await {
         Ok(res) => {
             let inner = res.into_inner();
-            if !inner.valid {
+            if !inner.valid
+                || inner.user_id.trim().is_empty()
+                || uuid::Uuid::parse_str(&inner.user_id).is_err()
+            {
                 return Err((
                     StatusCode::UNAUTHORIZED,
                     Json(serde_json::json!({ "message": "Token inválido", "code": "INVALID_TOKEN" })),

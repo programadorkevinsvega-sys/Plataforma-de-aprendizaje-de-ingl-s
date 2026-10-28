@@ -30,6 +30,15 @@ pub async fn record_progress_handler(
     Json(payload): Json<RecordProgressDto>,
 ) -> Result<Json<ProgressResponseDto>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
+    if payload.word_id.trim().is_empty() || payload.word_id.len() > 128 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "message": "El identificador de vocabulario no es válido.",
+                "code": "INVALID_WORD_ID"
+            })),
+        ));
+    }
     let mut gamification_client = state.gamification_client.clone();
     let mut srs_client = state.srs_client.clone();
 
@@ -43,10 +52,10 @@ pub async fn record_progress_handler(
     let srs_res = srs_client
         .add_cards_to_deck(srs_req)
         .await
-        .map_err(|e| {
+        .map_err(|_error| {
             (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({ "error": e.message() })),
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({ "message": "No se pudo actualizar el repaso de vocabulario.", "code": "SRS_UNAVAILABLE" })),
             )
         })?;
     
@@ -64,10 +73,10 @@ pub async fn record_progress_handler(
     let gamification_res = gamification_client
         .record_learning_progress(gamification_req)
         .await
-        .map_err(|e| {
+        .map_err(|_error| {
             (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({ "error": e.message() })),
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({ "message": "No se pudo registrar el progreso.", "code": "GAMIFICATION_UNAVAILABLE" })),
             )
         })?;
     

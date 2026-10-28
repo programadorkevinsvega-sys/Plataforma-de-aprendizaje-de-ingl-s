@@ -74,24 +74,52 @@ pub struct EvaluateAnswerBody {
     pub audio_base64: Option<String>,
 }
 
+const MAX_QUESTION_ID_CHARS: usize = 128;
+const MAX_QUESTION_CHARS: usize = 2_000;
+const MAX_ANSWER_CHARS: usize = 10_000;
+const MAX_AUDIO_BASE64_CHARS: usize = 1_000_000;
+
+fn validate_evaluation_input(body: &EvaluateAnswerBody) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    if body.question_id.trim().is_empty()
+        || body.question_id.chars().count() > MAX_QUESTION_ID_CHARS
+        || body.question.trim().is_empty()
+        || body.question.chars().count() > MAX_QUESTION_CHARS
+        || body.answer.chars().count() > MAX_ANSWER_CHARS
+        || body.answer.split_whitespace().count() < 12
+        || body.audio_base64.as_ref().is_some_and(|audio| audio.len() > MAX_AUDIO_BASE64_CHARS)
+        || body.audio_base64.as_ref().is_some_and(|audio| !audio.is_empty())
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "message": "La respuesta debe tener al menos 12 palabras, respetar los límites permitidos y no incluir audio sin transcribir.",
+                "code": "INVALID_EVALUATION_INPUT"
+            })),
+        ));
+    }
+    Ok(())
+}
+
 /// POST /api/v1/exam/questions/next — Siguiente pregunta de entrevista desde PostgreSQL
 pub async fn next_question_handler(
     State(mut state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<InterviewQuestionDto>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
-    let user_level = if !user_id.is_empty() {
-        let mut profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
-            user_id: user_id.clone(),
-        });
-        attach_bearer_metadata(&headers, &mut profile_req)?;
-        match state.auth_client.get_user_profile(profile_req).await {
-            Ok(pres) => pres.into_inner().current_level,
-            Err(_) => "A0".to_string(),
-        }
-    } else {
-        "A0".to_string()
-    };
+    let mut profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
+        user_id: user_id.clone(),
+    });
+    attach_bearer_metadata(&headers, &mut profile_req)?;
+    let user_level = state.auth_client.get_user_profile(profile_req).await
+        .map_err(|_| (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({
+                "message": "No se pudo recuperar el perfil autenticado.",
+                "code": "PROFILE_UNAVAILABLE"
+            })),
+        ))?
+        .into_inner()
+        .current_level;
 
     let req = tonic::Request::new(proto::content::GetRandomInterviewQuestionRequest {
         category: "".to_string(),
@@ -109,9 +137,9 @@ pub async fn next_question_handler(
                 category: q.category,
             }))
         }
-        Err(e) => Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "message": format!("Error obteniendo pregunta: {}", e.message()) })),
+        Err(_error) => Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({ "message": "No se pudo obtener una pregunta de entrevista.", "code": "QUESTION_UNAVAILABLE" })),
         )),
     }
 }
@@ -123,27 +151,26 @@ pub async fn evaluate_answer_handler(
     Json(body): Json<EvaluateAnswerBody>,
 ) -> Result<Json<ExamResultDto>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
+    validate_evaluation_input(&body)?;
 
-    let user_level = if !user_id.is_empty() {
-        let mut profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
-            user_id: user_id.clone(),
-        });
-        attach_bearer_metadata(&headers, &mut profile_req)?;
-        match state.auth_client.get_user_profile(profile_req).await {
-            Ok(pres) => pres.into_inner().current_level,
-            Err(_) => "A0".to_string(),
-        }
-    } else {
-        "A0".to_string()
-    };
+    let mut profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
+        user_id: user_id.clone(),
+    });
+    attach_bearer_metadata(&headers, &mut profile_req)?;
+    let user_level = state.auth_client.get_user_profile(profile_req).await
+        .map_err(|_| (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({
+                "message": "No se pudo recuperar el perfil autenticado.",
+                "code": "PROFILE_UNAVAILABLE"
+            })),
+        ))?
+        .into_inner()
+        .current_level;
 
-    let response_text = if body.answer.is_empty() && body.audio_base64.is_some() {
-        format!("[Audio Transcrito]: Respuesta oral a la pregunta '{}'", body.question)
-    } else if !body.answer.is_empty() {
-        body.answer
-    } else {
-        format!("Respuesta a: {}", body.question)
-    };
+    // El audio se procesa en el WebSocket de transcripción. Este endpoint solo
+    // evalúa el texto transcrito; no convierte un payload de audio en respuesta.
+    let response_text = body.answer;
 
     let mut request = tonic::Request::new(EvaluateExamAnswerRequest {
         user_id,
@@ -176,9 +203,9 @@ pub async fn evaluate_answer_handler(
                 detected_weaknesses: weaknesses,
             }))
         }
-        Err(e) => Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "message": e.message(), "code": "EVAL_ERROR" })),
+        Err(_error) => Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({ "message": "El servicio de evaluación no está disponible.", "code": "EVAL_UNAVAILABLE" })),
         )),
     }
 }
@@ -213,9 +240,9 @@ pub async fn get_drill_handler(
                 exercises,
             }))
         }
-        Err(e) => Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "message": e.message(), "code": "DRILL_ERROR" })),
+        Err(_error) => Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({ "message": "El servicio de ejercicios no está disponible.", "code": "DRILL_UNAVAILABLE" })),
         )),
     }
 }
@@ -456,8 +483,6 @@ pub async fn transcribe_ws_handler(
     }
 
     Ok(ws
-        // Rechaza mensajes grandes en el transporte antes de construir un frame
-        // que exceda el límite de audio permitido por esta ruta.
         .max_message_size(TRANSCRIBE_MAX_CHUNK_BYTES)
         .max_frame_size(TRANSCRIBE_MAX_CHUNK_BYTES)
         .protocols([TRANSCRIBE_WS_PROTOCOL])
@@ -723,5 +748,61 @@ mod transcription_ticket_tests {
         ));
         assert!(websocket_origin_allowed("http://localhost:3000", None));
         assert!(!websocket_origin_allowed("https://app.example.com", None));
+    }
+}
+
+
+#[cfg(test)]
+mod evaluation_input_validation_tests {
+    use super::{validate_evaluation_input, EvaluateAnswerBody, MAX_ANSWER_CHARS, MAX_AUDIO_BASE64_CHARS};
+
+    fn valid_input() -> EvaluateAnswerBody {
+        EvaluateAnswerBody {
+            question_id: "question-123".to_string(),
+            question: "Tell me about a backend system you improved.".to_string(),
+            answer: "I measured the bottleneck carefully, added tracing, and improved our production p95 latency significantly.".to_string(),
+            audio_base64: None,
+        }
+    }
+
+    #[test]
+    fn accepts_evaluation_input_within_limits() {
+        assert!(validate_evaluation_input(&valid_input()).is_ok());
+    }
+
+    #[test]
+    fn rejects_answer_over_limit() {
+        let mut input = valid_input();
+        input.answer = "a".repeat(MAX_ANSWER_CHARS + 1);
+        assert!(validate_evaluation_input(&input).is_err());
+    }
+
+    #[test]
+    fn rejects_audio_payload_over_limit() {
+        let mut input = valid_input();
+        input.audio_base64 = Some("A".repeat(MAX_AUDIO_BASE64_CHARS + 1));
+        assert!(validate_evaluation_input(&input).is_err());
+    }
+
+
+    #[test]
+    fn rejects_answer_below_minimum_word_count() {
+        let mut input = valid_input();
+        input.answer = "I fixed a bug.".to_string();
+        assert!(validate_evaluation_input(&input).is_err());
+    }
+
+    #[test]
+    fn rejects_raw_audio_payload_and_requires_transcription_first() {
+        let mut input = valid_input();
+        input.audio_base64 = Some("AAECAwQ=".to_string());
+        assert!(validate_evaluation_input(&input).is_err());
+    }
+
+    #[test]
+    fn rejects_missing_question_id() {
+        let mut input = valid_input();
+        input.question_id = "  ".to_string();
+        assert!(validate_evaluation_input(&input).is_err());
     }
 }

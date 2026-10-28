@@ -12,6 +12,29 @@ pub struct UpdateProfileBody {
     pub current_level: Option<String>,
 }
 
+const MAX_PROFILE_NAME_CHARS: usize = 120;
+const MAX_PROFILE_ROLE_CHARS: usize = 80;
+const MAX_PROFILE_LEVEL_CHARS: usize = 20;
+
+fn validate_update_profile_body(body: &UpdateProfileBody) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    let has_value = body.full_name.as_ref().is_some_and(|value| !value.trim().is_empty())
+        || body.target_role.as_ref().is_some_and(|value| !value.trim().is_empty())
+        || body.current_level.as_ref().is_some_and(|value| !value.trim().is_empty());
+    let too_long = body.full_name.as_ref().is_some_and(|value| value.chars().count() > MAX_PROFILE_NAME_CHARS)
+        || body.target_role.as_ref().is_some_and(|value| value.chars().count() > MAX_PROFILE_ROLE_CHARS)
+        || body.current_level.as_ref().is_some_and(|value| value.chars().count() > MAX_PROFILE_LEVEL_CHARS);
+    if !has_value || too_long {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "message": "Debes enviar al menos un campo de perfil válido y respetar los límites de tamaño.",
+                "code": "INVALID_PROFILE_INPUT"
+            })),
+        ));
+    }
+    Ok(())
+}
+
 #[derive(Serialize)]
 pub struct UserProfileDto {
     pub id: String,
@@ -28,6 +51,7 @@ pub async fn update_profile_handler(
     Json(body): Json<UpdateProfileBody>,
 ) -> Result<Json<UserProfileDto>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
+    validate_update_profile_body(&body)?;
     let token = extract_bearer_token(&headers).ok_or_else(|| (
         StatusCode::UNAUTHORIZED,
         Json(serde_json::json!({ "message": "Token requerido", "code": "MISSING_TOKEN" })),
@@ -52,9 +76,9 @@ pub async fn update_profile_handler(
                 current_level: p.current_level,
             }))
         }
-        Err(e) => Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({ "message": format!("Error actualizando perfil: {}", e.message()) })),
+        Err(_error) => Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({ "message": "No se pudo actualizar el perfil.", "code": "PROFILE_UPDATE_UNAVAILABLE" })),
         )),
     }
 }
@@ -137,9 +161,9 @@ pub async fn progress_summary_real_handler(
                 "target_role": target_role
             })))
         }
-        Err(e) => Err((
+        Err(_error) => Err((
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "message": format!("Servicio de gamificación no disponible: {}", e.message()) })),
+            Json(serde_json::json!({ "message": "El servicio de gamificación no está disponible.", "code": "GAMIFICATION_UNAVAILABLE" })),
         )),
     }
 }
@@ -170,8 +194,11 @@ pub async fn leaderboard_handler(
             }
             Ok(Json(serde_json::json!(mapped_entries)))
         }
-        Err(e) => {
-            Err((StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e.message() }))))
+        Err(_error) => {
+            Err((StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
+                "message": "El ranking no está disponible.",
+                "code": "LEADERBOARD_UNAVAILABLE"
+            }))))
         }
     }
 }
@@ -203,8 +230,11 @@ pub async fn achievements_handler(
             }
             Ok(Json(serde_json::json!(mapped_achievements)))
         }
-        Err(e) => {
-            Err((StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({ "error": e.message() }))))
+        Err(_error) => {
+            Err((StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
+                "message": "Los logros no están disponibles.",
+                "code": "ACHIEVEMENTS_UNAVAILABLE"
+            }))))
         }
     }
 }
