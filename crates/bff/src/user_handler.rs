@@ -2,6 +2,7 @@ use axum::{extract::State, http::{StatusCode, HeaderMap}, Json};
 use serde::{Deserialize, Serialize};
 
 use crate::AppState;
+use crate::auth_handler::{attach_bearer_token, extract_bearer_token};
 use crate::srs_handler::validate_token_from_headers;
 
 #[derive(Deserialize)]
@@ -27,13 +28,18 @@ pub async fn update_profile_handler(
     Json(body): Json<UpdateProfileBody>,
 ) -> Result<Json<UserProfileDto>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
+    let token = extract_bearer_token(&headers).ok_or_else(|| (
+        StatusCode::UNAUTHORIZED,
+        Json(serde_json::json!({ "message": "Token requerido", "code": "MISSING_TOKEN" })),
+    ))?;
 
-    let update_req = tonic::Request::new(proto::auth::UpdateUserProfileRequest {
+    let mut update_req = tonic::Request::new(proto::auth::UpdateUserProfileRequest {
         user_id: user_id.clone(),
         full_name: body.full_name.unwrap_or_default(),
         target_role: body.target_role.unwrap_or_default(),
         current_level: body.current_level.unwrap_or_default(),
     });
+    attach_bearer_token(&mut update_req, &token)?;
 
     match state.auth_client.update_user_profile(update_req).await {
         Ok(res) => {
@@ -67,14 +73,23 @@ pub async fn progress_summary_real_handler(
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
 
-    // Consultar perfil para obtener target_role real
-    let profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
+    // Consultar perfil con el mismo JWT que se validó en el BFF.
+    let token = extract_bearer_token(&headers).ok_or_else(|| (
+        StatusCode::UNAUTHORIZED,
+        Json(serde_json::json!({ "message": "Token requerido", "code": "MISSING_TOKEN" })),
+    ))?;
+    let mut profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
         user_id: user_id.clone(),
     });
-    let target_role = match state.auth_client.get_user_profile(profile_req).await {
-        Ok(pres) => pres.into_inner().target_role,
-        Err(_) => "Software Engineer".to_string(),
-    };
+    attach_bearer_token(&mut profile_req, &token)?;
+    let profile = state.auth_client.get_user_profile(profile_req).await.map_err(|_| (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(serde_json::json!({
+            "message": "No se pudo recuperar el perfil autenticado",
+            "code": "PROFILE_UNAVAILABLE"
+        })),
+    ))?;
+    let target_role = profile.into_inner().target_role;
 
     let stats_req = tonic::Request::new(proto::gamification::GetUserStatsRequest { user_id });
     match state.gamification_client.get_user_stats(stats_req).await {
