@@ -59,11 +59,43 @@ pub async fn update_profile_handler(
     }
 }
 
-/// POST /api/v1/auth/logout
+#[derive(Debug, Deserialize)]
+pub struct LogoutDto {
+    pub refresh_token: String,
+}
+
+/// POST /api/v1/auth/logout — revokes the refresh token before clearing client state.
 pub async fn logout_handler(
-    State(_state): State<AppState>,
-) -> Json<serde_json::Value> {
-    Json(serde_json::json!({ "message": "Sesión cerrada exitosamente", "success": true }))
+    State(mut state): State<AppState>,
+    Json(payload): Json<LogoutDto>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    if payload.refresh_token.trim().is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "message": "Refresh token requerido para cerrar la sesión del servidor",
+                "code": "MISSING_REFRESH_TOKEN"
+            })),
+        ));
+    }
+
+    let request = tonic::Request::new(proto::auth::RevokeRefreshTokenRequest {
+        refresh_token: payload.refresh_token,
+    });
+
+    match state.auth_client.revoke_refresh_token(request).await {
+        Ok(_) => Ok(Json(serde_json::json!({
+            "message": "Sesión cerrada exitosamente",
+            "success": true
+        }))),
+        Err(_) => Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({
+                "message": "No se pudo revocar la sesión en el servidor",
+                "code": "LOGOUT_UNAVAILABLE"
+            })),
+        )),
+    }
 }
 
 /// GET /api/v1/progress/summary — con datos reales del gamification service y user profile

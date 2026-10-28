@@ -5,6 +5,7 @@ import {
   UnauthorizedError,
 } from '@/domain/errors/DomainError'
 import { sessionStorageAdapter, type SessionStorage } from '../storage/SessionStorage'
+import { toAuthSession } from './mappers'
 
 export const BFF_BASE_URL =
   process.env.NEXT_PUBLIC_BFF_URL?.replace(/\/$/, '') ?? 'http://localhost:8080'
@@ -15,6 +16,8 @@ export interface RequestOptions {
   query?: Record<string, string | number | boolean | undefined>
   /** Endpoints públicos como login/register no envían Authorization. */
   skipAuth?: boolean
+  /** Evita otro intento de refresh al reintentar o revocar una sesión. */
+  skipRefresh?: boolean
   signal?: AbortSignal
   timeoutMs?: number
 }
@@ -34,6 +37,8 @@ interface BffErrorBody {
  * - Limpiar la sesión ante un 401 para cortar cualquier fuga entre tenants.
  */
 export class BffHttpClient {
+  private refreshInFlight: Promise<ReturnType<typeof toAuthSession>> | null = null
+
   constructor(
     private readonly baseUrl: string = BFF_BASE_URL,
     private readonly session: SessionStorage = sessionStorageAdapter,
@@ -44,12 +49,45 @@ export class BffHttpClient {
     return this.baseUrl
   }
 
+  private refreshSession(
+    refreshToken: string,
+    timeoutMs: number,
+  ): Promise<ReturnType<typeof toAuthSession>> {
+    if (!this.refreshInFlight) {
+      this.refreshInFlight = (async () => {
+        const refreshedDto = await this.request<Record<string, unknown>>(
+          '/api/v1/auth/refresh',
+          {
+            method: 'POST',
+            body: { refresh_token: refreshToken },
+            skipAuth: true,
+            skipRefresh: true,
+            timeoutMs,
+          },
+        )
+        const refreshedSession = toAuthSession(refreshedDto)
+        if (!refreshedSession.accessToken || !refreshedSession.refreshToken) {
+          throw new Error('El BFF devolvió una sesión renovada incompleta')
+        }
+
+        this.session.clear()
+        this.session.save(refreshedSession)
+        return refreshedSession
+      })().finally(() => {
+        this.refreshInFlight = null
+      })
+    }
+
+    return this.refreshInFlight!
+  }
+
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
     const {
       method = 'GET',
       body,
       query,
       skipAuth = false,
+      skipRefresh = false,
       signal,
       timeoutMs = 30_000,
     } = options
@@ -117,13 +155,33 @@ export class BffHttpClient {
     const message = errorBody.message ?? errorBody.error ?? response.statusText
 
     if (response.status === 401) {
+      if (!skipAuth && !skipRefresh) {
+        const currentSession = this.session.toSession()
+        if (currentSession?.refreshToken) {
+          try {
+            await this.refreshSession(currentSession.refreshToken, timeoutMs)
+
+            // Las respuestas 401 concurrentes comparten una sola rotación.
+            // Reintentar una sola vez: un nuevo 401 no vuelve a disparar refresh.
+            return await this.request<T>(path, { ...options, skipRefresh: true })
+          } catch {
+            this.session.clear()
+            this.onUnauthorized?.()
+            throw new UnauthorizedError('La sesión expiró o el refresh token fue rechazado.')
+          }
+        }
+      }
+
       if (!skipAuth) {
         this.session.clear()
         this.onUnauthorized?.()
         throw new UnauthorizedError(message || undefined)
-      } else {
-        throw new DomainError(message || 'Credenciales o datos de autenticación no válidos.', 'INVALID_CREDENTIALS')
       }
+
+      throw new DomainError(
+        message || 'Credenciales o datos de autenticación no válidos.',
+        'INVALID_CREDENTIALS',
+      )
     }
 
     if (response.status === 403) {

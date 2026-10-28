@@ -3,13 +3,30 @@ use crate::jwt::JwtService;
 use common::Email;
 use proto::auth::auth_service_server::AuthService;
 use proto::auth::{
-    AuthResponse, GetUserProfileRequest, LoginRequest, RegisterRequest, UpdateUserProfileRequest,
-    UserProfileResponse, ValidateTokenRequest, ValidateTokenResponse,
+    AuthResponse, GetUserProfileRequest, LoginRequest, RefreshTokenRequest,
+    RegisterRequest, RevokeRefreshTokenRequest, RevokeRefreshTokenResponse,
+    UpdateUserProfileRequest, UserProfileResponse, ValidateTokenRequest, ValidateTokenResponse,
 };
+use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 use uuid::Uuid;
+
+const REFRESH_TOKEN_TTL_DAYS: i32 = 30;
+
+/// Two independent UUIDv4 values provide an opaque refresh token with 244 bits
+/// of randomness. Only a SHA-256 digest is persisted.
+fn generate_refresh_token() -> String {
+    format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple())
+}
+
+fn hash_refresh_token(token: &str) -> String {
+    Sha256::digest(token.as_bytes())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
 
 pub struct MyAuthService {
     pub pool: Arc<PgPool>,
@@ -131,6 +148,17 @@ impl AuthService for MyAuthService {
         let access_token = JwtService::generate_token(user.id, email.as_str(), &user.target_role)
             .map_err(|_| Status::internal("No se pudo crear la sesión de usuario"))?;
 
+        let refresh_token = generate_refresh_token();
+        sqlx::query(
+            "INSERT INTO auth_refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() + make_interval(days => $3))"
+        )
+        .bind(user.id)
+        .bind(hash_refresh_token(&refresh_token))
+        .bind(REFRESH_TOKEN_TTL_DAYS)
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudo crear la sesión renovable"))?;
+
         tx.commit()
             .await
             .map_err(|_| Status::internal("No se pudo confirmar el registro"))?;
@@ -138,7 +166,7 @@ impl AuthService for MyAuthService {
         Ok(Response::new(AuthResponse {
             user_id: user.id.to_string(),
             access_token,
-            refresh_token: "refresh_token_placeholder".to_string(),
+            refresh_token,
             full_name: user.full_name,
             email: email.as_str().to_string(),
             current_level: user.current_level,
@@ -171,12 +199,23 @@ impl AuthService for MyAuthService {
         }
 
         let access_token = JwtService::generate_token(user_id, email.as_str(), &target_role)
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(|_| Status::internal("No se pudo crear la sesión de usuario"))?;
+
+        let refresh_token = generate_refresh_token();
+        sqlx::query(
+            "INSERT INTO auth_refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() + make_interval(days => $3))"
+        )
+        .bind(user_id)
+        .bind(hash_refresh_token(&refresh_token))
+        .bind(REFRESH_TOKEN_TTL_DAYS)
+        .execute(self.pool.as_ref())
+        .await
+        .map_err(|_| Status::internal("No se pudo crear la sesión renovable"))?;
 
         Ok(Response::new(AuthResponse {
             user_id: user_id.to_string(),
             access_token,
-            refresh_token: "refresh_token_placeholder".to_string(),
+            refresh_token,
             full_name,
             email: email.as_str().to_string(),
             current_level,
@@ -203,6 +242,99 @@ impl AuthService for MyAuthService {
                 role: "".to_string(),
             })),
         }
+    }
+
+
+    async fn refresh_token(
+        &self,
+        request: Request<RefreshTokenRequest>,
+    ) -> Result<Response<AuthResponse>, Status> {
+        let raw_token = request.into_inner().refresh_token;
+        if raw_token.trim().is_empty() {
+            return Err(Status::unauthenticated("Refresh token requerido"));
+        }
+        let presented_hash = hash_refresh_token(&raw_token);
+        let mut tx = self.pool.begin().await
+            .map_err(|_| Status::internal("No se pudo iniciar la renovación de sesión"))?;
+
+        let row: Option<(Uuid, String, String, String, String, Uuid)> = sqlx::query_as(
+            r#"
+            SELECT u.id, u.email, u.full_name, u.target_role, u.current_level, t.id
+            FROM auth_refresh_tokens t
+            JOIN users u ON u.id = t.user_id
+            WHERE t.token_hash = $1
+              AND t.revoked_at IS NULL
+              AND t.expires_at > NOW()
+            FOR UPDATE OF t
+            "#,
+        )
+        .bind(&presented_hash)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudo validar la renovación de sesión"))?;
+
+        let (user_id, email, full_name, target_role, current_level, token_id) =
+            row.ok_or_else(|| Status::unauthenticated("Refresh token inválido, expirado o revocado"))?;
+
+        let revoked = sqlx::query(
+            "UPDATE auth_refresh_tokens SET revoked_at = NOW() WHERE id = $1 AND revoked_at IS NULL"
+        )
+        .bind(token_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudo rotar el refresh token"))?;
+        if revoked.rows_affected() != 1 {
+            return Err(Status::unauthenticated("Refresh token inválido, expirado o revocado"));
+        }
+
+        let access_token = JwtService::generate_token(user_id, &email, &target_role)
+            .map_err(|_| Status::internal("No se pudo renovar la sesión"))?;
+        let refresh_token = generate_refresh_token();
+
+        sqlx::query(
+            "INSERT INTO auth_refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() + make_interval(days => $3))"
+        )
+        .bind(user_id)
+        .bind(hash_refresh_token(&refresh_token))
+        .bind(REFRESH_TOKEN_TTL_DAYS)
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudo crear el refresh token rotado"))?;
+
+        tx.commit().await
+            .map_err(|_| Status::internal("No se pudo confirmar la renovación de sesión"))?;
+
+        Ok(Response::new(AuthResponse {
+            user_id: user_id.to_string(),
+            access_token,
+            refresh_token,
+            full_name,
+            email,
+            current_level,
+            target_role,
+        }))
+    }
+
+    async fn revoke_refresh_token(
+        &self,
+        request: Request<RevokeRefreshTokenRequest>,
+    ) -> Result<Response<RevokeRefreshTokenResponse>, Status> {
+        let raw_token = request.into_inner().refresh_token;
+        if raw_token.trim().is_empty() {
+            return Err(Status::invalid_argument("refresh_token requerido"));
+        }
+
+        let result = sqlx::query(
+            "UPDATE auth_refresh_tokens SET revoked_at = NOW() WHERE token_hash = $1 AND revoked_at IS NULL"
+        )
+        .bind(hash_refresh_token(&raw_token))
+        .execute(self.pool.as_ref())
+        .await
+        .map_err(|_| Status::internal("No se pudo cerrar la sesión"))?;
+
+        Ok(Response::new(RevokeRefreshTokenResponse {
+            revoked: result.rows_affected() > 0,
+        }))
     }
 
     async fn get_user_profile(
@@ -306,5 +438,160 @@ mod authorization_tests {
     fn rejects_malformed_profile_id() {
         let error = enforce_user_scope(Uuid::new_v4(), "not-a-uuid").unwrap_err();
         assert_eq!(error.code(), Code::InvalidArgument);
+    }
+}
+
+
+#[cfg(test)]
+mod refresh_token_tests {
+    use super::{generate_refresh_token, hash_refresh_token};
+
+    #[test]
+    fn refresh_tokens_are_opaque_and_have_expected_length() {
+        let first = generate_refresh_token();
+        let second = generate_refresh_token();
+        assert_eq!(first.len(), 64);
+        assert_ne!(first, second);
+        assert!(first.chars().all(|character| character.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn refresh_token_digest_is_fixed_length_and_deterministic() {
+        let token = generate_refresh_token();
+        let hash = hash_refresh_token(&token);
+        assert_eq!(hash.len(), 64);
+        assert_ne!(hash, token);
+        assert_eq!(hash, hash_refresh_token(&token));
+    }
+}
+
+
+#[cfg(test)]
+mod refresh_token_integration_tests {
+    use super::{generate_refresh_token, hash_refresh_token, MyAuthService};
+    use proto::auth::auth_service_server::AuthService;
+    use proto::auth::{RefreshTokenRequest, RevokeRefreshTokenRequest};
+    use sqlx::postgres::PgPoolOptions;
+    use std::sync::Arc;
+    use tonic::Code;
+    use uuid::Uuid;
+
+    /// Requires the CI-provided TEST_DATABASE_URL after the repository migrations
+    /// have been applied. The test creates and removes its own user.
+    #[tokio::test]
+    async fn refresh_rotation_replay_and_logout_revocation_are_enforced() -> Result<(), Box<dyn std::error::Error>> {
+        let Ok(database_url) = std::env::var("TEST_DATABASE_URL") else {
+            eprintln!("TEST_DATABASE_URL is not configured; skipping refresh-token integration test");
+            return Ok(());
+        };
+
+        let prior_secret = std::env::var("JWT_SECRET").ok();
+        std::env::set_var("JWT_SECRET", "refresh-token-test-secret-0123456789abcdef");
+        let pool = PgPoolOptions::new()
+            .max_connections(2)
+            .connect(&database_url)
+            .await?;
+        let user_id = Uuid::new_v4();
+        let email = format!("refresh-{}@example.invalid", user_id);
+        sqlx::query(
+            "INSERT INTO users (id, email, password_hash, full_name, target_role, current_level) VALUES ($1, $2, 'not-a-login-hash', 'Refresh Integration', 'BACKEND', 'A2')"
+        )
+        .bind(user_id)
+        .bind(&email)
+        .execute(&pool)
+        .await?;
+
+        let expired_token = generate_refresh_token();
+        sqlx::query(
+            "INSERT INTO auth_refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() - INTERVAL '1 day')"
+        )
+        .bind(user_id)
+        .bind(hash_refresh_token(&expired_token))
+        .execute(&pool)
+        .await?;
+
+        let initial_token = generate_refresh_token();
+        sqlx::query(
+            "INSERT INTO auth_refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL '30 days')"
+        )
+        .bind(user_id)
+        .bind(hash_refresh_token(&initial_token))
+        .execute(&pool)
+        .await?;
+
+        let service = MyAuthService::new(Arc::new(pool.clone()));
+        let expired = service.refresh_token(tonic::Request::new(RefreshTokenRequest {
+            refresh_token: expired_token,
+        })).await.unwrap_err();
+        assert_eq!(expired.code(), Code::Unauthenticated);
+
+        let stored_hash: String = sqlx::query_scalar(
+            "SELECT token_hash FROM auth_refresh_tokens WHERE user_id = $1 AND token_hash = $2"
+        )
+        .bind(user_id)
+        .bind(hash_refresh_token(&initial_token))
+        .fetch_one(&pool)
+        .await?;
+        assert_ne!(stored_hash, initial_token, "database must not store the raw refresh token");
+        let rotated = service.refresh_token(tonic::Request::new(RefreshTokenRequest {
+            refresh_token: initial_token.clone(),
+        })).await?.into_inner();
+
+        assert_eq!(rotated.user_id, user_id.to_string());
+        assert!(!rotated.access_token.is_empty());
+        assert_ne!(rotated.refresh_token, initial_token);
+
+        let replay = service.refresh_token(tonic::Request::new(RefreshTokenRequest {
+            refresh_token: initial_token,
+        })).await.unwrap_err();
+        assert_eq!(replay.code(), Code::Unauthenticated);
+
+        let revoked = service.revoke_refresh_token(tonic::Request::new(RevokeRefreshTokenRequest {
+            refresh_token: rotated.refresh_token.clone(),
+        })).await?.into_inner();
+        assert!(revoked.revoked);
+
+        let after_logout = service.refresh_token(tonic::Request::new(RefreshTokenRequest {
+            refresh_token: rotated.refresh_token,
+        })).await.unwrap_err();
+        assert_eq!(after_logout.code(), Code::Unauthenticated);
+
+        // Concurrent refresh attempts using one token must never both succeed.
+        let concurrent_token = generate_refresh_token();
+        sqlx::query(
+            "INSERT INTO auth_refresh_tokens (user_id, token_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL '30 days')"
+        )
+        .bind(user_id)
+        .bind(hash_refresh_token(&concurrent_token))
+        .execute(&pool)
+        .await?;
+
+        let (concurrent_a, concurrent_b) = tokio::join!(
+            service.refresh_token(tonic::Request::new(RefreshTokenRequest {
+                refresh_token: concurrent_token.clone(),
+            })),
+            service.refresh_token(tonic::Request::new(RefreshTokenRequest {
+                refresh_token: concurrent_token,
+            })),
+        );
+        let success_count = [concurrent_a.is_ok(), concurrent_b.is_ok()]
+            .into_iter()
+            .filter(|success| *success)
+            .count();
+        assert_eq!(success_count, 1, "a refresh token must be usable once, including under race");
+
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(user_id)
+            .execute(&pool)
+            .await?;
+        pool.close().await;
+
+        if let Some(secret) = prior_secret {
+            std::env::set_var("JWT_SECRET", secret);
+        } else {
+            std::env::remove_var("JWT_SECRET");
+        }
+
+        Ok(())
     }
 }
