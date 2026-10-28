@@ -2,6 +2,7 @@ mod auth_handler;
 mod content_handler;
 mod exam_handler;
 mod progress_handler;
+mod request_limiter;
 mod srs_handler;
 mod user_handler;
 

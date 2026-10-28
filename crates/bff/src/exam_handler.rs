@@ -151,6 +151,20 @@ pub async fn evaluate_answer_handler(
     Json(body): Json<EvaluateAnswerBody>,
 ) -> Result<Json<ExamResultDto>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
+    if !crate::request_limiter::allow_request(
+        &user_id,
+        "ai-evaluate",
+        5,
+        std::time::Duration::from_secs(60),
+    ) {
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(serde_json::json!({
+                "message": "Se alcanzó el límite temporal de evaluaciones IA.",
+                "code": "AI_EVALUATION_RATE_LIMITED"
+            })),
+        ));
+    }
     validate_evaluation_input(&body)?;
 
     let mut profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
@@ -217,6 +231,20 @@ pub async fn get_drill_handler(
     axum::extract::Path(_result_id): axum::extract::Path<String>,
 ) -> Result<Json<DrillDto>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
+    if !crate::request_limiter::allow_request(
+        &user_id,
+        "ai-drill",
+        5,
+        std::time::Duration::from_secs(60),
+    ) {
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(serde_json::json!({
+                "message": "Se alcanzó el límite temporal de ejercicios IA.",
+                "code": "AI_DRILL_RATE_LIMITED"
+            })),
+        ));
+    }
 
     let mut request = tonic::Request::new(GenerateTargetedDrillRequest {
         user_id,

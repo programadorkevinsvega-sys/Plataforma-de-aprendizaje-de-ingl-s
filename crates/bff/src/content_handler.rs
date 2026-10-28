@@ -177,7 +177,22 @@ pub async fn synthesize_speech_handler(
     headers: HeaderMap,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let _user_id = validate_token_from_headers(&headers, &mut state).await?;
+    let user_id = validate_token_from_headers(&headers, &mut state).await?;
+    if !crate::request_limiter::allow_request(
+        &user_id,
+        "tts",
+        20,
+        std::time::Duration::from_secs(60),
+    ) {
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(serde_json::json!({
+                "message": "Se alcanzó el límite temporal de síntesis de voz.",
+                "code": "TTS_RATE_LIMITED"
+            })),
+        ));
+    }
+
     let text = body
         .get("text")
         .and_then(|v| v.as_str())
