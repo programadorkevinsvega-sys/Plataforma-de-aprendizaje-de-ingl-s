@@ -49,7 +49,10 @@ export class BffHttpClient {
     return this.baseUrl
   }
 
-  private refreshSession(refreshToken: string, timeoutMs: number) {
+  private refreshSession(
+    refreshToken: string,
+    timeoutMs: number,
+  ): Promise<ReturnType<typeof toAuthSession>> {
     if (!this.refreshInFlight) {
       this.refreshInFlight = (async () => {
         const refreshedDto = await this.request<Record<string, unknown>>(
@@ -75,7 +78,7 @@ export class BffHttpClient {
       })
     }
 
-    return this.refreshInFlight
+    return this.refreshInFlight!
   }
 
   async request<T>(path: string, options: RequestOptions = {}): Promise<T> {
