@@ -20,7 +20,9 @@ interface PersistedSession {
 }
 
 /**
- * Persistencia de la sesión JWT en el navegador.
+ * Persistencia de sesión limitada a sessionStorage por pestaña.
+ * Los tokens nunca se escriben en localStorage; sessionStorage sigue siendo
+ * accesible a JavaScript y no sustituye una sesión de cookie HttpOnly.
  *
  * Aislamiento multi-tenant: se guarda un único registro por pestaña con su
  * `tenantId`. Al iniciar sesión se limpia cualquier rastro previo, de modo que
@@ -52,7 +54,6 @@ export class SessionStorage {
     if (typeof window === 'undefined') return
     try {
       window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
     } catch {
       // Modo privado o storage bloqueado: la sesión vive solo en memoria.
     }
@@ -63,9 +64,7 @@ export class SessionStorage {
     if (typeof window === 'undefined') return null
 
     try {
-      const raw =
-        window.sessionStorage.getItem(STORAGE_KEY) ??
-        window.localStorage.getItem(STORAGE_KEY)
+      const raw = window.sessionStorage.getItem(STORAGE_KEY)
       if (!raw) return null
 
       const parsed = JSON.parse(raw) as PersistedSession
@@ -107,7 +106,6 @@ export class SessionStorage {
     if (typeof window === 'undefined') return
     try {
       window.sessionStorage.removeItem(STORAGE_KEY)
-      window.localStorage.removeItem(STORAGE_KEY)
     } catch {
       // no-op
     }

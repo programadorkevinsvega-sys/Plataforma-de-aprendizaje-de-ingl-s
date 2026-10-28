@@ -36,17 +36,21 @@ impl GamificationService for MyGamificationService {
         &self,
         request: Request<GetUserStatsRequest>,
     ) -> Result<Response<UserStatsResponse>, Status> {
-        let req = request.into_inner();
-        let user_id = Uuid::parse_str(&req.user_id)
-            .map_err(|_| Status::invalid_argument("user_id inválido"))?;
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let mut tx = self.pool.begin().await
+            .map_err(|_| Status::internal("No se pudo iniciar la consulta de estadísticas"))?;
+        common::set_current_user_id(&mut *tx, user_id).await
+            .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
 
         let row: Option<(i32, i32, i32, i32, i32)> = sqlx::query_as(
             "SELECT xp, streak_days, coins, words_learned, sentences_mastered FROM user_stats WHERE user_id = $1"
         )
         .bind(user_id)
-        .fetch_optional(self.pool.as_ref())
+        .fetch_optional(&mut *tx)
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(|_| Status::internal("No se pudieron consultar las estadísticas"))?;
+        tx.commit().await
+            .map_err(|_| Status::internal("No se pudo cerrar la consulta de estadísticas"))?;
 
         let (xp, streak, coins, words, sentences) = row.unwrap_or((0, 0, 50, 0, 0));
 
@@ -65,12 +69,15 @@ impl GamificationService for MyGamificationService {
         &self,
         request: Request<AddXpRequest>,
     ) -> Result<Response<UserStatsResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let req = request.into_inner();
-        let user_id = Uuid::parse_str(&req.user_id)
-            .map_err(|_| Status::invalid_argument("user_id inválido"))?;
 
         let mut domain_stats = UserGamificationStats::new(user_id);
         domain_stats.add_xp(req.xp_amount);
+        let mut tx = self.pool.begin().await
+            .map_err(|_| Status::internal("No se pudo iniciar la actualización de XP"))?;
+        common::set_current_user_id(&mut *tx, user_id).await
+            .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
 
         let row: Option<(i32, i32, i32, i32, i32)> = sqlx::query_as(
             r#"
@@ -88,9 +95,11 @@ impl GamificationService for MyGamificationService {
         .bind(req.xp_amount)
         .bind(domain_stats.coins - 50)
         .bind(req.words_learned_delta)
-        .fetch_optional(self.pool.as_ref())
+        .fetch_optional(&mut *tx)
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(|_| Status::internal("No se pudo actualizar XP"))?;
+        tx.commit().await
+            .map_err(|_| Status::internal("No se pudo confirmar XP"))?;
 
         let (xp, streak, coins, words, sentences) = row.unwrap_or((req.xp_amount, 1, domain_stats.coins, req.words_learned_delta, 0));
 
@@ -109,9 +118,12 @@ impl GamificationService for MyGamificationService {
         &self,
         request: Request<RecordLearningProgressRequest>,
     ) -> Result<Response<UserStatsResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let req = request.into_inner();
-        let user_id = Uuid::parse_str(&req.user_id)
-            .map_err(|_| Status::invalid_argument("user_id inválido"))?;
+        let mut tx = self.pool.begin().await
+            .map_err(|_| Status::internal("No se pudo iniciar el registro de progreso"))?;
+        common::set_current_user_id(&mut *tx, user_id).await
+            .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
 
         let row: Option<(i32, i32, i32, i32, i32)> = sqlx::query_as(
             r#"
@@ -135,9 +147,11 @@ impl GamificationService for MyGamificationService {
         .bind(req.xp_amount)
         .bind(req.coins_amount)
         .bind(req.words_learned_delta)
-        .fetch_optional(self.pool.as_ref())
+        .fetch_optional(&mut *tx)
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(|_| Status::internal("No se pudo registrar el progreso"))?;
+        tx.commit().await
+            .map_err(|_| Status::internal("No se pudo confirmar el progreso"))?;
 
         let (xp, streak, coins, words, sentences) = row.unwrap_or((req.xp_amount, 1, req.coins_amount + 50, req.words_learned_delta, 0));
 
@@ -156,17 +170,21 @@ impl GamificationService for MyGamificationService {
         &self,
         request: Request<InitUserStatsRequest>,
     ) -> Result<Response<UserStatsResponse>, Status> {
-        let req = request.into_inner();
-        let user_id = Uuid::parse_str(&req.user_id)
-            .map_err(|_| Status::invalid_argument("user_id inválido"))?;
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let mut tx = self.pool.begin().await
+            .map_err(|_| Status::internal("No se pudo iniciar la inicialización de estadísticas"))?;
+        common::set_current_user_id(&mut *tx, user_id).await
+            .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
 
         sqlx::query(
             "INSERT INTO user_stats (user_id, xp, streak_days, coins, words_learned, sentences_mastered) VALUES ($1, 0, 0, 50, 0, 0) ON CONFLICT (user_id) DO NOTHING"
         )
         .bind(user_id)
-        .execute(self.pool.as_ref())
+        .execute(&mut *tx)
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(|_| Status::internal("No se pudieron inicializar las estadísticas"))?;
+        tx.commit().await
+            .map_err(|_| Status::internal("No se pudo confirmar la inicialización"))?;
 
         Ok(Response::new(UserStatsResponse {
             user_id: user_id.to_string(),
@@ -183,8 +201,15 @@ impl GamificationService for MyGamificationService {
         &self,
         request: Request<proto::gamification::GetLeaderboardRequest>,
     ) -> Result<Response<proto::gamification::LeaderboardResponse>, Status> {
+        let user_id = common::authenticated_user_id(&request)?;
         let req = request.into_inner();
-        let limit = if req.limit <= 0 { 50 } else { req.limit };
+        let limit = if req.limit <= 0 { 50 } else { req.limit.min(100) };
+        let mut tx = self.pool.begin().await
+            .map_err(|_| Status::internal("No se pudo iniciar la consulta del ranking"))?;
+        common::set_current_user_id(&mut *tx, user_id).await
+            .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
+        common::set_leaderboard_read_scope(&mut *tx).await
+            .map_err(|_| Status::internal("No se pudo establecer el alcance del ranking"))?;
 
         let rows: Vec<(Uuid, String, String, i32, i32)> = sqlx::query_as(
             r#"
@@ -196,9 +221,11 @@ impl GamificationService for MyGamificationService {
             "#,
         )
         .bind(limit as i64)
-        .fetch_all(self.pool.as_ref())
+        .fetch_all(&mut *tx)
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(|_| Status::internal("No se pudo consultar el ranking"))?;
+        tx.commit().await
+            .map_err(|_| Status::internal("No se pudo cerrar la consulta del ranking"))?;
 
         let entries = rows
             .into_iter()
@@ -222,16 +249,18 @@ impl GamificationService for MyGamificationService {
         &self,
         request: Request<proto::gamification::GetUserAchievementsRequest>,
     ) -> Result<Response<proto::gamification::UserAchievementsResponse>, Status> {
-        let req = request.into_inner();
-        let user_id = Uuid::parse_str(&req.user_id)
-            .map_err(|_| Status::invalid_argument("user_id inválido"))?;
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let mut tx = self.pool.begin().await
+            .map_err(|_| Status::internal("No se pudo iniciar la consulta de logros"))?;
+        common::set_current_user_id(&mut *tx, user_id).await
+            .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
 
         // 1. Get user_stats
         let stats_row: Option<(i32, i32, i32)> = sqlx::query_as(
             "SELECT xp, streak_days, words_learned FROM user_stats WHERE user_id = $1"
         )
         .bind(user_id)
-        .fetch_optional(self.pool.as_ref())
+        .fetch_optional(&mut *tx)
         .await
         .map_err(|e| Status::internal(e.to_string()))?;
 
@@ -242,7 +271,7 @@ impl GamificationService for MyGamificationService {
             "SELECT COUNT(*), COALESCE(MAX(total_score), 0.0), COALESCE(MAX(score_pronunciation), 0.0) FROM ai_exam_sessions WHERE user_id = $1"
         )
         .bind(user_id)
-        .fetch_optional(self.pool.as_ref())
+        .fetch_optional(&mut *tx)
         .await
         .map_err(|e| Status::internal(e.to_string()))?;
 
@@ -253,7 +282,7 @@ impl GamificationService for MyGamificationService {
             "SELECT COUNT(*) FROM user_srs_progress WHERE user_id = $1 AND repetitions > 0"
         )
         .bind(user_id)
-        .fetch_optional(self.pool.as_ref())
+        .fetch_optional(&mut *tx)
         .await
         .map_err(|e| Status::internal(e.to_string()))?;
 
@@ -263,9 +292,12 @@ impl GamificationService for MyGamificationService {
         let db_achievements: Vec<(String, String, String, String, i32, String)> = sqlx::query_as(
             "SELECT id, emoji, title, description, max_progress, category FROM achievements ORDER BY id"
         )
-        .fetch_all(self.pool.as_ref())
+        .fetch_all(&mut *tx)
         .await
-        .unwrap_or_default();
+        .map_err(|_| Status::internal("No se pudieron consultar los logros"))?;
+
+        tx.commit().await
+            .map_err(|_| Status::internal("No se pudo cerrar la consulta de logros"))?;
 
         let mut achievements = Vec::new();
 

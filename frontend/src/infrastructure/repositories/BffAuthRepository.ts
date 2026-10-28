@@ -1,5 +1,4 @@
 import type { AuthSession, User } from '@/domain/entities/User'
-import { UnauthorizedError } from '@/domain/errors/DomainError'
 import type {
   IAuthRepository,
   LoginUserInput,
@@ -65,8 +64,13 @@ export class BffAuthRepository implements IAuthRepository {
   }
 
   async logout(): Promise<void> {
+    const refreshToken = this.session.toSession()?.refreshToken
     try {
-      await this.http.post<void>('/api/v1/auth/logout')
+      await this.http.post<void>(
+        '/api/v1/auth/logout',
+        { refresh_token: refreshToken ?? '' },
+        { skipRefresh: true },
+      )
     } catch {
       // La sesión local se destruye incluso si el BFF no responde.
     } finally {
@@ -75,43 +79,22 @@ export class BffAuthRepository implements IAuthRepository {
   }
 
   async me(): Promise<User> {
-    try {
-      const dto = await this.http.get<Dto>('/api/v1/auth/me')
-      const userDto = (dto.user ?? dto) as Dto
-      return toUser(userDto)
-    } catch {
-      const stored = this.session.toSession()
-      if (stored?.user) return stored.user
-      throw new UnauthorizedError('Sesión no encontrada')
-    }
+    const dto = await this.http.get<Dto>('/api/v1/auth/me')
+    const userDto = (dto.user ?? dto) as Dto
+    return toUser(userDto)
   }
 
   async updateProfile(input: UpdateProfileInput): Promise<User> {
-    try {
-      const dto = await this.http.patch<Dto>('/api/v1/users/me', {
-        full_name: input.fullName,
-        target_role: input.targetRole,
-        current_level: input.currentLevel,
-      })
+    const dto = await this.http.patch<Dto>('/api/v1/users/me', {
+      full_name: input.fullName,
+      target_role: input.targetRole,
+      current_level: input.currentLevel,
+    })
 
-      const user = toUser((dto.user ?? dto) as Dto)
-      const current = this.session.toSession()
-      if (current) this.session.save({ ...current, user })
-      return user
-    } catch {
-      const stored = this.session.toSession()
-      if (stored?.user) {
-        const updatedUser: User = {
-          ...stored.user,
-          fullName: input.fullName ?? stored.user.fullName,
-          targetRole: input.targetRole ?? stored.user.targetRole,
-          currentLevel: input.currentLevel ?? stored.user.currentLevel,
-        }
-        this.session.save({ ...stored, user: updatedUser })
-        return updatedUser
-      }
-      throw new UnauthorizedError()
-    }
+    const user = toUser((dto.user ?? dto) as Dto)
+    const current = this.session.toSession()
+    if (current) this.session.save({ ...current, user })
+    return user
   }
 
   getStoredSession(): AuthSession | null {
