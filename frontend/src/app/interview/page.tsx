@@ -109,10 +109,12 @@ export default function InterviewPage() {
   const workletNodeRef = useRef<AudioWorkletNode | null>(null)
   const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
+  const intentionalWsShutdownRef = useRef(false)
   const [partialTranscript, setPartialTranscript] = useState('')
 
   const handleStartRecording = async () => {
     let activeStream: MediaStream | null = null
+    intentionalWsShutdownRef.current = false
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
@@ -135,7 +137,25 @@ export default function InterviewPage() {
       wsRef.current = ws
 
       ws.onopen = () => console.log('🔌 [WS Transcribe] Conexión abierta')
-      ws.onerror = (e) => console.error('❌ [WS Transcribe] Error:', e)
+      ws.onerror = () => console.warn('No se pudo mantener la conexión WebSocket de transcripción')
+      ws.onclose = () => {
+        if (intentionalWsShutdownRef.current || wsRef.current !== ws) return
+
+        activeStream?.getTracks().forEach((track) => track.stop())
+        workletNodeRef.current?.disconnect()
+        sourceNodeRef.current?.disconnect()
+        sourceNodeRef.current?.mediaStream.getTracks().forEach((track) => track.stop())
+        workletNodeRef.current = null
+        sourceNodeRef.current = null
+        if (audioContextRef.current) {
+          void audioContextRef.current.close()
+          audioContextRef.current = null
+        }
+        wsRef.current = null
+        setIsRecording(false)
+        setIsTranscribing(false)
+        setTranscript((previous) => previous || '[La conexión de transcripción se cerró inesperadamente.]')
+      }
       ws.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data as string) as {
@@ -178,6 +198,9 @@ export default function InterviewPage() {
 
       // 3. Cargar el AudioWorklet desde /pcm-worklet-processor.js (public/)
       await audioCtx.audioWorklet.addModule('/pcm-worklet-processor.js')
+      if (ws.readyState !== WebSocket.OPEN) {
+        throw new Error('El WebSocket se cerró antes de iniciar la captura de audio.')
+      }
 
       const workletNode = new AudioWorkletNode(audioCtx, 'pcm-worklet-processor')
       workletNodeRef.current = workletNode
@@ -227,7 +250,8 @@ export default function InterviewPage() {
     await audioContextRef.current?.close()
     audioContextRef.current = null
 
-    // Enviar señal de fin al BFF (cierra la sesión de Transcribe)
+    // Enviar señal de fin al BFF (cierra la sesión de Transcribe después del resultado final).
+    intentionalWsShutdownRef.current = true
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send('stop')
     }
