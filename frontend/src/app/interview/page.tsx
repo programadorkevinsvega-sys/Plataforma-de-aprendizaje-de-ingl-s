@@ -67,15 +67,26 @@ export default function InterviewPage() {
   const [partialTranscript, setPartialTranscript] = useState('')
 
   const handleStartRecording = async () => {
+    let activeStream: MediaStream | null = null
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true },
       })
+      activeStream = stream
+
+      // El WebSocket del navegador no admite Authorization personalizado.
+      // Solicita el ticket justo antes de conectar para no consumir su TTL
+      // mientras el usuario responde a la petición de permisos del micrófono.
+      const container = getContainer()
+      const ticket = await container.repositories.evaluator.createTranscribeTicket()
 
       // 1. Abrir WebSocket al BFF ANTES de iniciar el audio
       const bffWsUrl = (process.env.NEXT_PUBLIC_BFF_URL || 'http://localhost:8080')
         .replace(/^http/, 'ws')
-      const ws = new WebSocket(`${bffWsUrl}/api/v1/exam/transcribe/ws`)
+      const ws = new WebSocket(
+        `${bffWsUrl}/api/v1/exam/transcribe/ws`,
+        ['devfluency.transcribe.v1', `ticket.${ticket}`],
+      )
       wsRef.current = ws
 
       ws.onopen = () => console.log('🔌 [WS Transcribe] Conexión abierta')
@@ -131,14 +142,24 @@ export default function InterviewPage() {
       source.connect(workletNode)
       // NO conectar al destination para no reproducir el micrófono
       workletNode.connect(audioCtx.destination)
+      activeStream = null // El ciclo de grabación ya es dueño de este stream.
 
       setIsRecording(true)
       setTranscript('')
       setPartialTranscript('')
       console.log('🎙️ [AudioWorklet] Grabación iniciada — chunks PCM-16 de 20ms por WebSocket')
     } catch (err) {
+      activeStream?.getTracks().forEach((track) => track.stop())
+      workletNodeRef.current?.disconnect()
+      sourceNodeRef.current?.disconnect()
+      if (audioContextRef.current) {
+        void audioContextRef.current.close()
+        audioContextRef.current = null
+      }
+      wsRef.current?.close()
+      wsRef.current = null
       console.error('Error iniciando grabación:', err)
-      alert('No se pudo acceder al micrófono. Permite el acceso en tu navegador.')
+      alert('No se pudo iniciar la transcripción segura. Verifica tu sesión y permite el acceso al micrófono.')
     }
   }
 

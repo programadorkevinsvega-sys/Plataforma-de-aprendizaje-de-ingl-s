@@ -11,7 +11,8 @@ use content_handler::{
     vocabulary_list_handler,
 };
 use exam_handler::{
-    evaluate_answer_handler, get_drill_handler, next_question_handler, transcribe_ws_handler,
+    create_transcribe_ticket_handler, evaluate_answer_handler, get_drill_handler,
+    next_question_handler, transcribe_ws_handler,
 };
 use progress_handler::record_progress_handler;
 use srs_handler::{get_due_cards_handler, review_card_handler};
@@ -107,6 +108,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
 
+    common::validate_jwt_configuration().map_err(|error| {
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, error.to_string())
+    })?;
+
     // Clientes gRPC lazy — se conectan al primer uso
     let auth_client =
         AuthServiceClient::new(Channel::from_static("http://127.0.0.1:50051").connect_lazy());
@@ -174,6 +179,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/v1/exam/questions/next", post(next_question_handler))
         .route("/api/v1/exam/evaluate", post(evaluate_answer_handler))
         .route("/api/v1/exam/results/:id/drill", get(get_drill_handler))
+        .route("/api/v1/exam/transcribe/ticket", post(create_transcribe_ticket_handler))
         .route("/api/v1/exam/transcribe/ws", get(transcribe_ws_handler))
         // Users
         .route("/api/v1/users/me", patch(update_profile_handler))
