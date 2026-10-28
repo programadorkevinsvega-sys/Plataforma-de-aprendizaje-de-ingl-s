@@ -1,8 +1,9 @@
 name: CI
 
 on:
+  # Stacked security PRs use another feature branch as their base; run the same
+  # checks for every pull request, not only PRs whose base is main.
   pull_request:
-    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
