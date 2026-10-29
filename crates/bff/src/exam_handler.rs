@@ -516,9 +516,7 @@ pub async fn transcribe_ws_handler(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .collect();
-    if !protocol_values
-        .contains(&TRANSCRIBE_WS_PROTOCOL)
-    {
+    if !protocol_values.contains(&TRANSCRIBE_WS_PROTOCOL) {
         return Err((
             StatusCode::BAD_REQUEST,
             Json(
