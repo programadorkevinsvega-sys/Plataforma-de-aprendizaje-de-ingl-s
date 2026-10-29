@@ -59,6 +59,8 @@ async fn rls_context_is_transaction_local_and_scopes_user_stats(
         .await?;
 
     let mut tx = conn.begin().await?;
+    // SQLx Transaction requires explicit dereferencing for Executor calls; helper APIs
+    // accept the transaction directly via deref coercion, avoiding Clippy's explicit-auto-deref lint.
     sqlx::query(&format!("SET LOCAL ROLE {role}"))
         .execute(&mut *tx)
         .await?;
