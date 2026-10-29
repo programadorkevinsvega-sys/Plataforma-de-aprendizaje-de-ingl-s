@@ -658,12 +658,8 @@ mod login_error_uniformity_integration_tests {
     #[tokio::test]
     async fn unknown_email_and_wrong_password_return_the_same_auth_error(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let Ok(database_url) = std::env::var("TEST_DATABASE_URL") else {
-            eprintln!(
-                "TEST_DATABASE_URL is not configured; skipping login uniformity integration test"
-            );
-            return Ok(());
-        };
+        let database_url = std::env::var("TEST_DATABASE_URL")
+            .expect("TEST_DATABASE_URL must be configured for login uniformity integration tests");
 
         let pool = PgPoolOptions::new()
             .max_connections(2)
