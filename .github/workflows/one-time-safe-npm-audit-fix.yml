@@ -1,0 +1,45 @@
+name: One-time safe npm audit remediation
+
+on:
+  push:
+    branches:
+      - 'fix/frontend-audit-dependencies'
+
+permissions:
+  contents: write
+
+jobs:
+  update-lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install reproducible dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Apply compatible audit fixes without force
+        working-directory: frontend
+        run: |
+          npm audit fix || echo "Some advisories need separate major-version analysis; no --force was used."
+          npm audit --json > /tmp/npm-audit.json || true
+          node -e "const a=require('/tmp/npm-audit.json'); console.log(JSON.stringify({metadata:a.metadata?.vulnerabilities,advisories:Object.keys(a.vulnerabilities||{})},null,2))"
+      - name: Commit package manifest and lockfile changes
+        run: |
+          git add frontend/package.json frontend/package-lock.json
+          if git diff --cached --quiet; then
+            echo "No compatible dependency update was produced."
+            exit 1
+          fi
+          git diff --cached --stat
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(deps): apply non-breaking npm audit updates"
+          git push origin "HEAD:${{ github.ref_name }}"
