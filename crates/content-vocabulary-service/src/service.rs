@@ -94,7 +94,7 @@ impl ContentService for MyContentService {
             .await
             .map_err(|_| Status::internal("No se pudo iniciar la consulta de vocabulario"))?;
         if let Some(uid) = user_uuid {
-            common::set_current_user_id(&mut *tx, uid)
+            common::set_current_user_id(&mut tx, uid)
                 .await
                 .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
         }
@@ -114,7 +114,7 @@ impl ContentService for MyContentService {
                        LIMIT $4 OFFSET $5"#,
                 )
                 .bind(&req.level).bind(&req.category).bind(uid).bind(limit as i64).bind(offset as i64)
-                .fetch_all(&mut *tx).await
+                .fetch_all(&mut tx).await
             }
             (true, false, Some(uid)) => {
                 sqlx::query_as(
@@ -150,7 +150,7 @@ impl ContentService for MyContentService {
                        LIMIT $3 OFFSET $4"#,
                 )
                 .bind(&req.level).bind(uid).bind(limit as i64).bind(offset as i64)
-                .fetch_all(&mut *tx).await
+                .fetch_all(&mut tx).await
             }
             (false, false, Some(uid)) => {
                 sqlx::query_as(
@@ -169,28 +169,28 @@ impl ContentService for MyContentService {
                        LIMIT $2 OFFSET $3"#,
                 )
                 .bind(uid).bind(limit as i64).bind(offset as i64)
-                .fetch_all(&mut *tx).await
+                .fetch_all(&mut tx).await
             }
             (true, true, None) => {
                 sqlx::query_as(
                     "SELECT id, word, spanish_phonetic, spanish_translation, category, level, COALESCE(spanish_phonetic_natural, spanish_phonetic) FROM vocabulary_words WHERE level = $1 AND category = $2 LIMIT $3 OFFSET $4"
                 )
                 .bind(&req.level).bind(&req.category).bind(limit as i64).bind(offset as i64)
-                .fetch_all(&mut *tx).await
+                .fetch_all(&mut tx).await
             }
             (true, false, None) => {
                 sqlx::query_as(
                     "SELECT id, word, spanish_phonetic, spanish_translation, category, level, COALESCE(spanish_phonetic_natural, spanish_phonetic) FROM vocabulary_words WHERE level = $1 LIMIT $2 OFFSET $3"
                 )
                 .bind(&req.level).bind(limit as i64).bind(offset as i64)
-                .fetch_all(&mut *tx).await
+                .fetch_all(&mut tx).await
             }
             _ => {
                 sqlx::query_as(
                     "SELECT id, word, spanish_phonetic, spanish_translation, category, level, COALESCE(spanish_phonetic_natural, spanish_phonetic) FROM vocabulary_words LIMIT $1 OFFSET $2"
                 )
                 .bind(limit as i64).bind(offset as i64)
-                .fetch_all(&mut *tx).await
+                .fetch_all(&mut tx).await
             }
         }
         .map_err(|e| Status::internal(e.to_string()))?;
@@ -204,7 +204,7 @@ impl ContentService for MyContentService {
                 "SELECT id, english_text, spanish_phonetic, spanish_translation, audio_url, COALESCE(spanish_phonetic_natural, spanish_phonetic) FROM context_sentences WHERE word_id = $1"
             )
             .bind(id)
-            .fetch_all(&mut *tx)
+            .fetch_all(&mut tx)
             .await
             .map_err(|_| Status::internal("No se pudieron consultar las frases de vocabulario"))?;
 
