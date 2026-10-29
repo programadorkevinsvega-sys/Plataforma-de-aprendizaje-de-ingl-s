@@ -32,18 +32,39 @@ export const Navbar: React.FC = () => {
   }
 
   useEffect(() => {
+    let cancelled = false
     const container = getContainer()
-    container.useCases.getCurrentUser.execute().then((u) => {
-      // This state update is intentionally async: it applies the result of the user lookup.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setUser(u)
-    })
-    fetchStats()
+
+    const loadInitialData = async () => {
+      try {
+        const [currentUser, summary] = await Promise.all([
+          container.useCases.getCurrentUser.execute(),
+          container.useCases.getDashboardSummary.execute(),
+        ])
+
+        if (cancelled) return
+        setUser(currentUser)
+        setStats({
+          xp: summary.xp,
+          streakDays: summary.streakDays,
+          techCoins: summary.techCoins,
+        })
+      } catch {
+        // Silencioso: no romper la UI si falla la carga inicial.
+      }
+    }
+
+    void loadInitialData()
 
     // Escuchar evento de XP actualizado desde /learn, /srs, /interview, etc.
-    const onXpUpdated = () => fetchStats()
+    const onXpUpdated = () => {
+      void fetchStats()
+    }
     window.addEventListener('devfluency:xp-updated', onXpUpdated)
-    return () => window.removeEventListener('devfluency:xp-updated', onXpUpdated)
+    return () => {
+      cancelled = true
+      window.removeEventListener('devfluency:xp-updated', onXpUpdated)
+    }
   }, [])
 
   const handleLogout = async () => {
