@@ -34,7 +34,7 @@ impl SrsService for MySrsService {
             .begin()
             .await
             .map_err(|_| Status::internal("No se pudo iniciar la consulta de repaso"))?;
-        common::set_current_user_id(&mut *tx, user_id)
+        common::set_current_user_id(&mut tx, user_id)
             .await
             .map_err(|_| Status::internal("No se pudo establecer el contexto de usuario RLS"))?;
 
@@ -96,7 +96,7 @@ impl SrsService for MySrsService {
             .begin()
             .await
             .map_err(|_| Status::internal("No se pudo iniciar la revisión"))?;
-        common::set_current_user_id(&mut *tx, user_id)
+        common::set_current_user_id(&mut tx, user_id)
             .await
             .map_err(|_| Status::internal("No se pudo establecer el contexto de usuario RLS"))?;
 
@@ -164,7 +164,7 @@ impl SrsService for MySrsService {
             .begin()
             .await
             .map_err(|_| Status::internal("No se pudo iniciar el alta de tarjetas"))?;
-        common::set_current_user_id(&mut *tx, user_id)
+        common::set_current_user_id(&mut tx, user_id)
             .await
             .map_err(|_| Status::internal("No se pudo establecer el contexto de usuario RLS"))?;
 
