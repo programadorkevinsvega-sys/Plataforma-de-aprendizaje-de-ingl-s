@@ -74,10 +74,7 @@ fn parse_cors_allowed_origins(raw: Option<&str>) -> Result<Vec<HeaderValue>, &'s
 
         let value = HeaderValue::from_str(origin)
             .map_err(|_| "CORS_ALLOWED_ORIGINS contiene un origen inválido")?;
-        if !origins
-            .iter()
-            .any(|previous: &HeaderValue| previous == value)
-        {
+        if !origins.contains(&value) {
             origins.push(value);
         }
     }
@@ -86,33 +83,6 @@ fn parse_cors_allowed_origins(raw: Option<&str>) -> Result<Vec<HeaderValue>, &'s
         return Err("CORS_ALLOWED_ORIGINS debe contener al menos un origen");
     }
     Ok(origins)
-}
-
-#[cfg(test)]
-mod cors_configuration_tests {
-    use super::parse_cors_allowed_origins;
-
-    #[test]
-    fn defaults_to_local_frontend_origin() {
-        let origins = parse_cors_allowed_origins(None).unwrap();
-        assert_eq!(origins.len(), 1);
-        assert_eq!(origins[0].to_str().unwrap(), "http://localhost:3000");
-    }
-
-    #[test]
-    fn accepts_multiple_explicit_origins_without_duplicates() {
-        let origins = parse_cors_allowed_origins(Some(
-            "https://app.example.com, http://localhost:3000, https://app.example.com",
-        ))
-        .unwrap();
-        assert_eq!(origins.len(), 2);
-    }
-
-    #[test]
-    fn rejects_wildcard_and_origins_with_paths() {
-        assert!(parse_cors_allowed_origins(Some("*")).is_err());
-        assert!(parse_cors_allowed_origins(Some("https://app.example.com/path")).is_err());
-    }
 }
 
 #[tokio::main]
@@ -216,4 +186,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod cors_configuration_tests {
+    use super::parse_cors_allowed_origins;
+
+    #[test]
+    fn defaults_to_local_frontend_origin() {
+        let origins = parse_cors_allowed_origins(None).unwrap();
+        assert_eq!(origins.len(), 1);
+        assert_eq!(origins[0].to_str().unwrap(), "http://localhost:3000");
+    }
+
+    #[test]
+    fn accepts_multiple_explicit_origins_without_duplicates() {
+        let origins = parse_cors_allowed_origins(Some(
+            "https://app.example.com, http://localhost:3000, https://app.example.com",
+        ))
+        .unwrap();
+        assert_eq!(origins.len(), 2);
+    }
+
+    #[test]
+    fn rejects_wildcard_and_origins_with_paths() {
+        assert!(parse_cors_allowed_origins(Some("*")).is_err());
+        assert!(parse_cors_allowed_origins(Some("https://app.example.com/path")).is_err());
+    }
 }
