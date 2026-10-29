@@ -1,6 +1,6 @@
 #[expect(
     clippy::result_large_err,
-    reason = "Generated tonic RPC methods must return tonic::Status; scope the lint expectation to generated auth bindings",
+    reason = "Generated tonic RPC methods must return tonic::Status; scope the lint expectation to generated auth bindings"
 )]
 pub mod auth {
     tonic::include_proto!("auth");
@@ -8,7 +8,7 @@ pub mod auth {
 
 #[expect(
     clippy::result_large_err,
-    reason = "Generated tonic RPC methods must return tonic::Status; scope the lint expectation to generated content bindings",
+    reason = "Generated tonic RPC methods must return tonic::Status; scope the lint expectation to generated content bindings"
 )]
 pub mod content {
     tonic::include_proto!("content");
@@ -16,7 +16,7 @@ pub mod content {
 
 #[expect(
     clippy::result_large_err,
-    reason = "Generated tonic RPC methods must return tonic::Status; scope the lint expectation to generated ai_evaluator bindings",
+    reason = "Generated tonic RPC methods must return tonic::Status; scope the lint expectation to generated ai_evaluator bindings"
 )]
 pub mod ai_evaluator {
     tonic::include_proto!("ai_evaluator");
@@ -24,7 +24,7 @@ pub mod ai_evaluator {
 
 #[expect(
     clippy::result_large_err,
-    reason = "Generated tonic RPC methods must return tonic::Status; scope the lint expectation to generated srs bindings",
+    reason = "Generated tonic RPC methods must return tonic::Status; scope the lint expectation to generated srs bindings"
 )]
 pub mod srs {
     tonic::include_proto!("srs");
@@ -32,7 +32,7 @@ pub mod srs {
 
 #[expect(
     clippy::result_large_err,
-    reason = "Generated tonic RPC methods must return tonic::Status; scope the lint expectation to generated gamification bindings",
+    reason = "Generated tonic RPC methods must return tonic::Status; scope the lint expectation to generated gamification bindings"
 )]
 pub mod gamification {
     tonic::include_proto!("gamification");
@@ -40,7 +40,7 @@ pub mod gamification {
 
 #[expect(
     clippy::result_large_err,
-    reason = "Generated tonic RPC methods must return tonic::Status; scope the lint expectation to generated phonetic_audio bindings",
+    reason = "Generated tonic RPC methods must return tonic::Status; scope the lint expectation to generated phonetic_audio bindings"
 )]
 pub mod phonetic_audio {
     tonic::include_proto!("phonetic_audio");
