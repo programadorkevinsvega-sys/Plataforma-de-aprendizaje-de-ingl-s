@@ -103,7 +103,7 @@ jobs:
             echo "::error::An exception-listed vulnerable crate re-entered the active workspace dependency graph."
             exit 1
           fi
-      - name: Audit Rust dependencies
+      - name: Audit Rust dependencies from tracked Cargo.lock
         run: |
           # cargo-audit 0.22.x no admite --locked; audita el Cargo.lock versionado.
           # .cargo/audit.toml documents only inactive optional dependency advisories.
