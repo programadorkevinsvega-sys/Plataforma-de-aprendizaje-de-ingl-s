@@ -14,7 +14,7 @@ fn parse_jwt_secret(secret: Option<String>) -> Result<String, DomainError> {
             DomainError::ExternalServiceError("JWT_SECRET debe estar configurado".to_string())
         })?;
 
-    if secret.as_bytes().len() < 32 {
+    if secret.len() < 32 {
         return Err(DomainError::ExternalServiceError(
             "JWT_SECRET debe tener al menos 32 bytes".to_string(),
         ));
