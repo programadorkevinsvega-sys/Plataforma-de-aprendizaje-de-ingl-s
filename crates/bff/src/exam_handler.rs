@@ -629,7 +629,7 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
 
     let mut stream_response = match transcribe_result {
         Ok(Ok(response)) => response,
-        Ok(Err(_error)) | Err(_) => {
+        Ok(Err(_)) | Err(_) => {
             tracing::error!(
                 "No se pudo iniciar la sesión AWS Transcribe dentro del límite de tiempo"
             );
