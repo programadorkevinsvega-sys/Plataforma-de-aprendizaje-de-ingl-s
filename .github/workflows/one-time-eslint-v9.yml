@@ -1,0 +1,39 @@
+name: One-time frontend ESLint dependency update
+
+on:
+  push:
+    branches:
+      - 'fix/frontend-eslint-ci'
+
+permissions:
+  contents: write
+
+jobs:
+  update-eslint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repair branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install maintained ESLint 9 flat-config tooling
+        working-directory: frontend
+        run: npm install --save-dev 'eslint@^9.39.1' '@eslint/eslintrc@^3.3.1' '@eslint/js@^9.39.1' --no-audit
+      - name: Commit regenerated package manifests
+        run: |
+          git add frontend/package.json frontend/package-lock.json
+          if git diff --cached --quiet; then
+            echo "Manifest files did not change."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(frontend): use maintained ESLint flat config"
+          git push origin "HEAD:${{ github.ref_name }}"
