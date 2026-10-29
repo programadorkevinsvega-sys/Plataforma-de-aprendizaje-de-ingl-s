@@ -71,7 +71,7 @@ async fn learning_progress_ledger_is_isolated_by_transaction_local_user_context(
     sqlx::query(&format!("SET LOCAL ROLE {role}"))
         .execute(&mut *tx)
         .await?;
-    common::set_current_user_id(&mut *tx, user_a).await?;
+    common::set_current_user_id(&mut tx, user_a).await?;
 
     let visible: Vec<Uuid> =
         sqlx::query_scalar("SELECT word_id FROM learning_progress_events ORDER BY word_id")
@@ -103,7 +103,7 @@ async fn learning_progress_ledger_is_isolated_by_transaction_local_user_context(
     sqlx::query(&format!("SET LOCAL ROLE {role}"))
         .execute(&mut *write_tx)
         .await?;
-    common::set_current_user_id(&mut *write_tx, user_a).await?;
+    common::set_current_user_id(&mut write_tx, user_a).await?;
     let cross_user_insert = sqlx::query(
         "INSERT INTO learning_progress_events (user_id, word_id, xp_amount, coins_amount, words_learned_delta) VALUES ($1, $2, 10, 2, 1)"
     )
