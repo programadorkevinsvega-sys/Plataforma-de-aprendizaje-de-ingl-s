@@ -35,9 +35,9 @@ thiserror = "1.0"
 anyhow = "1.0"
 proptest = "1.4"
 aws-config = { version = "1", features = ["behavior-version-latest"] }
-aws-sdk-polly = "1"
-aws-sdk-transcribestreaming = "1"
-aws-sdk-bedrockruntime = "1"
+aws-sdk-polly = { version = "1", default-features = false, features = ["default-https-client", "rt-tokio"] }
+aws-sdk-transcribestreaming = { version = "1", default-features = false, features = ["default-https-client", "rt-tokio"] }
+aws-sdk-bedrockruntime = { version = "1", default-features = false, features = ["default-https-client", "rt-tokio"] }
 base64 = "0.22"
 futures = "0.3"
 dotenvy = "0.15"
