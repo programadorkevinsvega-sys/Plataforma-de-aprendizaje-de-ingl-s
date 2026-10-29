@@ -34,6 +34,8 @@ export const Navbar: React.FC = () => {
   useEffect(() => {
     const container = getContainer()
     container.useCases.getCurrentUser.execute().then((u) => {
+      // This state update is intentionally async: it applies the result of the user lookup.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUser(u)
     })
     fetchStats()
