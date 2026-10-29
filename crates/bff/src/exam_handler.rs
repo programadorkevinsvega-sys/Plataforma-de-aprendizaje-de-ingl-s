@@ -376,14 +376,23 @@ fn decode_transcribe_ticket(token: &str, secret: &str) -> Result<TranscribeTicke
     }
     let mut validation = Validation::new(Algorithm::HS256);
     validation.validate_exp = true;
+    // Tickets are intentionally short-lived: do not apply jsonwebtoken's
+    // default clock-skew leeway, which could accept an expired ticket.
+    validation.leeway = 0;
     validation.required_spec_claims.insert("sub".to_string());
-    decode::<TranscribeTicketClaims>(
+    let claims = decode::<TranscribeTicketClaims>(
         token,
         &DecodingKey::from_secret(secret.as_bytes()),
         &validation,
     )
     .map(|data| data.claims)
-    .map_err(|_| ())
+    .map_err(|_| ())?;
+
+    // Enforce the expiry boundary explicitly as defense in depth.
+    if claims.exp <= unix_time_seconds() {
+        return Err(());
+    }
+    Ok(claims)
 }
 
 fn allow_ticket_request(user_id: &str) -> bool {
