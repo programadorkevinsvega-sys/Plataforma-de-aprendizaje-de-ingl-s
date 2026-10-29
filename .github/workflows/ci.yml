@@ -94,7 +94,11 @@ jobs:
       - name: Install cargo-audit
         run: cargo install cargo-audit --version 0.22.2 --locked
       - name: Audit Rust dependencies
-        run: cargo audit --locked
+        run: |
+          # cargo-audit 0.22.x no admite --locked; audita el Cargo.lock versionado.
+          git diff --exit-code -- Cargo.lock
+          cargo audit
+          git diff --exit-code -- Cargo.lock
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
