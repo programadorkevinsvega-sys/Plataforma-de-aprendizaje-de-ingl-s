@@ -206,7 +206,7 @@ impl AuthService for MyAuthService {
         .map_err(|e| Status::internal(e.to_string()))?;
 
         let (user_id, password_hash, full_name, target_role, current_level) =
-            row.ok_or_else(|| Status::not_found("Usuario o contraseña incorrectos"))?;
+            row.ok_or_else(|| Status::unauthenticated("Usuario o contraseña incorrectos"))?;
 
         if !PasswordService::verify_password(&req.password, &password_hash) {
             return Err(Status::unauthenticated("Usuario o contraseña incorrectos"));
@@ -641,6 +641,71 @@ mod refresh_token_integration_tests {
             std::env::remove_var("JWT_SECRET");
         }
 
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod login_error_uniformity_integration_tests {
+    use super::{MyAuthService, PasswordService};
+    use proto::auth::{auth_service_server::AuthService, LoginRequest};
+    use sqlx::postgres::PgPoolOptions;
+    use std::sync::Arc;
+    use tonic::{Code, Request};
+    use uuid::Uuid;
+
+    /// Requires the CI-provided TEST_DATABASE_URL and applied repository migrations.
+    #[tokio::test]
+    async fn unknown_email_and_wrong_password_return_the_same_auth_error(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let Ok(database_url) = std::env::var("TEST_DATABASE_URL") else {
+            eprintln!("TEST_DATABASE_URL is not configured; skipping login uniformity integration test");
+            return Ok(());
+        };
+
+        let pool = PgPoolOptions::new()
+            .max_connections(2)
+            .connect(&database_url)
+            .await?;
+        let user_id = Uuid::new_v4();
+        let known_email = format!("login-uniformity-{}@example.invalid", user_id);
+        let unknown_email = format!("unknown-{}@example.invalid", user_id);
+        let password_hash = PasswordService::hash_password("correct-test-password")?;
+
+        sqlx::query(
+            "INSERT INTO users (id, email, password_hash, full_name, target_role, current_level) VALUES ($1, $2, $3, 'Login Test', 'BACKEND', 'A2')"
+        )
+        .bind(user_id)
+        .bind(&known_email)
+        .bind(&password_hash)
+        .execute(&pool)
+        .await?;
+
+        let service = MyAuthService::new(Arc::new(pool.clone()));
+        let unknown_user = service
+            .login(Request::new(LoginRequest {
+                email: unknown_email,
+                password: "wrong-test-password".to_string(),
+            }))
+            .await
+            .unwrap_err();
+        let wrong_password = service
+            .login(Request::new(LoginRequest {
+                email: known_email,
+                password: "wrong-test-password".to_string(),
+            }))
+            .await
+            .unwrap_err();
+
+        sqlx::query("DELETE FROM users WHERE id = $1")
+            .bind(user_id)
+            .execute(&pool)
+            .await?;
+        pool.close().await;
+
+        assert_eq!(unknown_user.code(), Code::Unauthenticated);
+        assert_eq!(wrong_password.code(), Code::Unauthenticated);
+        assert_eq!(unknown_user.message(), wrong_password.message());
         Ok(())
     }
 }
