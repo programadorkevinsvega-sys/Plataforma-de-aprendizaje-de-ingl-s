@@ -25,7 +25,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let configured_addr = std::env::var("AI_SERVICE_BIND_ADDR").ok();
     let addr: SocketAddr = common::parse_bind_addr(configured_addr.as_deref(), "127.0.0.1:50053")?;
-    let ai_service = MyAIEvaluatorService::default();
+    let ai_service = MyAIEvaluatorService;
 
     println!(
         "🤖 [Fase 4] ai-evaluator-service gRPC Server corriendo en {}",
