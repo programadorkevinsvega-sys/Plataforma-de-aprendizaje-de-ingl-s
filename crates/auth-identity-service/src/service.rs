@@ -38,6 +38,10 @@ impl MyAuthService {
     }
 }
 
+#[expect(
+    clippy::result_large_err,
+    reason = "tonic::Status is required at the gRPC authentication boundary"
+)]
 fn authenticated_user_id<T>(request: &Request<T>) -> Result<Uuid, Status> {
     let token = request
         .metadata()
@@ -53,6 +57,10 @@ fn authenticated_user_id<T>(request: &Request<T>) -> Result<Uuid, Status> {
         .map_err(|_| Status::unauthenticated("Identidad de usuario inválida"))
 }
 
+#[expect(
+    clippy::result_large_err,
+    reason = "tonic::Status is required at the gRPC authorization boundary"
+)]
 fn enforce_user_scope(
     authenticated_user_id: Uuid,
     requested_user_id: &str,
@@ -88,7 +96,7 @@ impl AuthService for MyAuthService {
         let existing: Option<(uuid::Uuid,)> =
             sqlx::query_as("SELECT id FROM users WHERE email = $1")
                 .bind(email.as_str())
-                .fetch_optional(&mut *tx)
+                .fetch_optional(&mut tx)
                 .await
                 .map_err(|_| Status::internal("No se pudo comprobar el correo"))?;
 
@@ -118,7 +126,7 @@ impl AuthService for MyAuthService {
         .bind(&user.full_name)
         .bind(&user.target_role)
         .bind(&user.current_level)
-        .execute(&mut *tx)
+        .execute(&mut tx)
         .await
         .map_err(|error| match &error {
             sqlx::Error::Database(database_error)
@@ -134,7 +142,7 @@ impl AuthService for MyAuthService {
 
         // Establecer la identidad en la misma transacción para que RLS permita
         // insertar las estadísticas propias sin abrir acceso a otras filas.
-        common::set_current_user_id(&mut *tx, user.id)
+        common::set_current_user_id(&mut tx, user.id)
             .await
             .map_err(|_| Status::internal("No se pudo establecer el contexto de usuario"))?;
 
@@ -143,7 +151,7 @@ impl AuthService for MyAuthService {
             "INSERT INTO user_stats (user_id, xp, streak_days, coins, words_learned, sentences_mastered) VALUES ($1, 0, 0, 50, 0, 0) ON CONFLICT (user_id) DO NOTHING"
         )
         .bind(user.id)
-        .execute(&mut *tx)
+        .execute(&mut tx)
         .await
         .map_err(|_| {
             tracing::error!("Error inicializando estadísticas del nuevo usuario");
@@ -161,7 +169,7 @@ impl AuthService for MyAuthService {
         .bind(user.id)
         .bind(hash_refresh_token(&refresh_token))
         .bind(REFRESH_TOKEN_TTL_DAYS)
-        .execute(&mut *tx)
+        .execute(&mut tx)
         .await
         .map_err(|_| Status::internal("No se pudo crear la sesión renovable"))?;
 
@@ -277,7 +285,7 @@ impl AuthService for MyAuthService {
             "#,
         )
         .bind(&presented_hash)
-        .fetch_optional(&mut *tx)
+        .fetch_optional(&mut tx)
         .await
         .map_err(|_| Status::internal("No se pudo validar la renovación de sesión"))?;
 
@@ -290,7 +298,7 @@ impl AuthService for MyAuthService {
             "UPDATE auth_refresh_tokens SET revoked_at = NOW() WHERE id = $1 AND revoked_at IS NULL"
         )
         .bind(token_id)
-        .execute(&mut *tx)
+        .execute(&mut tx)
         .await
         .map_err(|_| Status::internal("No se pudo rotar el refresh token"))?;
         if revoked.rows_affected() != 1 {
@@ -309,7 +317,7 @@ impl AuthService for MyAuthService {
         .bind(user_id)
         .bind(hash_refresh_token(&refresh_token))
         .bind(REFRESH_TOKEN_TTL_DAYS)
-        .execute(&mut *tx)
+        .execute(&mut tx)
         .await
         .map_err(|_| Status::internal("No se pudo crear el refresh token rotado"))?;
 
