@@ -1,0 +1,38 @@
+name: One-time Rust dependency update
+
+on:
+  push:
+    branches:
+      - 'fix/rust-security-dependencies'
+
+permissions:
+  contents: write
+
+jobs:
+  update-lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout dependency repair branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+      - name: Install stable Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - name: Update semver-compatible workspace dependencies
+        run: cargo update
+      - name: Show lockfile changes
+        run: git diff --stat -- Cargo.lock
+      - name: Commit lockfile update only when needed
+        run: |
+          if git diff --quiet -- Cargo.lock; then
+            echo "Cargo.lock is already current."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Cargo.lock
+          git commit -m "fix(deps): update Rust dependency lockfile"
+          git push origin "HEAD:${{ github.ref_name }}"
