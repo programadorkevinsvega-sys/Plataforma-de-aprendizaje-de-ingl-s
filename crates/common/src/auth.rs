@@ -70,7 +70,7 @@ pub fn validate_jwt_token(token: &str) -> Result<JwtClaims, JwtValidationError> 
 /// Call this inside any gRPC method that accepts a user ID from its request body.
 #[expect(
     clippy::result_large_err,
-    reason = "tonic::Status is the required gRPC transport error type; keep this expectation on the transport boundary",
+    reason = "tonic::Status is the required gRPC transport error type; keep this expectation on the transport boundary"
 )]
 pub fn ensure_authenticated_user<T>(
     request: &Request<T>,
@@ -84,7 +84,7 @@ pub fn ensure_authenticated_user<T>(
 /// Validates a bearer JWT and returns its signed subject UUID.
 #[expect(
     clippy::result_large_err,
-    reason = "tonic::Status is the required gRPC transport error type; keep this expectation on the transport boundary",
+    reason = "tonic::Status is the required gRPC transport error type; keep this expectation on the transport boundary"
 )]
 pub fn authenticated_user_id<T>(request: &Request<T>) -> Result<Uuid, Status> {
     let secret = std::env::var("JWT_SECRET")
@@ -94,7 +94,7 @@ pub fn authenticated_user_id<T>(request: &Request<T>) -> Result<Uuid, Status> {
 
 #[expect(
     clippy::result_large_err,
-    reason = "tonic::Status is the required gRPC transport error type; keep this expectation on the transport boundary",
+    reason = "tonic::Status is the required gRPC transport error type; keep this expectation on the transport boundary"
 )]
 fn authenticated_user_id_with_secret<T>(
     request: &Request<T>,
@@ -115,7 +115,7 @@ fn authenticated_user_id_with_secret<T>(
 
 #[expect(
     clippy::result_large_err,
-    reason = "tonic::Status is the required gRPC transport error type; keep this expectation on the transport boundary",
+    reason = "tonic::Status is the required gRPC transport error type; keep this expectation on the transport boundary"
 )]
 fn ensure_authenticated_user_with_secret<T>(
     request: &Request<T>,
