@@ -345,7 +345,7 @@ fn unix_time_seconds() -> usize {
 
 fn configured_jwt_secret() -> Result<String, &'static str> {
     let secret = std::env::var("JWT_SECRET").map_err(|_| "La autenticación no está configurada")?;
-    if secret.trim().is_empty() || secret.as_bytes().len() < 32 {
+    if secret.trim().is_empty() || secret.len() < 32 {
         return Err("La autenticación no está configurada");
     }
     Ok(secret)
@@ -371,7 +371,7 @@ fn encode_transcribe_ticket(
 }
 
 fn decode_transcribe_ticket(token: &str, secret: &str) -> Result<TranscribeTicketClaims, ()> {
-    if secret.trim().is_empty() || secret.as_bytes().len() < 32 {
+    if secret.trim().is_empty() || secret.len() < 32 {
         return Err(());
     }
     let mut validation = Validation::new(Algorithm::HS256);
@@ -517,8 +517,7 @@ pub async fn transcribe_ws_handler(
         .filter(|value| !value.is_empty())
         .collect();
     if !protocol_values
-        .iter()
-        .any(|protocol| *protocol == TRANSCRIBE_WS_PROTOCOL)
+        .contains(&TRANSCRIBE_WS_PROTOCOL)
     {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -637,7 +636,7 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
                 "error": "No se pudo iniciar la transcripción."
             })
             .to_string();
-            let _ = socket.send(Message::Text(msg.into())).await;
+            let _ = socket.send(Message::Text(msg)).await;
             return;
         }
     };
@@ -707,7 +706,7 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
                 let msg = serde_json::json!({
                     "error": "La sesión de transcripción alcanzó su duración máxima."
                 }).to_string();
-                let _ = socket.send(Message::Text(msg.into())).await;
+                let _ = socket.send(Message::Text(msg)).await;
                 break;
             }
             // Mensajes entrantes del cliente (chunks PCM binarios o "stop" de texto)
@@ -722,14 +721,14 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
                                 let msg = serde_json::json!({
                                     "error": "Tamaño de fragmento de audio no permitido."
                                 }).to_string();
-                                let _ = socket.send(Message::Text(msg.into())).await;
+                                let _ = socket.send(Message::Text(msg)).await;
                                 break;
                             }
                             if total_audio_bytes.saturating_add(chunk_bytes) > TRANSCRIBE_MAX_AUDIO_BYTES {
                                 let msg = serde_json::json!({
                                     "error": "La sesión de transcripción superó el límite de audio."
                                 }).to_string();
-                                let _ = socket.send(Message::Text(msg.into())).await;
+                                let _ = socket.send(Message::Text(msg)).await;
                                 break;
                             }
                             total_audio_bytes += chunk_bytes;
@@ -766,7 +765,7 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
                             .ok()
                             .and_then(|value| value.get("done").and_then(|flag| flag.as_bool()))
                             .unwrap_or(false);
-                        if socket.send(Message::Text(json_str.into())).await.is_err() {
+                        if socket.send(Message::Text(json_str)).await.is_err() {
                             break;
                         }
                         if done {
