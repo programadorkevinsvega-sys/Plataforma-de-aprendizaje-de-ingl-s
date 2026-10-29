@@ -135,7 +135,8 @@ mod tests {
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
-            .as_secs() as usize + 60
+            .as_secs() as usize
+            + 60
     }
 
     fn make_token(secret: &str, sub: &str, exp: usize, algorithm: Algorithm) -> String {
@@ -177,12 +178,7 @@ mod tests {
     #[test]
     fn accepts_a_valid_hs256_token() {
         let user = Uuid::new_v4();
-        let token = make_token(
-            SECRET,
-            &user.to_string(),
-            future_exp(),
-            Algorithm::HS256,
-        );
+        let token = make_token(SECRET, &user.to_string(), future_exp(), Algorithm::HS256);
         let claims = validate_jwt_token_with_secret(&token, SECRET).unwrap();
         assert_eq!(claims.sub, user.to_string());
     }
@@ -225,12 +221,7 @@ mod tests {
     fn denies_a_token_scoped_to_a_different_user() {
         let user_a = Uuid::new_v4();
         let user_b = Uuid::new_v4();
-        let token = make_token(
-            SECRET,
-            &user_a.to_string(),
-            future_exp(),
-            Algorithm::HS256,
-        );
+        let token = make_token(SECRET, &user_a.to_string(), future_exp(), Algorithm::HS256);
         let error = ensure_authenticated_user_with_secret(
             &request_with_token(&token),
             &user_b.to_string(),

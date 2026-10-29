@@ -1,5 +1,5 @@
-use crate::AppState;
 use crate::srs_handler::{attach_bearer_metadata, validate_token_from_headers};
+use crate::AppState;
 use axum::{
     extract::State,
     http::{HeaderMap, StatusCode},
@@ -58,7 +58,7 @@ pub async fn record_progress_handler(
                 Json(serde_json::json!({ "message": "No se pudo actualizar el repaso de vocabulario.", "code": "SRS_UNAVAILABLE" })),
             )
         })?;
-    
+
     let cards_added = srs_res.into_inner().cards_added;
 
     // 2. Registrar progreso de gamificación (+10 XP, +2 Coins, +1 Palabra aprendida)
@@ -80,15 +80,17 @@ pub async fn record_progress_handler(
                 Json(serde_json::json!({ "message": "No se pudo registrar el progreso.", "code": "GAMIFICATION_UNAVAILABLE" })),
             )
         })?;
-    
+
     let result = gamification_res.into_inner();
-    let stats = result.stats.ok_or_else(|| (
-        StatusCode::SERVICE_UNAVAILABLE,
-        Json(serde_json::json!({
-            "message": "El servicio de gamificación no devolvió estadísticas.",
-            "code": "GAMIFICATION_RESPONSE_INVALID"
-        })),
-    ))?;
+    let stats = result.stats.ok_or_else(|| {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({
+                "message": "El servicio de gamificación no devolvió estadísticas.",
+                "code": "GAMIFICATION_RESPONSE_INVALID"
+            })),
+        )
+    })?;
 
     Ok(Json(ProgressResponseDto {
         success: true,

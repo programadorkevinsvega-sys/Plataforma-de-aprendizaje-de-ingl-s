@@ -36,7 +36,10 @@ impl AiEvaluatorService for MyAIEvaluatorService {
             .map(|(skill, score)| DetectedWeakness {
                 skill: skill.to_string(),
                 score,
-                tip: format!("Reforzar ejercicios específicos de {} en contexto conversacional.", skill),
+                tip: format!(
+                    "Reforzar ejercicios específicos de {} en contexto conversacional.",
+                    skill
+                ),
             })
             .collect();
 
@@ -70,15 +73,25 @@ impl AiEvaluatorService for MyAIEvaluatorService {
         let exercises = vec![
             DrillExercise {
                 title: "Dril 1: Entonación Fonética en Microservicios".to_string(),
-                english_text: "We refactored the monolith into microservices to decrease latency.".to_string(),
-                spanish_phonetic: "Güi rifáktord da mónolith íntu máikroservises tu dikrís léitensi.".to_string(),
-                target_skill: req.weak_skills.first().cloned().unwrap_or_else(|| "Pronunciación".to_string()),
+                english_text: "We refactored the monolith into microservices to decrease latency."
+                    .to_string(),
+                spanish_phonetic:
+                    "Güi rifáktord da mónolith íntu máikroservises tu dikrís léitensi.".to_string(),
+                target_skill: req
+                    .weak_skills
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| "Pronunciación".to_string()),
             },
             DrillExercise {
                 title: "Dril 2: Suavización de Verbos en Pasado".to_string(),
                 english_text: "I finished the authentication feature yesterday.".to_string(),
                 spanish_phonetic: "Ai fínisht di otentikéishon fíchur yésterdei.".to_string(),
-                target_skill: req.weak_skills.get(1).cloned().unwrap_or_else(|| "Gramática".to_string()),
+                target_skill: req
+                    .weak_skills
+                    .get(1)
+                    .cloned()
+                    .unwrap_or_else(|| "Gramática".to_string()),
             },
         ];
 

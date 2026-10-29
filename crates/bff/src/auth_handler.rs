@@ -1,4 +1,8 @@
-use axum::{extract::Request, http::{HeaderMap, StatusCode}, Json};
+use axum::{
+    extract::Request,
+    http::{HeaderMap, StatusCode},
+    Json,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::AppState;
@@ -31,7 +35,9 @@ const MAX_FULL_NAME_CHARS: usize = 120;
 const MAX_TARGET_ROLE_CHARS: usize = 80;
 const MAX_CURRENT_LEVEL_CHARS: usize = 20;
 
-fn validate_register_input(payload: &RegisterDto) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+fn validate_register_input(
+    payload: &RegisterDto,
+) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
     if payload.email.trim().is_empty()
         || payload.email.chars().count() > MAX_EMAIL_CHARS
         || !payload.email.contains('@')
@@ -39,8 +45,14 @@ fn validate_register_input(payload: &RegisterDto) -> Result<(), (StatusCode, Jso
         || payload.password.chars().count() > MAX_PASSWORD_CHARS
         || payload.full_name.trim().is_empty()
         || payload.full_name.chars().count() > MAX_FULL_NAME_CHARS
-        || payload.target_role.as_ref().is_some_and(|value| value.chars().count() > MAX_TARGET_ROLE_CHARS)
-        || payload.current_level.as_ref().is_some_and(|value| value.chars().count() > MAX_CURRENT_LEVEL_CHARS)
+        || payload
+            .target_role
+            .as_ref()
+            .is_some_and(|value| value.chars().count() > MAX_TARGET_ROLE_CHARS)
+        || payload
+            .current_level
+            .as_ref()
+            .is_some_and(|value| value.chars().count() > MAX_CURRENT_LEVEL_CHARS)
     {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -71,16 +83,11 @@ fn validate_login_input(payload: &LoginDto) -> Result<(), (StatusCode, Json<serd
     Ok(())
 }
 
-
 fn normalize_email_for_rate_limit(email: &str) -> String {
     email.trim().to_ascii_lowercase()
 }
 
-fn allow_auth_attempt(
-    email: &str,
-    action: &str,
-    quotas: &[(&str, usize, u64)],
-) -> bool {
+fn allow_auth_attempt(email: &str, action: &str, quotas: &[(&str, usize, u64)]) -> bool {
     let normalized_email = normalize_email_for_rate_limit(email);
     if normalized_email.is_empty() {
         return false;
@@ -103,11 +110,7 @@ fn allow_auth_attempt(
 }
 
 fn allow_login_attempt(email: &str) -> bool {
-    allow_auth_attempt(
-        email,
-        "login",
-        &[("minute", 5, 60), ("hour", 20, 3600)],
-    )
+    allow_auth_attempt(email, "login", &[("minute", 5, 60), ("hour", 20, 3600)])
 }
 
 fn allow_registration_attempt(email: &str) -> bool {
@@ -145,7 +148,6 @@ pub struct MeResponseDto {
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
 
-
 /// Obtiene un bearer token de una cabecera HTTP Authorization válida.
 pub fn extract_bearer_token(headers: &HeaderMap) -> Option<String> {
     headers
@@ -161,11 +163,13 @@ pub fn attach_bearer_token<T>(
     request: &mut tonic::Request<T>,
     token: &str,
 ) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
-    let value = tonic::metadata::MetadataValue::try_from(format!("Bearer {token}"))
-        .map_err(|_| (
-            StatusCode::UNAUTHORIZED,
-            Json(serde_json::json!({ "message": "Token inválido", "code": "INVALID_TOKEN" })),
-        ))?;
+    let value =
+        tonic::metadata::MetadataValue::try_from(format!("Bearer {token}")).map_err(|_| {
+            (
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({ "message": "Token inválido", "code": "INVALID_TOKEN" })),
+            )
+        })?;
     request.metadata_mut().insert("authorization", value);
     Ok(())
 }
@@ -188,7 +192,9 @@ pub async fn register_handler(
         email: payload.email.clone(),
         password: payload.password,
         full_name: payload.full_name,
-        target_role: payload.target_role.unwrap_or_else(|| "Software Developer".to_string()),
+        target_role: payload
+            .target_role
+            .unwrap_or_else(|| "Software Developer".to_string()),
     });
 
     match state.auth_client.register(request).await {
@@ -207,16 +213,22 @@ pub async fn register_handler(
                 full_name: inner.full_name,
                 email: inner.email,
                 current_level,
-                target_role: if inner.target_role.is_empty() { "Software Developer".to_string() } else { inner.target_role },
+                target_role: if inner.target_role.is_empty() {
+                    "Software Developer".to_string()
+                } else {
+                    inner.target_role
+                },
             }))
         }
         Err(status) => {
             tracing::warn!(code = ?status.code(), "Falló una solicitud de registro");
             Err((
                 StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({ "message": "No se pudo completar el registro.", "code": "REGISTER_ERROR" })),
+                Json(
+                    serde_json::json!({ "message": "No se pudo completar el registro.", "code": "REGISTER_ERROR" }),
+                ),
             ))
-        },
+        }
     }
 }
 
@@ -250,16 +262,22 @@ pub async fn login_handler(
                 full_name: inner.full_name,
                 email: inner.email,
                 current_level: inner.current_level,
-                target_role: if inner.target_role.is_empty() { "Software Developer".to_string() } else { inner.target_role },
+                target_role: if inner.target_role.is_empty() {
+                    "Software Developer".to_string()
+                } else {
+                    inner.target_role
+                },
             }))
         }
         Err(status) => {
             tracing::warn!(code = ?status.code(), "Falló un intento de login");
             Err((
                 StatusCode::UNAUTHORIZED,
-                Json(serde_json::json!({ "message": "Correo o contraseña incorrectos.", "code": "INVALID_CREDENTIALS" })),
+                Json(
+                    serde_json::json!({ "message": "Correo o contraseña incorrectos.", "code": "INVALID_CREDENTIALS" }),
+                ),
             ))
-        },
+        }
     }
 }
 
@@ -273,11 +291,15 @@ pub async fn me_handler(
     if token.is_empty() {
         return Err((
             StatusCode::UNAUTHORIZED,
-            Json(serde_json::json!({ "message": "Token de autorización requerido", "code": "MISSING_TOKEN" })),
+            Json(
+                serde_json::json!({ "message": "Token de autorización requerido", "code": "MISSING_TOKEN" }),
+            ),
         ));
     }
 
-    let request = tonic::Request::new(proto::auth::ValidateTokenRequest { token: token.clone() });
+    let request = tonic::Request::new(proto::auth::ValidateTokenRequest {
+        token: token.clone(),
+    });
 
     match state.auth_client.validate_token(request).await {
         Ok(res) => {
@@ -285,7 +307,9 @@ pub async fn me_handler(
             if !inner.valid {
                 return Err((
                     StatusCode::UNAUTHORIZED,
-                    Json(serde_json::json!({ "message": "Token expirado o inválido", "code": "INVALID_TOKEN" })),
+                    Json(
+                        serde_json::json!({ "message": "Token expirado o inválido", "code": "INVALID_TOKEN" }),
+                    ),
                 ));
             }
 
@@ -295,16 +319,25 @@ pub async fn me_handler(
             });
             attach_bearer_token(&mut profile_req, &token)?;
 
-            let profile = state.auth_client.get_user_profile(profile_req).await.map_err(|_| (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(serde_json::json!({
-                    "message": "No se pudo recuperar el perfil autenticado",
-                    "code": "PROFILE_UNAVAILABLE"
-                })),
-            ))?;
+            let profile = state
+                .auth_client
+                .get_user_profile(profile_req)
+                .await
+                .map_err(|_| {
+                    (
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        Json(serde_json::json!({
+                            "message": "No se pudo recuperar el perfil autenticado",
+                            "code": "PROFILE_UNAVAILABLE"
+                        })),
+                    )
+                })?;
             let profile = profile.into_inner();
-            let (full_name, target_role, current_level) =
-                (profile.full_name, profile.target_role, profile.current_level);
+            let (full_name, target_role, current_level) = (
+                profile.full_name,
+                profile.target_role,
+                profile.current_level,
+            );
 
             Ok(Json(MeResponseDto {
                 user_id: inner.user_id,
@@ -318,11 +351,12 @@ pub async fn me_handler(
         }
         Err(_status) => Err((
             StatusCode::UNAUTHORIZED,
-            Json(serde_json::json!({ "message": "No se pudo validar la sesión.", "code": "TOKEN_VALIDATION_ERROR" })),
+            Json(
+                serde_json::json!({ "message": "No se pudo validar la sesión.", "code": "TOKEN_VALIDATION_ERROR" }),
+            ),
         )),
     }
 }
-
 
 /// POST /api/v1/auth/refresh — consume and rotate a one-time refresh token.
 pub async fn refresh_handler(
@@ -360,7 +394,6 @@ pub async fn refresh_handler(
         )),
     }
 }
-
 
 #[cfg(test)]
 mod auth_input_validation_tests {
@@ -405,7 +438,6 @@ mod auth_input_validation_tests {
     }
 }
 
-
 #[cfg(test)]
 mod auth_rate_limit_tests {
     use super::{allow_login_attempt, allow_registration_attempt, normalize_email_for_rate_limit};
@@ -435,7 +467,10 @@ mod auth_rate_limit_tests {
             assert!(allow_registration_attempt(&email));
         }
         assert!(!allow_registration_attempt(&email));
-        assert!(allow_login_attempt(&email), "registration and login quotas are independent");
+        assert!(
+            allow_login_attempt(&email),
+            "registration and login quotas are independent"
+        );
     }
 
     #[test]

@@ -45,16 +45,20 @@ pub(crate) fn attach_bearer_metadata<T>(
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.strip_prefix("Bearer "))
         .filter(|value| !value.is_empty())
-        .ok_or_else(|| (
-            StatusCode::UNAUTHORIZED,
-            Json(serde_json::json!({ "message": "Token requerido", "code": "MISSING_TOKEN" })),
-        ))?;
+        .ok_or_else(|| {
+            (
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({ "message": "Token requerido", "code": "MISSING_TOKEN" })),
+            )
+        })?;
 
-    let value = tonic::metadata::MetadataValue::try_from(format!("Bearer {token}"))
-        .map_err(|_| (
-            StatusCode::UNAUTHORIZED,
-            Json(serde_json::json!({ "message": "Token inválido", "code": "INVALID_TOKEN" })),
-        ))?;
+    let value =
+        tonic::metadata::MetadataValue::try_from(format!("Bearer {token}")).map_err(|_| {
+            (
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({ "message": "Token inválido", "code": "INVALID_TOKEN" })),
+            )
+        })?;
     request.metadata_mut().insert("authorization", value);
     Ok(())
 }
@@ -66,31 +70,37 @@ pub async fn get_due_cards_handler(
 ) -> Result<Json<DueCardsDto>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
 
-    let mut request = tonic::Request::new(GetDueCardsRequest {
-        user_id,
-        limit: 20,
-    });
+    let mut request = tonic::Request::new(GetDueCardsRequest { user_id, limit: 20 });
     attach_bearer_metadata(&headers, &mut request)?;
 
     match state.srs_client.get_due_cards(request).await {
         Ok(res) => {
             let inner = res.into_inner();
-            let cards = inner.cards.into_iter().map(|c| SrsCardDto {
-                id: c.id,
-                sentence_id: c.sentence_id,
-                english_text: c.english_text,
-                spanish_phonetic: c.spanish_phonetic,
-                spanish_translation: c.spanish_translation,
-                easiness_factor: c.easiness_factor,
-                interval_days: c.interval_days,
-                repetitions: c.repetitions,
-                next_review: c.next_review,
-            }).collect();
-            Ok(Json(DueCardsDto { cards, total: inner.total }))
+            let cards = inner
+                .cards
+                .into_iter()
+                .map(|c| SrsCardDto {
+                    id: c.id,
+                    sentence_id: c.sentence_id,
+                    english_text: c.english_text,
+                    spanish_phonetic: c.spanish_phonetic,
+                    spanish_translation: c.spanish_translation,
+                    easiness_factor: c.easiness_factor,
+                    interval_days: c.interval_days,
+                    repetitions: c.repetitions,
+                    next_review: c.next_review,
+                })
+                .collect();
+            Ok(Json(DueCardsDto {
+                cards,
+                total: inner.total,
+            }))
         }
         Err(_error) => Err((
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "message": "El servicio de repaso no está disponible.", "code": "SRS_UNAVAILABLE" })),
+            Json(
+                serde_json::json!({ "message": "El servicio de repaso no está disponible.", "code": "SRS_UNAVAILABLE" }),
+            ),
         )),
     }
 }
@@ -103,7 +113,10 @@ pub async fn review_card_handler(
     Json(body): Json<ReviewBody>,
 ) -> Result<Json<ReviewOutcomeDto>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
-    if card_id.trim().is_empty() || card_id.len() > 128 || body.grade.is_some_and(|grade| !(0..=5).contains(&grade)) {
+    if card_id.trim().is_empty()
+        || card_id.len() > 128
+        || body.grade.is_some_and(|grade| !(0..=5).contains(&grade))
+    {
         return Err((
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({
@@ -132,7 +145,9 @@ pub async fn review_card_handler(
         }
         Err(_error) => Err((
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "message": "No se pudo registrar la revisión.", "code": "SRS_REVIEW_UNAVAILABLE" })),
+            Json(
+                serde_json::json!({ "message": "No se pudo registrar la revisión.", "code": "SRS_REVIEW_UNAVAILABLE" }),
+            ),
         )),
     }
 }
@@ -166,7 +181,9 @@ pub async fn validate_token_from_headers(
             {
                 return Err((
                     StatusCode::UNAUTHORIZED,
-                    Json(serde_json::json!({ "message": "Token inválido", "code": "INVALID_TOKEN" })),
+                    Json(
+                        serde_json::json!({ "message": "Token inválido", "code": "INVALID_TOKEN" }),
+                    ),
                 ));
             }
             Ok(inner.user_id)

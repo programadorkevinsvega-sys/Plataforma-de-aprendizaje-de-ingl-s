@@ -1,9 +1,13 @@
-use axum::{extract::State, http::{StatusCode, HeaderMap}, Json};
+use axum::{
+    extract::State,
+    http::{HeaderMap, StatusCode},
+    Json,
+};
 use serde::{Deserialize, Serialize};
 
-use crate::AppState;
 use crate::auth_handler::{attach_bearer_token, extract_bearer_token};
 use crate::srs_handler::{attach_bearer_metadata, validate_token_from_headers};
+use crate::AppState;
 
 #[derive(Deserialize)]
 pub struct UpdateProfileBody {
@@ -16,13 +20,33 @@ const MAX_PROFILE_NAME_CHARS: usize = 120;
 const MAX_PROFILE_ROLE_CHARS: usize = 80;
 const MAX_PROFILE_LEVEL_CHARS: usize = 20;
 
-fn validate_update_profile_body(body: &UpdateProfileBody) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
-    let has_value = body.full_name.as_ref().is_some_and(|value| !value.trim().is_empty())
-        || body.target_role.as_ref().is_some_and(|value| !value.trim().is_empty())
-        || body.current_level.as_ref().is_some_and(|value| !value.trim().is_empty());
-    let too_long = body.full_name.as_ref().is_some_and(|value| value.chars().count() > MAX_PROFILE_NAME_CHARS)
-        || body.target_role.as_ref().is_some_and(|value| value.chars().count() > MAX_PROFILE_ROLE_CHARS)
-        || body.current_level.as_ref().is_some_and(|value| value.chars().count() > MAX_PROFILE_LEVEL_CHARS);
+fn validate_update_profile_body(
+    body: &UpdateProfileBody,
+) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+    let has_value = body
+        .full_name
+        .as_ref()
+        .is_some_and(|value| !value.trim().is_empty())
+        || body
+            .target_role
+            .as_ref()
+            .is_some_and(|value| !value.trim().is_empty())
+        || body
+            .current_level
+            .as_ref()
+            .is_some_and(|value| !value.trim().is_empty());
+    let too_long = body
+        .full_name
+        .as_ref()
+        .is_some_and(|value| value.chars().count() > MAX_PROFILE_NAME_CHARS)
+        || body
+            .target_role
+            .as_ref()
+            .is_some_and(|value| value.chars().count() > MAX_PROFILE_ROLE_CHARS)
+        || body
+            .current_level
+            .as_ref()
+            .is_some_and(|value| value.chars().count() > MAX_PROFILE_LEVEL_CHARS);
     if !has_value || too_long {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -52,10 +76,12 @@ pub async fn update_profile_handler(
 ) -> Result<Json<UserProfileDto>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
     validate_update_profile_body(&body)?;
-    let token = extract_bearer_token(&headers).ok_or_else(|| (
-        StatusCode::UNAUTHORIZED,
-        Json(serde_json::json!({ "message": "Token requerido", "code": "MISSING_TOKEN" })),
-    ))?;
+    let token = extract_bearer_token(&headers).ok_or_else(|| {
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({ "message": "Token requerido", "code": "MISSING_TOKEN" })),
+        )
+    })?;
 
     let mut update_req = tonic::Request::new(proto::auth::UpdateUserProfileRequest {
         user_id: user_id.clone(),
@@ -78,7 +104,9 @@ pub async fn update_profile_handler(
         }
         Err(_error) => Err((
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "message": "No se pudo actualizar el perfil.", "code": "PROFILE_UPDATE_UNAVAILABLE" })),
+            Json(
+                serde_json::json!({ "message": "No se pudo actualizar el perfil.", "code": "PROFILE_UPDATE_UNAVAILABLE" }),
+            ),
         )),
     }
 }
@@ -130,21 +158,29 @@ pub async fn progress_summary_real_handler(
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
 
     // Consultar perfil con el mismo JWT que se validó en el BFF.
-    let token = extract_bearer_token(&headers).ok_or_else(|| (
-        StatusCode::UNAUTHORIZED,
-        Json(serde_json::json!({ "message": "Token requerido", "code": "MISSING_TOKEN" })),
-    ))?;
+    let token = extract_bearer_token(&headers).ok_or_else(|| {
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({ "message": "Token requerido", "code": "MISSING_TOKEN" })),
+        )
+    })?;
     let mut profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
         user_id: user_id.clone(),
     });
     attach_bearer_token(&mut profile_req, &token)?;
-    let profile = state.auth_client.get_user_profile(profile_req).await.map_err(|_| (
-        StatusCode::SERVICE_UNAVAILABLE,
-        Json(serde_json::json!({
-            "message": "No se pudo recuperar el perfil autenticado",
-            "code": "PROFILE_UNAVAILABLE"
-        })),
-    ))?;
+    let profile = state
+        .auth_client
+        .get_user_profile(profile_req)
+        .await
+        .map_err(|_| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "message": "No se pudo recuperar el perfil autenticado",
+                    "code": "PROFILE_UNAVAILABLE"
+                })),
+            )
+        })?;
     let target_role = profile.into_inner().target_role;
 
     let mut stats_req = tonic::Request::new(proto::gamification::GetUserStatsRequest { user_id });
@@ -163,7 +199,9 @@ pub async fn progress_summary_real_handler(
         }
         Err(_error) => Err((
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "message": "El servicio de gamificación no está disponible.", "code": "GAMIFICATION_UNAVAILABLE" })),
+            Json(
+                serde_json::json!({ "message": "El servicio de gamificación no está disponible.", "code": "GAMIFICATION_UNAVAILABLE" }),
+            ),
         )),
     }
 }
@@ -194,12 +232,13 @@ pub async fn leaderboard_handler(
             }
             Ok(Json(serde_json::json!(mapped_entries)))
         }
-        Err(_error) => {
-            Err((StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
+        Err(_error) => Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({
                 "message": "El ranking no está disponible.",
                 "code": "LEADERBOARD_UNAVAILABLE"
-            }))))
-        }
+            })),
+        )),
     }
 }
 
@@ -230,11 +269,12 @@ pub async fn achievements_handler(
             }
             Ok(Json(serde_json::json!(mapped_achievements)))
         }
-        Err(_error) => {
-            Err((StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
+        Err(_error) => Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({
                 "message": "Los logros no están disponibles.",
                 "code": "ACHIEVEMENTS_UNAVAILABLE"
-            }))))
-        }
+            })),
+        )),
     }
 }

@@ -1,14 +1,16 @@
 mod aws_audio;
 mod transliteration;
 
+use aws_audio::AwsAudioEngine;
+use proto::phonetic_audio::phonetic_audio_service_server::{
+    PhoneticAudioService, PhoneticAudioServiceServer,
+};
+use proto::phonetic_audio::{
+    PhoneticRequest, PhoneticResponse, SynthesizeRequest, SynthesizeResponse, TranscribeRequest,
+    TranscribeResponse,
+};
 use std::sync::Arc;
 use tonic::{transport::Server, Request, Response, Status};
-use proto::phonetic_audio::phonetic_audio_service_server::{PhoneticAudioService, PhoneticAudioServiceServer};
-use proto::phonetic_audio::{
-    PhoneticRequest, PhoneticResponse, SynthesizeRequest, SynthesizeResponse,
-    TranscribeRequest, TranscribeResponse,
-};
-use aws_audio::AwsAudioEngine;
 use transliteration::PhoneticEngine;
 
 #[derive(Clone)]
@@ -53,7 +55,10 @@ impl PhoneticAudioService for PhoneticAudioServiceImpl {
                 transcribed_text,
                 language_code: self.aws_audio.transcribe_language_code.clone(),
             })),
-            Err(e) => Err(Status::internal(format!("Error transcribiendo audio: {}", e))),
+            Err(e) => Err(Status::internal(format!(
+                "Error transcribiendo audio: {}",
+                e
+            ))),
         }
     }
 }
@@ -70,8 +75,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let aws_audio_clone = aws_audio.clone();
     tokio::spawn(async move {
-        if let Ok(audio_b64) = aws_audio_clone.synthesize_speech_polly("Initialization check").await {
-            tracing::info!("✅ [AUDIO] Test TTS Polly: {} bytes generados", audio_b64.len());
+        if let Ok(audio_b64) = aws_audio_clone
+            .synthesize_speech_polly("Initialization check")
+            .await
+        {
+            tracing::info!(
+                "✅ [AUDIO] Test TTS Polly: {} bytes generados",
+                audio_b64.len()
+            );
         }
     });
 

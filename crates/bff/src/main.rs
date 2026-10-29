@@ -23,7 +23,10 @@ use user_handler::{
 };
 
 use axum::{
-    http::{header::{AUTHORIZATION, CONTENT_TYPE}, HeaderValue, Method},
+    http::{
+        header::{AUTHORIZATION, CONTENT_TYPE},
+        HeaderValue, Method,
+    },
     routing::{get, patch, post},
     Router,
 };
@@ -46,7 +49,6 @@ pub struct AppState {
     pub gamification_client: GamificationServiceClient<Channel>,
 }
 
-
 /// Parse comma-separated exact HTTP(S) origins. Wildcards and URL paths are rejected.
 fn parse_cors_allowed_origins(raw: Option<&str>) -> Result<Vec<HeaderValue>, &'static str> {
     let raw = raw
@@ -54,7 +56,11 @@ fn parse_cors_allowed_origins(raw: Option<&str>) -> Result<Vec<HeaderValue>, &'s
         .unwrap_or("http://localhost:3000");
     let mut origins = Vec::new();
 
-    for origin in raw.split(',').map(str::trim).filter(|value| !value.is_empty()) {
+    for origin in raw
+        .split(',')
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
         if origin == "*" {
             return Err("CORS_ALLOWED_ORIGINS no puede usar el comodín '*'");
         }
@@ -69,7 +75,10 @@ fn parse_cors_allowed_origins(raw: Option<&str>) -> Result<Vec<HeaderValue>, &'s
 
         let value = HeaderValue::from_str(origin)
             .map_err(|_| "CORS_ALLOWED_ORIGINS contiene un origen inválido")?;
-        if !origins.iter().any(|previous: &HeaderValue| previous == &value) {
+        if !origins
+            .iter()
+            .any(|previous: &HeaderValue| previous == &value)
+        {
             origins.push(value);
         }
     }
@@ -93,7 +102,10 @@ mod cors_configuration_tests {
 
     #[test]
     fn accepts_multiple_explicit_origins_without_duplicates() {
-        let origins = parse_cors_allowed_origins(Some("https://app.example.com, http://localhost:3000, https://app.example.com")).unwrap();
+        let origins = parse_cors_allowed_origins(Some(
+            "https://app.example.com, http://localhost:3000, https://app.example.com",
+        ))
+        .unwrap();
         assert_eq!(origins.len(), 2);
     }
 
@@ -118,12 +130,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         AuthServiceClient::new(Channel::from_static("http://127.0.0.1:50051").connect_lazy());
     let content_client =
         ContentServiceClient::new(Channel::from_static("http://127.0.0.1:50052").connect_lazy());
-    let ai_client =
-        AiEvaluatorServiceClient::new(Channel::from_static("http://127.0.0.1:50053").connect_lazy());
+    let ai_client = AiEvaluatorServiceClient::new(
+        Channel::from_static("http://127.0.0.1:50053").connect_lazy(),
+    );
     let srs_client =
         SrsServiceClient::new(Channel::from_static("http://127.0.0.1:50055").connect_lazy());
-    let gamification_client =
-        GamificationServiceClient::new(Channel::from_static("http://127.0.0.1:50056").connect_lazy());
+    let gamification_client = GamificationServiceClient::new(
+        Channel::from_static("http://127.0.0.1:50056").connect_lazy(),
+    );
 
     let state = AppState {
         auth_client,
@@ -133,10 +147,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         gamification_client,
     };
 
-    let allowed_origins = parse_cors_allowed_origins(
-        std::env::var("CORS_ALLOWED_ORIGINS").ok().as_deref(),
-    )
-    .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidInput, message))?;
+    let allowed_origins =
+        parse_cors_allowed_origins(std::env::var("CORS_ALLOWED_ORIGINS").ok().as_deref())
+            .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidInput, message))?;
 
     let cors = CorsLayer::new()
         .allow_origin(AllowOrigin::list(allowed_origins))
@@ -152,7 +165,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let app = Router::new()
         // Health
-        .route("/health", get(|| async { "OK - DevFluency BFF Enterprise" }))
+        .route(
+            "/health",
+            get(|| async { "OK - DevFluency BFF Enterprise" }),
+        )
         // Auth
         .route("/api/v1/auth/register", post(register_handler))
         .route("/api/v1/auth/login", post(login_handler))
@@ -160,7 +176,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/v1/auth/me", get(me_handler))
         .route("/api/v1/auth/logout", post(logout_handler))
         // Progress / Dashboard
-        .route("/api/v1/progress/summary", get(progress_summary_real_handler))
+        .route(
+            "/api/v1/progress/summary",
+            get(progress_summary_real_handler),
+        )
         .route("/api/v1/progress/leaderboard", get(leaderboard_handler))
         .route("/api/v1/progress/achievements", get(achievements_handler))
         // Content / Vocabulary
@@ -180,7 +199,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/v1/exam/questions/next", post(next_question_handler))
         .route("/api/v1/exam/evaluate", post(evaluate_answer_handler))
         .route("/api/v1/exam/results/:id/drill", get(get_drill_handler))
-        .route("/api/v1/exam/transcribe/ticket", post(create_transcribe_ticket_handler))
+        .route(
+            "/api/v1/exam/transcribe/ticket",
+            post(create_transcribe_ticket_handler),
+        )
         .route("/api/v1/exam/transcribe/ws", get(transcribe_ws_handler))
         // Users
         .route("/api/v1/users/me", patch(update_profile_handler))

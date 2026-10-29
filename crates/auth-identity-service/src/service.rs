@@ -3,9 +3,9 @@ use crate::jwt::JwtService;
 use common::Email;
 use proto::auth::auth_service_server::AuthService;
 use proto::auth::{
-    AuthResponse, GetUserProfileRequest, LoginRequest, RefreshTokenRequest,
-    RegisterRequest, RevokeRefreshTokenRequest, RevokeRefreshTokenResponse,
-    UpdateUserProfileRequest, UserProfileResponse, ValidateTokenRequest, ValidateTokenResponse,
+    AuthResponse, GetUserProfileRequest, LoginRequest, RefreshTokenRequest, RegisterRequest,
+    RevokeRefreshTokenRequest, RevokeRefreshTokenResponse, UpdateUserProfileRequest,
+    UserProfileResponse, ValidateTokenRequest, ValidateTokenResponse,
 };
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
@@ -53,7 +53,10 @@ fn authenticated_user_id<T>(request: &Request<T>) -> Result<Uuid, Status> {
         .map_err(|_| Status::unauthenticated("Identidad de usuario inválida"))
 }
 
-fn enforce_user_scope(authenticated_user_id: Uuid, requested_user_id: &str) -> Result<Uuid, Status> {
+fn enforce_user_scope(
+    authenticated_user_id: Uuid,
+    requested_user_id: &str,
+) -> Result<Uuid, Status> {
     let requested_user_id = Uuid::parse_str(requested_user_id)
         .map_err(|_| Status::invalid_argument("user_id inválido"))?;
     if requested_user_id != authenticated_user_id {
@@ -72,8 +75,8 @@ impl AuthService for MyAuthService {
     ) -> Result<Response<AuthResponse>, Status> {
         let req = request.into_inner();
 
-        let email = Email::parse(&req.email)
-            .map_err(|e| Status::invalid_argument(e.to_string()))?;
+        let email =
+            Email::parse(&req.email).map_err(|e| Status::invalid_argument(e.to_string()))?;
 
         // Mantener usuario y estadísticas en la misma transacción.
         let mut tx = self
@@ -90,7 +93,9 @@ impl AuthService for MyAuthService {
                 .map_err(|_| Status::internal("No se pudo comprobar el correo"))?;
 
         if existing.is_some() {
-            return Err(Status::already_exists("El usuario ya existe con ese correo"));
+            return Err(Status::already_exists(
+                "El usuario ya existe con ese correo",
+            ));
         }
 
         let password_hash = PasswordService::hash_password(&req.password)
@@ -145,8 +150,9 @@ impl AuthService for MyAuthService {
             Status::internal("No se pudo inicializar el perfil del usuario")
         })?;
 
-        let access_token = JwtService::generate_token(user.id, email.as_str(), &user.target_role)
-            .map_err(|_| Status::internal("No se pudo crear la sesión de usuario"))?;
+        let access_token =
+            JwtService::generate_token(user.id, email.as_str(), &user.target_role)
+                .map_err(|_| Status::internal("No se pudo crear la sesión de usuario"))?;
 
         let refresh_token = generate_refresh_token();
         sqlx::query(
@@ -179,8 +185,8 @@ impl AuthService for MyAuthService {
         request: Request<LoginRequest>,
     ) -> Result<Response<AuthResponse>, Status> {
         let req = request.into_inner();
-        let email = Email::parse(&req.email)
-            .map_err(|e| Status::invalid_argument(e.to_string()))?;
+        let email =
+            Email::parse(&req.email).map_err(|e| Status::invalid_argument(e.to_string()))?;
 
         // Buscar usuario en PostgreSQL
         let row: Option<(uuid::Uuid, String, String, String, String)> = sqlx::query_as(
@@ -191,8 +197,8 @@ impl AuthService for MyAuthService {
         .await
         .map_err(|e| Status::internal(e.to_string()))?;
 
-        let (user_id, password_hash, full_name, target_role, current_level) = row
-            .ok_or_else(|| Status::not_found("Usuario o contraseña incorrectos"))?;
+        let (user_id, password_hash, full_name, target_role, current_level) =
+            row.ok_or_else(|| Status::not_found("Usuario o contraseña incorrectos"))?;
 
         if !PasswordService::verify_password(&req.password, &password_hash) {
             return Err(Status::unauthenticated("Usuario o contraseña incorrectos"));
@@ -244,7 +250,6 @@ impl AuthService for MyAuthService {
         }
     }
 
-
     async fn refresh_token(
         &self,
         request: Request<RefreshTokenRequest>,
@@ -254,7 +259,10 @@ impl AuthService for MyAuthService {
             return Err(Status::unauthenticated("Refresh token requerido"));
         }
         let presented_hash = hash_refresh_token(&raw_token);
-        let mut tx = self.pool.begin().await
+        let mut tx = self
+            .pool
+            .begin()
+            .await
             .map_err(|_| Status::internal("No se pudo iniciar la renovación de sesión"))?;
 
         let row: Option<(Uuid, String, String, String, String, Uuid)> = sqlx::query_as(
@@ -274,7 +282,9 @@ impl AuthService for MyAuthService {
         .map_err(|_| Status::internal("No se pudo validar la renovación de sesión"))?;
 
         let (user_id, email, full_name, target_role, current_level, token_id) =
-            row.ok_or_else(|| Status::unauthenticated("Refresh token inválido, expirado o revocado"))?;
+            row.ok_or_else(|| {
+                Status::unauthenticated("Refresh token inválido, expirado o revocado")
+            })?;
 
         let revoked = sqlx::query(
             "UPDATE auth_refresh_tokens SET revoked_at = NOW() WHERE id = $1 AND revoked_at IS NULL"
@@ -284,7 +294,9 @@ impl AuthService for MyAuthService {
         .await
         .map_err(|_| Status::internal("No se pudo rotar el refresh token"))?;
         if revoked.rows_affected() != 1 {
-            return Err(Status::unauthenticated("Refresh token inválido, expirado o revocado"));
+            return Err(Status::unauthenticated(
+                "Refresh token inválido, expirado o revocado",
+            ));
         }
 
         let access_token = JwtService::generate_token(user_id, &email, &target_role)
@@ -301,7 +313,8 @@ impl AuthService for MyAuthService {
         .await
         .map_err(|_| Status::internal("No se pudo crear el refresh token rotado"))?;
 
-        tx.commit().await
+        tx.commit()
+            .await
             .map_err(|_| Status::internal("No se pudo confirmar la renovación de sesión"))?;
 
         Ok(Response::new(AuthResponse {
@@ -346,15 +359,15 @@ impl AuthService for MyAuthService {
         let user_id = enforce_user_scope(authenticated_user_id, &req.user_id)?;
 
         let row: Option<(Uuid, String, String, String, String)> = sqlx::query_as(
-            "SELECT id, email, full_name, target_role, current_level FROM users WHERE id = $1"
+            "SELECT id, email, full_name, target_role, current_level FROM users WHERE id = $1",
         )
         .bind(user_id)
         .fetch_optional(self.pool.as_ref())
         .await
         .map_err(|e| Status::internal(e.to_string()))?;
 
-        let (id, email, full_name, target_role, current_level) = row
-            .ok_or_else(|| Status::not_found("Usuario no encontrado"))?;
+        let (id, email, full_name, target_role, current_level) =
+            row.ok_or_else(|| Status::not_found("Usuario no encontrado"))?;
 
         Ok(Response::new(UserProfileResponse {
             user_id: id.to_string(),
@@ -395,13 +408,17 @@ impl AuthService for MyAuthService {
             Status::internal(e.to_string())
         })?;
 
-        let (id, email, full_name, target_role, current_level) = row
-            .ok_or_else(|| {
-                tracing::warn!("⚠️ [AUTH] Usuario no encontrado para ID: {}", user_id);
-                Status::not_found("Usuario no encontrado para actualizar")
-            })?;
+        let (id, email, full_name, target_role, current_level) = row.ok_or_else(|| {
+            tracing::warn!("⚠️ [AUTH] Usuario no encontrado para ID: {}", user_id);
+            Status::not_found("Usuario no encontrado para actualizar")
+        })?;
 
-        tracing::info!("✅ [AUTH] Perfil actualizado exitosamente para {}: role={}, level={}", email, target_role, current_level);
+        tracing::info!(
+            "✅ [AUTH] Perfil actualizado exitosamente para {}: role={}, level={}",
+            email,
+            target_role,
+            current_level
+        );
 
         Ok(Response::new(UserProfileResponse {
             user_id: id.to_string(),
@@ -413,7 +430,6 @@ impl AuthService for MyAuthService {
     }
 }
 
-
 #[cfg(test)]
 mod authorization_tests {
     use super::enforce_user_scope;
@@ -423,7 +439,10 @@ mod authorization_tests {
     #[test]
     fn permits_access_to_own_profile() {
         let user_id = Uuid::new_v4();
-        assert_eq!(enforce_user_scope(user_id, &user_id.to_string()).unwrap(), user_id);
+        assert_eq!(
+            enforce_user_scope(user_id, &user_id.to_string()).unwrap(),
+            user_id
+        );
     }
 
     #[test]
@@ -440,7 +459,6 @@ mod authorization_tests {
         assert_eq!(error.code(), Code::InvalidArgument);
     }
 }
-
 
 #[cfg(test)]
 mod refresh_token_tests {
@@ -465,7 +483,6 @@ mod refresh_token_tests {
     }
 }
 
-
 #[cfg(test)]
 mod refresh_token_integration_tests {
     use super::{generate_refresh_token, hash_refresh_token, MyAuthService};
@@ -479,9 +496,12 @@ mod refresh_token_integration_tests {
     /// Requires the CI-provided TEST_DATABASE_URL after the repository migrations
     /// have been applied. The test creates and removes its own user.
     #[tokio::test]
-    async fn refresh_rotation_replay_and_logout_revocation_are_enforced() -> Result<(), Box<dyn std::error::Error>> {
+    async fn refresh_rotation_replay_and_logout_revocation_are_enforced(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let Ok(database_url) = std::env::var("TEST_DATABASE_URL") else {
-            eprintln!("TEST_DATABASE_URL is not configured; skipping refresh-token integration test");
+            eprintln!(
+                "TEST_DATABASE_URL is not configured; skipping refresh-token integration test"
+            );
             return Ok(());
         };
 
@@ -520,40 +540,58 @@ mod refresh_token_integration_tests {
         .await?;
 
         let service = MyAuthService::new(Arc::new(pool.clone()));
-        let expired = service.refresh_token(tonic::Request::new(RefreshTokenRequest {
-            refresh_token: expired_token,
-        })).await.unwrap_err();
+        let expired = service
+            .refresh_token(tonic::Request::new(RefreshTokenRequest {
+                refresh_token: expired_token,
+            }))
+            .await
+            .unwrap_err();
         assert_eq!(expired.code(), Code::Unauthenticated);
 
         let stored_hash: String = sqlx::query_scalar(
-            "SELECT token_hash FROM auth_refresh_tokens WHERE user_id = $1 AND token_hash = $2"
+            "SELECT token_hash FROM auth_refresh_tokens WHERE user_id = $1 AND token_hash = $2",
         )
         .bind(user_id)
         .bind(hash_refresh_token(&initial_token))
         .fetch_one(&pool)
         .await?;
-        assert_ne!(stored_hash, initial_token, "database must not store the raw refresh token");
-        let rotated = service.refresh_token(tonic::Request::new(RefreshTokenRequest {
-            refresh_token: initial_token.clone(),
-        })).await?.into_inner();
+        assert_ne!(
+            stored_hash, initial_token,
+            "database must not store the raw refresh token"
+        );
+        let rotated = service
+            .refresh_token(tonic::Request::new(RefreshTokenRequest {
+                refresh_token: initial_token.clone(),
+            }))
+            .await?
+            .into_inner();
 
         assert_eq!(rotated.user_id, user_id.to_string());
         assert!(!rotated.access_token.is_empty());
         assert_ne!(rotated.refresh_token, initial_token);
 
-        let replay = service.refresh_token(tonic::Request::new(RefreshTokenRequest {
-            refresh_token: initial_token,
-        })).await.unwrap_err();
+        let replay = service
+            .refresh_token(tonic::Request::new(RefreshTokenRequest {
+                refresh_token: initial_token,
+            }))
+            .await
+            .unwrap_err();
         assert_eq!(replay.code(), Code::Unauthenticated);
 
-        let revoked = service.revoke_refresh_token(tonic::Request::new(RevokeRefreshTokenRequest {
-            refresh_token: rotated.refresh_token.clone(),
-        })).await?.into_inner();
+        let revoked = service
+            .revoke_refresh_token(tonic::Request::new(RevokeRefreshTokenRequest {
+                refresh_token: rotated.refresh_token.clone(),
+            }))
+            .await?
+            .into_inner();
         assert!(revoked.revoked);
 
-        let after_logout = service.refresh_token(tonic::Request::new(RefreshTokenRequest {
-            refresh_token: rotated.refresh_token,
-        })).await.unwrap_err();
+        let after_logout = service
+            .refresh_token(tonic::Request::new(RefreshTokenRequest {
+                refresh_token: rotated.refresh_token,
+            }))
+            .await
+            .unwrap_err();
         assert_eq!(after_logout.code(), Code::Unauthenticated);
 
         // Concurrent refresh attempts using one token must never both succeed.
@@ -578,7 +616,10 @@ mod refresh_token_integration_tests {
             .into_iter()
             .filter(|success| *success)
             .count();
-        assert_eq!(success_count, 1, "a refresh token must be usable once, including under race");
+        assert_eq!(
+            success_count, 1,
+            "a refresh token must be usable once, including under race"
+        );
 
         sqlx::query("DELETE FROM users WHERE id = $1")
             .bind(user_id)

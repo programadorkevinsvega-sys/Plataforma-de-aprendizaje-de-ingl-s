@@ -2,7 +2,7 @@ use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
-use common::{Email, DomainError};
+use common::{DomainError, Email};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

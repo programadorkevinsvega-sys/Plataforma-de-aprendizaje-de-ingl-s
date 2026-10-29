@@ -5,7 +5,8 @@ use uuid::Uuid;
 /// initialized by the CI migration step. Exercises the actual user_stats policies
 /// using a non-owner, NOBYPASSRLS role.
 #[tokio::test]
-async fn rls_context_is_transaction_local_and_scopes_user_stats() -> Result<(), Box<dyn std::error::Error>> {
+async fn rls_context_is_transaction_local_and_scopes_user_stats(
+) -> Result<(), Box<dyn std::error::Error>> {
     let Ok(database_url) = std::env::var("TEST_DATABASE_URL") else {
         eprintln!("TEST_DATABASE_URL is not configured; skipping PostgreSQL RLS integration test");
         return Ok(());
@@ -17,7 +18,10 @@ async fn rls_context_is_transaction_local_and_scopes_user_stats() -> Result<(), 
     )
     .fetch_one(&mut conn)
     .await?;
-    assert!(schema_ready, "apply repository migrations before running RLS integration tests");
+    assert!(
+        schema_ready,
+        "apply repository migrations before running RLS integration tests"
+    );
 
     let suffix = Uuid::new_v4().simple().to_string();
     let role = format!("rls_test_role_{suffix}");
@@ -60,11 +64,14 @@ async fn rls_context_is_transaction_local_and_scopes_user_stats() -> Result<(), 
         .await?;
     common::set_current_user_id(&mut *tx, user_a).await?;
 
-    let visible: Vec<Uuid> =
-        sqlx::query_scalar("SELECT user_id FROM user_stats ORDER BY user_id")
-            .fetch_all(&mut *tx)
-            .await?;
-    assert_eq!(visible, vec![user_a], "RLS must expose only the authenticated user's statistics");
+    let visible: Vec<Uuid> = sqlx::query_scalar("SELECT user_id FROM user_stats ORDER BY user_id")
+        .fetch_all(&mut *tx)
+        .await?;
+    assert_eq!(
+        visible,
+        vec![user_a],
+        "RLS must expose only the authenticated user's statistics"
+    );
 
     let other_update = sqlx::query("UPDATE user_stats SET xp = 999 WHERE user_id = $1")
         .bind(user_b)
@@ -83,14 +90,19 @@ async fn rls_context_is_transaction_local_and_scopes_user_stats() -> Result<(), 
         sqlx::query_scalar("SELECT user_id FROM user_stats ORDER BY user_id")
             .fetch_all(&mut *tx)
             .await?;
-    assert_eq!(leaderboard.len(), 2, "authenticated leaderboard can read ranking rows");
+    assert_eq!(
+        leaderboard.len(),
+        2,
+        "authenticated leaderboard can read ranking rows"
+    );
     assert!(leaderboard.contains(&user_a));
     assert!(leaderboard.contains(&user_b));
 
-    let other_update_after_leaderboard = sqlx::query("UPDATE user_stats SET xp = 1234 WHERE user_id = $1")
-        .bind(user_b)
-        .execute(&mut *tx)
-        .await?;
+    let other_update_after_leaderboard =
+        sqlx::query("UPDATE user_stats SET xp = 1234 WHERE user_id = $1")
+            .bind(user_b)
+            .execute(&mut *tx)
+            .await?;
     assert_eq!(
         other_update_after_leaderboard.rows_affected(),
         0,
@@ -102,10 +114,9 @@ async fn rls_context_is_transaction_local_and_scopes_user_stats() -> Result<(), 
     sqlx::query(&format!("SET LOCAL ROLE {role}"))
         .execute(&mut *next_tx)
         .await?;
-    let visible_after_reset: (i64,) =
-        sqlx::query_as("SELECT COUNT(*) FROM user_stats")
-            .fetch_one(&mut *next_tx)
-            .await?;
+    let visible_after_reset: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM user_stats")
+        .fetch_one(&mut *next_tx)
+        .await?;
     assert_eq!(
         visible_after_reset.0, 0,
         "user and leaderboard settings must not leak into the next transaction"

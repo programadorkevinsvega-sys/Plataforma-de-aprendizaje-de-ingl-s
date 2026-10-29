@@ -35,7 +35,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr: SocketAddr = common::parse_bind_addr(configured_addr.as_deref(), "127.0.0.1:50055")?;
     let srs_service = MySrsService::new(pool);
 
-    println!("🧠 [Fase 5] srs-engine-service Anki SM-2 gRPC Server corriendo en {}", addr);
+    println!(
+        "🧠 [Fase 5] srs-engine-service Anki SM-2 gRPC Server corriendo en {}",
+        addr
+    );
 
     Server::builder()
         .add_service(SrsServiceServer::new(srs_service))

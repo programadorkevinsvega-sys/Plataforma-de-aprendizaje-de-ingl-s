@@ -5,8 +5,8 @@ use aws_sdk_polly::{
 };
 use aws_sdk_transcribestreaming::{
     config::Region as TranscribeRegion,
-    types::{AudioEvent, AudioStream, LanguageCode, MediaEncoding, TranscriptResultStream},
     types::error::AudioStreamError,
+    types::{AudioEvent, AudioStream, LanguageCode, MediaEncoding, TranscriptResultStream},
     Client as TranscribeClient,
 };
 use std::env;
@@ -20,7 +20,8 @@ pub struct AwsAudioEngine {
 impl AwsAudioEngine {
     pub fn new() -> Self {
         Self {
-            polly_voice_id: env::var("AWS_POLLY_VOICE_ID").unwrap_or_else(|_| "Matthew".to_string()),
+            polly_voice_id: env::var("AWS_POLLY_VOICE_ID")
+                .unwrap_or_else(|_| "Matthew".to_string()),
             transcribe_language_code: env::var("AWS_TRANSCRIBE_LANGUAGE_CODE")
                 .unwrap_or_else(|_| "en-US".to_string()),
             aws_region: env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string()),
@@ -43,10 +44,10 @@ impl AwsAudioEngine {
 
         let voice_id = match self.polly_voice_id.as_str() {
             "Matthew" => VoiceId::Matthew,
-            "Joanna"  => VoiceId::Joanna,
-            "Ruth"    => VoiceId::Ruth,
+            "Joanna" => VoiceId::Joanna,
+            "Ruth" => VoiceId::Ruth,
             "Stephen" => VoiceId::Stephen,
-            _         => VoiceId::Matthew,
+            _ => VoiceId::Matthew,
         };
 
         let response = polly_client
@@ -78,10 +79,8 @@ impl AwsAudioEngine {
         &self,
         audio_base64: &str,
     ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        let audio_bytes: Vec<u8> = base64::Engine::decode(
-            &base64::engine::general_purpose::STANDARD,
-            audio_base64,
-        )?;
+        let audio_bytes: Vec<u8> =
+            base64::Engine::decode(&base64::engine::general_purpose::STANDARD, audio_base64)?;
 
         let region = TranscribeRegion::new(self.aws_region.clone());
         let sdk_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
@@ -94,7 +93,7 @@ impl AwsAudioEngine {
         let language = match self.transcribe_language_code.as_str() {
             "en-US" => LanguageCode::EnUs,
             "en-GB" => LanguageCode::EnGb,
-            _       => LanguageCode::EnUs,
+            _ => LanguageCode::EnUs,
         };
 
         // Construir el evento de audio: Vec<u8> → Blob (From<Vec<u8>> está implementado)
@@ -105,9 +104,10 @@ impl AwsAudioEngine {
         );
 
         // Envolver en un Stream de Rust (futures::stream::once)
-        let audio_stream = futures::stream::once(
-            std::future::ready(Ok::<AudioStream, AudioStreamError>(audio_event))
-        );
+        let audio_stream = futures::stream::once(std::future::ready(Ok::<
+            AudioStream,
+            AudioStreamError,
+        >(audio_event)));
 
         let mut stream_response = transcribe_client
             .start_stream_transcription()

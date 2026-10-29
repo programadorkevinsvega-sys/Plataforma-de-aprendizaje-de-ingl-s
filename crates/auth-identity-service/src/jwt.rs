@@ -49,7 +49,11 @@ impl JwtService {
         let claims = Claims {
             sub: user_id.to_string(),
             email: email.to_string(),
-            role: if role.is_empty() { "Software Engineer".to_string() } else { role.to_string() },
+            role: if role.is_empty() {
+                "Software Engineer".to_string()
+            } else {
+                role.to_string()
+            },
             exp: expiration,
         };
 
@@ -73,7 +77,6 @@ impl JwtService {
         Ok(token_data.claims)
     }
 }
-
 
 #[cfg(test)]
 mod tests {

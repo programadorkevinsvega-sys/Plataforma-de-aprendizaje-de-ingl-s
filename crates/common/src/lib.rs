@@ -3,7 +3,10 @@ pub mod error;
 pub mod rls;
 pub mod vo;
 
-pub use auth::{authenticated_user_id, ensure_authenticated_user, validate_jwt_configuration, JwtClaims, JwtValidationError, validate_jwt_token};
+pub use auth::{
+    authenticated_user_id, ensure_authenticated_user, validate_jwt_configuration,
+    validate_jwt_token, JwtClaims, JwtValidationError,
+};
 pub use error::DomainError;
 pub use rls::{set_current_user_id, set_leaderboard_read_scope};
 pub use vo::{Email, ScoreMetric, SpanishPhoneticText};

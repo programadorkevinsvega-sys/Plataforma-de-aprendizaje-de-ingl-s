@@ -7,17 +7,21 @@ use uuid::Uuid;
 async fn learning_progress_ledger_is_isolated_by_transaction_local_user_context(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let Ok(database_url) = std::env::var("TEST_DATABASE_URL") else {
-        eprintln!("TEST_DATABASE_URL is not configured; skipping learning-progress RLS integration test");
+        eprintln!(
+            "TEST_DATABASE_URL is not configured; skipping learning-progress RLS integration test"
+        );
         return Ok(());
     };
 
     let mut conn = PgConnection::connect(&database_url).await?;
-    let schema_ready: bool = sqlx::query_scalar(
-        "SELECT to_regclass('public.learning_progress_events') IS NOT NULL"
-    )
-    .fetch_one(&mut conn)
-    .await?;
-    assert!(schema_ready, "apply all repository migrations before running this integration test");
+    let schema_ready: bool =
+        sqlx::query_scalar("SELECT to_regclass('public.learning_progress_events') IS NOT NULL")
+            .fetch_one(&mut conn)
+            .await?;
+    assert!(
+        schema_ready,
+        "apply all repository migrations before running this integration test"
+    );
 
     let suffix = Uuid::new_v4().simple().to_string();
     let role = format!("learning_rls_role_{suffix}");
@@ -69,21 +73,28 @@ async fn learning_progress_ledger_is_isolated_by_transaction_local_user_context(
         .await?;
     common::set_current_user_id(&mut *tx, user_a).await?;
 
-    let visible: Vec<Uuid> = sqlx::query_scalar(
-        "SELECT word_id FROM learning_progress_events ORDER BY word_id"
-    )
-    .fetch_all(&mut *tx)
-    .await?;
-    assert_eq!(visible, vec![word_id], "user A must not see user B's reward event");
+    let visible: Vec<Uuid> =
+        sqlx::query_scalar("SELECT word_id FROM learning_progress_events ORDER BY word_id")
+            .fetch_all(&mut *tx)
+            .await?;
+    assert_eq!(
+        visible,
+        vec![word_id],
+        "user A must not see user B's reward event"
+    );
 
     let cross_user_update = sqlx::query(
-        "UPDATE learning_progress_events SET xp_amount = 0 WHERE user_id = $1 AND word_id = $2"
+        "UPDATE learning_progress_events SET xp_amount = 0 WHERE user_id = $1 AND word_id = $2",
     )
     .bind(user_b)
     .bind(word_id)
     .execute(&mut *tx)
     .await?;
-    assert_eq!(cross_user_update.rows_affected(), 0, "RLS must prevent updating another user's ledger row");
+    assert_eq!(
+        cross_user_update.rows_affected(),
+        0,
+        "RLS must prevent updating another user's ledger row"
+    );
     tx.commit().await?;
 
     // WITH CHECK must also prevent a user from inserting an event for a different
@@ -100,7 +111,10 @@ async fn learning_progress_ledger_is_isolated_by_transaction_local_user_context(
     .bind(other_word_id)
     .execute(&mut *write_tx)
     .await;
-    assert!(cross_user_insert.is_err(), "RLS WITH CHECK must block cross-user ledger writes");
+    assert!(
+        cross_user_insert.is_err(),
+        "RLS WITH CHECK must block cross-user ledger writes"
+    );
     write_tx.rollback().await?;
 
     // The transaction-local identity must not leak to the next transaction.
@@ -108,12 +122,14 @@ async fn learning_progress_ledger_is_isolated_by_transaction_local_user_context(
     sqlx::query(&format!("SET LOCAL ROLE {role}"))
         .execute(&mut *next_tx)
         .await?;
-    let visible_without_context: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM learning_progress_events"
-    )
-    .fetch_one(&mut *next_tx)
-    .await?;
-    assert_eq!(visible_without_context, 0, "RLS context must reset at transaction end");
+    let visible_without_context: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM learning_progress_events")
+            .fetch_one(&mut *next_tx)
+            .await?;
+    assert_eq!(
+        visible_without_context, 0,
+        "RLS context must reset at transaction end"
+    );
     next_tx.rollback().await?;
 
     sqlx::query("DELETE FROM users WHERE id = $1 OR id = $2")

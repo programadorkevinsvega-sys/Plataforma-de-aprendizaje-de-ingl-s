@@ -65,17 +65,47 @@ mod tests {
     fn blocks_requests_after_the_per_user_operation_limit() {
         let user = Uuid::new_v4().to_string();
         let now = Instant::now();
-        assert!(allow_request_at(&user, "tts", 2, Duration::from_secs(60), now));
-        assert!(allow_request_at(&user, "tts", 2, Duration::from_secs(60), now));
-        assert!(!allow_request_at(&user, "tts", 2, Duration::from_secs(60), now));
+        assert!(allow_request_at(
+            &user,
+            "tts",
+            2,
+            Duration::from_secs(60),
+            now
+        ));
+        assert!(allow_request_at(
+            &user,
+            "tts",
+            2,
+            Duration::from_secs(60),
+            now
+        ));
+        assert!(!allow_request_at(
+            &user,
+            "tts",
+            2,
+            Duration::from_secs(60),
+            now
+        ));
     }
 
     #[test]
     fn operations_have_independent_quotas() {
         let user = Uuid::new_v4().to_string();
         let now = Instant::now();
-        assert!(allow_request_at(&user, "tts", 1, Duration::from_secs(60), now));
-        assert!(allow_request_at(&user, "llm", 1, Duration::from_secs(60), now));
+        assert!(allow_request_at(
+            &user,
+            "tts",
+            1,
+            Duration::from_secs(60),
+            now
+        ));
+        assert!(allow_request_at(
+            &user,
+            "llm",
+            1,
+            Duration::from_secs(60),
+            now
+        ));
     }
 
     #[test]
@@ -97,7 +127,19 @@ mod tests {
     #[test]
     fn empty_identity_and_zero_quota_fail_closed() {
         let now = Instant::now();
-        assert!(!allow_request_at(" ", "llm", 1, Duration::from_secs(60), now));
-        assert!(!allow_request_at("user", "llm", 0, Duration::from_secs(60), now));
+        assert!(!allow_request_at(
+            " ",
+            "llm",
+            1,
+            Duration::from_secs(60),
+            now
+        ));
+        assert!(!allow_request_at(
+            "user",
+            "llm",
+            0,
+            Duration::from_secs(60),
+            now
+        ));
     }
 }
