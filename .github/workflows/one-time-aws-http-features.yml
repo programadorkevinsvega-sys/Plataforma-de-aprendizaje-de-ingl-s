@@ -1,0 +1,20 @@
+name: One-time AWS HTTP feature diagnostics
+
+on:
+  push:
+    branches:
+      - 'fix/rust-security-dependencies'
+
+permissions:
+  contents: read
+
+jobs:
+  feature-paths:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Show active feature paths for legacy HTTP transport
+        run: |
+          cargo tree -e features -i aws-smithy-http-client@1.5.2 --target x86_64-unknown-linux-gnu
+          cargo tree -e features -i h2@0.3.27 --target x86_64-unknown-linux-gnu
+          cargo tree -e features -i rsa@0.9.10 --target x86_64-unknown-linux-gnu || true
