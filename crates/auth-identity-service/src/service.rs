@@ -96,7 +96,7 @@ impl AuthService for MyAuthService {
         let existing: Option<(uuid::Uuid,)> =
             sqlx::query_as("SELECT id FROM users WHERE email = $1")
                 .bind(email.as_str())
-                .fetch_optional(&mut tx)
+                .fetch_optional(&mut *tx)
                 .await
                 .map_err(|_| Status::internal("No se pudo comprobar el correo"))?;
 
@@ -126,7 +126,7 @@ impl AuthService for MyAuthService {
         .bind(&user.full_name)
         .bind(&user.target_role)
         .bind(&user.current_level)
-        .execute(&mut tx)
+        .execute(&mut *tx)
         .await
         .map_err(|error| match &error {
             sqlx::Error::Database(database_error)
@@ -151,7 +151,7 @@ impl AuthService for MyAuthService {
             "INSERT INTO user_stats (user_id, xp, streak_days, coins, words_learned, sentences_mastered) VALUES ($1, 0, 0, 50, 0, 0) ON CONFLICT (user_id) DO NOTHING"
         )
         .bind(user.id)
-        .execute(&mut tx)
+        .execute(&mut *tx)
         .await
         .map_err(|_| {
             tracing::error!("Error inicializando estadísticas del nuevo usuario");
@@ -169,7 +169,7 @@ impl AuthService for MyAuthService {
         .bind(user.id)
         .bind(hash_refresh_token(&refresh_token))
         .bind(REFRESH_TOKEN_TTL_DAYS)
-        .execute(&mut tx)
+        .execute(&mut *tx)
         .await
         .map_err(|_| Status::internal("No se pudo crear la sesión renovable"))?;
 
@@ -285,7 +285,7 @@ impl AuthService for MyAuthService {
             "#,
         )
         .bind(&presented_hash)
-        .fetch_optional(&mut tx)
+        .fetch_optional(&mut *tx)
         .await
         .map_err(|_| Status::internal("No se pudo validar la renovación de sesión"))?;
 
@@ -298,7 +298,7 @@ impl AuthService for MyAuthService {
             "UPDATE auth_refresh_tokens SET revoked_at = NOW() WHERE id = $1 AND revoked_at IS NULL"
         )
         .bind(token_id)
-        .execute(&mut tx)
+        .execute(&mut *tx)
         .await
         .map_err(|_| Status::internal("No se pudo rotar el refresh token"))?;
         if revoked.rows_affected() != 1 {
@@ -317,7 +317,7 @@ impl AuthService for MyAuthService {
         .bind(user_id)
         .bind(hash_refresh_token(&refresh_token))
         .bind(REFRESH_TOKEN_TTL_DAYS)
-        .execute(&mut tx)
+        .execute(&mut *tx)
         .await
         .map_err(|_| Status::internal("No se pudo crear el refresh token rotado"))?;
 
