@@ -69,9 +69,11 @@ mod tests {
 
     #[test]
     fn test_anki_sm2_failed_review_resets_interval() {
-        let mut item = SrsItem::default();
-        item.repetitions = 5;
-        item.interval_days = 20;
+        let item = SrsItem {
+            repetitions: 5,
+            interval_days: 20,
+            ..SrsItem::default()
+        };
 
         let updated = AnkiSm2Engine::calculate_next_review(&item, 1); // Falló (rating < 3)
         assert_eq!(updated.repetitions, 0);
