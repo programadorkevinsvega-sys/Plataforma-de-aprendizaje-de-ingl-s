@@ -36,7 +36,6 @@ use proto::content::content_service_client::ContentServiceClient;
 use proto::gamification::gamification_service_client::GamificationServiceClient;
 use proto::srs::srs_service_client::SrsServiceClient;
 use std::net::SocketAddr;
-use std::str::FromStr;
 use tonic::transport::Channel;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
@@ -77,7 +76,7 @@ fn parse_cors_allowed_origins(raw: Option<&str>) -> Result<Vec<HeaderValue>, &'s
             .map_err(|_| "CORS_ALLOWED_ORIGINS contiene un origen inválido")?;
         if !origins
             .iter()
-            .any(|previous: &HeaderValue| previous == &value)
+            .any(|previous: &HeaderValue| previous == value)
         {
             origins.push(value);
         }
