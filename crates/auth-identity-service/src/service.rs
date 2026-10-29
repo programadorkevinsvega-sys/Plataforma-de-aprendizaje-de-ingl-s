@@ -40,7 +40,7 @@ impl MyAuthService {
 
 #[expect(
     clippy::result_large_err,
-    reason = "tonic::Status is required at the gRPC authentication boundary"
+    reason = "The gRPC transport requires tonic::Status as its public error type"
 )]
 fn authenticated_user_id<T>(request: &Request<T>) -> Result<Uuid, Status> {
     let token = request
