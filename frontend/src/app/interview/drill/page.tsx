@@ -26,13 +26,12 @@ function DrillContent() {
     const container = getContainer()
     container.useCases.getCurrentUser.execute().then((u) => {
       if (!u) { router.push('/login'); return }
-      container.useCases.getWeaknessDrill.execute(resultId).then((drill: any) => {
-        const steps = drill?.steps ?? drill?.exercises ?? []
-        setExercises(steps.map((e: any) => ({
-          title: e.title || `Ejercicio ${e.id}`,
-          englishText: e.english || e.english_text || e.englishText || '',
-          spanishPhonetic: e.spanishPhonetics || e.spanish_phonetics || e.spanishPhonetic || '',
-          targetSkill: e.metric || e.target_skill || e.targetSkill || 'Pronunciación',
+      container.useCases.getWeaknessDrill.execute(resultId).then((drill) => {
+        setExercises(drill.steps.map((step) => ({
+          title: step.title || `Ejercicio ${step.id}`,
+          englishText: step.english ?? '',
+          spanishPhonetic: step.spanishPhonetics ?? '',
+          targetSkill: step.metric || 'Pronunciación',
         })))
         setLoading(false)
       }).catch(() => {
