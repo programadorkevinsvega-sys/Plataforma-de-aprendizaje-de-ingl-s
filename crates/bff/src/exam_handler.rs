@@ -376,6 +376,8 @@ fn decode_transcribe_ticket(token: &str, secret: &str) -> Result<TranscribeTicke
     }
     let mut validation = Validation::new(Algorithm::HS256);
     validation.validate_exp = true;
+    // Tickets are short-lived capabilities; default JWT leeway would accept expired tickets.
+    validation.leeway = 0;
     validation.required_spec_claims.insert("sub".to_string());
     decode::<TranscribeTicketClaims>(
         token,
