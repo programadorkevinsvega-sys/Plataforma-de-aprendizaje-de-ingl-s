@@ -130,7 +130,7 @@ dependencies = [
  "jsonwebtoken",
  "proto",
  "serde",
- "sha2",
+ "sha2 0.10.9",
  "sqlx",
  "tokio",
  "tonic",
