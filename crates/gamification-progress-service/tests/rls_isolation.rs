@@ -60,12 +60,12 @@ async fn rls_context_is_transaction_local_and_scopes_user_stats(
 
     let mut tx = conn.begin().await?;
     sqlx::query(&format!("SET LOCAL ROLE {role}"))
-        .execute(&mut *tx)
+        .execute(&mut tx)
         .await?;
-    common::set_current_user_id(&mut *tx, user_a).await?;
+    common::set_current_user_id(&mut tx, user_a).await?;
 
     let visible: Vec<Uuid> = sqlx::query_scalar("SELECT user_id FROM user_stats ORDER BY user_id")
-        .fetch_all(&mut *tx)
+        .fetch_all(&mut tx)
         .await?;
     assert_eq!(
         visible,
@@ -75,7 +75,7 @@ async fn rls_context_is_transaction_local_and_scopes_user_stats(
 
     let other_update = sqlx::query("UPDATE user_stats SET xp = 999 WHERE user_id = $1")
         .bind(user_b)
-        .execute(&mut *tx)
+        .execute(&mut tx)
         .await?;
     assert_eq!(
         other_update.rows_affected(),
@@ -85,10 +85,10 @@ async fn rls_context_is_transaction_local_and_scopes_user_stats(
 
     // The leaderboard is an explicit authenticated read scope. Its SELECT
     // policy expands visibility only for this transaction; UPDATE remains scoped.
-    common::set_leaderboard_read_scope(&mut *tx).await?;
+    common::set_leaderboard_read_scope(&mut tx).await?;
     let leaderboard: Vec<Uuid> =
         sqlx::query_scalar("SELECT user_id FROM user_stats ORDER BY user_id")
-            .fetch_all(&mut *tx)
+            .fetch_all(&mut tx)
             .await?;
     assert_eq!(
         leaderboard.len(),
@@ -101,7 +101,7 @@ async fn rls_context_is_transaction_local_and_scopes_user_stats(
     let other_update_after_leaderboard =
         sqlx::query("UPDATE user_stats SET xp = 1234 WHERE user_id = $1")
             .bind(user_b)
-            .execute(&mut *tx)
+            .execute(&mut tx)
             .await?;
     assert_eq!(
         other_update_after_leaderboard.rows_affected(),
