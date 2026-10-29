@@ -659,7 +659,9 @@ mod login_error_uniformity_integration_tests {
     async fn unknown_email_and_wrong_password_return_the_same_auth_error(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let Ok(database_url) = std::env::var("TEST_DATABASE_URL") else {
-            eprintln!("TEST_DATABASE_URL is not configured; skipping login uniformity integration test");
+            eprintln!(
+                "TEST_DATABASE_URL is not configured; skipping login uniformity integration test"
+            );
             return Ok(());
         };
 
