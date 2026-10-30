@@ -30,7 +30,10 @@ rollback() {
   if [[ -n "$previous" && -d "$previous" ]]; then
     ln -sfn "$previous" /opt/devfluency/current.rollback
     mv -Tf /opt/devfluency/current.rollback /opt/devfluency/current
-    systemctl restart devfluency.target devfluency-frontend.service || true
+    for service in auth-identity-service content-vocabulary-service ai-evaluator-service phonetic-audio-service srs-engine-service gamification-progress-service bff; do
+      systemctl restart "devfluency@${service}.service" || true
+    done
+    systemctl restart devfluency-frontend.service || true
   else
     systemctl stop devfluency.target devfluency-frontend.service || true
   fi
