@@ -37,7 +37,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr: SocketAddr = common::parse_bind_addr(configured_addr.as_deref(), "127.0.0.1:50051")?;
     let auth_service = MyAuthService::new(pool);
 
-    println!("🔒 [Fase 2] auth-identity-service gRPC Server corriendo en {}", addr);
+    println!(
+        "🔒 [Fase 2] auth-identity-service gRPC Server corriendo en {}",
+        addr
+    );
 
     Server::builder()
         .add_service(AuthServiceServer::new(auth_service))

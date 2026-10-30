@@ -34,7 +34,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr: SocketAddr = common::parse_bind_addr(configured_addr.as_deref(), "127.0.0.1:50052")?;
     let content_service = MyContentService::new(pool);
 
-    println!("📚 [Fase 3] content-vocabulary-service gRPC Server corriendo en {}", addr);
+    println!(
+        "📚 [Fase 3] content-vocabulary-service gRPC Server corriendo en {}",
+        addr
+    );
 
     Server::builder()
         .add_service(ContentServiceServer::new(content_service))

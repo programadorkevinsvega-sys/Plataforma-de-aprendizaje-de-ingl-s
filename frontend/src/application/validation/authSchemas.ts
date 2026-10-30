@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { CEFR_LEVELS, TARGET_ROLES } from '@/domain/entities/User'
+import { CEFR_LEVELS } from '@/domain/entities/User'
 
 const FREE_EMAIL_DOMAINS = ['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com']
 

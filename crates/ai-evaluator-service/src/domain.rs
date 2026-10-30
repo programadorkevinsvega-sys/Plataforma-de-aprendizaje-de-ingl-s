@@ -82,9 +82,8 @@ impl EvaluatorEngine {
         user_text: &str,
         question: &str,
     ) -> Result<ExamMetrics, Box<dyn std::error::Error + Send + Sync>> {
-        let region = Region::new(
-            env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string()),
-        );
+        let region =
+            Region::new(env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string()));
         let sdk_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
             .region(region)
             .load()
@@ -151,7 +150,11 @@ Responde SOLO con este JSON exacto:
             .map(|s| s.to_string())
             .unwrap_or_default();
 
-        println!("🤖 [Bedrock model={}] Respuesta: {}", model_id, &response_text[..response_text.len().min(200)]);
+        println!(
+            "🤖 [Bedrock model={}] Respuesta: {}",
+            model_id,
+            &response_text[..response_text.len().min(200)]
+        );
 
         // Parsear el JSON de Bedrock
         let eval: BedrockEvalResponse = serde_json::from_str(response_text.trim())

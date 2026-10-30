@@ -1,10 +1,10 @@
-use axum::{extract::State, http::HeaderMap, Json};
 use axum::http::StatusCode;
+use axum::{extract::State, http::HeaderMap, Json};
 use proto::content::ListVocabularyWordsRequest;
 use serde::Serialize;
 
-use crate::AppState;
 use crate::srs_handler::{attach_bearer_metadata, validate_token_from_headers};
+use crate::AppState;
 
 #[derive(Serialize)]
 pub struct ContextSentenceDto {
@@ -54,14 +54,19 @@ pub async fn vocabulary_list_handler(
         user_id: user_id.clone(),
     });
     attach_bearer_metadata(&headers, &mut profile_req)?;
-    let user_level = state.auth_client.get_user_profile(profile_req).await
-        .map_err(|_| (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({
-                "message": "No se pudo recuperar el perfil autenticado.",
-                "code": "PROFILE_UNAVAILABLE"
-            })),
-        ))?
+    let user_level = state
+        .auth_client
+        .get_user_profile(profile_req)
+        .await
+        .map_err(|_| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "message": "No se pudo recuperar el perfil autenticado.",
+                    "code": "PROFILE_UNAVAILABLE"
+                })),
+            )
+        })?
         .into_inner()
         .current_level;
 
@@ -77,29 +82,39 @@ pub async fn vocabulary_list_handler(
     match client.list_vocabulary_words(request).await {
         Ok(res) => {
             let inner = res.into_inner();
-            let items = inner.words.into_iter().map(|w| VocabularyWordDto {
-                id: w.id,
-                word: w.word,
-                spanish_phonetic: w.spanish_phonetic,
-                spanish_phonetic_natural: w.spanish_phonetic_natural,
-                spanish_translation: w.spanish_translation,
-                category: w.category,
-                level: w.level,
-                context_sentences: w.context_sentences.into_iter().map(|s| ContextSentenceDto {
-                    id: s.id,
-                    english_text: s.english_text,
-                    spanish_phonetic: s.spanish_phonetic,
-                    spanish_phonetic_natural: s.spanish_phonetic_natural,
-                    spanish_translation: s.spanish_translation,
-                    audio_url: s.audio_url,
-                }).collect(),
-            }).collect();
+            let items = inner
+                .words
+                .into_iter()
+                .map(|w| VocabularyWordDto {
+                    id: w.id,
+                    word: w.word,
+                    spanish_phonetic: w.spanish_phonetic,
+                    spanish_phonetic_natural: w.spanish_phonetic_natural,
+                    spanish_translation: w.spanish_translation,
+                    category: w.category,
+                    level: w.level,
+                    context_sentences: w
+                        .context_sentences
+                        .into_iter()
+                        .map(|s| ContextSentenceDto {
+                            id: s.id,
+                            english_text: s.english_text,
+                            spanish_phonetic: s.spanish_phonetic,
+                            spanish_phonetic_natural: s.spanish_phonetic_natural,
+                            spanish_translation: s.spanish_translation,
+                            audio_url: s.audio_url,
+                        })
+                        .collect(),
+                })
+                .collect();
             let total = inner.total;
             Ok(Json(VocabularyListDto { items, total }))
         }
         Err(_error) => Err((
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "message": "El servicio de contenido no está disponible.", "code": "CONTENT_UNAVAILABLE" })),
+            Json(
+                serde_json::json!({ "message": "El servicio de contenido no está disponible.", "code": "CONTENT_UNAVAILABLE" }),
+            ),
         )),
     }
 }
@@ -116,14 +131,19 @@ pub async fn today_lesson_handler(
         user_id: user_id.clone(),
     });
     attach_bearer_metadata(&headers, &mut profile_req)?;
-    let user_level = state.auth_client.get_user_profile(profile_req).await
-        .map_err(|_| (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({
-                "message": "No se pudo recuperar el perfil autenticado.",
-                "code": "PROFILE_UNAVAILABLE"
-            })),
-        ))?
+    let user_level = state
+        .auth_client
+        .get_user_profile(profile_req)
+        .await
+        .map_err(|_| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "message": "No se pudo recuperar el perfil autenticado.",
+                    "code": "PROFILE_UNAVAILABLE"
+                })),
+            )
+        })?
         .into_inner()
         .current_level;
 
@@ -139,34 +159,46 @@ pub async fn today_lesson_handler(
     match client.list_vocabulary_words(request).await {
         Ok(res) => {
             let inner = res.into_inner();
-            let words = inner.words.into_iter().map(|w| VocabularyWordDto {
-                id: w.id,
-                word: w.word,
-                spanish_phonetic: w.spanish_phonetic,
-                spanish_phonetic_natural: w.spanish_phonetic_natural,
-                spanish_translation: w.spanish_translation,
-                category: w.category,
-                level: w.level,
-                context_sentences: w.context_sentences.into_iter().map(|s| ContextSentenceDto {
-                    id: s.id,
-                    english_text: s.english_text,
-                    spanish_phonetic: s.spanish_phonetic,
-                    spanish_phonetic_natural: s.spanish_phonetic_natural,
-                    spanish_translation: s.spanish_translation,
-                    audio_url: s.audio_url,
-                }).collect(),
-            }).collect();
+            let words = inner
+                .words
+                .into_iter()
+                .map(|w| VocabularyWordDto {
+                    id: w.id,
+                    word: w.word,
+                    spanish_phonetic: w.spanish_phonetic,
+                    spanish_phonetic_natural: w.spanish_phonetic_natural,
+                    spanish_translation: w.spanish_translation,
+                    category: w.category,
+                    level: w.level,
+                    context_sentences: w
+                        .context_sentences
+                        .into_iter()
+                        .map(|s| ContextSentenceDto {
+                            id: s.id,
+                            english_text: s.english_text,
+                            spanish_phonetic: s.spanish_phonetic,
+                            spanish_phonetic_natural: s.spanish_phonetic_natural,
+                            spanish_translation: s.spanish_translation,
+                            audio_url: s.audio_url,
+                        })
+                        .collect(),
+                })
+                .collect();
 
             Ok(Json(LessonDto {
                 id: "lesson-today".to_string(),
                 title: "Vocabulario del Día — System Design".to_string(),
-                description: "Términos esenciales de arquitectura distribuida en contexto conversacional".to_string(),
+                description:
+                    "Términos esenciales de arquitectura distribuida en contexto conversacional"
+                        .to_string(),
                 words,
             }))
         }
         Err(_error) => Err((
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "message": "No se pudo recuperar la lección.", "code": "LESSON_UNAVAILABLE" })),
+            Json(
+                serde_json::json!({ "message": "No se pudo recuperar la lección.", "code": "LESSON_UNAVAILABLE" }),
+            ),
         )),
     }
 }
@@ -224,15 +256,9 @@ pub async fn synthesize_speech_handler(
 
     let polly_client = PollyClient::new(&sdk_config);
 
-    let req_voice = body
-        .get("voice")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let req_voice = body.get("voice").and_then(|v| v.as_str()).unwrap_or("");
 
-    let req_rate = body
-        .get("rate")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let req_rate = body.get("rate").and_then(|v| v.as_str()).unwrap_or("");
     if !req_rate.is_empty() && !matches!(req_rate, "slow" | "medium" | "fast") {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -244,19 +270,23 @@ pub async fn synthesize_speech_handler(
     }
 
     let default_voice = env::var("AWS_POLLY_VOICE_ID").unwrap_or_else(|_| "Matthew".to_string());
-    let voice_id_str = if !req_voice.is_empty() { req_voice } else { default_voice.as_str() };
+    let voice_id_str = if !req_voice.is_empty() {
+        req_voice
+    } else {
+        default_voice.as_str()
+    };
 
     let voice_id = match voice_id_str {
-        "Lupe"     => VoiceId::Lupe,
-        "Mia"      => VoiceId::Mia,
-        "Lucia"    => VoiceId::Lucia,
-        "Enrique"  => VoiceId::Enrique,
+        "Lupe" => VoiceId::Lupe,
+        "Mia" => VoiceId::Mia,
+        "Lucia" => VoiceId::Lucia,
+        "Enrique" => VoiceId::Enrique,
         "Conchita" => VoiceId::Conchita,
-        "Matthew"  => VoiceId::Matthew,
-        "Joanna"   => VoiceId::Joanna,
-        "Ruth"     => VoiceId::Ruth,
-        "Stephen"  => VoiceId::Stephen,
-        _          => VoiceId::Matthew,
+        "Matthew" => VoiceId::Matthew,
+        "Joanna" => VoiceId::Joanna,
+        "Ruth" => VoiceId::Ruth,
+        "Stephen" => VoiceId::Stephen,
+        _ => VoiceId::Matthew,
     };
 
     // Si viene un rate (slow/medium/fast), envolvemos el texto en SSML <prosody>
@@ -275,7 +305,15 @@ pub async fn synthesize_speech_handler(
         (text.clone(), TextType::Text)
     };
 
-    tracing::info!("Solicitud de síntesis de voz recibida (voz={}, rate={})", voice_id_str, if req_rate.is_empty() { "normal" } else { req_rate });
+    tracing::info!(
+        "Solicitud de síntesis de voz recibida (voz={}, rate={})",
+        voice_id_str,
+        if req_rate.is_empty() {
+            "normal"
+        } else {
+            req_rate
+        }
+    );
 
     match polly_client
         .synthesize_speech()
@@ -287,36 +325,40 @@ pub async fn synthesize_speech_handler(
         .send()
         .await
     {
-        Ok(response) => {
-            match response.audio_stream.collect().await {
-                Ok(audio_data) => {
-                    let bytes_vec = audio_data.into_bytes().to_vec();
-                    let audio_b64 = base64::Engine::encode(
-                        &base64::engine::general_purpose::STANDARD,
-                        &bytes_vec,
-                    );
-                    tracing::info!("Polly TTS generó {} bytes MP3 para la voz {}", bytes_vec.len(), voice_id_str);
-                    Ok(Json(serde_json::json!({
-                        "audio_base64": audio_b64,
-                        "format": "mp3",
-                        "voice": voice_id_str,
-                        "text": text,
-                    })))
-                }
-                Err(_error) => {
-                    tracing::error!("Error interno recopilando el stream de audio de Polly");
-                    Err((
-                        StatusCode::SERVICE_UNAVAILABLE,
-                        Json(serde_json::json!({ "message": "El servicio de síntesis de voz no está disponible.", "code": "TTS_UNAVAILABLE" })),
-                    ))
-                }
+        Ok(response) => match response.audio_stream.collect().await {
+            Ok(audio_data) => {
+                let bytes_vec = audio_data.into_bytes().to_vec();
+                let audio_b64 =
+                    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes_vec);
+                tracing::info!(
+                    "Polly TTS generó {} bytes MP3 para la voz {}",
+                    bytes_vec.len(),
+                    voice_id_str
+                );
+                Ok(Json(serde_json::json!({
+                    "audio_base64": audio_b64,
+                    "format": "mp3",
+                    "voice": voice_id_str,
+                    "text": text,
+                })))
             }
-        }
+            Err(_error) => {
+                tracing::error!("Error interno recopilando el stream de audio de Polly");
+                Err((
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(
+                        serde_json::json!({ "message": "El servicio de síntesis de voz no está disponible.", "code": "TTS_UNAVAILABLE" }),
+                    ),
+                ))
+            }
+        },
         Err(_error) => {
             tracing::error!("Error interno solicitando síntesis de voz a Polly");
             Err((
                 StatusCode::SERVICE_UNAVAILABLE,
-                Json(serde_json::json!({ "message": "El servicio de síntesis de voz no está disponible.", "code": "TTS_UNAVAILABLE" })),
+                Json(
+                    serde_json::json!({ "message": "El servicio de síntesis de voz no está disponible.", "code": "TTS_UNAVAILABLE" }),
+                ),
             ))
         }
     }
@@ -329,5 +371,7 @@ pub async fn mark_word_complete_handler(
     axum::extract::Path(word_id): axum::extract::Path<String>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
-    Ok(Json(serde_json::json!({ "user_id": user_id, "word_id": word_id, "completed": true })))
+    Ok(Json(
+        serde_json::json!({ "user_id": user_id, "word_id": word_id, "completed": true }),
+    ))
 }

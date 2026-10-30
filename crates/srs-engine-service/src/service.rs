@@ -29,9 +29,13 @@ impl SrsService for MySrsService {
         let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let req = request.into_inner();
         let limit = if req.limit <= 0 { 20 } else { req.limit };
-        let mut tx = self.pool.begin().await
+        let mut tx = self
+            .pool
+            .begin()
+            .await
             .map_err(|_| Status::internal("No se pudo iniciar la consulta de repaso"))?;
-        common::set_current_user_id(&mut *tx, user_id).await
+        common::set_current_user_id(&mut tx, user_id)
+            .await
             .map_err(|_| Status::internal("No se pudo establecer el contexto de usuario RLS"))?;
 
         let rows: Vec<(Uuid, Uuid, f32, i32, i32, String, String, String, String)> =
@@ -52,7 +56,8 @@ impl SrsService for MySrsService {
             .fetch_all(&mut *tx)
             .await
             .map_err(|_| Status::internal("No se pudieron consultar las tarjetas"))?;
-        tx.commit().await
+        tx.commit()
+            .await
             .map_err(|_| Status::internal("No se pudo cerrar la consulta de repaso"))?;
 
         let cards: Vec<SrsCard> = rows
@@ -86,9 +91,13 @@ impl SrsService for MySrsService {
             .map_err(|_| Status::invalid_argument("card_id inválido"))?;
 
         // El contexto RLS y la lectura/escritura de esta tarjeta comparten transacción.
-        let mut tx = self.pool.begin().await
+        let mut tx = self
+            .pool
+            .begin()
+            .await
             .map_err(|_| Status::internal("No se pudo iniciar la revisión"))?;
-        common::set_current_user_id(&mut *tx, user_id).await
+        common::set_current_user_id(&mut tx, user_id)
+            .await
             .map_err(|_| Status::internal("No se pudo establecer el contexto de usuario RLS"))?;
 
         // Buscar estado actual de la tarjeta
@@ -101,8 +110,7 @@ impl SrsService for MySrsService {
         .await
         .map_err(|e| Status::internal(e.to_string()))?;
 
-        let (ef, interval, reps) =
-            row.ok_or_else(|| Status::not_found("Tarjeta no encontrada"))?;
+        let (ef, interval, reps) = row.ok_or_else(|| Status::not_found("Tarjeta no encontrada"))?;
 
         // Aplicar algoritmo SM-2
         use crate::domain::SrsItem;
@@ -130,7 +138,8 @@ impl SrsService for MySrsService {
         .await
         .map_err(|_| Status::internal("No se pudo actualizar la tarjeta"))?;
 
-        tx.commit().await
+        tx.commit()
+            .await
             .map_err(|_| Status::internal("No se pudo confirmar la revisión"))?;
 
         Ok(Response::new(ReviewCardResponse {
@@ -150,18 +159,21 @@ impl SrsService for MySrsService {
         let word_id = Uuid::parse_str(&req.word_id)
             .map_err(|_| Status::invalid_argument("word_id inválido"))?;
 
-        let mut tx = self.pool.begin().await
+        let mut tx = self
+            .pool
+            .begin()
+            .await
             .map_err(|_| Status::internal("No se pudo iniciar el alta de tarjetas"))?;
-        common::set_current_user_id(&mut *tx, user_id).await
+        common::set_current_user_id(&mut tx, user_id)
+            .await
             .map_err(|_| Status::internal("No se pudo establecer el contexto de usuario RLS"))?;
 
-        let word_exists: bool = sqlx::query_scalar(
-            "SELECT EXISTS (SELECT 1 FROM vocabulary_words WHERE id = $1)"
-        )
-        .bind(word_id)
-        .fetch_one(&mut *tx)
-        .await
-        .map_err(|_| Status::internal("No se pudo validar la palabra"))?;
+        let word_exists: bool =
+            sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM vocabulary_words WHERE id = $1)")
+                .bind(word_id)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(|_| Status::internal("No se pudo validar la palabra"))?;
         if !word_exists {
             return Err(Status::not_found("Palabra de vocabulario no encontrada"));
         }
@@ -184,7 +196,8 @@ impl SrsService for MySrsService {
         .map_err(|_| Status::internal("No se pudieron añadir las tarjetas"))?;
         let cards_added = res.rows_affected() as i32;
 
-        tx.commit().await
+        tx.commit()
+            .await
             .map_err(|_| Status::internal("No se pudo confirmar el alta de tarjetas"))?;
 
         Ok(Response::new(AddCardsToDeckResponse { cards_added }))

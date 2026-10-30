@@ -1,13 +1,13 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { getContainer } from '@/infrastructure/di/container'
+import type { CefrLevel, User } from '@/domain/entities/User'
 
 export default function SettingsPage() {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -42,7 +42,7 @@ export default function SettingsPage() {
       const updatedUser = await container.useCases.updateProfile.execute({
         fullName: form.fullName,
         targetRole: form.targetRole,
-        currentLevel: form.currentLevel as any,
+        currentLevel: form.currentLevel as CefrLevel,
       })
       setUser(updatedUser)
       setSaved(true)

@@ -38,10 +38,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Install PostgreSQL client
+      - name: Install PostgreSQL client and Protocol Buffers compiler
         run: |
           sudo apt-get update
-          sudo apt-get install --yes postgresql-client
+          sudo apt-get install --yes postgresql-client protobuf-compiler
+          protoc --version
       - name: Apply database migrations for integration tests
         run: |
           for migration in migrations/*.sql; do
@@ -71,6 +72,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Set up Node.js
+        if: always()
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 24
@@ -93,8 +95,21 @@ jobs:
         run: rustup toolchain install stable --profile minimal
       - name: Install cargo-audit
         run: cargo install cargo-audit --version 0.22.2 --locked
+      - name: Verify ignored RustSec packages are inactive
+        run: |
+          set -euo pipefail
+          cargo tree --locked --workspace --all-targets --target x86_64-unknown-linux-gnu > /tmp/devfluency-active-dependencies.txt
+          if grep -E 'h2 v0\.3\.27|rustls v0\.21\.12|rustls-webpki v0\.101\.7|rsa v0\.9\.10' /tmp/devfluency-active-dependencies.txt; then
+            echo "::error::An exception-listed vulnerable crate re-entered the active workspace dependency graph."
+            exit 1
+          fi
       - name: Audit Rust dependencies
-        run: cargo audit --locked
+        run: |
+          # cargo-audit 0.22.x no admite --locked; audita el Cargo.lock versionado.
+          # .cargo/audit.toml documents only inactive optional dependency advisories.
+          git diff --exit-code -- Cargo.lock
+          cargo audit
+          git diff --exit-code -- Cargo.lock
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
@@ -102,5 +117,6 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Audit frontend dependencies
+        if: always()
         working-directory: frontend
         run: npm ci && npm audit --audit-level=high

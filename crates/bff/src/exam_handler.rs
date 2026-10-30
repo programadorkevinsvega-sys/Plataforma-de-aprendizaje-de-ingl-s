@@ -1,6 +1,6 @@
 use axum::{
-    extract::{Json, State, WebSocketUpgrade},
     extract::ws::{Message, WebSocket},
+    extract::{Json, State, WebSocketUpgrade},
     http::{HeaderMap, StatusCode},
     response::Response,
 };
@@ -14,8 +14,8 @@ use std::{
 };
 use uuid::Uuid;
 
-use crate::AppState;
 use crate::srs_handler::{attach_bearer_metadata, validate_token_from_headers};
+use crate::AppState;
 
 #[derive(Serialize)]
 pub struct InterviewQuestionDto {
@@ -79,15 +79,23 @@ const MAX_QUESTION_CHARS: usize = 2_000;
 const MAX_ANSWER_CHARS: usize = 10_000;
 const MAX_AUDIO_BASE64_CHARS: usize = 1_000_000;
 
-fn validate_evaluation_input(body: &EvaluateAnswerBody) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+fn validate_evaluation_input(
+    body: &EvaluateAnswerBody,
+) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
     if body.question_id.trim().is_empty()
         || body.question_id.chars().count() > MAX_QUESTION_ID_CHARS
         || body.question.trim().is_empty()
         || body.question.chars().count() > MAX_QUESTION_CHARS
         || body.answer.chars().count() > MAX_ANSWER_CHARS
         || body.answer.split_whitespace().count() < 12
-        || body.audio_base64.as_ref().is_some_and(|audio| audio.len() > MAX_AUDIO_BASE64_CHARS)
-        || body.audio_base64.as_ref().is_some_and(|audio| !audio.is_empty())
+        || body
+            .audio_base64
+            .as_ref()
+            .is_some_and(|audio| audio.len() > MAX_AUDIO_BASE64_CHARS)
+        || body
+            .audio_base64
+            .as_ref()
+            .is_some_and(|audio| !audio.is_empty())
     {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -110,14 +118,19 @@ pub async fn next_question_handler(
         user_id: user_id.clone(),
     });
     attach_bearer_metadata(&headers, &mut profile_req)?;
-    let user_level = state.auth_client.get_user_profile(profile_req).await
-        .map_err(|_| (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({
-                "message": "No se pudo recuperar el perfil autenticado.",
-                "code": "PROFILE_UNAVAILABLE"
-            })),
-        ))?
+    let user_level = state
+        .auth_client
+        .get_user_profile(profile_req)
+        .await
+        .map_err(|_| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "message": "No se pudo recuperar el perfil autenticado.",
+                    "code": "PROFILE_UNAVAILABLE"
+                })),
+            )
+        })?
         .into_inner()
         .current_level;
 
@@ -126,7 +139,11 @@ pub async fn next_question_handler(
         level: user_level,
     });
 
-    match state.content_client.get_random_interview_question(req).await {
+    match state
+        .content_client
+        .get_random_interview_question(req)
+        .await
+    {
         Ok(res) => {
             let q = res.into_inner();
             Ok(Json(InterviewQuestionDto {
@@ -139,7 +156,9 @@ pub async fn next_question_handler(
         }
         Err(_error) => Err((
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "message": "No se pudo obtener una pregunta de entrevista.", "code": "QUESTION_UNAVAILABLE" })),
+            Json(
+                serde_json::json!({ "message": "No se pudo obtener una pregunta de entrevista.", "code": "QUESTION_UNAVAILABLE" }),
+            ),
         )),
     }
 }
@@ -171,14 +190,19 @@ pub async fn evaluate_answer_handler(
         user_id: user_id.clone(),
     });
     attach_bearer_metadata(&headers, &mut profile_req)?;
-    let user_level = state.auth_client.get_user_profile(profile_req).await
-        .map_err(|_| (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({
-                "message": "No se pudo recuperar el perfil autenticado.",
-                "code": "PROFILE_UNAVAILABLE"
-            })),
-        ))?
+    let user_level = state
+        .auth_client
+        .get_user_profile(profile_req)
+        .await
+        .map_err(|_| {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(serde_json::json!({
+                    "message": "No se pudo recuperar el perfil autenticado.",
+                    "code": "PROFILE_UNAVAILABLE"
+                })),
+            )
+        })?
         .into_inner()
         .current_level;
 
@@ -197,11 +221,15 @@ pub async fn evaluate_answer_handler(
     match state.ai_client.evaluate_exam_answer(request).await {
         Ok(res) => {
             let inner = res.into_inner();
-            let weaknesses = inner.detected_weaknesses.into_iter().map(|w| WeaknessDto {
-                skill: w.skill,
-                score: w.score,
-                tip: w.tip,
-            }).collect();
+            let weaknesses = inner
+                .detected_weaknesses
+                .into_iter()
+                .map(|w| WeaknessDto {
+                    skill: w.skill,
+                    score: w.score,
+                    tip: w.tip,
+                })
+                .collect();
 
             Ok(Json(ExamResultDto {
                 result: MetricScoresDto {
@@ -219,7 +247,9 @@ pub async fn evaluate_answer_handler(
         }
         Err(_error) => Err((
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "message": "El servicio de evaluación no está disponible.", "code": "EVAL_UNAVAILABLE" })),
+            Json(
+                serde_json::json!({ "message": "El servicio de evaluación no está disponible.", "code": "EVAL_UNAVAILABLE" }),
+            ),
         )),
     }
 }
@@ -255,12 +285,16 @@ pub async fn get_drill_handler(
     match state.ai_client.generate_targeted_drill(request).await {
         Ok(res) => {
             let inner = res.into_inner();
-            let exercises = inner.exercises.into_iter().map(|e| DrillExerciseDto {
-                title: e.title,
-                english_text: e.english_text,
-                spanish_phonetic: e.spanish_phonetic,
-                target_skill: e.target_skill,
-            }).collect();
+            let exercises = inner
+                .exercises
+                .into_iter()
+                .map(|e| DrillExerciseDto {
+                    title: e.title,
+                    english_text: e.english_text,
+                    spanish_phonetic: e.spanish_phonetic,
+                    target_skill: e.target_skill,
+                })
+                .collect();
 
             Ok(Json(DrillDto {
                 drill_id: inner.drill_id,
@@ -270,7 +304,9 @@ pub async fn get_drill_handler(
         }
         Err(_error) => Err((
             StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({ "message": "El servicio de ejercicios no está disponible.", "code": "DRILL_UNAVAILABLE" })),
+            Json(
+                serde_json::json!({ "message": "El servicio de ejercicios no está disponible.", "code": "DRILL_UNAVAILABLE" }),
+            ),
         )),
     }
 }
@@ -308,9 +344,8 @@ fn unix_time_seconds() -> usize {
 }
 
 fn configured_jwt_secret() -> Result<String, &'static str> {
-    let secret = std::env::var("JWT_SECRET")
-        .map_err(|_| "La autenticación no está configurada")?;
-    if secret.trim().is_empty() || secret.as_bytes().len() < 32 {
+    let secret = std::env::var("JWT_SECRET").map_err(|_| "La autenticación no está configurada")?;
+    if secret.trim().is_empty() || secret.len() < 32 {
         return Err("La autenticación no está configurada");
     }
     Ok(secret)
@@ -335,23 +370,29 @@ fn encode_transcribe_ticket(
     )
 }
 
-fn decode_transcribe_ticket(
-    token: &str,
-    secret: &str,
-) -> Result<TranscribeTicketClaims, ()> {
-    if secret.trim().is_empty() || secret.as_bytes().len() < 32 {
+fn decode_transcribe_ticket(token: &str, secret: &str) -> Result<TranscribeTicketClaims, ()> {
+    if secret.trim().is_empty() || secret.len() < 32 {
         return Err(());
     }
     let mut validation = Validation::new(Algorithm::HS256);
     validation.validate_exp = true;
+    // Tickets are intentionally short-lived: do not apply jsonwebtoken's
+    // default clock-skew leeway, which could accept an expired ticket.
+    validation.leeway = 0;
     validation.required_spec_claims.insert("sub".to_string());
-    decode::<TranscribeTicketClaims>(
+    let claims = decode::<TranscribeTicketClaims>(
         token,
         &DecodingKey::from_secret(secret.as_bytes()),
         &validation,
     )
     .map(|data| data.claims)
-    .map_err(|_| ())
+    .map_err(|_| ())?;
+
+    // Enforce the expiry boundary explicitly as defense in depth.
+    if claims.exp <= unix_time_seconds() {
+        return Err(());
+    }
+    Ok(claims)
 }
 
 fn allow_ticket_request(user_id: &str) -> bool {
@@ -361,7 +402,10 @@ fn allow_ticket_request(user_id: &str) -> bool {
     };
     let now = Instant::now();
     requests.retain(|_, times| {
-        while times.front().is_some_and(|time| now.duration_since(*time).as_secs() >= 60) {
+        while times
+            .front()
+            .is_some_and(|time| now.duration_since(*time).as_secs() >= 60)
+        {
             times.pop_front();
         }
         !times.is_empty()
@@ -392,7 +436,8 @@ fn consume_transcribe_ticket(jti: &str, expires_at: usize) -> bool {
 }
 
 fn websocket_origin_allowed(origin: &str, configured_origins: Option<&str>) -> bool {
-    let Some(configured_origins) = configured_origins.filter(|value| !value.trim().is_empty()) else {
+    let Some(configured_origins) = configured_origins.filter(|value| !value.trim().is_empty())
+    else {
         return origin == "http://localhost:3000";
     };
     configured_origins
@@ -418,22 +463,26 @@ pub async fn create_transcribe_ticket_handler(
         ));
     }
 
-    let secret = configured_jwt_secret().map_err(|_| (
-        StatusCode::SERVICE_UNAVAILABLE,
-        Json(serde_json::json!({
-            "message": "La autenticación no está configurada.",
-            "code": "AUTH_CONFIGURATION_UNAVAILABLE"
-        })),
-    ))?;
+    let secret = configured_jwt_secret().map_err(|_| {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({
+                "message": "La autenticación no está configurada.",
+                "code": "AUTH_CONFIGURATION_UNAVAILABLE"
+            })),
+        )
+    })?;
     let expires_at = unix_time_seconds() + TRANSCRIBE_TICKET_TTL_SECONDS;
     let jti = Uuid::new_v4().to_string();
-    let ticket = encode_transcribe_ticket(&user_id, &jti, expires_at, &secret).map_err(|_| (
-        StatusCode::SERVICE_UNAVAILABLE,
-        Json(serde_json::json!({
-            "message": "No se pudo autorizar la transcripción.",
-            "code": "TRANSCRIBE_TICKET_ERROR"
-        })),
-    ))?;
+    let ticket = encode_transcribe_ticket(&user_id, &jti, expires_at, &secret).map_err(|_| {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({
+                "message": "No se pudo autorizar la transcripción.",
+                "code": "TRANSCRIBE_TICKET_ERROR"
+            })),
+        )
+    })?;
 
     Ok(Json(TranscribeTicketDto {
         ticket,
@@ -461,7 +510,9 @@ pub async fn transcribe_ws_handler(
     if !websocket_origin_allowed(origin, allowed_origins.as_deref()) {
         return Err((
             StatusCode::FORBIDDEN,
-            Json(serde_json::json!({ "message": "Origen WebSocket no permitido", "code": "WS_ORIGIN_DENIED" })),
+            Json(
+                serde_json::json!({ "message": "Origen WebSocket no permitido", "code": "WS_ORIGIN_DENIED" }),
+            ),
         ));
     }
 
@@ -474,10 +525,12 @@ pub async fn transcribe_ws_handler(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .collect();
-    if !protocol_values.iter().any(|protocol| *protocol == TRANSCRIBE_WS_PROTOCOL) {
+    if !protocol_values.contains(&TRANSCRIBE_WS_PROTOCOL) {
         return Err((
             StatusCode::BAD_REQUEST,
-            Json(serde_json::json!({ "message": "Subprotocolo WebSocket no compatible", "code": "WS_PROTOCOL_REQUIRED" })),
+            Json(
+                serde_json::json!({ "message": "Subprotocolo WebSocket no compatible", "code": "WS_PROTOCOL_REQUIRED" }),
+            ),
         ));
     }
     let ticket = protocol_values
@@ -500,13 +553,17 @@ pub async fn transcribe_ws_handler(
     if claims.purpose != "transcribe" || Uuid::parse_str(&claims.sub).is_err() {
         return Err((
             StatusCode::UNAUTHORIZED,
-            Json(serde_json::json!({ "message": "Ticket no autorizado para transcripción", "code": "WS_TICKET_SCOPE_INVALID" })),
+            Json(
+                serde_json::json!({ "message": "Ticket no autorizado para transcripción", "code": "WS_TICKET_SCOPE_INVALID" }),
+            ),
         ));
     }
     if !consume_transcribe_ticket(&claims.jti, claims.exp) {
         return Err((
             StatusCode::UNAUTHORIZED,
-            Json(serde_json::json!({ "message": "Ticket de transcripción ya utilizado o expirado", "code": "WS_TICKET_REPLAYED" })),
+            Json(
+                serde_json::json!({ "message": "Ticket de transcripción ya utilizado o expirado", "code": "WS_TICKET_REPLAYED" }),
+            ),
         ));
     }
 
@@ -520,8 +577,8 @@ pub async fn transcribe_ws_handler(
 async fn handle_transcribe_socket(mut socket: WebSocket) {
     use aws_sdk_transcribestreaming::{
         config::Region,
-        types::{AudioEvent, AudioStream, LanguageCode, MediaEncoding, TranscriptResultStream},
         types::error::AudioStreamError,
+        types::{AudioEvent, AudioStream, LanguageCode, MediaEncoding, TranscriptResultStream},
         Client as TranscribeClient,
     };
     use std::{env, time::Duration};
@@ -533,12 +590,12 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
         .load()
         .await;
 
-    let lang_code_str = env::var("AWS_TRANSCRIBE_LANGUAGE_CODE")
-        .unwrap_or_else(|_| "en-US".to_string());
+    let lang_code_str =
+        env::var("AWS_TRANSCRIBE_LANGUAGE_CODE").unwrap_or_else(|_| "en-US".to_string());
     let language = match lang_code_str.as_str() {
         "en-US" => LanguageCode::EnUs,
         "en-GB" => LanguageCode::EnGb,
-        _       => LanguageCode::EnUs,
+        _ => LanguageCode::EnUs,
     };
 
     // Canal mpsc: el hilo WebSocket envía chunks PCM al stream de Transcribe
@@ -578,12 +635,15 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
 
     let mut stream_response = match transcribe_result {
         Ok(Ok(response)) => response,
-        Ok(Err(_error)) | Err(_) => {
-            tracing::error!("No se pudo iniciar la sesión AWS Transcribe dentro del límite de tiempo");
+        Ok(Err(_)) | Err(_) => {
+            tracing::error!(
+                "No se pudo iniciar la sesión AWS Transcribe dentro del límite de tiempo"
+            );
             let msg = serde_json::json!({
                 "error": "No se pudo iniciar la transcripción."
-            }).to_string();
-            let _ = socket.send(Message::Text(msg.into())).await;
+            })
+            .to_string();
+            let _ = socket.send(Message::Text(msg)).await;
             return;
         }
     };
@@ -608,7 +668,8 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
                                             let json = serde_json::json!({
                                                 "partial": trimmed,
                                                 "is_final": is_final
-                                            }).to_string();
+                                            })
+                                            .to_string();
                                             if ws_tx.send(json).await.is_err() {
                                                 break;
                                             }
@@ -621,9 +682,12 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
                 }
                 Ok(None) => {
                     // Transcribe cerró el stream (se agotaron los eventos de audio)
-                    let _ = ws_tx.send(
-                        serde_json::json!({ "partial": "", "is_final": true, "done": true }).to_string()
-                    ).await;
+                    let _ = ws_tx
+                        .send(
+                            serde_json::json!({ "partial": "", "is_final": true, "done": true })
+                                .to_string(),
+                        )
+                        .await;
                     break;
                 }
                 Err(e) => {
@@ -649,7 +713,7 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
                 let msg = serde_json::json!({
                     "error": "La sesión de transcripción alcanzó su duración máxima."
                 }).to_string();
-                let _ = socket.send(Message::Text(msg.into())).await;
+                let _ = socket.send(Message::Text(msg)).await;
                 break;
             }
             // Mensajes entrantes del cliente (chunks PCM binarios o "stop" de texto)
@@ -664,14 +728,14 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
                                 let msg = serde_json::json!({
                                     "error": "Tamaño de fragmento de audio no permitido."
                                 }).to_string();
-                                let _ = socket.send(Message::Text(msg.into())).await;
+                                let _ = socket.send(Message::Text(msg)).await;
                                 break;
                             }
                             if total_audio_bytes.saturating_add(chunk_bytes) > TRANSCRIBE_MAX_AUDIO_BYTES {
                                 let msg = serde_json::json!({
                                     "error": "La sesión de transcripción superó el límite de audio."
                                 }).to_string();
-                                let _ = socket.send(Message::Text(msg.into())).await;
+                                let _ = socket.send(Message::Text(msg)).await;
                                 break;
                             }
                             total_audio_bytes += chunk_bytes;
@@ -708,7 +772,7 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
                             .ok()
                             .and_then(|value| value.get("done").and_then(|flag| flag.as_bool()))
                             .unwrap_or(false);
-                        if socket.send(Message::Text(json_str.into())).await.is_err() {
+                        if socket.send(Message::Text(json_str)).await.is_err() {
                             break;
                         }
                         if done {
@@ -723,7 +787,6 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
 
     println!("✅ [WS Transcribe] Sesión cerrada");
 }
-
 
 #[cfg(test)]
 mod transcription_ticket_tests {
@@ -759,7 +822,8 @@ mod transcription_ticket_tests {
             &Uuid::new_v4().to_string(),
             now.saturating_sub(1),
             SECRET,
-        ).unwrap();
+        )
+        .unwrap();
         assert!(decode_transcribe_ticket(&token, SECRET).is_err());
     }
 
@@ -799,10 +863,11 @@ mod transcription_ticket_tests {
     }
 }
 
-
 #[cfg(test)]
 mod evaluation_input_validation_tests {
-    use super::{validate_evaluation_input, EvaluateAnswerBody, MAX_ANSWER_CHARS, MAX_AUDIO_BASE64_CHARS};
+    use super::{
+        validate_evaluation_input, EvaluateAnswerBody, MAX_ANSWER_CHARS, MAX_AUDIO_BASE64_CHARS,
+    };
 
     fn valid_input() -> EvaluateAnswerBody {
         EvaluateAnswerBody {
@@ -831,7 +896,6 @@ mod evaluation_input_validation_tests {
         input.audio_base64 = Some("A".repeat(MAX_AUDIO_BASE64_CHARS + 1));
         assert!(validate_evaluation_input(&input).is_err());
     }
-
 
     #[test]
     fn rejects_answer_below_minimum_word_count() {

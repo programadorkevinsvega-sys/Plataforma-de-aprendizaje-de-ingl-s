@@ -37,8 +37,8 @@ impl ContentService for MyContentService {
         .await
         .map_err(|e| Status::internal(e.to_string()))?;
 
-        let (id, word, phonetic, translation, category, level, phonetic_nat) = word
-            .ok_or_else(|| Status::not_found("Palabra no encontrada"))?;
+        let (id, word, phonetic, translation, category, level, phonetic_nat) =
+            word.ok_or_else(|| Status::not_found("Palabra no encontrada"))?;
 
         let sentences: Vec<(Uuid, String, String, String, Option<String>, String)> = sqlx::query_as(
             "SELECT id, english_text, spanish_phonetic, spanish_translation, audio_url, COALESCE(spanish_phonetic_natural, spanish_phonetic) FROM context_sentences WHERE word_id = $1"
@@ -88,10 +88,14 @@ impl ContentService for MyContentService {
         // Todas las consultas que usan el progreso del usuario comparten una
         // transacción y su contexto RLS. Para una petición pública, no se define
         // identidad, por lo que solo se consultan tablas de contenido público.
-        let mut tx = self.pool.begin().await
+        let mut tx = self
+            .pool
+            .begin()
+            .await
             .map_err(|_| Status::internal("No se pudo iniciar la consulta de vocabulario"))?;
         if let Some(uid) = user_uuid {
-            common::set_current_user_id(&mut *tx, uid).await
+            common::set_current_user_id(&mut tx, uid)
+                .await
                 .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
         }
 
@@ -228,7 +232,8 @@ impl ContentService for MyContentService {
             });
         }
 
-        tx.commit().await
+        tx.commit()
+            .await
             .map_err(|_| Status::internal("No se pudo cerrar la consulta de vocabulario"))?;
 
         Ok(Response::new(ListVocabularyWordsResponse {

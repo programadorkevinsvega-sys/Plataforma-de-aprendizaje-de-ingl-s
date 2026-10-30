@@ -1,0 +1,14 @@
+# Narrow exceptions for RustSec findings that cargo-audit reports from the
+# complete Cargo.lock, although the affected crates are not in the active workspace
+# dependency graph. See docs/audits/2026-10-29-dependency-exceptions.md.
+[advisories]
+ignore = [
+  "RUSTSEC-2026-0258", # h2 0.3.27: legacy hyper-014 connector, now inactive
+  "RUSTSEC-2023-0071", # rsa 0.9.10: optional sqlx-mysql driver is not enabled
+  "RUSTSEC-2026-0349", # rustls 0.21.12: legacy hyper-014 connector, now inactive
+  "RUSTSEC-2026-0346", # rustls 0.21.12: legacy hyper-014 connector, now inactive
+  "RUSTSEC-2026-0098", # rustls-webpki 0.101.7: legacy connector, now inactive
+  "RUSTSEC-2026-0099", # rustls-webpki 0.101.7: legacy connector, now inactive
+  "RUSTSEC-2026-0382", # rustls-webpki 0.101.7: legacy connector, now inactive
+  "RUSTSEC-2026-0104", # rustls-webpki 0.101.7: legacy connector, now inactive
+]

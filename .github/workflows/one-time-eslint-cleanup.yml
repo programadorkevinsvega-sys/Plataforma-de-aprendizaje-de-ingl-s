@@ -1,0 +1,41 @@
+name: One-time cleanup of legacy flat-config helpers
+
+on:
+  push:
+    branches:
+      - 'fix/next-16-security-upgrade'
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Remove unused FlatCompat-only direct dependencies
+        working-directory: frontend
+        run: |
+          npm ci
+          npm uninstall --save-dev @eslint/eslintrc @eslint/js --no-audit
+      - name: Commit regenerated manifests
+        run: |
+          git add frontend/package.json frontend/package-lock.json
+          if git diff --cached --quiet; then
+            echo "No unused direct ESLint helpers remained."
+            exit 1
+          fi
+          git diff --cached --stat
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore(frontend): remove unused legacy ESLint helpers"
+          git push origin "HEAD:${{ github.ref_name }}"

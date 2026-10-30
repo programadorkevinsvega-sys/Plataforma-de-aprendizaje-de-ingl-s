@@ -33,7 +33,7 @@ fn validate_secret(secret: &str) -> Result<(), JwtValidationError> {
     if secret.trim().is_empty() {
         return Err(JwtValidationError::MissingSecret);
     }
-    if secret.as_bytes().len() < 32 {
+    if secret.len() < 32 {
         return Err(JwtValidationError::WeakSecret);
     }
     Ok(())
@@ -68,6 +68,10 @@ pub fn validate_jwt_token(token: &str) -> Result<JwtClaims, JwtValidationError> 
 
 /// Validates a bearer JWT and ensures its subject equals the requested user ID.
 /// Call this inside any gRPC method that accepts a user ID from its request body.
+#[expect(
+    clippy::result_large_err,
+    reason = "tonic::Status is the required gRPC transport error type; keep this expectation on the transport boundary"
+)]
 pub fn ensure_authenticated_user<T>(
     request: &Request<T>,
     requested_user_id: &str,
@@ -78,12 +82,20 @@ pub fn ensure_authenticated_user<T>(
 }
 
 /// Validates a bearer JWT and returns its signed subject UUID.
+#[expect(
+    clippy::result_large_err,
+    reason = "tonic::Status is the required gRPC transport error type; keep this expectation on the transport boundary"
+)]
 pub fn authenticated_user_id<T>(request: &Request<T>) -> Result<Uuid, Status> {
     let secret = std::env::var("JWT_SECRET")
         .map_err(|_| Status::unavailable("La autenticación no está configurada"))?;
     authenticated_user_id_with_secret(request, &secret)
 }
 
+#[expect(
+    clippy::result_large_err,
+    reason = "tonic::Status is the required gRPC transport error type; keep this expectation on the transport boundary"
+)]
 fn authenticated_user_id_with_secret<T>(
     request: &Request<T>,
     secret: &str,
@@ -101,6 +113,10 @@ fn authenticated_user_id_with_secret<T>(
         .map_err(|_| Status::unauthenticated("Identidad de usuario inválida"))
 }
 
+#[expect(
+    clippy::result_large_err,
+    reason = "tonic::Status is the required gRPC transport error type; keep this expectation on the transport boundary"
+)]
 fn ensure_authenticated_user_with_secret<T>(
     request: &Request<T>,
     requested_user_id: &str,
@@ -135,7 +151,8 @@ mod tests {
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
-            .as_secs() as usize + 60
+            .as_secs() as usize
+            + 60
     }
 
     fn make_token(secret: &str, sub: &str, exp: usize, algorithm: Algorithm) -> String {
@@ -177,12 +194,7 @@ mod tests {
     #[test]
     fn accepts_a_valid_hs256_token() {
         let user = Uuid::new_v4();
-        let token = make_token(
-            SECRET,
-            &user.to_string(),
-            future_exp(),
-            Algorithm::HS256,
-        );
+        let token = make_token(SECRET, &user.to_string(), future_exp(), Algorithm::HS256);
         let claims = validate_jwt_token_with_secret(&token, SECRET).unwrap();
         assert_eq!(claims.sub, user.to_string());
     }
@@ -225,12 +237,7 @@ mod tests {
     fn denies_a_token_scoped_to_a_different_user() {
         let user_a = Uuid::new_v4();
         let user_b = Uuid::new_v4();
-        let token = make_token(
-            SECRET,
-            &user_a.to_string(),
-            future_exp(),
-            Algorithm::HS256,
-        );
+        let token = make_token(SECRET, &user_a.to_string(), future_exp(), Algorithm::HS256);
         let error = ensure_authenticated_user_with_secret(
             &request_with_token(&token),
             &user_b.to_string(),
