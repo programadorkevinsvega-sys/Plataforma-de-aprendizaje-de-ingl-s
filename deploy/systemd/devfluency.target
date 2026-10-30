@@ -1,0 +1,14 @@
+[Unit]
+Description=DevFluency application stack
+Wants=network-online.target
+After=network-online.target
+Wants=devfluency@auth-identity-service.service
+Wants=devfluency@content-vocabulary-service.service
+Wants=devfluency@ai-evaluator-service.service
+Wants=devfluency@phonetic-audio-service.service
+Wants=devfluency@srs-engine-service.service
+Wants=devfluency@gamification-progress-service.service
+Wants=devfluency@bff.service
+
+[Install]
+WantedBy=multi-user.target

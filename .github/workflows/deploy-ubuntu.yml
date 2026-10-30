@@ -1,0 +1,114 @@
+name: Deploy Ubuntu (systemd)
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: ${{ (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact commit validated by CI
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+          protoc --version
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Build all Rust production executables
+        run: cargo build --workspace --release --locked
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build standalone frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Assemble deployment package
+        run: |
+          set -euo pipefail
+          mkdir -p dist/bin dist/frontend dist/deploy
+          for binary in bff auth-identity-service content-vocabulary-service ai-evaluator-service phonetic-audio-service srs-engine-service gamification-progress-service; do
+            install -m 0755 "target/release/$binary" "dist/bin/$binary"
+          done
+          cp -a frontend/.next/standalone/. dist/frontend/
+          mkdir -p dist/frontend/.next
+          cp -a frontend/.next/static dist/frontend/.next/static
+          if [ -d frontend/public ]; then cp -a frontend/public dist/frontend/public; fi
+          cp -a deploy/. dist/deploy/
+          tar -czf devfluency-release.tar.gz -C dist bin frontend
+          tar -czf devfluency-deploy-package.tar.gz -C dist bin frontend deploy
+          sha256sum devfluency-deploy-package.tar.gz
+
+      - name: Upload deployment package
+        uses: actions/upload-artifact@v4
+        with:
+          name: devfluency-release
+          path: devfluency-deploy-package.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - name: Download deployment package
+        uses: actions/download-artifact@v4
+        with:
+          name: devfluency-release
+
+      - name: Connect runner to private tailnet
+        uses: tailscale/github-action@v3
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
+
+      - name: Transfer and activate release on Ubuntu
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_USER"
+          test -n "$DEPLOY_SSH_KEY"
+          test -n "$DEPLOY_KNOWN_HOSTS"
+          install -d -m 0700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 0600 ~/.ssh/known_hosts
+          eval "$(ssh-agent -s)"
+          printf '%s\n' "$DEPLOY_SSH_KEY" | tr -d '\r' | ssh-add -
+          package="devfluency-${RELEASE_SHA}.tar.gz"
+          scp -o BatchMode=yes devfluency-deploy-package.tar.gz "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/$package"
+          ssh -o BatchMode=yes "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "set -e; stage=/tmp/devfluency-${RELEASE_SHA}; mkdir -p \"\$stage\"; tar -xzf /tmp/$package -C \"\$stage\"; sudo bash \"\$stage/deploy/bootstrap-ubuntu.sh\"; tar -czf \"\$stage/release.tar.gz\" -C \"\$stage\" bin frontend; sudo bash \"\$stage/deploy/deploy-release.sh\" '$RELEASE_SHA' \"\$stage/release.tar.gz\"; rm -rf \"\$stage\" /tmp/$package"

@@ -1,0 +1,26 @@
+[Unit]
+Description=DevFluency Rust service (%i)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=devfluency
+Group=devfluency
+WorkingDirectory=/opt/devfluency/current
+EnvironmentFile=/etc/devfluency/devfluency.env
+Environment=RUST_LOG=info
+ExecStart=/opt/devfluency/current/bin/%i
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/devfluency
+UMask=0027
+
+[Install]
+WantedBy=devfluency.target

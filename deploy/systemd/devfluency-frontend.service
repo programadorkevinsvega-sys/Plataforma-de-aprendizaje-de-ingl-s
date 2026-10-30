@@ -1,0 +1,24 @@
+[Unit]
+Description=DevFluency Next.js frontend
+Wants=network-online.target
+After=network-online.target devfluency.target
+
+[Service]
+Type=simple
+User=devfluency
+Group=devfluency
+WorkingDirectory=/opt/devfluency/current/frontend
+Environment=NODE_ENV=production
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=3000
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target
