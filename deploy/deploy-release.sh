@@ -37,7 +37,9 @@ rollback() {
 }
 
 systemctl daemon-reload
-systemctl restart devfluency.target
+for service in auth-identity-service content-vocabulary-service ai-evaluator-service phonetic-audio-service srs-engine-service gamification-progress-service bff; do
+  systemctl restart "devfluency@${service}.service"
+done
 systemctl restart devfluency-frontend.service
 for service in auth-identity-service content-vocabulary-service ai-evaluator-service phonetic-audio-service srs-engine-service gamification-progress-service bff; do
   systemctl is-active --quiet "devfluency@${service}.service" || rollback
