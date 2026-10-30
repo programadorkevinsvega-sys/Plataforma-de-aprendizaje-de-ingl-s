@@ -44,8 +44,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let pool = Arc::new(pool);
     let configured_addr = std::env::var("GAMIFICATION_SERVICE_BIND_ADDR").ok();
-    let addr: SocketAddr =
-        common::parse_bind_addr(configured_addr.as_deref(), "127.0.0.1:50056")?;
+    let addr: SocketAddr = common::parse_bind_addr(configured_addr.as_deref(), "127.0.0.1:50056")?;
     let gamification_service = MyGamificationService::new(pool);
 
     println!(
