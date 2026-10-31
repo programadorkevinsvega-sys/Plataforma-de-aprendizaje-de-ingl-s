@@ -63,7 +63,6 @@ jobs:
           cp -a frontend/.next/static dist/frontend/.next/static
           if [ -d frontend/public ]; then cp -a frontend/public dist/frontend/public; fi
           cp -a deploy/. dist/deploy/
-          tar -czf devfluency-release.tar.gz -C dist bin frontend
           tar -czf devfluency-deploy-package.tar.gz -C dist bin frontend deploy
           sha256sum devfluency-deploy-package.tar.gz
 
@@ -85,12 +84,21 @@ jobs:
         with:
           name: devfluency-release
 
+      - name: Validate Tailscale credential is configured
+        env:
+          TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
+        run: |
+          if [[ -z "$TAILSCALE_AUTHKEY" ]]; then
+            echo "::error::TAILSCALE_AUTHKEY is empty or unavailable to the production environment. Configure it under Settings > Environments > production > Environment secrets."
+            exit 1
+          fi
+
       - name: Connect runner to private tailnet
         uses: tailscale/github-action@v3
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
 
-      - name: Transfer and activate release on Ubuntu
+      - name: Transfer and activate release on private Ubuntu VM
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
@@ -104,11 +112,11 @@ jobs:
           test -n "$DEPLOY_SSH_KEY"
           test -n "$DEPLOY_KNOWN_HOSTS"
           install -d -m 0700 ~/.ssh
-          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf '%s\\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 0600 ~/.ssh/known_hosts
           eval "$(ssh-agent -s)"
-          printf '%s\n' "$DEPLOY_SSH_KEY" | tr -d '\r' | ssh-add -
+          printf '%s\\n' "$DEPLOY_SSH_KEY" | tr -d '\\r' | ssh-add -
           package="devfluency-${RELEASE_SHA}.tar.gz"
           scp -o BatchMode=yes devfluency-deploy-package.tar.gz "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/$package"
-          ssh -o BatchMode=yes "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "set -e; stage=/tmp/devfluency-${RELEASE_SHA}; mkdir -p \"\$stage\"; tar -xzf /tmp/$package -C \"\$stage\"; sudo bash \"\$stage/deploy/bootstrap-ubuntu.sh\"; tar -czf \"\$stage/release.tar.gz\" -C \"\$stage\" bin frontend; sudo bash \"\$stage/deploy/deploy-release.sh\" '$RELEASE_SHA' \"\$stage/release.tar.gz\"; rm -rf \"\$stage\" /tmp/$package"
+          ssh -o BatchMode=yes "${DEPLOY_USER}@${DEPLOY_HOST}" \\
+            "set -e; stage=/tmp/devfluency-${RELEASE_SHA}; mkdir -p \"\\$stage\"; tar -xzf /tmp/$package -C \"\\$stage\"; sudo bash \"\\$stage/deploy/bootstrap-ubuntu.sh\"; tar -czf \"\\$stage/release.tar.gz\" -C \"\\$stage\" bin frontend; sudo bash \"\\$stage/deploy/deploy-release.sh\" '$RELEASE_SHA' \"\\$stage/release.tar.gz\"; rm -rf \"\\$stage\" /tmp/$package"
