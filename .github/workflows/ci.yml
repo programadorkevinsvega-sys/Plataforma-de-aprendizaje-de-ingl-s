@@ -65,6 +65,8 @@ jobs:
   frontend:
     name: Frontend lint and production build
     runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_BFF_URL: https://app-ingles.jnmtortas.com
     defaults:
       run:
         working-directory: frontend
