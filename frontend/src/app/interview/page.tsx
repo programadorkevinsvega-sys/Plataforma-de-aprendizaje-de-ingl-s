@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Navbar } from '@/presentation/components/Navbar'
 import { Sidebar } from '@/presentation/components/Sidebar'
 import { getContainer } from '@/infrastructure/di/container'
+import { BFF_BASE_URL } from '@/infrastructure/api/BffHttpClient'
 import type { ExamResult } from '@/domain/entities/ExamResult'
 
 const TRANSCRIBE_WS_PROTOCOL = 'devfluency.transcribe.v1'
@@ -127,10 +128,10 @@ export default function InterviewPage() {
       const ticket = await container.repositories.evaluator.createTranscribeTicket()
 
       // 1. Abrir WebSocket al BFF ANTES de iniciar el audio
-      const bffWsUrl = (process.env.NEXT_PUBLIC_BFF_URL || 'http://localhost:8080')
-        .replace(/^http/, 'ws')
+      const bffWsUrl = new URL('/api/v1/exam/transcribe/ws', BFF_BASE_URL)
+      bffWsUrl.protocol = bffWsUrl.protocol === 'https:' ? 'wss:' : 'ws:'
       const ws = new WebSocket(
-        `${bffWsUrl}/api/v1/exam/transcribe/ws`,
+        bffWsUrl.toString(),
         [TRANSCRIBE_WS_PROTOCOL, `ticket.${ticket}`],
       )
       wsRef.current = ws
