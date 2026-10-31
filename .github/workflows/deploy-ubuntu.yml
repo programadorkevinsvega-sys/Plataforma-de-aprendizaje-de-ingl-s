@@ -47,9 +47,24 @@ jobs:
 
       - name: Build standalone frontend
         working-directory: frontend
+        env:
+          NEXT_PUBLIC_BFF_URL: ${{ vars.NEXT_PUBLIC_BFF_URL }}
         run: |
+          set -euo pipefail
+          if [[ -z "${NEXT_PUBLIC_BFF_URL:-}" ]]; then
+            echo "::error::Configure the repository variable NEXT_PUBLIC_BFF_URL=https://app-ingles.jnmtortas.com before building the production frontend."
+            exit 1
+          fi
+          if [[ "$NEXT_PUBLIC_BFF_URL" != "https://app-ingles.jnmtortas.com" ]]; then
+            echo "::error::NEXT_PUBLIC_BFF_URL must match the production application origin."
+            exit 1
+          fi
           npm ci
           npm run build
+          if grep -R -F -q 'http://localhost:8080' .next/static .next/server; then
+            echo "::error::The production frontend bundle still contains the localhost BFF URL."
+            exit 1
+          fi
 
       - name: Assemble deployment package
         run: |
