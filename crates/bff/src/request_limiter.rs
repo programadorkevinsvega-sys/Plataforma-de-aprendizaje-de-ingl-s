@@ -4,12 +4,15 @@ use std::{
     time::{Duration, Instant},
 };
 
-static REQUESTS: OnceLock<Mutex<HashMap<String, VecDeque<Instant>>>> = OnceLock::new();
+type RequestHistory = HashMap<String, VecDeque<Instant>>;
+
+static REQUESTS: OnceLock<Mutex<RequestHistory>> = OnceLock::new();
 
 /// In-process sliding-window limiter for authenticated, cost-generating routes.
 /// Production deployments with multiple replicas should back this with a shared
 /// atomic store (for example Redis); this local limit is defense in depth only.
-fn allow_request_at(
+fn allow_request_in(
+    requests: &mut RequestHistory,
     user_id: &str,
     operation: &str,
     limit: usize,
@@ -19,12 +22,6 @@ fn allow_request_at(
     if limit == 0 || user_id.trim().is_empty() {
         return false;
     }
-
-    let requests = REQUESTS.get_or_init(|| Mutex::new(HashMap::new()));
-    let Ok(mut requests) = requests.lock() else {
-        // Fail closed if the limiter state cannot be safely accessed.
-        return false;
-    };
 
     requests.retain(|_, times| {
         while times
@@ -46,6 +43,22 @@ fn allow_request_at(
     true
 }
 
+fn allow_request_at(
+    user_id: &str,
+    operation: &str,
+    limit: usize,
+    window: Duration,
+    now: Instant,
+) -> bool {
+    let requests = REQUESTS.get_or_init(|| Mutex::new(HashMap::new()));
+    let Ok(mut requests) = requests.lock() else {
+        // Fail closed if the limiter state cannot be safely accessed.
+        return false;
+    };
+
+    allow_request_in(&mut requests, user_id, operation, limit, window, now)
+}
+
 pub(crate) fn allow_request(
     user_id: &str,
     operation: &str,
@@ -57,7 +70,8 @@ pub(crate) fn allow_request(
 
 #[cfg(test)]
 mod tests {
-    use super::allow_request_at;
+    use super::{allow_request_in, RequestHistory};
+    use std::collections::HashMap;
     use std::time::{Duration, Instant};
     use uuid::Uuid;
 
@@ -65,21 +79,25 @@ mod tests {
     fn blocks_requests_after_the_per_user_operation_limit() {
         let user = Uuid::new_v4().to_string();
         let now = Instant::now();
-        assert!(allow_request_at(
+        let mut requests = HashMap::new();
+        assert!(allow_request_in(
+            &mut requests,
             &user,
             "tts",
             2,
             Duration::from_secs(60),
             now
         ));
-        assert!(allow_request_at(
+        assert!(allow_request_in(
+            &mut requests,
             &user,
             "tts",
             2,
             Duration::from_secs(60),
             now
         ));
-        assert!(!allow_request_at(
+        assert!(!allow_request_in(
+            &mut requests,
             &user,
             "tts",
             2,
@@ -92,14 +110,17 @@ mod tests {
     fn operations_have_independent_quotas() {
         let user = Uuid::new_v4().to_string();
         let now = Instant::now();
-        assert!(allow_request_at(
+        let mut requests: RequestHistory = HashMap::new();
+        assert!(allow_request_in(
+            &mut requests,
             &user,
             "tts",
             1,
             Duration::from_secs(60),
             now
         ));
-        assert!(allow_request_at(
+        assert!(allow_request_in(
+            &mut requests,
             &user,
             "llm",
             1,
@@ -113,9 +134,15 @@ mod tests {
         let user = Uuid::new_v4().to_string();
         let now = Instant::now();
         let window = Duration::from_secs(60);
-        assert!(allow_request_at(&user, "llm", 1, window, now));
-        assert!(!allow_request_at(&user, "llm", 1, window, now));
-        assert!(allow_request_at(
+        let mut requests = HashMap::new();
+        assert!(allow_request_in(
+            &mut requests, &user, "llm", 1, window, now
+        ));
+        assert!(!allow_request_in(
+            &mut requests, &user, "llm", 1, window, now
+        ));
+        assert!(allow_request_in(
+            &mut requests,
             &user,
             "llm",
             1,
@@ -127,14 +154,17 @@ mod tests {
     #[test]
     fn empty_identity_and_zero_quota_fail_closed() {
         let now = Instant::now();
-        assert!(!allow_request_at(
+        let mut requests = HashMap::new();
+        assert!(!allow_request_in(
+            &mut requests,
             " ",
             "llm",
             1,
             Duration::from_secs(60),
             now
         ));
-        assert!(!allow_request_at(
+        assert!(!allow_request_in(
+            &mut requests,
             "user",
             "llm",
             0,
