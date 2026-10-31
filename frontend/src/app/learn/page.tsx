@@ -90,13 +90,10 @@ export default function LearnPage() {
       const container = getContainer()
       await container.useCases.recordLearningProgress.execute(currentWord.id)
 
-      {
-        // Notificar al Navbar para que refresque XP, racha y monedas
-        window.dispatchEvent(new Event('devfluency:xp-updated'))
-        // Show XP toast briefly
-        setXpToast(true)
-        setTimeout(() => setXpToast(false), 2000)
-      }
+      // Notificar al Navbar para que refresque XP, racha y monedas
+      window.dispatchEvent(new Event('devfluency:xp-updated'))
+      setXpToast(true)
+      setTimeout(() => setXpToast(false), 2000)
     } catch (err) {
       console.warn('Error saving progress:', err)
     } finally {
