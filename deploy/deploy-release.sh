@@ -10,6 +10,10 @@ archive="$2"
 APP_ROOT="/opt/apps/plataforma-aprendizaje"
 APP_CONFIG="/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env"
 RELEASES_ROOT="$APP_ROOT/releases"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=deploy/lib/health-checks.sh
+source "$SCRIPT_DIR/lib/health-checks.sh"
+
 [[ -s "$APP_CONFIG" ]] || { echo "Missing $APP_CONFIG" >&2; exit 1; }
 grep -Eq "^DATABASE_URL=.+$" "$APP_CONFIG" || { echo "Set DATABASE_URL in $APP_CONFIG before deploying." >&2; exit 1; }
 grep -Eq "^JWT_SECRET=.{32,}$" "$APP_CONFIG" || { echo "Set JWT_SECRET (at least 32 characters) in $APP_CONFIG before deploying." >&2; exit 1; }
@@ -93,20 +97,40 @@ for service in auth-identity-service content-vocabulary-service ai-evaluator-ser
 done
 systemctl is-active --quiet devfluency-frontend.service || rollback
 
-for port in 50051 50052 50053 50054 50055 50056 8080; do
+# Derive the HTTP probe host and BFF port from the same address used by the
+# running service. The frontend is exposed on this VM interface as well.
+if ! load_bff_http_probe_target "$APP_CONFIG"; then
+  echo "Cannot determine HTTP health-check target from BFF_HTTP_BIND_ADDR." >&2
+  rollback
+fi
+echo "Checking BFF and frontend on ${BFF_HTTP_PROBE_HOST} (BFF port ${BFF_HTTP_PROBE_PORT}, frontend port 3000)."
+
+# Rust gRPC services bind to loopback; keep those checks local.
+for port in 50051 50052 50053 50054 50055 50056; do
   ready=0
   for _ in $(seq 1 30); do
     if timeout 1 bash -c ":</dev/tcp/127.0.0.1/$port" 2>/dev/null; then ready=1; break; fi
     sleep 1
   done
-  [[ "$ready" -eq 1 ]] || rollback
+  [[ "$ready" -eq 1 ]] || { echo "Timed out waiting for gRPC port $port." >&2; rollback; }
+done
+
+for port in "$BFF_HTTP_PROBE_PORT" 3000; do
+  ready=0
+  for _ in $(seq 1 30); do
+    if timeout 1 bash -c ":</dev/tcp/$BFF_HTTP_PROBE_HOST/$port" 2>/dev/null; then ready=1; break; fi
+    sleep 1
+  done
+  [[ "$ready" -eq 1 ]] || { echo "Timed out waiting for HTTP port $port on $BFF_HTTP_PROBE_HOST." >&2; rollback; }
 done
 
 for _ in $(seq 1 30); do
-  if curl -fsS http://127.0.0.1:8080/health >/dev/null && curl -fsS http://127.0.0.1:3000/ >/dev/null; then
+  if curl --connect-timeout 2 -fsS "http://$BFF_HTTP_PROBE_HOST:$BFF_HTTP_PROBE_PORT/health" >/dev/null &&
+     curl --connect-timeout 2 -fsS "http://$BFF_HTTP_PROBE_HOST:3000/" >/dev/null; then
     echo "Platform deployment $sha healthy."
     exit 0
   fi
   sleep 1
 done
+echo "HTTP health checks failed for BFF or frontend on $BFF_HTTP_PROBE_HOST." >&2
 rollback
