@@ -9,23 +9,55 @@ archive="$2"
 
 APP_ROOT="/opt/apps/plataforma-aprendizaje"
 APP_CONFIG="/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env"
+RELEASES_ROOT="$APP_ROOT/releases"
 [[ -s "$APP_CONFIG" ]] || { echo "Missing $APP_CONFIG" >&2; exit 1; }
 grep -Eq "^DATABASE_URL=.+$" "$APP_CONFIG" || { echo "Set DATABASE_URL in $APP_CONFIG before deploying." >&2; exit 1; }
 grep -Eq "^JWT_SECRET=.{32,}$" "$APP_CONFIG" || { echo "Set JWT_SECRET (at least 32 characters) in $APP_CONFIG before deploying." >&2; exit 1; }
 
-release="$APP_ROOT/releases/$sha"
-previous="$(readlink -f "$APP_ROOT/current" 2>/dev/null || true)"
-install -d -o root -g devfluency -m 0750 "$release"
-tar -xzf "$archive" -C "$release"
+install -d -o root -g devfluency -m 0750 "$RELEASES_ROOT"
+release="$RELEASES_ROOT/$sha"
+current="$(readlink -f "$APP_ROOT/current" 2>/dev/null || true)"
+
+# Determine a rollback target before changing current. If this SHA is already
+# active, select the newest different release instead of rolling back to itself.
+previous=""
+if [[ -n "$current" && "$current" != "$release" && -d "$current" ]]; then
+  previous="$current"
+else
+  mapfile -t prior_releases < <(
+    find "$RELEASES_ROOT" -mindepth 1 -maxdepth 1 -type d ! -path "$release" -printf '%T@ %p\n' | sort -rn
+  )
+  if [[ ${#prior_releases[@]} -gt 0 ]]; then
+    previous="${prior_releases[0]#* }"
+  fi
+fi
+
+# Releases are immutable per commit SHA. Extract into a staging directory so
+# a failed extraction never damages an existing release/current deployment.
+stage="$(mktemp -d "$RELEASES_ROOT/.staging-${sha}.XXXXXX")"
+cleanup_stage() {
+  if [[ -n "${stage:-}" && -d "$stage" ]]; then rm -rf -- "$stage"; fi
+}
+trap cleanup_stage EXIT
+tar -xzf "$archive" -C "$stage"
 for binary in bff auth-identity-service content-vocabulary-service ai-evaluator-service phonetic-audio-service srs-engine-service gamification-progress-service; do
-  test -x "$release/bin/$binary"
+  test -x "$stage/bin/$binary"
 done
-test -f "$release/frontend/server.js"
-chown -R root:devfluency "$release"
-find "$release" -type d -exec chmod 0750 {} +
-find "$release/bin" -type f -exec chmod 0750 {} +
-find "$release/frontend" -type f -exec chmod 0640 {} +
-chmod 0750 "$release/frontend/server.js"
+test -f "$stage/frontend/server.js"
+chown -R root:devfluency "$stage"
+find "$stage" -type d -exec chmod 0750 {} +
+find "$stage/bin" -type f -exec chmod 0750 {} +
+find "$stage/frontend" -type f -exec chmod 0640 {} +
+chmod 0750 "$stage/frontend/server.js"
+
+if [[ -e "$release" ]]; then
+  echo "Release $sha already exists; reusing immutable release."
+  rm -rf -- "$stage"
+  stage=""
+else
+  mv "$stage" "$release"
+  stage=""
+fi
 
 restart_stack() {
   local service
@@ -36,12 +68,13 @@ restart_stack() {
 }
 
 rollback() {
-  echo "Deployment failed; rolling back platform-aprendizaje." >&2
-  if [[ -n "$previous" && -d "$previous" ]]; then
+  echo "Deployment failed; rolling back Plataforma de Aprendizaje." >&2
+  if [[ -n "$previous" && "$previous" != "$release" && -d "$previous" ]]; then
     ln -sfn "$previous" "$APP_ROOT/current.rollback"
     mv -Tf "$APP_ROOT/current.rollback" "$APP_ROOT/current"
     restart_stack || true
   else
+    echo "No distinct previous release is available; stopping only this application's services." >&2
     systemctl stop devfluency.target devfluency-frontend.service || true
   fi
   exit 1
