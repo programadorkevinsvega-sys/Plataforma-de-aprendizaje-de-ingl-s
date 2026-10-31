@@ -130,7 +130,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Method::DELETE,
             Method::OPTIONS,
         ])
-        .allow_headers([AUTHORIZATION, CONTENT_TYPE, HeaderName::from_static("x-tenant-id")]);
+        .allow_headers([
+            AUTHORIZATION,
+            CONTENT_TYPE,
+            HeaderName::from_static("x-tenant-id"),
+        ]);
 
     let app = Router::new()
         // Health
@@ -196,7 +200,10 @@ mod cors_configuration_tests {
     fn defaults_to_production_frontend_origin() {
         let origins = parse_cors_allowed_origins(None).unwrap();
         assert_eq!(origins.len(), 1);
-        assert_eq!(origins[0].to_str().unwrap(), "https://app-ingles.jnmtortas.com");
+        assert_eq!(
+            origins[0].to_str().unwrap(),
+            "https://app-ingles.jnmtortas.com"
+        );
     }
 
     #[test]
