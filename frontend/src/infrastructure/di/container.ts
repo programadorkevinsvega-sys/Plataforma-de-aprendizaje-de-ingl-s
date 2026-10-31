@@ -14,6 +14,7 @@ import {
 import { GetAchievementsUseCase } from '@/application/use-cases/GetAchievementsUseCase'
 import { GetDashboardSummaryUseCase } from '@/application/use-cases/GetDashboardSummaryUseCase'
 import { GetLeaderboardUseCase } from '@/application/use-cases/GetLeaderboardUseCase'
+import { RecordLearningProgressUseCase } from '@/application/use-cases/RecordLearningProgressUseCase'
 import {
   GetTodayLessonUseCase,
   GetVocabularyListUseCase,
@@ -73,6 +74,7 @@ export interface Container {
     getDashboardSummary: GetDashboardSummaryUseCase
     getLeaderboard: GetLeaderboardUseCase
     getAchievements: GetAchievementsUseCase
+    recordLearningProgress: RecordLearningProgressUseCase
   }
 }
 
@@ -115,6 +117,7 @@ function build(): Container {
       getDashboardSummary: new GetDashboardSummaryUseCase(progress),
       getLeaderboard: new GetLeaderboardUseCase(progress),
       getAchievements: new GetAchievementsUseCase(progress),
+      recordLearningProgress: new RecordLearningProgressUseCase(progress),
     },
   }
 }

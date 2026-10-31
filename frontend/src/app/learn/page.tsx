@@ -88,25 +88,12 @@ export default function LearnPage() {
     setIsSavingProgress(true)
     try {
       const container = getContainer()
-      const token = container.session.getAccessToken() ?? ''
-      const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://localhost:8080'
-      
-      const res = await fetch(`${bffUrl}/api/v1/progress/learn`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ word_id: currentWord.id })
-      })
+      await container.useCases.recordLearningProgress.execute(currentWord.id)
 
-      if (res.ok) {
-        // Notificar al Navbar para que refresque XP, racha y monedas
-        window.dispatchEvent(new Event('devfluency:xp-updated'))
-        // Show XP toast briefly
-        setXpToast(true)
-        setTimeout(() => setXpToast(false), 2000)
-      }
+      // Notificar al Navbar para que refresque XP, racha y monedas
+      window.dispatchEvent(new Event('devfluency:xp-updated'))
+      setXpToast(true)
+      setTimeout(() => setXpToast(false), 2000)
     } catch (err) {
       console.warn('Error saving progress:', err)
     } finally {
