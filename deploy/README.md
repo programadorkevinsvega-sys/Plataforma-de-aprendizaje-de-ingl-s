@@ -1,46 +1,65 @@
-# Despliegue automático en Ubuntu sin Docker
+# Despliegue automático de Plataforma de Aprendizaje en Ubuntu (sin Docker)
 
-El workflow `.github/workflows/deploy-ubuntu.yml` se ejecuta cuando el workflow **CI** termina correctamente en `main`. También permite un reintento manual desde Actions, limitado a `main`.
+El workflow `.github/workflows/deploy-ubuntu.yml` construye y despliega **únicamente esta aplicación** cuando el workflow **CI** termina correctamente para `main`. También permite reintentar manualmente desde Actions sobre `main`.
 
-## Qué hace
+## Alcance y aislamiento
 
-1. Compila los siete ejecutables Rust en GitHub Actions con `cargo build --workspace --release --locked`.
-2. Compila Next.js en modo `standalone`.
-3. Empaqueta binarios y frontend como artefacto asociado al SHA exacto validado por CI.
-4. Se conecta a la VM por Tailscale y SSH.
-5. Instala Node.js 24 si hace falta, crea el usuario de sistema `devfluency`, instala las unidades systemd y crea el archivo de entorno de producción si aún no existe.
-6. Instala la versión en un directorio versionado, cambia el enlace `current`, reinicia los servicios y verifica los puertos, el endpoint BFF y el frontend.
-7. Si falla el health check, restaura el enlace a la versión anterior.
+- Directorio exclusivo de esta aplicación: `/opt/apps/plataforma-aprendizaje`.
+- Releases versionadas por SHA: `/opt/apps/plataforma-aprendizaje/releases/<sha>`.
+- Enlace activo: `/opt/apps/plataforma-aprendizaje/current`.
+- Configuración exclusiva: `/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env`.
+- Usuario de proceso: `devfluency`.
+- Unidades systemd: `devfluency@*.service`, `devfluency.target` y `devfluency-frontend.service`.
 
-No instala Docker ni compila Rust en la VM.
+El script remoto solo administra esas rutas y unidades. No instala, reinicia ni modifica PostgreSQL, Redis, NATS ni otras aplicaciones alojadas en la VM. Las conexiones de datos se configuran mediante endpoints privados en el archivo de entorno de esta aplicación.
 
-## Secrets requeridos en GitHub
+## Qué hace el pipeline
 
-Configurar en **Settings → Secrets and variables → Actions → New repository secret**:
+1. Espera que CI finalice correctamente en `main`.
+2. Checkout del SHA exacto validado por CI.
+3. Compila los siete ejecutables Rust con `cargo build --workspace --release --locked`.
+4. Compila Next.js en modo `standalone`.
+5. Empaqueta los binarios, frontend y scripts de despliegue.
+6. Conecta el runner a la tailnet mediante `TAILSCALE_AUTHKEY`.
+7. Transfiere el paquete por SSH a la IP Tailscale/MagicDNS de la VM.
+8. Instala/configura las unidades systemd de esta aplicación.
+9. Crea una release versionada, cambia el enlace `current` y reinicia solo los servicios de Plataforma.
+10. Comprueba los siete servicios Rust, los puertos gRPC/BFF y los endpoints HTTP.
+11. Si falla el reinicio o una comprobación, restaura la release anterior y reinicia los servicios de esta aplicación.
 
-- `TAILSCALE_AUTHKEY`: clave de autenticación Tailscale efímera, preferiblemente restringida por tags/ACL a esta VM.
-- `DEPLOY_HOST`: IP Tailscale o nombre DNS Tailscale de la VM de aplicaciones (no la IP privada VPC si el runner no puede enrutarla directamente).
-- `DEPLOY_USER`: usuario SSH de Ubuntu autorizado para ejecutar sudo.
-- `DEPLOY_SSH_KEY`: clave privada SSH correspondiente a una clave pública instalada en `~/.ssh/authorized_keys` de ese usuario.
-- `DEPLOY_KNOWN_HOSTS`: línea(s) de clave pública del host SSH para ese host. Obtenerlas con `ssh-keyscan -H <host>` y verificar la huella por un canal independiente antes de guardarlas.
+No instala Docker ni compila Rust en la VM. No despliega PostgreSQL, Redis ni NATS.
 
-El usuario SSH debe poder ejecutar `sudo bash` sin interacción (el usuario predeterminado `ubuntu` de las AMI oficiales normalmente ya dispone de sudo sin contraseña). No almacenar claves privadas ni secretos de aplicación en el repositorio.
+## Secrets requeridos
 
-## Configuración de aplicación (una sola vez en Ubuntu)
+El job de despliegue usa el GitHub Environment `production`. Configura los siguientes secrets en **Settings → Environments → production → Environment secrets** (o como repository secrets si la política del repositorio lo permite):
 
-El primer bootstrap crea `/etc/devfluency/devfluency.env` con permisos `0640`, propiedad `root:devfluency`. Antes del primer despliegue exitoso, editar ese archivo en la VM y establecer al menos:
+- `TAILSCALE_AUTHKEY`: auth key de Tailscale. Preferir una clave efímera, etiquetada y restringida por ACL/grants a la VM de despliegue.
+- `DEPLOY_HOST`: IP Tailscale `100.x.y.z` o nombre MagicDNS de la VM. No usar una IP pública ni asumir que la IP privada VPC es enrutable desde el runner.
+- `DEPLOY_USER`: usuario SSH autorizado para ejecutar el script de despliegue mediante sudo.
+- `DEPLOY_SSH_KEY`: clave privada correspondiente a la clave pública instalada en `authorized_keys`.
+- `DEPLOY_KNOWN_HOSTS`: clave de host SSH verificada de forma independiente para el host indicado en `DEPLOY_HOST`.
 
-- `DATABASE_URL`: URL PostgreSQL privada alcanzable desde la VM de aplicaciones.
-- `JWT_SECRET`: secreto aleatorio fuerte de al menos 32 caracteres.
+El workflow valida que `TAILSCALE_AUTHKEY` no esté vacío antes de invocar la acción Tailscale. Nunca pegues el valor de la auth key en el repositorio, issues o conversaciones.
+
+## Configuración de aplicación en la VM
+
+El bootstrap crea `/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env` solo si no existe, con permisos `0640` y propietario `root:devfluency`. Completar al menos:
+
+- `DATABASE_URL`: PostgreSQL por IP/DNS privado de VPC.
+- `JWT_SECRET`: secreto aleatorio de al menos 32 caracteres.
 - `REDIS_URL` y `NATS_URL`: endpoints privados si los servicios los requieren.
 - `CORS_ALLOWED_ORIGINS`: origen público real del frontend.
-- `AWS_REGION` y credenciales AWS mediante IAM role de la instancia (recomendado) si se utilizan Polly, Transcribe o Bedrock.
+- Variables AWS necesarias; preferir IAM instance profile para AWS en vez de claves estáticas.
 
-Los servicios gRPC se enlazan a loopback por defecto porque BFF y microservicios corren en la misma VM. No exponer los puertos 50051-50056 públicamente. El frontend escucha en loopback:3000 para el reverse proxy.
+No guardar secretos en Git. Los servicios gRPC y BFF se enlazan a loopback por defecto; el frontend escucha en `127.0.0.1:3000` para el reverse proxy.
 
-Después de completar el archivo, ejecutar **Actions → Deploy Ubuntu (systemd) → Run workflow** sobre `main` para desplegar sin necesidad de crear otro commit.
+### Migración desde la ruta anterior
 
-## Servicios systemd
+Si existe una instalación previa en `/opt/devfluency` y `/etc/devfluency/devfluency.env`, el bootstrap copia las releases existentes y migra el archivo de entorno a la nueva ruta de esta aplicación, sin borrar ni sobrescribir el origen. Revisar la configuración migrada antes del primer despliegue.
+
+Después de completar el archivo de entorno, ejecutar **Actions → Deploy Ubuntu (systemd) → Run workflow** sobre `main`.
+
+## Servicios systemd administrados
 
 - `devfluency@auth-identity-service`
 - `devfluency@content-vocabulary-service`
@@ -51,10 +70,11 @@ Después de completar el archivo, ejecutar **Actions → Deploy Ubuntu (systemd)
 - `devfluency@bff`
 - `devfluency-frontend`
 
-Comandos útiles: `systemctl status devfluency.target`, `systemctl status 'devfluency@bff'`, `journalctl -u 'devfluency@bff' -f`, `journalctl -u devfluency-frontend -f`.
+Comandos útiles: `systemctl status devfluency.target`, `systemctl status 'devfluency@bff'`, `journalctl -u 'devfluency@bff' -f` y `journalctl -u devfluency-frontend -f`.
 
 ## Límites deliberados
 
-- Las migraciones SQL no se ejecutan automáticamente en este primer flujo; requieren una estrategia de migración idempotente y controlada antes de habilitarlas en producción.
-- La IP/hostname de la VM y el archivo de entorno no se inventan ni se sobrescriben.
-- El workflow solo despliega tras CI exitoso; el workflow manual sirve para reintentar el despliegue en `main`.
+- Las migraciones SQL no se ejecutan automáticamente: necesitan una estrategia idempotente y compatible con rollback.
+- El despliegue no modifica los servicios de datos ni otras aplicaciones de la VM.
+- La IP/hostname y los secretos no se inventan ni se escriben en el repositorio.
+- El pipeline despliega solo tras CI exitoso; el workflow manual permite reintentar en `main`.
