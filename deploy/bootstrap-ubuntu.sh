@@ -2,6 +2,11 @@
 set -Eeuo pipefail
 [[ ${EUID} -eq 0 ]] || { echo "Run with sudo/root." >&2; exit 1; }
 
+APP_ROOT="/opt/apps/plataforma-aprendizaje"
+APP_CONFIG="/etc/apps/plataforma-aprendizaje"
+LEGACY_ROOT="/opt/devfluency"
+LEGACY_CONFIG="/etc/devfluency/devfluency.env"
+
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y --no-install-recommends ca-certificates curl tar
@@ -15,13 +20,28 @@ fi
 
 getent group devfluency >/dev/null || groupadd --system devfluency
 id devfluency >/dev/null 2>&1 || useradd --system --gid devfluency --home-dir /var/lib/devfluency --shell /usr/sbin/nologin devfluency
-install -d -o root -g devfluency -m 0750 /opt/devfluency /opt/devfluency/releases
-install -d -o root -g devfluency -m 0750 /etc/devfluency
+
+install -d -o root -g devfluency -m 0750 "$APP_ROOT" "$APP_ROOT/releases" "$APP_CONFIG"
 install -d -o devfluency -g devfluency -m 0750 /var/lib/devfluency
 
-if [[ ! -f /etc/devfluency/devfluency.env ]]; then
-  cat > /etc/devfluency/devfluency.env <<'ENV'
-# Complete this file once on the VM. Never commit production secrets.
+# Preserve an existing installation when moving from the legacy single-app path.
+if [[ -d "$LEGACY_ROOT/releases" ]] && [[ -z "$(find "$APP_ROOT/releases" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+  cp -a "$LEGACY_ROOT/releases/." "$APP_ROOT/releases/"
+fi
+
+if [[ ! -e "$APP_ROOT/current" && -L "$LEGACY_ROOT/current" ]]; then
+  legacy_release="$(basename "$(readlink -f "$LEGACY_ROOT/current")")"
+  if [[ -d "$APP_ROOT/releases/$legacy_release" ]]; then
+    ln -s "$APP_ROOT/releases/$legacy_release" "$APP_ROOT/current"
+  fi
+fi
+
+if [[ ! -f "$APP_CONFIG/plataforma-aprendizaje.env" ]]; then
+  if [[ -s "$LEGACY_CONFIG" ]]; then
+    install -o root -g devfluency -m 0640 "$LEGACY_CONFIG" "$APP_CONFIG/plataforma-aprendizaje.env"
+  else
+    cat > "$APP_CONFIG/plataforma-aprendizaje.env" <<'ENV'
+# Complete this file on the VM. Never commit production secrets.
 DATABASE_URL=
 JWT_SECRET=
 REDIS_URL=
@@ -39,8 +59,9 @@ PHONETIC_SERVICE_BIND_ADDR=127.0.0.1:50054
 SRS_SERVICE_BIND_ADDR=127.0.0.1:50055
 GAMIFICATION_SERVICE_BIND_ADDR=127.0.0.1:50056
 ENV
-  chmod 0640 /etc/devfluency/devfluency.env
-  chown root:devfluency /etc/devfluency/devfluency.env
+    chmod 0640 "$APP_CONFIG/plataforma-aprendizaje.env"
+    chown root:devfluency "$APP_CONFIG/plataforma-aprendizaje.env"
+  fi
 fi
 
 install -m 0644 "$(dirname "$0")/systemd/devfluency@.service" /etc/systemd/system/devfluency@.service
@@ -49,5 +70,5 @@ install -m 0644 "$(dirname "$0")/systemd/devfluency-frontend.service" /etc/syste
 systemctl daemon-reload
 systemctl enable devfluency.target devfluency-frontend.service
 
-echo "Systemd and Node.js configured."
-echo "Set DATABASE_URL and a strong JWT_SECRET in /etc/devfluency/devfluency.env before first start."
+echo "Platform application systemd and Node.js configured."
+echo "Verify DATABASE_URL and JWT_SECRET in $APP_CONFIG/plataforma-aprendizaje.env before first deployment."
