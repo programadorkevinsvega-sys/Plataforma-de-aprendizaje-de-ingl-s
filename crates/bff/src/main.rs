@@ -24,7 +24,7 @@ use user_handler::{
 
 use axum::{
     http::{
-        header::{AUTHORIZATION, CONTENT_TYPE},
+        header::{HeaderName, AUTHORIZATION, CONTENT_TYPE},
         HeaderValue, Method,
     },
     routing::{get, patch, post},
@@ -52,7 +52,7 @@ pub struct AppState {
 fn parse_cors_allowed_origins(raw: Option<&str>) -> Result<Vec<HeaderValue>, &'static str> {
     let raw = raw
         .filter(|value| !value.trim().is_empty())
-        .unwrap_or("http://localhost:3000");
+        .unwrap_or("https://app-ingles.jnmtortas.com");
     let mut origins = Vec::new();
 
     for origin in raw
@@ -130,7 +130,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Method::DELETE,
             Method::OPTIONS,
         ])
-        .allow_headers([AUTHORIZATION, CONTENT_TYPE]);
+        .allow_headers([AUTHORIZATION, CONTENT_TYPE, HeaderName::from_static("x-tenant-id")]);
 
     let app = Router::new()
         // Health
@@ -193,10 +193,10 @@ mod cors_configuration_tests {
     use super::parse_cors_allowed_origins;
 
     #[test]
-    fn defaults_to_local_frontend_origin() {
+    fn defaults_to_production_frontend_origin() {
         let origins = parse_cors_allowed_origins(None).unwrap();
         assert_eq!(origins.len(), 1);
-        assert_eq!(origins[0].to_str().unwrap(), "http://localhost:3000");
+        assert_eq!(origins[0].to_str().unwrap(), "https://app-ingles.jnmtortas.com");
     }
 
     #[test]
