@@ -63,8 +63,8 @@ jobs:
           printf 'NEXT_PUBLIC_BFF_URL=%s\n' "$NEXT_PUBLIC_BFF_URL" > .env.production
           npm ci
           npm run build
-          if grep -R -F -q 'http://localhost:8080' .next/static .next/server; then
-            echo "::error::The production frontend bundle still contains the localhost BFF URL."
+          if grep -R -n -F 'http://localhost:8080' .next/static .next/server; then
+            echo "::error::The production frontend bundle still contains the localhost BFF URL; offending files and lines are listed above."
             exit 1
           fi
 
