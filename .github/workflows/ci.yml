@@ -91,6 +91,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Validate deployment shell scripts
+        run: bash -n deploy/bootstrap-ubuntu.sh deploy/deploy-release.sh
       - name: Install stable Rust
         run: rustup toolchain install stable --profile minimal
       - name: Install cargo-audit
