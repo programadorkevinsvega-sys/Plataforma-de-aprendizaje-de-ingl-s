@@ -7,8 +7,15 @@ import {
 import { sessionStorageAdapter, type SessionStorage } from '../storage/SessionStorage'
 import { toAuthSession } from './mappers'
 
-export const BFF_BASE_URL =
-  process.env.NEXT_PUBLIC_BFF_URL?.replace(/\/$/, '') ?? 'http://localhost:8080'
+const configuredBffUrl = process.env.NEXT_PUBLIC_BFF_URL
+
+if (!configuredBffUrl) {
+  throw new Error(
+    'NEXT_PUBLIC_BFF_URL no está configurada. Define la URL del BFF en frontend/.env.local antes de iniciar o compilar el frontend.',
+  )
+}
+
+export const BFF_BASE_URL = configuredBffUrl.replace(/\/$/, '')
 
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
