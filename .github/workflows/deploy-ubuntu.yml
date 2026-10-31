@@ -112,11 +112,11 @@ jobs:
           test -n "$DEPLOY_SSH_KEY"
           test -n "$DEPLOY_KNOWN_HOSTS"
           install -d -m 0700 ~/.ssh
-          printf '%s\\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 0600 ~/.ssh/known_hosts
           eval "$(ssh-agent -s)"
-          printf '%s\\n' "$DEPLOY_SSH_KEY" | tr -d '\\r' | ssh-add -
+          printf '%s\n' "$DEPLOY_SSH_KEY" | tr -d '\r' | ssh-add -
           package="devfluency-${RELEASE_SHA}.tar.gz"
           scp -o BatchMode=yes devfluency-deploy-package.tar.gz "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/$package"
-          ssh -o BatchMode=yes "${DEPLOY_USER}@${DEPLOY_HOST}" \\
-            "set -e; stage=/tmp/devfluency-${RELEASE_SHA}; mkdir -p \"\\$stage\"; tar -xzf /tmp/$package -C \"\\$stage\"; sudo bash \"\\$stage/deploy/bootstrap-ubuntu.sh\"; tar -czf \"\\$stage/release.tar.gz\" -C \"\\$stage\" bin frontend; sudo bash \"\\$stage/deploy/deploy-release.sh\" '$RELEASE_SHA' \"\\$stage/release.tar.gz\"; rm -rf \"\\$stage\" /tmp/$package"
+          ssh -o BatchMode=yes "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "set -e; stage=/tmp/devfluency-${RELEASE_SHA}; mkdir -p \"\$stage\"; tar -xzf /tmp/$package -C \"\$stage\"; sudo bash \"\$stage/deploy/bootstrap-ubuntu.sh\"; tar -czf \"\$stage/release.tar.gz\" -C \"\$stage\" bin frontend; sudo bash \"\$stage/deploy/deploy-release.sh\" '$RELEASE_SHA' \"\$stage/release.tar.gz\"; rm -rf \"\$stage\" /tmp/$package"
