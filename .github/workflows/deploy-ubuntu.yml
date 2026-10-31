@@ -59,7 +59,7 @@ jobs:
             echo "::error::NEXT_PUBLIC_BFF_URL must match the production application origin."
             exit 1
           fi
-          printf 'NEXT_PUBLIC_BFF_URL=%s\\n' "$NEXT_PUBLIC_BFF_URL" > .env.production
+          printf 'NEXT_PUBLIC_BFF_URL=%s\n' "$NEXT_PUBLIC_BFF_URL" > .env.production
           npm ci
           npm run build
           if grep -R -F -q 'http://localhost:8080' .next/static .next/server; then
