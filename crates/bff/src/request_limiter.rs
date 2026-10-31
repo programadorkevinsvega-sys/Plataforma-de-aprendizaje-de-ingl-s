@@ -136,10 +136,20 @@ mod tests {
         let window = Duration::from_secs(60);
         let mut requests = HashMap::new();
         assert!(allow_request_in(
-            &mut requests, &user, "llm", 1, window, now
+            &mut requests,
+            &user,
+            "llm",
+            1,
+            window,
+            now
         ));
         assert!(!allow_request_in(
-            &mut requests, &user, "llm", 1, window, now
+            &mut requests,
+            &user,
+            "llm",
+            1,
+            window,
+            now
         ));
         assert!(allow_request_in(
             &mut requests,
