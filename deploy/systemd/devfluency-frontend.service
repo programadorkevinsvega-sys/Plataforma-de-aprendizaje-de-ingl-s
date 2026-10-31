@@ -7,7 +7,7 @@ After=network-online.target devfluency.target
 Type=simple
 User=devfluency
 Group=devfluency
-WorkingDirectory=/opt/devfluency/current/frontend
+WorkingDirectory=/opt/apps/plataforma-aprendizaje/current/frontend
 Environment=NODE_ENV=production
 Environment=HOSTNAME=127.0.0.1
 Environment=PORT=3000
