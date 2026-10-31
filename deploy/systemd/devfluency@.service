@@ -7,10 +7,10 @@ After=network-online.target
 Type=simple
 User=devfluency
 Group=devfluency
-WorkingDirectory=/opt/devfluency/current
-EnvironmentFile=/etc/devfluency/devfluency.env
+WorkingDirectory=/opt/apps/plataforma-aprendizaje/current
+EnvironmentFile=/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env
 Environment=RUST_LOG=info
-ExecStart=/opt/devfluency/current/bin/%i
+ExecStart=/opt/apps/plataforma-aprendizaje/current/bin/%i
 Restart=on-failure
 RestartSec=5
 KillSignal=SIGTERM
