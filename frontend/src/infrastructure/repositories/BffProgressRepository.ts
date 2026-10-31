@@ -23,4 +23,8 @@ export class BffProgressRepository implements IProgressRepository {
     const dtos = await this.http.get<Dto[]>('/api/v1/progress/achievements')
     return dtos.map(dto => toAchievement(dto))
   }
+
+  async recordLearningProgress(wordId: string): Promise<void> {
+    await this.http.post<void>('/api/v1/progress/learn', { word_id: wordId })
+  }
 }
