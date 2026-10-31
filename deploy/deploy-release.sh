@@ -6,12 +6,15 @@ sha="$1"
 archive="$2"
 [[ "$sha" =~ ^[0-9a-f]{7,40}$ ]] || { echo "Invalid commit SHA" >&2; exit 2; }
 [[ -f "$archive" ]] || { echo "Release archive not found" >&2; exit 2; }
-[[ -s /etc/devfluency/devfluency.env ]] || { echo "Missing /etc/devfluency/devfluency.env" >&2; exit 1; }
-grep -Eq "^DATABASE_URL=.+$" /etc/devfluency/devfluency.env || { echo "Set DATABASE_URL in /etc/devfluency/devfluency.env before deploying." >&2; exit 1; }
-grep -Eq "^JWT_SECRET=.{32,}$" /etc/devfluency/devfluency.env || { echo "Set JWT_SECRET (at least 32 characters) in /etc/devfluency/devfluency.env before deploying." >&2; exit 1; }
 
-release="/opt/devfluency/releases/$sha"
-previous="$(readlink -f /opt/devfluency/current 2>/dev/null || true)"
+APP_ROOT="/opt/apps/plataforma-aprendizaje"
+APP_CONFIG="/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env"
+[[ -s "$APP_CONFIG" ]] || { echo "Missing $APP_CONFIG" >&2; exit 1; }
+grep -Eq "^DATABASE_URL=.+$" "$APP_CONFIG" || { echo "Set DATABASE_URL in $APP_CONFIG before deploying." >&2; exit 1; }
+grep -Eq "^JWT_SECRET=.{32,}$" "$APP_CONFIG" || { echo "Set JWT_SECRET (at least 32 characters) in $APP_CONFIG before deploying." >&2; exit 1; }
+
+release="$APP_ROOT/releases/$sha"
+previous="$(readlink -f "$APP_ROOT/current" 2>/dev/null || true)"
 install -d -o root -g devfluency -m 0750 "$release"
 tar -xzf "$archive" -C "$release"
 for binary in bff auth-identity-service content-vocabulary-service ai-evaluator-service phonetic-audio-service srs-engine-service gamification-progress-service; do
@@ -24,37 +27,38 @@ find "$release/bin" -type f -exec chmod 0750 {} +
 find "$release/frontend" -type f -exec chmod 0640 {} +
 chmod 0750 "$release/frontend/server.js"
 
-ln -sfn "$release" /opt/devfluency/current.next
-mv -Tf /opt/devfluency/current.next /opt/devfluency/current
-
 restart_stack() {
+  local service
   for service in auth-identity-service content-vocabulary-service ai-evaluator-service phonetic-audio-service srs-engine-service gamification-progress-service bff; do
-    systemctl restart "devfluency@${service}.service" || true
+    systemctl restart "devfluency@${service}.service"
   done
-  systemctl restart devfluency-frontend.service || true
+  systemctl restart devfluency-frontend.service
 }
 
 rollback() {
-  echo "Health check failed; rolling back." >&2
+  echo "Deployment failed; rolling back platform-aprendizaje." >&2
   if [[ -n "$previous" && -d "$previous" ]]; then
-    ln -sfn "$previous" /opt/devfluency/current.rollback
-    mv -Tf /opt/devfluency/current.rollback /opt/devfluency/current
-    restart_stack
+    ln -sfn "$previous" "$APP_ROOT/current.rollback"
+    mv -Tf "$APP_ROOT/current.rollback" "$APP_ROOT/current"
+    restart_stack || true
   else
     systemctl stop devfluency.target devfluency-frontend.service || true
   fi
   exit 1
 }
 
+ln -sfn "$release" "$APP_ROOT/current.next"
+mv -Tf "$APP_ROOT/current.next" "$APP_ROOT/current"
+
 systemctl daemon-reload
-for service in auth-identity-service content-vocabulary-service ai-evaluator-service phonetic-audio-service srs-engine-service gamification-progress-service bff; do
-  systemctl restart "devfluency@${service}.service"
-done
-systemctl restart devfluency-frontend.service
+if ! restart_stack; then
+  rollback
+fi
 
 for service in auth-identity-service content-vocabulary-service ai-evaluator-service phonetic-audio-service srs-engine-service gamification-progress-service bff; do
   systemctl is-active --quiet "devfluency@${service}.service" || rollback
 done
+systemctl is-active --quiet devfluency-frontend.service || rollback
 
 for port in 50051 50052 50053 50054 50055 50056 8080; do
   ready=0
@@ -67,7 +71,7 @@ done
 
 for _ in $(seq 1 30); do
   if curl -fsS http://127.0.0.1:8080/health >/dev/null && curl -fsS http://127.0.0.1:3000/ >/dev/null; then
-    echo "Deployment $sha healthy."
+    echo "Platform deployment $sha healthy."
     exit 0
   fi
   sleep 1
