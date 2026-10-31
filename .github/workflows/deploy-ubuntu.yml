@@ -25,6 +25,13 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
+      - name: Validate deployment scripts and health-check helpers
+        run: |
+          set -euo pipefail
+          bash -n deploy/deploy-release.sh
+          bash -n deploy/lib/health-checks.sh
+          bash deploy/tests/test-health-checks.sh
+
       - name: Install native build dependencies
         run: |
           sudo apt-get update
