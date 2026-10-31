@@ -68,7 +68,7 @@ fi
 if grep -q '^CORS_ALLOWED_ORIGINS=' "$APP_CONFIG/plataforma-aprendizaje.env"; then
   sed -i 's|^CORS_ALLOWED_ORIGINS=.*$|CORS_ALLOWED_ORIGINS=https://app-ingles.jnmtortas.com|' "$APP_CONFIG/plataforma-aprendizaje.env"
 else
-  printf '%s\\n' 'CORS_ALLOWED_ORIGINS=https://app-ingles.jnmtortas.com' >> "$APP_CONFIG/plataforma-aprendizaje.env"
+  printf '%s\n' 'CORS_ALLOWED_ORIGINS=https://app-ingles.jnmtortas.com' >> "$APP_CONFIG/plataforma-aprendizaje.env"
 fi
 chown root:devfluency "$APP_CONFIG/plataforma-aprendizaje.env"
 chmod 0640 "$APP_CONFIG/plataforma-aprendizaje.env"
