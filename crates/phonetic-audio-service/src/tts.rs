@@ -27,6 +27,7 @@ const SPANISH_SPEAKERS: &[&str] = &[
 ];
 const MODEL_EN: &str = "@cf/deepgram/aura-2-en";
 const MODEL_ES: &str = "@cf/deepgram/aura-2-es";
+const CLOUDFLARE_API_BASE_URL: &str = "https://api.cloudflare.com";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ProviderKind {
@@ -111,61 +112,74 @@ pub struct TtsEngine {
 
 impl TtsEngine {
     pub async fn from_env() -> Result<Self, Box<dyn std::error::Error>> {
-        match parse_provider(env::var("TTS_PROVIDER").ok().as_deref())? {
-            ProviderKind::Aws => {
-                let region = env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string());
-                if region.trim().is_empty() {
-                    return Err("AWS_REGION no puede estar vacío cuando TTS_PROVIDER=aws".into());
-                }
-                let default_voice =
-                    env::var("AWS_POLLY_VOICE_ID").unwrap_or_else(|_| "Matthew".to_string());
-                if !is_logical_voice_valid(&default_voice) {
-                    return Err(format!(
-                        "AWS_POLLY_VOICE_ID no es una voz admitida: '{}'",
-                        default_voice
-                    )
-                    .into());
-                }
+        let provider: Arc<dyn TtsProvider> =
+            match parse_provider(env::var("TTS_PROVIDER").ok().as_deref())? {
+                ProviderKind::Aws => {
+                    let region =
+                        env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string());
+                    if region.trim().is_empty() {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            "AWS_REGION no puede estar vacío cuando TTS_PROVIDER=aws",
+                        )
+                        .into());
+                    }
 
-                let timeout_seconds = parse_timeout_seconds(
-                    "AWS_POLLY_TIMEOUT_SECONDS",
-                    env::var("AWS_POLLY_TIMEOUT_SECONDS").ok(),
-                )
-                .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidInput, message))?;
-                let sdk_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
-                    .region(Region::new(region))
-                    .load()
-                    .await;
-                let client = PollyClient::new(&sdk_config);
-                Ok(Self {
-                    provider: Arc::new(AwsPollyProvider {
+                    let default_voice = env::var("AWS_POLLY_VOICE_ID")
+                        .unwrap_or_else(|_| "Matthew".to_string());
+                    if !is_logical_voice_valid(&default_voice) {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            format!(
+                                "AWS_POLLY_VOICE_ID no es una voz admitida: '{}'",
+                                default_voice
+                            ),
+                        )
+                        .into());
+                    }
+
+                    let timeout_seconds = parse_timeout_seconds(
+                        "AWS_POLLY_TIMEOUT_SECONDS",
+                        env::var("AWS_POLLY_TIMEOUT_SECONDS").ok(),
+                    )
+                    .map_err(|message| {
+                        std::io::Error::new(std::io::ErrorKind::InvalidInput, message)
+                    })?;
+
+                    let sdk_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
+                        .region(Region::new(region))
+                        .load()
+                        .await;
+                    let client = PollyClient::new(&sdk_config);
+
+                    Arc::new(AwsPollyProvider {
                         client,
                         default_voice,
                         timeout_seconds,
-                    }),
-                })
-            }
-            ProviderKind::Cloudflare => {
-                let config = CloudflareConfig::from_env()
-                    .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidInput, message))?;
-                let client = reqwest::Client::builder()
-                    .timeout(Duration::from_secs(config.timeout_seconds))
-                    .build()?;
+                    })
+                }
+                ProviderKind::Cloudflare => {
+                    let config = CloudflareConfig::from_env().map_err(|message| {
+                        std::io::Error::new(std::io::ErrorKind::InvalidInput, message)
+                    })?;
+                    let client = reqwest::Client::builder()
+                        .timeout(Duration::from_secs(config.timeout_seconds))
+                        .build()?;
 
-                Ok(Self {
-                    provider: Arc::new(CloudflareWorkersAiProvider {
+                    Arc::new(CloudflareWorkersAiProvider {
                         client,
+                        api_base_url: CLOUDFLARE_API_BASE_URL.to_string(),
                         account_id: config.account_id,
                         api_token: config.api_token,
                         model_en: config.model_en,
                         model_es: config.model_es,
                         speaker_en: config.speaker_en,
                         speaker_es: config.speaker_es,
-                    }),
-                })
-            }
-            }
-        }
+                    })
+                }
+            };
+
+        Ok(Self { provider })
     }
 
     pub fn provider_name(&self) -> &'static str {
@@ -311,7 +325,9 @@ fn required_config_value(name: &str, value: Option<String>) -> Result<String, St
 }
 
 fn parse_timeout_seconds(name: &str, value: Option<String>) -> Result<u64, String> {
-    let seconds = value.unwrap_or_else(|| "30".to_string()).parse::<u64>()
+    let seconds = value
+        .unwrap_or_else(|| "30".to_string())
+        .parse::<u64>()
         .map_err(|_| format!("{} debe ser un número entero", name))?;
     if !(1..=120).contains(&seconds) {
         return Err(format!("{} debe estar entre 1 y 120", name));
@@ -362,6 +378,21 @@ fn escape_ssml_text(text: &str) -> String {
         .replace('\'', "&apos;")
 }
 
+fn polly_synthesis_input(text: &str, rate: &str) -> (String, TextType) {
+    if rate.is_empty() {
+        (text.to_string(), TextType::Text)
+    } else {
+        (
+            format!(
+                "<speak><prosody rate=\"{}\">{}</prosody></speak>",
+                rate,
+                escape_ssml_text(text)
+            ),
+            TextType::Ssml,
+        )
+    }
+}
+
 struct AwsPollyProvider {
     client: PollyClient,
     default_voice: String,
@@ -388,18 +419,7 @@ impl TtsProvider for AwsPollyProvider {
         logical_voice: &str,
         rate: &str,
     ) -> Result<ProviderAudio, TtsError> {
-        let (input_text, text_type) = if rate.is_empty() {
-            (text.to_string(), TextType::Text)
-        } else {
-            (
-                format!(
-                    "<speak><prosody rate=\"{}\">{}</prosody></speak>",
-                    rate,
-                    escape_ssml_text(text)
-                ),
-                TextType::Ssml,
-            )
-        };
+        let (input_text, text_type) = polly_synthesis_input(text, rate);
 
         let bytes = tokio::time::timeout(
             Duration::from_secs(self.timeout_seconds),
@@ -427,7 +447,7 @@ impl TtsProvider for AwsPollyProvider {
         .await
         .map_err(|_| TtsError::Timeout)??;
 
-        if bytes.is_empty() {
+        if !is_mp3(&bytes) {
             return Err(TtsError::InvalidResponse);
         }
 
@@ -441,6 +461,7 @@ impl TtsProvider for AwsPollyProvider {
 
 struct CloudflareWorkersAiProvider {
     client: reqwest::Client,
+    api_base_url: String,
     account_id: String,
     api_token: String,
     model_en: String,
@@ -473,26 +494,20 @@ impl TtsProvider for CloudflareWorkersAiProvider {
         logical_voice: &str,
         rate: &str,
     ) -> Result<ProviderAudio, TtsError> {
-        let is_spanish = is_spanish_voice(logical_voice);
-        let (model, speaker) = if is_spanish {
-            (&self.model_es, &self.speaker_es)
-        } else {
-            (&self.model_en, &self.speaker_en)
-        };
-        let url = format!(
-            "https://api.cloudflare.com/client/v4/accounts/{}/ai/run/{}",
-            self.account_id, model
+        let (model, speaker) = cloudflare_model_and_speaker(
+            logical_voice,
+            &self.model_en,
+            &self.model_es,
+            &self.speaker_en,
+            &self.speaker_es,
         );
+        let url = cloudflare_model_url(&self.api_base_url, &self.account_id, model);
 
         let response = self
             .client
             .post(url)
             .bearer_auth(&self.api_token)
-            .json(&json!({
-                "text": text,
-                "speaker": speaker,
-                "encoding": "mp3"
-            }))
+            .json(&cloudflare_request_body(text, speaker))
             .send()
             .await
             .map_err(|error| {
@@ -505,11 +520,7 @@ impl TtsProvider for CloudflareWorkersAiProvider {
 
         let status = response.status();
         if !status.is_success() {
-            let error = match status.as_u16() {
-                401 | 403 => TtsError::ProviderAuthentication,
-                429 => TtsError::RateLimited,
-                _ => TtsError::Upstream,
-            };
+            let error = classify_cloudflare_status(status.as_u16());
             tracing::warn!(
                 provider = "cloudflare",
                 model = %model,
@@ -546,9 +557,53 @@ impl TtsProvider for CloudflareWorkersAiProvider {
     }
 }
 
+fn cloudflare_model_and_speaker<'a>(
+    logical_voice: &str,
+    model_en: &'a str,
+    model_es: &'a str,
+    speaker_en: &'a str,
+    speaker_es: &'a str,
+) -> (&'a str, &'a str) {
+    if is_spanish_voice(logical_voice) {
+        (model_es, speaker_es)
+    } else {
+        (model_en, speaker_en)
+    }
+}
+
+fn cloudflare_model_url(api_base_url: &str, account_id: &str, model: &str) -> String {
+    format!(
+        "{}/client/v4/accounts/{}/ai/run/{}",
+        api_base_url.trim_end_matches('/'),
+        account_id,
+        model
+    )
+}
+
+fn cloudflare_request_body(text: &str, speaker: &str) -> Value {
+    json!({
+        "text": text,
+        "speaker": speaker,
+        "encoding": "mp3"
+    })
+}
+
+fn classify_cloudflare_status(status: u16) -> TtsError {
+    match status {
+        401 | 403 => TtsError::ProviderAuthentication,
+        408 | 504 => TtsError::Timeout,
+        429 => TtsError::RateLimited,
+        _ => TtsError::Upstream,
+    }
+}
+
 fn decode_cloudflare_audio(content_type: &str, response: &[u8]) -> Result<Vec<u8>, TtsError> {
+    let first_non_whitespace = response
+        .iter()
+        .copied()
+        .find(|byte| !byte.is_ascii_whitespace());
     let looks_json = content_type.to_ascii_lowercase().contains("json")
-        || response.first().is_some_and(|byte| matches!(byte, b'{' | b'"'));
+        || first_non_whitespace.is_some_and(|byte| matches!(byte, b'{' | b'"'));
     if !looks_json {
         return Ok(response.to_vec());
     }
@@ -575,6 +630,7 @@ fn is_mp3(bytes: &[u8]) -> bool {
         || (bytes.len() >= 2 && bytes[0] == 0xFF && (bytes[1] & 0xE0) == 0xE0)
 }
 
+#[cfg(test)]
 fn validate_model_and_speaker(
     model_en: &str,
     model_es: &str,
@@ -590,11 +646,16 @@ fn validate_model_and_speaker(
 #[cfg(test)]
 mod tests {
     use super::{
-        decode_cloudflare_audio, is_logical_voice_valid, is_mp3, is_rate_valid, is_spanish_voice,
-        parse_provider, parse_timeout_seconds, playback_rate, required_config_value,
-        validate_model_and_speaker, CloudflareConfig, ProviderKind, BASE64_STANDARD, MODEL_EN,
-        MODEL_ES,
+        classify_cloudflare_status, cloudflare_model_and_speaker, cloudflare_model_url,
+        cloudflare_request_body, decode_cloudflare_audio, is_logical_voice_valid, is_mp3,
+        is_rate_valid, is_spanish_voice, parse_provider, parse_timeout_seconds, playback_rate,
+        polly_synthesis_input, required_config_value, validate_model_and_speaker,
+        CloudflareConfig, CloudflareWorkersAiProvider, ProviderKind, TtsError, BASE64_STANDARD,
+        MODEL_EN, MODEL_ES,
     };
+    use reqwest::header::CONTENT_TYPE;
+    use std::time::Duration;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     #[test]
     fn defaults_to_aws_when_provider_is_missing() {
@@ -633,6 +694,29 @@ mod tests {
         assert_eq!(playback_rate("x-slow"), 0.65);
         assert_eq!(playback_rate("slow"), 0.8);
         assert_eq!(playback_rate("medium"), 1.0);
+        assert_eq!(playback_rate("fast"), 1.15);
+    }
+
+    #[test]
+    fn builds_polly_ssml_for_x_slow_and_escapes_user_text() {
+        let (ssml, _) = polly_synthesis_input("A & B < C", "x-slow");
+        assert!(ssml.contains("<prosody rate=\"x-slow\">"));
+        assert!(ssml.contains("A &amp; B &lt; C"));
+        let (natural, _) = polly_synthesis_input("Hello", "");
+        assert_eq!(natural, "Hello");
+    }
+
+    #[test]
+    fn maps_frontend_logical_voices_to_documented_cloudflare_languages() {
+        let (english_model, english_speaker) =
+            cloudflare_model_and_speaker("Joanna", MODEL_EN, MODEL_ES, "luna", "aquila");
+        assert_eq!(english_model, MODEL_EN);
+        assert_eq!(english_speaker, "luna");
+
+        let (spanish_model, spanish_speaker) =
+            cloudflare_model_and_speaker("Lupe", MODEL_EN, MODEL_ES, "luna", "aquila");
+        assert_eq!(spanish_model, MODEL_ES);
+        assert_eq!(spanish_speaker, "aquila");
     }
 
     #[test]
@@ -656,7 +740,7 @@ mod tests {
             None,
             None,
         );
-        assert!(missing_account.unwrap_err().contains("CLOUDFLARE_ACCOUNT_ID"));
+        assert!(missing_account.err().unwrap().contains("CLOUDFLARE_ACCOUNT_ID"));
 
         let missing_token = CloudflareConfig::parse(
             Some("0123456789abcdef0123456789abcdef".to_string()),
@@ -667,7 +751,7 @@ mod tests {
             None,
             None,
         );
-        assert!(missing_token.unwrap_err().contains("CLOUDFLARE_API_TOKEN"));
+        assert!(missing_token.err().unwrap().contains("CLOUDFLARE_API_TOKEN"));
         assert!(required_config_value("TOKEN", Some("   ".to_string())).is_err());
     }
 
@@ -698,8 +782,8 @@ mod tests {
         assert!(invalid_english_speaker.is_err());
 
         let invalid_spanish_speaker = CloudflareConfig::parse(
-            account,
-            token,
+            account.clone(),
+            token.clone(),
             None,
             None,
             None,
@@ -710,6 +794,52 @@ mod tests {
         assert!(parse_timeout_seconds("timeout", Some("0".to_string())).is_err());
         assert!(parse_timeout_seconds("timeout", Some("slow".to_string())).is_err());
         assert_eq!(parse_timeout_seconds("timeout", None).unwrap(), 30);
+
+        let valid = CloudflareConfig::parse(
+            account,
+            token,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(valid.model_en, MODEL_EN);
+        assert_eq!(valid.model_es, MODEL_ES);
+        assert_eq!(valid.speaker_en, "luna");
+        assert_eq!(valid.speaker_es, "aquila");
+    }
+
+    #[test]
+    fn builds_documented_cloudflare_endpoint_and_payload() {
+        let url = cloudflare_model_url(
+            "https://api.cloudflare.com/",
+            "0123456789abcdef0123456789abcdef",
+            MODEL_EN,
+        );
+        assert_eq!(
+            url,
+            format!(
+                "https://api.cloudflare.com/client/v4/accounts/0123456789abcdef0123456789abcdef/ai/run/{}",
+                MODEL_EN
+            )
+        );
+        let body = cloudflare_request_body("Hello", "luna");
+        assert_eq!(body["text"], "Hello");
+        assert_eq!(body["speaker"], "luna");
+        assert_eq!(body["encoding"], "mp3");
+    }
+
+    #[test]
+    fn maps_cloudflare_authentication_rate_limit_and_upstream_errors() {
+        assert_eq!(
+            classify_cloudflare_status(401).category(),
+            "provider_authentication"
+        );
+        assert_eq!(classify_cloudflare_status(429).category(), "rate_limited");
+        assert_eq!(classify_cloudflare_status(500).category(), "upstream");
+        assert_eq!(classify_cloudflare_status(504).category(), "timeout");
     }
 
     #[test]
@@ -732,5 +862,139 @@ mod tests {
         assert!(decode_cloudflare_audio("application/json", b"{invalid").is_err());
         assert!(decode_cloudflare_audio("application/json", br#"{"result":{}}"#).is_err());
         assert!(!is_mp3(b"not-an-mp3"));
+    }
+
+    async fn spawn_mock_response(
+        status: u16,
+        content_type: &'static str,
+        response_body: Vec<u8>,
+        delay: Duration,
+    ) -> (String, tokio::task::JoinHandle<String>) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let task = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
+            let mut chunk = [0u8; 2048];
+
+            loop {
+                let count = socket.read(&mut chunk).await.unwrap();
+                if count == 0 {
+                    break;
+                }
+                request.extend_from_slice(&chunk[..count]);
+                let Some(header_end) = request.windows(4).position(|part| part == b"\r\n\r\n")
+                else {
+                    continue;
+                };
+                let headers = String::from_utf8_lossy(&request[..header_end]);
+                let content_length = headers
+                    .lines()
+                    .find_map(|line| {
+                        let (name, value) = line.split_once(':')?;
+                        name.eq_ignore_ascii_case("content-length")
+                            .then(|| value.trim().parse::<usize>().ok())
+                            .flatten()
+                    })
+                    .unwrap_or(0);
+                if request.len() >= header_end + 4 + content_length {
+                    break;
+                }
+            }
+
+            tokio::time::sleep(delay).await;
+            let reason = match status {
+                200 => "OK",
+                401 => "Unauthorized",
+                403 => "Forbidden",
+                429 => "Too Many Requests",
+                500 => "Internal Server Error",
+                504 => "Gateway Timeout",
+                _ => "Mock Response",
+            };
+            let response = format!(
+                "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                status,
+                reason,
+                content_type,
+                response_body.len()
+            );
+            let _ = socket.write_all(response.as_bytes()).await;
+            let _ = socket.write_all(&response_body).await;
+            String::from_utf8_lossy(&request).to_string()
+        });
+        (format!("http://{}", address), task)
+    }
+
+    fn mock_provider(base_url: String, timeout: Duration) -> CloudflareWorkersAiProvider {
+        CloudflareWorkersAiProvider {
+            client: reqwest::Client::builder().timeout(timeout).build().unwrap(),
+            api_base_url: base_url,
+            account_id: "0123456789abcdef0123456789abcdef".to_string(),
+            api_token: "mock-token".to_string(),
+            model_en: MODEL_EN.to_string(),
+            model_es: MODEL_ES.to_string(),
+            speaker_en: "luna".to_string(),
+            speaker_es: "aquila".to_string(),
+        }
+    }
+
+    #[tokio::test]
+    async fn calls_cloudflare_with_bearer_auth_and_language_model_selection() {
+        let mp3 = BASE64_STANDARD.encode(b"ID3mock-mp3");
+        let json = format!(r#"{{"success":true,"result":{{"audio":"{}"}}}}"#, mp3);
+        let (base_url, server) = spawn_mock_response(
+            200,
+            "application/json",
+            json.into_bytes(),
+            Duration::ZERO,
+        )
+        .await;
+        let provider = mock_provider(base_url, Duration::from_secs(2));
+        let audio = provider.synthesize("Hola", "Lupe", "x-slow").await.unwrap();
+        let request = server.await.unwrap();
+
+        assert!(request.contains("authorization: bearer mock-token") || request.contains("Authorization: Bearer mock-token"));
+        assert!(request.contains("/ai/run/@cf/deepgram/aura-2-es"));
+        assert!(request.contains(r#""speaker":"aquila""#));
+        assert!(request.contains(r#""encoding":"mp3""#));
+        assert_eq!(audio.bytes, b"ID3mock-mp3");
+        assert_eq!(audio.model, MODEL_ES);
+        assert_eq!(audio.playback_rate, 0.65);
+    }
+
+    #[tokio::test]
+    async fn maps_cloudflare_authentication_and_rate_limit_responses() {
+        for (status, expected) in [
+            (401, "provider_authentication"),
+            (429, "rate_limited"),
+        ] {
+            let (base_url, server) = spawn_mock_response(
+                status,
+                "application/json",
+                b"{\"success\":false}".to_vec(),
+                Duration::ZERO,
+            )
+            .await;
+            let provider = mock_provider(base_url, Duration::from_secs(2));
+            let error = provider.synthesize("Hello", "Joanna", "").await.err().unwrap();
+            let _request = server.await.unwrap();
+            assert_eq!(error.category(), expected);
+        }
+    }
+
+    #[tokio::test]
+    async fn maps_cloudflare_timeout_without_credentials_or_network_access() {
+        let (base_url, server) = spawn_mock_response(
+            200,
+            "application/json",
+            b"{\"result\":{\"audio\":\"SUQ=\"}}".to_vec(),
+            Duration::from_millis(100),
+        )
+        .await;
+        let provider = mock_provider(base_url, Duration::from_millis(10));
+        let error = provider.synthesize("Hello", "Joanna", "").await.err().unwrap();
+        let _request = server.await.unwrap();
+        assert_eq!(error.category(), "timeout");
     }
 }

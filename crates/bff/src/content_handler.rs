@@ -242,7 +242,7 @@ pub async fn synthesize_speech_handler(
     }
 
     let voice = match body.get("voice") {
-        None => "Matthew",
+        None => "",
         Some(value) => value.as_str().ok_or_else(|| {
             (
                 StatusCode::BAD_REQUEST,
@@ -253,10 +253,12 @@ pub async fn synthesize_speech_handler(
             )
         })?,
     };
-    if !matches!(
-        voice,
-        "Lupe" | "Mia" | "Lucia" | "Enrique" | "Conchita" | "Matthew" | "Joanna" | "Ruth" | "Stephen"
-    ) {
+    if !voice.is_empty()
+        && !matches!(
+            voice,
+            "Lupe" | "Mia" | "Lucia" | "Enrique" | "Conchita" | "Matthew" | "Joanna" | "Ruth" | "Stephen"
+        )
+    {
         return Err((
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({
