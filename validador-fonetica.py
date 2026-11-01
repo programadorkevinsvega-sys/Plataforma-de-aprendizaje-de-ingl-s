@@ -15,6 +15,14 @@ Revisa de forma exacta las reglas mecanicas del prompt:
 NO verifica (requiere fonologia real, no es mecanico): L2 (s final sonora/sorda
 en general) y L4 (-ed sordo). Revisalas a ojo o con el prompt auditor.
 
+Pronunciacion palabra por palabra (opcional, --cmu):
+  Compara cada palabra de la version lenta con el diccionario CMU (~126.000
+  palabras). Convierte la pronunciacion ARPAbet a tu ortografia espanola y mide
+  la similitud.  P1 = pronunciacion distinta a la del diccionario,
+  P2 = tilde en otra silaba,
+  P3 = vocal tonica distinta (acepta variantes: a/o en 'doctor', ou en 'code', etc.).  Son AVISOS (la conversion es aproximada); usa
+  --cmu-strict para tratarlos como errores.  Requiere:  pip install cmudict
+
 Uso:
   python3 validar_fonetica.py lote.json
   python3 validar_fonetica.py lote.json --count 10 --level B1 \
@@ -31,6 +39,7 @@ import json
 import re
 import sys
 from collections import Counter
+from difflib import SequenceMatcher
 
 # --------------------------------------------------------------------------
 # Constantes de reglas
@@ -73,7 +82,7 @@ TILDE_EXEMPT = {"ata", "livzin", "ta", "im"}
 PRESET_RULES = (
     ["E1", "E2", "E3", "E4", "E5", "L1", "L3", "L5", "L6"]
     + [f"N{i}" for i in range(1, 8)]
-    + ["invencion"]
+    + ["invencion", "P1", "P2", "P3"]
 )
 
 ALLOWED_CHARS = re.compile(r"^[a-záéíóúüñ' \-]+$")
@@ -185,10 +194,195 @@ def expected_natural(en, en_raw, slow):
 # Validador
 # --------------------------------------------------------------------------
 
+# --------------------------------------------------------------------------
+# Pronunciacion con el diccionario CMU (opcional: --cmu)
+# --------------------------------------------------------------------------
+
+CMU = None              # dict palabra -> [pronunciaciones ARPAbet]; se carga con --cmu
+CMU_THRESHOLD = 0.70    # similitud minima (0-1) antes de avisar
+CMU_STRICT = False      # True: los avisos P1/P2/P3 cuentan como errores
+CMU_SEEN = set()        # evita avisos repetidos para el mismo par (ingles, fonetica)
+CMU_SKIP = {"is", "his", "lives", "loves", "to", "the"}   # ya cubiertas por L1/L3/L5
+
+ARPA_VOWELS = {
+    "AA": "a", "AE": "a", "AH": "a", "AO": "o", "AW": "au", "AY": "ai",
+    "EH": "e", "ER": "er", "EY": "ei", "IH": "i", "IY": "i", "OW": "ou",
+    "OY": "oi", "UH": "u", "UW": "u",
+}
+ARPA_CONS = {
+    "B": "b", "CH": "ch", "D": "d", "DH": "d", "F": "f", "G": "g", "HH": "j",
+    "JH": "y", "K": "k", "L": "l", "M": "m", "N": "n", "NG": "ng", "P": "p",
+    "R": "r", "S": "s", "SH": "sh", "T": "t", "TH": "z", "V": "v",
+    "W": "u", "Y": "y", "Z": "z", "ZH": "sh",
+}
+ACCENT = {"a": "á", "e": "é", "i": "í", "o": "ó", "u": "ú"}
+
+
+def load_cmu():
+    try:
+        import cmudict
+    except ImportError:
+        print("Falta el paquete cmudict. Instalalo con:  pip install cmudict")
+        sys.exit(2)
+    return cmudict.dict()
+
+
+def arpa_info(phones):
+    """ARPAbet -> (forma canonica para comparar, forma legible con tilde,
+    indice de la vocal tonica, numero de vocales)."""
+    stresses = [int(p[-1]) for p in phones if p[-1].isdigit()]
+    n_v = len(stresses)
+    if 1 in stresses:
+        prim = stresses.index(1)
+    elif 2 in stresses:
+        prim = stresses.index(2)
+    else:
+        prim = 0
+    canon, shown, vi = [], [], 0
+    for p in phones:
+        if p[-1].isdigit():
+            base = p[:-1]
+            keep = n_v == 1 or vi == prim
+            letters = ARPA_VOWELS.get(base, "a")
+            if base == "ER":
+                canon.append(("e" if keep else "~") + "r")
+            else:
+                canon.append(letters if keep else "~")
+            if keep and n_v > 1:
+                letters = ACCENT[letters[0]] + letters[1:]
+            shown.append(letters)
+            vi += 1
+        else:
+            c = ARPA_CONS.get(p, p.lower())
+            canon.append(c)
+            shown.append(c)
+    return "".join(canon), "".join(shown).replace("ngk", "nk"), prim, n_v
+
+
+def canon_cmp(s):
+    """Normaliza variantes ortograficas equivalentes antes de comparar."""
+    s = s.replace("dy", "y").replace("ch", "y").replace("th", "z").replace("ngk", "nk")
+    s = re.sub(r"iu|yu|uu", "u", s)
+    s = re.sub(r"u~|~u", "~", s)
+    return re.sub(r"~+", "~", s)
+
+
+def user_units(tok):
+    """Token fonetico del JSON -> (canonico, indice de la silaba tonica, n.o de silabas).
+    Las vocales atonas se reemplazan por '~'. None si no es comparable."""
+    groups = list(re.finditer(r"[aeiouáéíóúü]+", tok))
+    if not groups:
+        return None
+    stressed = None
+    for k, m in enumerate(groups):
+        if re.search(r"[áéíóú]", m.group()):
+            stressed = k
+            break
+    if len(groups) == 1:
+        stressed = 0
+    if stressed is None:
+        return None            # 2+ silabas sin tilde: ya hay aviso de tilde
+    strip = str.maketrans("áéíóúü", "aeiouu")
+    out, last = [], 0
+    for k, m in enumerate(groups):
+        out.append(tok[last:m.start()])
+        out.append(m.group().translate(strip) if k == stressed else "~")
+        last = m.end()
+    out.append(tok[last:])
+    gtext = groups[stressed].group().translate(strip)
+    return "".join(out), stressed, len(groups), gtext
+
+
+# Vocal tonica aceptada para cada fonema (lo que un hispanohablante escribiria)
+STRESSED_OK = {
+    "AA": {"a", "o"}, "AE": {"a", "e"}, "AH": {"a"}, "AO": {"o", "a"},
+    "AW": {"au"}, "AY": {"ai"}, "EH": {"e"}, "ER": {"e"}, "EY": {"ei", "e"},
+    "IH": {"i"}, "IY": {"i"}, "OW": {"ou"}, "OY": {"oi"}, "UH": {"u"},
+    "UW": {"u", "iu"},
+}
+
+
+def stressed_vowel_ok(phones, prim, gtext):
+    """(ok, opciones): la vocal tonica escrita en el JSON es aceptable para ese fonema."""
+    vi = 0
+    for idx, p in enumerate(phones):
+        if not p[-1].isdigit():
+            continue
+        if vi == prim:
+            base = p[:-1]
+            prev = phones[idx - 1] if idx > 0 else ""
+            nxt = phones[idx + 1] if idx + 1 < len(phones) else ""
+            opts = set(STRESSED_OK.get(base, set()))
+            if not opts:
+                return True, opts
+            if base in ("IH", "IY") and nxt == "R":      # year -> yiar
+                opts |= {"ia", "ie"}
+            forms = [gtext]
+            if prev == "W" and len(gtext) > 1 and gtext[0] == "u":      # w se escribe u: uan, uik
+                forms.append(gtext[1:])
+            elif prev == "Y" and len(gtext) > 1 and gtext[0] in "iy":   # compiúter, yíar
+                forms.append(gtext[1:])
+            if any(g in opts for g in forms):
+                return True, opts
+            # vocal tonica fusionada con una atona pegada: sháuer = AW + ER0
+            merged = nxt[-1:].isdigit() and any(
+                g.startswith(o) and len(g) > len(o) for g in forms for o in opts)
+            return merged, opts
+        vi += 1
+    return True, set()
+
+
+def check_cmu(rep, word, ubic, en_text, en, slow_t):
+    """Compara cada palabra de la version lenta con el diccionario CMU."""
+    report = rep.err if CMU_STRICT else rep.warn
+    for e, s in zip(en, slow_t):
+        s = s.lower()
+        if (e in CMU_SKIP or len(s) <= 2 or "-" in e or "-" in s
+                or any(c.isdigit() for c in e) or (e, s) in CMU_SEEN):
+            continue
+        prons = CMU.get(e)
+        if not prons and e.endswith("'s"):
+            prons = CMU.get(e[:-2])
+        if not prons:
+            rep.unknown.add(e)
+            continue
+        u = user_units(s)
+        if u is None:
+            continue
+        ucanon, ustress, ugroups, gtext = u
+        best_r, best_show = -1.0, ""
+        stress_known = stress_ok = False
+        p3_possible = p3_ok = False
+        p3_opts = set()
+        for ph in prons:
+            ecanon, eshow, prim, nv = arpa_info(ph)
+            r = SequenceMatcher(None, canon_cmp(ecanon), canon_cmp(ucanon)).ratio()
+            if r > best_r:
+                best_r, best_show = r, eshow
+            if nv == ugroups and nv > 1:
+                stress_known = True
+                stress_ok = stress_ok or prim == ustress
+            if prim == ustress:
+                ok, opts = stressed_vowel_ok(ph, prim, gtext)
+                p3_possible, p3_ok = True, p3_ok or ok
+                p3_opts |= opts
+        CMU_SEEN.add((e, s))
+        if best_r < CMU_THRESHOLD:
+            report(word, ubic, "spanish_phonetic", "P1", en_text, f"{e} -> {s}",
+                   f"~{best_show} (aprox., similitud {best_r:.2f})")
+        elif stress_known and not stress_ok:
+            report(word, ubic, "spanish_phonetic", "P2", en_text, f"{e} -> {s}",
+                   f"tilde en otra silaba; aprox. {best_show}")
+        elif p3_possible and not p3_ok:
+            report(word, ubic, "spanish_phonetic", "P3", en_text, f"{e} -> {s} (tonica '{gtext}')",
+                   f"vocal tonica esperada: {' / '.join(sorted(p3_opts))}; aprox. {best_show}")
+
+
 class Report:
     def __init__(self):
         self.errors = []
         self.warnings = []
+        self.unknown = set()
 
     def err(self, word, ubic, campo, regla, en, found, expected):
         self.errors.append({
@@ -259,6 +453,10 @@ def check_pair(rep, word, ubic, en_text, slow, nat):
                             f"the {en[j+1]} -> {s} {slow_t[j+1] if j+1 < len(slow_t) else ''}".strip(),
                             f"the + {'vocal' if v else 'consonante'} -> {exp}")
 
+    # Pronunciacion palabra por palabra contra el diccionario CMU (opcional)
+    if CMU is not None:
+        check_cmu(rep, word, ubic, en_text, en, slow_t)
+
     # Natural esperada vs. encontrada
     exp_t, rules = expected_natural(en, en_raw, [t.lower() for t in slow_t])
     nat_l = [t.lower() for t in nat_t]
@@ -279,6 +477,7 @@ def check_pair(rep, word, ubic, en_text, slow, nat):
 
 def validate(data, count, level, categories):
     rep = Report()
+    CMU_SEEN.clear()
     n_obj = n_sent = 0
 
     if not isinstance(data, list):
@@ -371,13 +570,16 @@ def build_summary(rep, n_obj, n_sent):
     por_regla = Counter({r: 0 for r in PRESET_RULES})
     for e in rep.errors:
         por_regla[e["regla"]] += 1
-    return {
+    summ = {
         "objetos_revisados": n_obj,
         "frases_revisadas": n_sent,
         "errores_totales": len(rep.errors),
         "avisos_totales": len(rep.warnings),
         "errores_por_regla": dict(por_regla),
     }
+    if CMU is not None:
+        summ["palabras_sin_diccionario"] = sorted(rep.unknown)
+    return summ
 
 
 def print_text(rep, summary):
@@ -391,6 +593,9 @@ def print_text(rep, summary):
     activos = {k: v for k, v in summary["errores_por_regla"].items() if v}
     if activos:
         print("Por regla         : " + ", ".join(f"{k}={v}" for k, v in activos.items()))
+    if summary.get("palabras_sin_diccionario"):
+        print("Sin diccionario   : " + ", ".join(summary["palabras_sin_diccionario"])
+              + "  (no se pudo verificar su pronunciacion)")
 
     def dump(title, items):
         if not items:
@@ -412,13 +617,24 @@ def print_text(rep, summary):
 
 
 def main():
+    global CMU, CMU_THRESHOLD, CMU_STRICT
     ap = argparse.ArgumentParser(description="Valida el JSON de vocabulario con fonetica.")
     ap.add_argument("archivo", help="ruta del JSON, o - para leer de stdin")
     ap.add_argument("--count", type=int, default=20, help="objetos esperados (default 20; 0 = no validar)")
     ap.add_argument("--level", help="nivel CEFR esperado en todos los objetos (ej. B1)")
     ap.add_argument("--categories", help="categorias permitidas separadas por coma")
     ap.add_argument("--json", action="store_true", help="salida en JSON (resumen + errores)")
+    ap.add_argument("--cmu", action="store_true",
+                    help="comparar cada palabra con el diccionario CMU (pip install cmudict)")
+    ap.add_argument("--cmu-threshold", type=float, default=0.70,
+                    help="similitud minima 0-1 para --cmu (default 0.70)")
+    ap.add_argument("--cmu-strict", action="store_true",
+                    help="con --cmu, contar P1/P2/P3 como errores en vez de avisos")
     args = ap.parse_args()
+    if args.cmu:
+        CMU = load_cmu()
+        CMU_THRESHOLD = args.cmu_threshold
+        CMU_STRICT = args.cmu_strict
 
     try:
         data = load_json(args.archivo)
