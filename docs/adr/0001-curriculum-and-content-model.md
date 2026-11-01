@@ -1,9 +1,9 @@
 # ADR-0001 — Modelo curricular y catálogo de contenidos
 
-- Estado: **Proposed**
+- Estado: **Accepted**
 - Fecha: 2026-11-01
 - Fase: 0.3
-- Decisores: pendiente de aprobación del propietario del producto y arquitectura.
+- Decisores: decisión aceptada por el propietario del producto durante la revisión de Fase 0.
 
 ## Contexto
 
@@ -11,7 +11,7 @@ El catálogo actual consulta `vocabulary_words`, `context_sentences` y preguntas
 
 El producto necesita inglés general y una ruta profesional/tecnológica, con objetivos progresivos compatibles con CEFR/MCER.
 
-## Decisión propuesta
+## Decisión aceptada
 
 1. Mantener dos rutas curriculares relacionadas: inglés general e inglés profesional/tecnológico.
 2. Modelar niveles Pre-A1/A0, A1, A2, B1, B2 y C1; C2 será una extensión avanzada con criterios propios, no una etiqueta automática.
@@ -34,6 +34,7 @@ El producto necesita inglés general y una ruta profesional/tecnológica, con ob
 - Se requieren importación idempotente, versionado, validación de contenido y fixtures.
 - No crear una tabla por cada nombre de dominio por defecto; normalizar según relaciones y consultas.
 - No se deben tratar los 791 registros JSON como datos disponibles hasta validar el importador y la base objetivo.
+- Esta aprobación fija la dirección curricular, no aprueba todavía nombres definitivos de tablas, DDL ni una migración estructural.
 
 ## Plan de migración
 
