@@ -92,5 +92,3 @@ AUTOVERIFICACIÓN (hazla internamente antes de responder, sin mostrarla)
 6. ¿El JSON es válido (comillas, comas, corchetes) y no hay texto fuera de él?
 
 Responde únicamente con el JSON. El primer carácter de tu respuesta es [ y el último es ].
-
-
