@@ -47,6 +47,8 @@ CLOUDFLARE_TTS_SPEAKER_ES=aquila
 CLOUDFLARE_TTS_TIMEOUT_SECONDS=30
 ```
 
+`CLOUDFLARE_ACCOUNT_ID` debe ser el Account ID de la cuenta Cloudflare (32 caracteres), no el Zone ID. Se trata como un identificador opaco: la aplicación no impone que sus caracteres sean exclusivamente hexadecimales.
+
 El API Token debe tener permisos Workers AI Read y Workers AI Edit para la cuenta. La llamada usa HTTPS y
 `Authorization: Bearer`; el token nunca cruza al navegador. La API REST recibe el cuerpo de
 entrada específico del modelo (`text`, `speaker`, `encoding: mp3`) en
