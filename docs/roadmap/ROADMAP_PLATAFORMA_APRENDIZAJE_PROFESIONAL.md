@@ -244,7 +244,8 @@ Establecer una línea base verificable antes de cambiar el comportamiento.
 #### 0.4. Línea base de calidad
 
 - [x] Ejecutar CI completo sobre el árbol de código del commit de partida (CI #174; SHA documental del PR, fuentes de aplicación idénticos al commit base).
-- [ ] Registrar duración, fallos y cobertura actuales.
+- [x] Registrar duración y resultado de CI completo (CI #174: 3 min 40 s, success; 72 tests passed, 0 failed).
+- [ ] Medir cobertura actual de Rust y frontend.
 - [ ] Establecer fixtures de usuarios y contenidos de prueba.
 - [ ] Definir datos sintéticos reproducibles para pruebas de carga.
 - [x] Definir métricas iniciales para comparar antes y después.
