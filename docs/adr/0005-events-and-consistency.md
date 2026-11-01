@@ -1,9 +1,9 @@
 # ADR-0005 — Eventos y consistencia entre servicios
 
-- Estado: **Proposed**
+- Estado: **Accepted**
 - Fecha: 2026-11-01
 - Fase: 0.3
-- Decisores: pendiente de aprobación.
+- Decisión: principios de consistencia aceptados; cada flujo eventual requiere su propio diseño antes de incorporar mensajería.
 
 ## Contexto
 
@@ -11,7 +11,7 @@ El BFF coordina operaciones síncronas. El endpoint `/api/v1/progress/learn` sol
 
 NATS/JetStream y Redis están definidos en Compose/dependencias, pero no se encontró publisher/consumer ni uso real de clientes en el código.
 
-## Decisión propuesta
+## Decisión aceptada
 
 1. PostgreSQL sigue siendo la fuente de verdad para datos transaccionales.
 2. Mantener síncronas las operaciones que requieren respuesta inmediata o consistencia fuerte, mientras no exista un diseño seguro alternativo.
@@ -42,7 +42,8 @@ NATS/JetStream y Redis están definidos en Compose/dependencias, pero no se enco
 - El flujo SRS/Gamification requiere un contrato de consistencia y pruebas de fallo parcial.
 - Si se usa JetStream, se requieren tests de duplicados, huecos, reentrega, replay, orden y caída del broker.
 - La observabilidad debe mostrar evento creado, entregado, reintentado, descartado y reconciliado.
-- No se implementa mensajería durante Fase 0.
+- No se implementa mensajería durante Fase 0 y no se declara NATS como dependencia operacional activa.
+- Esta ADR no obliga a convertir todas las llamadas gRPC en eventos.
 
 ## Referencias
 
