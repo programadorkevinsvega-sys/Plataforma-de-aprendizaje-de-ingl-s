@@ -47,7 +47,7 @@ CLOUDFLARE_TTS_SPEAKER_ES=aquila
 CLOUDFLARE_TTS_TIMEOUT_SECONDS=30
 ```
 
-El API Token debe tener permiso Workers AI Read para la cuenta. La llamada usa HTTPS y
+El API Token debe tener permisos Workers AI Read y Workers AI Edit para la cuenta. La llamada usa HTTPS y
 `Authorization: Bearer`; el token nunca cruza al navegador. La API REST recibe el cuerpo de
 entrada específico del modelo (`text`, `speaker`, `encoding: mp3`) en
 `https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{model_id}`.

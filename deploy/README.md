@@ -100,7 +100,7 @@ CLOUDFLARE_TTS_SPEAKER_ES=aquila
 CLOUDFLARE_TTS_TIMEOUT_SECONDS=30
 ```
 
-Crea un API Token con permiso Workers AI Read para la cuenta. El token se almacena únicamente
+Crea un API Token con permisos Workers AI Read y Workers AI Edit para la cuenta. El token se almacena únicamente
 en el archivo de entorno de la VM con propietario/permisos restrictivos; nunca en GitHub ni en
 el frontend. Aura-2 admite speakers propios por idioma: cambiar de proveedor conserva las voces
 lógicas del frontend, pero no implica equivalencia acústica de voces AWS y Deepgram.
