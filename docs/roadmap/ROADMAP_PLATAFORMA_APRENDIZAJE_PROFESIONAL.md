@@ -68,7 +68,30 @@ El contenido especializado debe tener nivel recomendado, requisitos previos, obj
 
 Los permisos deben validarse en backend; ocultar botones en el frontend no constituye autorización.
 
-### 2.4. No objetivos
+### 2.4. Sistema Dual de Pronunciación para Hispanohablantes
+
+El Sistema Dual de Pronunciación es una herramienta pedagógica central de DevFluency. Su propósito es ayudar a los estudiantes hispanohablantes a relacionar la forma escrita del inglés con sus sonidos, adquirir familiaridad con el ritmo del idioma y practicar la pronunciación con mayor facilidad y confianza. No es un mecanismo de calificación.
+
+Para cada palabra, expresión o frase que lo requiera, la experiencia debe conservar el texto original en inglés y ofrecer dos formas complementarias de escucha:
+
+1. **Pronunciación lenta:** una guía legible aproximada para hispanohablantes y un audio lento, claro y articulado que facilite reconocer los sonidos y practicar partes de la expresión.
+2. **Pronunciación natural:** una guía legible aproximada para hispanohablantes y un audio a velocidad conversacional que permita familiarizarse con el ritmo, el acento, el énfasis y la unión natural de sonidos.
+3. **Práctica repetida:** el estudiante puede escuchar la versión lenta, repetir en voz alta, escuchar la versión natural y volver a repetir dentro del contexto de la palabra o frase.
+
+Reglas pedagógicas y de calidad:
+
+- La guía escrita es una aproximación didáctica para hispanohablantes; no debe presentarse como IPA ni como representación fonética exacta.
+- La aproximación debe ayudar a identificar sonidos sin enseñar equivalencias incorrectas. Debe explicar sonidos que no existen en español cuando sea necesario, por ejemplo el sonido /ð/ de *mother*, que no es idéntico a la «d» española.
+- Las guías lenta y natural pueden coincidir cuando una diferencia ortográfica no aporte valor; no se deben inventar variantes solo para que los campos sean distintos.
+- El audio lento debe ser inteligible y conservar la identidad de los sonidos. No debe lograrse mediante una alteración que distorsione la voz, el tono o los fonemas.
+- El audio natural debe conservar pronunciación, acentuación, ritmo y enlace propios del acento inglés seleccionado para el contenido. El acento de referencia debe ser explícito cuando sea relevante.
+- La guía, el audio y el texto original deben corresponder exactamente a la misma palabra o expresión y a la misma versión del contenido.
+- La función debe estar disponible de forma contextual en vocabulario, frases, lecciones, ejercicios y otros lugares donde el estudiante necesite aprender o practicar una expresión.
+- La reproducción debe poder repetirse fácilmente y funcionar con teclado, lectores de pantalla y controles accesibles.
+- El sistema debe reutilizar el proveedor TTS configurado y sus capacidades sin acoplarlo al proveedor conversacional de IA.
+- El sistema enseña y facilita la práctica; no debe afirmar que el estudiante pronuncia correctamente sin analizar una grabación real mediante un proceso de evaluación separado.
+
+### 2.5. No objetivos
 
 - No reconstruir toda la arquitectura ni crear un microservicio por cada funcionalidad.
 - No sustituir PostgreSQL, Redis, NATS/JetStream ni la infraestructura actual sin una decisión técnica documentada.
@@ -290,6 +313,10 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 - [ ] Auditar el contenido semilla A0 y A1 actual.
 - [ ] Detectar traducciones duplicadas, ejemplos antinaturales y categorías inconsistentes.
 - [ ] Organizar vocabulario por frecuencia, utilidad, contexto y nivel.
+- [ ] Auditar y conservar los campos de pronunciación existentes, incluidos `spanish_phonetic` y `spanish_phonetic_natural`, si están presentes en el contenido actual.
+- [ ] Curar guías aproximadas para hispanohablantes y audios lento/natural por palabra o expresión cuando aporten valor pedagógico.
+- [ ] Registrar el acento de referencia y notas para sonidos difíciles o inexistentes en español.
+- [ ] No generar ni publicar aproximaciones fonéticas sin validación de pronunciación y revisión editorial.
 - [ ] Crear listas de expresiones, collocations, phrasal verbs y frases funcionales.
 - [ ] Completar contenido general por nivel según el currículo aprobado.
 - [ ] Completar el catálogo tecnológico por dominios y niveles.
@@ -389,6 +416,24 @@ Cada tipo debe tener instrucciones claras, estados de carga, error, respuesta co
 - [ ] Evitar explicaciones largas en ejercicios simples.
 - [ ] Permitir consultar más detalle bajo demanda.
 
+### Subfase 2.6. Sistema Dual de Pronunciación para Hispanohablantes
+
+- [ ] Integrar un componente reutilizable que muestre primero la palabra o frase original en inglés.
+- [ ] Mostrar la guía aproximada para hispanohablantes asociada a la pronunciación lenta y ofrecer el control **Escuchar lentamente**.
+- [ ] Mostrar la guía aproximada para hispanohablantes asociada a la pronunciación natural y ofrecer el control **Escuchar a velocidad natural**.
+- [ ] Permitir repetir cada audio sin reiniciar la actividad ni perder el progreso.
+- [ ] Mantener sincronizados texto original, guía de pronunciación, audio, acento y versión del contenido.
+- [ ] Implementar el audio lento con articulación clara y sin distorsión que cambie la identidad de los sonidos.
+- [ ] Implementar el audio natural con ritmo, acentuación y enlaces propios del habla conversacional.
+- [ ] Evitar convertir automáticamente letras inglesas en sonidos españoles mediante reglas simplistas; las guías deben ser específicas del contenido y revisables.
+- [ ] Añadir notas breves para fonemas difíciles para hispanohablantes cuando sean relevantes, sin saturar al estudiante con explicaciones.
+- [ ] Permitir que el estudiante siga el ciclo escuchar lento → repetir → escuchar natural → repetir.
+- [ ] Integrar el componente en vocabulario, frases, lecciones y ejercicios apropiados sin duplicar contenido ni crear un microservicio innecesario.
+- [ ] Reutilizar el servicio TTS y su selector actual; la configuración conversacional Cloudflare/AWS no debe alterar la selección de TTS.
+- [ ] Definir fallback explícito cuando falte una de las versiones de audio: no mostrar un control que no pueda reproducir y no fingir que el audio existe.
+- [ ] Registrar errores de reproducción y métricas técnicas sin almacenar audio personal de práctica por defecto.
+- [ ] Verificar que la función ayuda a practicar, pero no genera ni altera puntuaciones de pronunciación en evaluaciones.
+
 ### Pruebas y aceptación
 
 - [ ] Pruebas unitarias por tipo de ejercicio.
@@ -452,12 +497,56 @@ Conocer el punto de partida del estudiante y mantener una estimación verificabl
 - [ ] Definir umbrales conservadores para promociones de nivel.
 - [ ] No presentar un resultado incierto como medición exacta.
 
+### Subfase 3.5. Evaluación con modalidades escrita y hablada
+
+La evaluación debe ofrecer dos modalidades explícitas. Cada modalidad tendrá rúbricas y resultados propios; no se debe reutilizar una misma puntuación como si las dos modalidades midieran las mismas evidencias.
+
+**Modalidad escrita**
+
+- [ ] Evaluar cumplimiento de la consigna, gramática, vocabulario, construcción de oraciones, coherencia y adecuación comunicativa según el tipo de actividad.
+- [ ] Utilizar el texto enviado por el estudiante como evidencia principal.
+- [ ] No asignar puntuaciones de pronunciación ni de fluidez oral cuando no exista una grabación analizable.
+- [ ] No presentar una métrica oral no medida como cero; utilizar un estado explícito como `not_measured` o `not_applicable`.
+
+**Modalidad hablada**
+
+- [ ] Capturar y procesar la grabación de voz del estudiante además de obtener una transcripción.
+- [ ] Evaluar pronunciación a partir de evidencia acústica de la grabación, no únicamente de las palabras reconocidas por STT.
+- [ ] Evaluar fluidez oral con señales observables del audio, como continuidad, ritmo y pausas; una transcripción de texto por sí sola no demuestra fluidez.
+- [ ] Utilizar la transcripción como evidencia complementaria para contenido, vocabulario, gramática y cumplimiento de la consigna.
+- [ ] Si el audio no está disponible, es demasiado corto, tiene calidad insuficiente o no permite una medición fiable, marcar las métricas afectadas como no evaluables e informar el motivo.
+- [ ] No inferir una pronunciación correcta o incorrecta solo porque el motor STT haya reconocido una palabra.
+- [ ] Informar qué evidencias sustentan cada métrica y la confianza de la estimación cuando corresponda.
+
+**Comprensión auditiva (listening)**
+
+- [ ] Crear actividades específicas en las que la evidencia principal sea escuchar un audio y responder preguntas de comprensión.
+- [ ] No mostrar la transcripción ni revelar la respuesta en el estímulo antes de que el estudiante responda.
+- [ ] Cuando el texto de la pregunta esté visible o pueda leerse en lugar de escucharse, no afirmar que la respuesta demuestra comprensión auditiva.
+- [ ] Definir por actividad si se permite repetir el audio y si se presenta una vez o varias, según el objetivo pedagógico.
+
+**Reglas comunes**
+
+- [ ] Definir rúbricas, dimensiones y criterios de puntuación adecuados a cada modalidad y nivel CEFR.
+- [ ] Mantener resultados separados para escrito y hablado; comparar únicamente dimensiones compartidas cuando exista calibración válida.
+- [ ] No utilizar la guía fonética ni los audios de práctica del Sistema Dual como evidencia de la pronunciación producida por el estudiante.
+- [ ] Informar claramente qué modalidad se realizó, qué competencias se midieron y cuáles quedaron sin medir.
+- [ ] Obtener y procesar el audio de forma segura, aplicar límites de retención y permitir su eliminación conforme a la política de privacidad.
+- [ ] Mantener el modo de evaluación explícito en el intento, la rúbrica, los resultados y el historial.
+
 ### Pruebas y aceptación
 
 - [ ] Pruebas de selección de preguntas por nivel.
 - [ ] Pruebas de cálculo del dominio con escenarios reproducibles.
 - [ ] Pruebas de separación de competencias.
 - [ ] Pruebas de evidencia insuficiente.
+- [ ] Pruebas de que la modalidad escrita nunca asigna puntuación de pronunciación o fluidez oral sin audio.
+- [ ] Pruebas de que la modalidad hablada entrega audio real al evaluador y no solamente la transcripción.
+- [ ] Pruebas con transcripciones iguales y audios con pronunciación diferente para comprobar que la pronunciación se evalúa desde el audio.
+- [ ] Pruebas de que la fluidez oral no se calcula únicamente a partir del texto transcrito.
+- [ ] Pruebas de que listening requiere un estímulo auditivo y no revela la transcripción antes de responder.
+- [ ] Pruebas de audio ausente, corrupto, insuficiente o no evaluable y de estados `not_measured` / `not_applicable`.
+- [ ] Pruebas de que los resultados identifican modalidad, evidencia y métricas efectivamente medidas.
 - [ ] Pruebas de consistencia entre historial y estado actual.
 - [ ] Pruebas de que XP no modifica el nivel académico.
 - [ ] Pruebas de propiedad, autorización y RLS.
@@ -854,6 +943,10 @@ Convertir las funcionalidades en una experiencia coherente, intuitiva y rápida.
 - [ ] Evitar bloqueos visuales al enviar respuestas.
 - [ ] Mostrar explicaciones legibles.
 - [ ] Permitir reproducir recursos de audio.
+- [ ] Integrar el Sistema Dual de Pronunciación con controles diferenciados para escucha lenta y natural, junto con sus guías legibles.
+- [ ] Hacer evidente que la guía escrita es una aproximación pedagógica y no la escritura correcta del inglés ni una transcripción IPA.
+- [ ] Mantener separadas visualmente la práctica de pronunciación y la evaluación hablada.
+- [ ] Mostrar en los resultados si la evaluación fue escrita o hablada y qué métricas no pudieron medirse.
 - [ ] Diseñar estados de conexión y recuperación.
 - [ ] Dar navegación clara entre ejercicio, corrección y siguiente actividad.
 - [ ] Evitar mostrar información que aún no se ha confirmado en backend.
@@ -1004,6 +1097,12 @@ Comprobar que el producto funciona como un sistema educativo completo, no como u
 - [ ] Seleccionar curso → iniciar unidad → completar lección.
 - [ ] Responder ejercicios de todos los tipos → recibir corrección.
 - [ ] Completar unidad → realizar evaluación → actualizar dominio.
+- [ ] Abrir una palabra o frase y practicar con el Sistema Dual: escuchar lentamente, repetir y escuchar a velocidad natural.
+- [ ] Verificar que el Sistema Dual está disponible en los contextos de vocabulario y frases definidos por el producto.
+- [ ] Completar una evaluación escrita y comprobar que solo aparecen métricas sustentadas por texto.
+- [ ] Completar una evaluación hablada y comprobar que el audio real se analiza junto con su transcripción.
+- [ ] Completar un ejercicio de listening sin mostrar transcripción antes de la respuesta.
+- [ ] Comprobar que una métrica sin evidencia suficiente aparece como no medida y no como una puntuación inventada.
 - [ ] Crear tarjetas → recibir repaso → guardar revisión.
 - [ ] Cometer errores → obtener ejercicios de refuerzo relevantes.
 - [ ] Iniciar conversación → mantener varios turnos → finalizar → consultar resumen.
@@ -1043,6 +1142,9 @@ La plataforma solo se considera lista cuando:
 - [ ] El contenido publicado está validado y versionado.
 - [ ] Los tipos de actividad incluidos funcionan de extremo a extremo.
 - [ ] El diagnóstico y dominio académico se basan en evidencias reales.
+- [ ] El Sistema Dual de Pronunciación ofrece guías y audio lento/natural revisados para los contenidos incluidos en su alcance.
+- [ ] Las evaluaciones escritas y habladas tienen modalidades, rúbricas y resultados separados.
+- [ ] Pronunciación y fluidez oral solo se puntúan con evidencia de audio suficiente; listening se mide mediante tareas auditivas específicas.
 - [ ] El SRS funciona con el catálogo y el historial.
 - [ ] El tutor conversacional puede usar Cloudflare Workers AI y AWS Bedrock.
 - [ ] El proveedor conversacional se puede seleccionar exclusivamente por configuración de entorno.
@@ -1134,6 +1236,24 @@ Todas las fases deben aplicar una estrategia común.
 - Los fallos se deben reproducir y corregir; no ocultarlos mediante retries ilimitados o skips.
 - El umbral de cobertura debe definirse por módulo a partir de la línea base, aumentando progresivamente. Las reglas críticas deben tener cobertura completa de escenarios y ramas relevantes; el porcentaje global por sí solo no es criterio de aceptación.
 - Cada bug corregido debe incluir una prueba de regresión.
+
+## 7.8. Sistema Dual de Pronunciación
+
+- Verificar que cada guía corresponde exactamente al texto inglés y al audio publicado.
+- Verificar que las versiones lenta y natural son reproducibles y mantienen el mismo contenido lingüístico.
+- Verificar que el audio lento no altera fonemas ni vuelve ininteligible la pronunciación.
+- Verificar controles de repetición, estados de carga/error y accesibilidad.
+- Verificar que los contenidos sin audio no presentan controles falsos.
+- Revisar muestras de las guías aproximadas con validación editorial, especialmente en sonidos que no existen en español.
+
+## 7.9. Evaluación escrita y hablada
+
+- Mantener fixtures separados para respuestas escritas, grabaciones habladas y ejercicios de listening.
+- Verificar que cada métrica se calcula únicamente con la evidencia que necesita.
+- Verificar que una misma transcripción procedente de audios distintos no fuerza una puntuación de pronunciación idéntica.
+- Verificar que los resultados no inventan métricas cuando falta audio o evidencia suficiente.
+- Verificar aislamiento, consentimiento, límites de tamaño, retención y eliminación de grabaciones.
+- Comparar calibración de rúbricas escritas y habladas por separado.
 
 ---
 
