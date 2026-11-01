@@ -38,7 +38,7 @@ export class BffContentRepository implements IContentRepository {
 
   async synthesizeSpeech(
     text: string,
-    voice = 'Joanna',
+    voice = '',
     rate?: string,
   ): Promise<SynthesizedSpeech> {
     const dto = await this.http.post<Dto>('/api/v1/content/speech', {
