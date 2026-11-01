@@ -1,9 +1,9 @@
 # ADR-0004 — Adaptadores de proveedores de IA conversacional
 
-- Estado: **Proposed**
+- Estado: **Accepted**
 - Fecha: 2026-11-01
 - Fase: 0.3
-- Decisores: pendiente de aprobación.
+- Decisión: dirección de arquitectura aceptada; detalles de contrato y límites se definen antes de implementar Fase 5.
 
 ## Contexto
 
@@ -11,7 +11,7 @@ El servicio AI actual es un evaluador de texto basado en AWS Bedrock. El servici
 
 TTS, STT, evaluación y tutor conversacional son responsabilidades diferentes y no deben compartir un selector ambiguo.
 
-## Decisión propuesta
+## Decisión aceptada
 
 1. Definir una interfaz de dominio de tutor/conversación independiente del proveedor.
 2. Proveer adaptadores reales para Cloudflare Workers AI y AWS Bedrock bajo el mismo contrato.
@@ -25,7 +25,7 @@ TTS, STT, evaluación y tutor conversacional son responsabilidades diferentes y 
 7. No realizar fallback silencioso de un proveedor a otro: una falla debe ser visible y medible.
 8. Mantener prompts/contexto y datos personales mínimos, según ADR-0006.
 
-## Contrato mínimo a definir
+## Contrato mínimo a definir en Fase 5
 
 - Identificador de conversación y turno.
 - Mensajes/roles y contexto de escenario.
@@ -49,6 +49,7 @@ TTS, STT, evaluación y tutor conversacional son responsabilidades diferentes y 
 - Los secretos deben existir solo en entorno y no aparecer en logs.
 - Deben medirse coste, latencia, errores, cuotas y límites por proveedor.
 - La arquitectura actual no debe anunciar tutor Cloudflare/AWS hasta completar implementación real.
+- Esta ADR no afirma que el tutor conversacional ni los adaptadores estén implementados hoy.
 
 ## Referencias
 
