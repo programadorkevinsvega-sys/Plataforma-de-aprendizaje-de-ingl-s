@@ -59,8 +59,8 @@ export default function ProfilePage() {
 
         <main className="flex-1 p-6 max-w-4xl space-y-6">
           <div>
-            <h1 className="text-2xl font-black text-white">Perfil & Seguridad Multi-Tenant</h1>
-            <p className="text-xs text-slate-400">Tus datos están aislados por cliente mediante políticas PostgreSQL RLS</p>
+            <h1 className="text-2xl font-black text-white">Mi perfil</h1>
+            <p className="text-xs text-slate-400">Consulta y actualiza tu información personal y tu objetivo profesional.</p>
           </div>
 
           {saved && (
@@ -78,9 +78,6 @@ export default function ProfilePage() {
                 <h2 className="text-xl font-bold text-white">{user.fullName}</h2>
                 <p className="text-xs text-slate-400 font-mono">{user.email}</p>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="bg-cyan-500/20 text-cyan-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-cyan-500/30">
-                    ID RLS: {user.id}
-                  </span>
                   <span className="bg-purple-500/20 text-purple-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-purple-500/30">
                     Nivel {user.currentLevel}
                   </span>

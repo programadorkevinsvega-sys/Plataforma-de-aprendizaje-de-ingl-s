@@ -76,15 +76,6 @@ export const Sidebar: React.FC = () => {
         </div>
       </div>
 
-      {/* RLS Badge */}
-      <div className="bg-slate-900/90 p-3.5 rounded-2xl border border-cyan-500/30 text-xs space-y-2 mt-4">
-        <div className="flex items-center gap-2 text-cyan-400 font-extrabold">
-          <span>🔒 Aislamiento PostgreSQL RLS</span>
-        </div>
-        <p className="text-[11px] text-slate-400 leading-normal">
-          Tus datos están aislados y encriptados de otros usuarios en el backend.
-        </p>
-      </div>
     </aside>
   )
 }
