@@ -108,9 +108,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         SrsServiceClient::new(Channel::from_static("http://127.0.0.1:50055").connect_lazy());
     let phonetic_audio_url = std::env::var("PHONETIC_SERVICE_GRPC_URL")
         .unwrap_or_else(|_| "http://127.0.0.1:50054".to_string());
-    let phonetic_audio_client = PhoneticAudioServiceClient::new(
-        Channel::from_shared(phonetic_audio_url)?.connect_lazy(),
-    );
+    let phonetic_audio_client =
+        PhoneticAudioServiceClient::new(Channel::from_shared(phonetic_audio_url)?.connect_lazy());
     let gamification_client = GamificationServiceClient::new(
         Channel::from_static("http://127.0.0.1:50056").connect_lazy(),
     );

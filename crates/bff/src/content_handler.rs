@@ -256,7 +256,15 @@ pub async fn synthesize_speech_handler(
     if !voice.is_empty()
         && !matches!(
             voice,
-            "Lupe" | "Mia" | "Lucia" | "Enrique" | "Conchita" | "Matthew" | "Joanna" | "Ruth" | "Stephen"
+            "Lupe"
+                | "Mia"
+                | "Lucia"
+                | "Enrique"
+                | "Conchita"
+                | "Matthew"
+                | "Joanna"
+                | "Ruth"
+                | "Stephen"
         )
     {
         return Err((

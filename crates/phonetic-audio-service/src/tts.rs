@@ -15,15 +15,50 @@ const LOGICAL_VOICES: &[&str] = &[
 ];
 const SPANISH_VOICES: &[&str] = &["Lupe", "Mia", "Lucia", "Enrique", "Conchita"];
 const ENGLISH_SPEAKERS: &[&str] = &[
-    "amalthea", "andromeda", "apollo", "arcas", "aries", "asteria", "athena", "atlas",
-    "aurora", "callista", "cora", "cordelia", "delia", "draco", "electra", "harmonia",
-    "helena", "hera", "hermes", "hyperion", "iris", "janus", "juno", "jupiter", "luna",
-    "mars", "minerva", "neptune", "odysseus", "ophelia", "orion", "orpheus", "pandora",
-    "phoebe", "pluto", "saturn", "thalia", "theia", "vesta", "zeus",
+    "amalthea",
+    "andromeda",
+    "apollo",
+    "arcas",
+    "aries",
+    "asteria",
+    "athena",
+    "atlas",
+    "aurora",
+    "callista",
+    "cora",
+    "cordelia",
+    "delia",
+    "draco",
+    "electra",
+    "harmonia",
+    "helena",
+    "hera",
+    "hermes",
+    "hyperion",
+    "iris",
+    "janus",
+    "juno",
+    "jupiter",
+    "luna",
+    "mars",
+    "minerva",
+    "neptune",
+    "odysseus",
+    "ophelia",
+    "orion",
+    "orpheus",
+    "pandora",
+    "phoebe",
+    "pluto",
+    "saturn",
+    "thalia",
+    "theia",
+    "vesta",
+    "zeus",
 ];
 const SPANISH_SPEAKERS: &[&str] = &[
-    "sirio", "nestor", "carina", "celeste", "alvaro", "diana", "aquila", "selena",
-    "estrella", "javier",
+    "sirio", "nestor", "carina", "celeste", "alvaro", "diana", "aquila", "selena", "estrella",
+    "javier",
 ];
 const MODEL_EN: &str = "@cf/deepgram/aura-2-en";
 const MODEL_ES: &str = "@cf/deepgram/aura-2-es";
@@ -115,8 +150,7 @@ impl TtsEngine {
         let provider: Arc<dyn TtsProvider> =
             match parse_provider(env::var("TTS_PROVIDER").ok().as_deref())? {
                 ProviderKind::Aws => {
-                    let region =
-                        env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string());
+                    let region = env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string());
                     if region.trim().is_empty() {
                         return Err(std::io::Error::new(
                             std::io::ErrorKind::InvalidInput,
@@ -125,8 +159,8 @@ impl TtsEngine {
                         .into());
                     }
 
-                    let default_voice = env::var("AWS_POLLY_VOICE_ID")
-                        .unwrap_or_else(|_| "Matthew".to_string());
+                    let default_voice =
+                        env::var("AWS_POLLY_VOICE_ID").unwrap_or_else(|_| "Matthew".to_string());
                     if !is_logical_voice_valid(&default_voice) {
                         return Err(std::io::Error::new(
                             std::io::ErrorKind::InvalidInput,
@@ -421,29 +455,26 @@ impl TtsProvider for AwsPollyProvider {
     ) -> Result<ProviderAudio, TtsError> {
         let (input_text, text_type) = polly_synthesis_input(text, rate);
 
-        let bytes = tokio::time::timeout(
-            Duration::from_secs(self.timeout_seconds),
-            async {
-                let response = self
-                    .client
-                    .synthesize_speech()
-                    .text(input_text)
-                    .text_type(text_type)
-                    .voice_id(polly_voice(logical_voice))
-                    .engine(Engine::Neural)
-                    .output_format(OutputFormat::Mp3)
-                    .send()
-                    .await
-                    .map_err(|_| TtsError::Upstream)?;
+        let bytes = tokio::time::timeout(Duration::from_secs(self.timeout_seconds), async {
+            let response = self
+                .client
+                .synthesize_speech()
+                .text(input_text)
+                .text_type(text_type)
+                .voice_id(polly_voice(logical_voice))
+                .engine(Engine::Neural)
+                .output_format(OutputFormat::Mp3)
+                .send()
+                .await
+                .map_err(|_| TtsError::Upstream)?;
 
-                let audio = response
-                    .audio_stream
-                    .collect()
-                    .await
-                    .map_err(|_| TtsError::Upstream)?;
-                Ok::<Vec<u8>, TtsError>(audio.into_bytes().to_vec())
-            },
-        )
+            let audio = response
+                .audio_stream
+                .collect()
+                .await
+                .map_err(|_| TtsError::Upstream)?;
+            Ok::<Vec<u8>, TtsError>(audio.into_bytes().to_vec())
+        })
         .await
         .map_err(|_| TtsError::Timeout)??;
 
@@ -608,8 +639,7 @@ fn decode_cloudflare_audio(content_type: &str, response: &[u8]) -> Result<Vec<u8
         return Ok(response.to_vec());
     }
 
-    let value: Value =
-        serde_json::from_slice(response).map_err(|_| TtsError::InvalidResponse)?;
+    let value: Value = serde_json::from_slice(response).map_err(|_| TtsError::InvalidResponse)?;
     let encoded = value
         .pointer("/result/audio")
         .or_else(|| value.get("audio"))
@@ -626,8 +656,7 @@ fn decode_cloudflare_audio(content_type: &str, response: &[u8]) -> Result<Vec<u8
 }
 
 fn is_mp3(bytes: &[u8]) -> bool {
-    bytes.starts_with(b"ID3")
-        || (bytes.len() >= 2 && bytes[0] == 0xFF && (bytes[1] & 0xE0) == 0xE0)
+    bytes.starts_with(b"ID3") || (bytes.len() >= 2 && bytes[0] == 0xFF && (bytes[1] & 0xE0) == 0xE0)
 }
 
 #[cfg(test)]
@@ -649,9 +678,9 @@ mod tests {
         classify_cloudflare_status, cloudflare_model_and_speaker, cloudflare_model_url,
         cloudflare_request_body, decode_cloudflare_audio, is_logical_voice_valid, is_mp3,
         is_rate_valid, is_spanish_voice, parse_provider, parse_timeout_seconds, playback_rate,
-        polly_synthesis_input, required_config_value, validate_model_and_speaker,
-        CloudflareConfig, CloudflareWorkersAiProvider, ProviderKind, TtsProvider, BASE64_STANDARD,
-        MODEL_EN, MODEL_ES,
+        polly_synthesis_input, required_config_value, validate_model_and_speaker, CloudflareConfig,
+        CloudflareWorkersAiProvider, ProviderKind, TtsProvider, BASE64_STANDARD, MODEL_EN,
+        MODEL_ES,
     };
     use std::time::Duration;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -739,7 +768,10 @@ mod tests {
             None,
             None,
         );
-        assert!(missing_account.err().unwrap().contains("CLOUDFLARE_ACCOUNT_ID"));
+        assert!(missing_account
+            .err()
+            .unwrap()
+            .contains("CLOUDFLARE_ACCOUNT_ID"));
 
         let missing_token = CloudflareConfig::parse(
             Some("0123456789abcdef0123456789abcdef".to_string()),
@@ -750,7 +782,10 @@ mod tests {
             None,
             None,
         );
-        assert!(missing_token.err().unwrap().contains("CLOUDFLARE_API_TOKEN"));
+        assert!(missing_token
+            .err()
+            .unwrap()
+            .contains("CLOUDFLARE_API_TOKEN"));
         assert!(required_config_value("TOKEN", Some("   ".to_string())).is_err());
     }
 
@@ -794,16 +829,7 @@ mod tests {
         assert!(parse_timeout_seconds("timeout", Some("slow".to_string())).is_err());
         assert_eq!(parse_timeout_seconds("timeout", None).unwrap(), 30);
 
-        let valid = CloudflareConfig::parse(
-            account,
-            token,
-            None,
-            None,
-            None,
-            None,
-            None,
-        )
-        .unwrap();
+        let valid = CloudflareConfig::parse(account, token, None, None, None, None, None).unwrap();
         assert_eq!(valid.model_en, MODEL_EN);
         assert_eq!(valid.model_es, MODEL_ES);
         assert_eq!(valid.speaker_en, "luna");
@@ -846,16 +872,11 @@ mod tests {
         let mp3 = b"ID3mock-mp3";
         let encoded = BASE64_STANDARD.encode(mp3);
         let json = format!(r#"{{"success":true,"result":{{"audio":"{}"}}}}"#, encoded);
-        let decoded =
-            decode_cloudflare_audio("application/json", json.as_bytes()).unwrap();
+        let decoded = decode_cloudflare_audio("application/json", json.as_bytes()).unwrap();
         assert_eq!(decoded, mp3);
-        assert_eq!(
-            decode_cloudflare_audio("audio/mpeg", mp3).unwrap(),
-            mp3
-        );
+        assert_eq!(decode_cloudflare_audio("audio/mpeg", mp3).unwrap(), mp3);
         assert!(is_mp3(&decoded));
     }
-
 
     #[test]
     fn rejects_invalid_cloudflare_audio_payloads() {
@@ -943,18 +964,16 @@ mod tests {
     async fn calls_cloudflare_with_bearer_auth_and_language_model_selection() {
         let mp3 = BASE64_STANDARD.encode(b"ID3mock-mp3");
         let json = format!(r#"{{"success":true,"result":{{"audio":"{}"}}}}"#, mp3);
-        let (base_url, server) = spawn_mock_response(
-            200,
-            "application/json",
-            json.into_bytes(),
-            Duration::ZERO,
-        )
-        .await;
+        let (base_url, server) =
+            spawn_mock_response(200, "application/json", json.into_bytes(), Duration::ZERO).await;
         let provider = mock_provider(base_url, Duration::from_secs(2));
         let audio = provider.synthesize("Hola", "Lupe", "x-slow").await.unwrap();
         let request = server.await.unwrap();
 
-        assert!(request.contains("authorization: bearer mock-token") || request.contains("Authorization: Bearer mock-token"));
+        assert!(
+            request.contains("authorization: bearer mock-token")
+                || request.contains("Authorization: Bearer mock-token")
+        );
         assert!(request.contains("/ai/run/@cf/deepgram/aura-2-es"));
         assert!(request.contains(r#""speaker":"aquila""#));
         assert!(request.contains(r#""encoding":"mp3""#));
@@ -965,10 +984,7 @@ mod tests {
 
     #[tokio::test]
     async fn maps_cloudflare_authentication_and_rate_limit_responses() {
-        for (status, expected) in [
-            (401, "provider_authentication"),
-            (429, "rate_limited"),
-        ] {
+        for (status, expected) in [(401, "provider_authentication"), (429, "rate_limited")] {
             let (base_url, server) = spawn_mock_response(
                 status,
                 "application/json",
@@ -977,7 +993,11 @@ mod tests {
             )
             .await;
             let provider = mock_provider(base_url, Duration::from_secs(2));
-            let error = provider.synthesize("Hello", "Joanna", "").await.err().unwrap();
+            let error = provider
+                .synthesize("Hello", "Joanna", "")
+                .await
+                .err()
+                .unwrap();
             let _request = server.await.unwrap();
             assert_eq!(error.category(), expected);
         }
@@ -993,7 +1013,11 @@ mod tests {
         )
         .await;
         let provider = mock_provider(base_url, Duration::from_millis(10));
-        let error = provider.synthesize("Hello", "Joanna", "").await.err().unwrap();
+        let error = provider
+            .synthesize("Hello", "Joanna", "")
+            .await
+            .err()
+            .unwrap();
         let _request = server.await.unwrap();
         assert_eq!(error.category(), "timeout");
     }
