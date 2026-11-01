@@ -310,7 +310,9 @@ impl CloudflareConfig {
         // Cloudflare documents account_id as an opaque 32-character identifier.
         // Do not impose a hexadecimal-only constraint that is stricter than its API schema.
         if account_id.chars().count() != 32
-            || account_id.chars().any(|character| character.is_whitespace() || character.is_control())
+            || account_id
+                .chars()
+                .any(|character| character.is_whitespace() || character.is_control())
         {
             return Err(
                 "CLOUDFLARE_ACCOUNT_ID debe ser un identificador de 32 caracteres sin espacios"
