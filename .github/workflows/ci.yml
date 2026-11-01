@@ -9,7 +9,6 @@ on:
   # wait for compilation and integration tests.
   schedule:
     - cron: '17 4 * * 1'
-  # Manual dispatch runs the complete matrix; workflow-file changes also force full CI.
   workflow_dispatch:
 
 permissions:
