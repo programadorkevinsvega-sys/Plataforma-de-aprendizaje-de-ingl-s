@@ -218,36 +218,36 @@ Establecer una línea base verificable antes de cambiar el comportamiento.
 
 #### 0.1. Auditoría funcional
 
-- [ ] Mapear cada pantalla, caso de uso, endpoint, RPC y tabla que participa en el flujo.
-- [ ] Identificar funciones completas, parciales, simuladas, duplicadas o sin uso.
-- [ ] Revisar los flujos de registro, login, curso, lección, progreso, SRS, tutor, logros y perfil.
-- [ ] Identificar valores hardcodeados, datos de demostración y fallbacks silenciosos.
-- [ ] Elaborar una matriz requisito → módulo → endpoint/RPC → migración → prueba.
+- [x] Mapear cada pantalla, caso de uso, endpoint, RPC y tabla que participa en el flujo.
+- [x] Identificar funciones completas, parciales, simuladas, duplicadas o sin uso.
+- [x] Revisar los flujos de registro, login, curso, lección, progreso, SRS, tutor, logros y perfil.
+- [x] Identificar valores hardcodeados, datos de demostración y fallbacks silenciosos.
+- [x] Elaborar una matriz requisito → módulo → endpoint/RPC → migración → prueba.
 
 #### 0.2. Auditoría de arquitectura
 
-- [ ] Documentar responsabilidades y dependencias de cada microservicio.
-- [ ] Verificar si Redis y NATS/JetStream se utilizan efectivamente y para qué.
-- [ ] Identificar llamadas síncronas que puedan convertirse en eventos sin perder consistencia.
-- [ ] Revisar límites de conexión, timeouts, reintentos, circuit breakers y shutdown ordenado.
-- [ ] Documentar las unidades systemd y sus variables de entorno sin exponer secretos.
+- [x] Documentar responsabilidades y dependencias de cada microservicio.
+- [x] Verificar si Redis y NATS/JetStream se utilizan efectivamente y para qué.
+- [x] Identificar llamadas síncronas que puedan convertirse en eventos sin perder consistencia.
+- [x] Revisar límites de conexión, timeouts, reintentos, circuit breakers y shutdown ordenado.
+- [x] Documentar las unidades systemd y sus variables de entorno sin exponer secretos.
 
 #### 0.3. Decisiones de arquitectura
 
-- [ ] Registrar ADR del modelo curricular.
-- [ ] Registrar ADR del modelo de dominio del aprendizaje.
-- [ ] Registrar ADR del motor de evaluación y dominio académico.
-- [ ] Registrar ADR del adaptador de proveedores conversacionales.
-- [ ] Registrar ADR de eventos y consistencia.
-- [ ] Registrar ADR de privacidad y retención de conversaciones.
+- [x] Registrar ADR del modelo curricular.
+- [x] Registrar ADR del modelo de dominio del aprendizaje.
+- [x] Registrar ADR del motor de evaluación y dominio académico.
+- [x] Registrar ADR del adaptador de proveedores conversacionales.
+- [x] Registrar ADR de eventos y consistencia.
+- [x] Registrar ADR de privacidad y retención de conversaciones.
 
 #### 0.4. Línea base de calidad
 
-- [ ] Ejecutar CI completo en el commit de partida.
+- [x] Ejecutar CI completo sobre el árbol de código del commit de partida (CI #174; SHA documental del PR, fuentes de aplicación idénticos al commit base).
 - [ ] Registrar duración, fallos y cobertura actuales.
 - [ ] Establecer fixtures de usuarios y contenidos de prueba.
 - [ ] Definir datos sintéticos reproducibles para pruebas de carga.
-- [ ] Definir métricas iniciales para comparar antes y después.
+- [x] Definir métricas iniciales para comparar antes y después.
 
 ### Entregables
 
@@ -259,12 +259,21 @@ Establecer una línea base verificable antes de cambiar el comportamiento.
 
 ### Pruebas y aceptación
 
-- [ ] La matriz incluye todos los flujos actualmente expuestos.
-- [ ] No hay endpoints o RPC críticos sin propietario documentado.
+- [x] La matriz incluye todos los flujos actualmente expuestos.
+- [x] No hay endpoints o RPC críticos sin propietario documentado.
 - [ ] Cada dependencia externa tiene timeout, manejo de error y evidencia de configuración.
-- [ ] CI completo pasa antes de comenzar la implementación funcional.
+- [x] CI completo pasa antes de comenzar la implementación funcional.
 
-**Gate de salida:** arquitectura y alcance aprobados. No se inicia una migración académica estructural sin este gate.
+### Estado de Fase 0 al 2026-11-01
+
+- 0.1 Auditoría funcional: inventario estático y matriz completados; tutor conversacional, cursos versionados y otros flujos no existentes quedaron documentados como pendientes, no como implementados.
+- 0.2 Auditoría de arquitectura: dependencias, llamadas síncronas, límites ausentes y unidades systemd documentados. La aceptación de esta subfase no implica que todos los controles ya existan en código.
+- 0.3 Decisiones: ADR-0001 a ADR-0006 aceptados. ADR-0006 difiere las duraciones de retención y el consentimiento concreto hasta antes de persistir conversaciones.
+- 0.4 Línea base: CI #174 pasó (3 min 40 s; 72 tests Rust pasaron). La cobertura no está medida; no hay fixtures comunes reproducibles ni generador de carga.
+
+Siguen pendientes la medición de cobertura/rendimiento, datos sintéticos reproducibles para carga, recorridos E2E/validación operativa y evidencias de timeout/deadline para todas las dependencias externas.
+
+**Gate de salida: NO APROBADO.** No se inicia una migración académica estructural hasta cerrar esos pendientes y aprobar el alcance operativo.
 
 ---
 
