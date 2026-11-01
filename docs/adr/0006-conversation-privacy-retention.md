@@ -1,9 +1,9 @@
 # ADR-0006 — Privacidad y retención de conversaciones
 
-- Estado: **Proposed**
+- Estado: **Accepted**
 - Fecha: 2026-11-01
 - Fase: 0.3
-- Decisores: pendiente de aprobación de producto, seguridad y privacidad.
+- Decisión: principios de privacidad y minimización aceptados; calendario concreto de retención pendiente antes de habilitar almacenamiento persistente.
 
 ## Contexto
 
@@ -11,7 +11,7 @@ El tutor conversacional es objetivo del roadmap, pero no está implementado. El 
 
 No se debe elegir arbitrariamente una duración de retención ni almacenar datos antes de decidir la finalidad.
 
-## Decisión propuesta
+## Decisión aceptada
 
 1. Aplicar minimización: recopilar y enviar solo datos necesarios para el turno y el objetivo pedagógico.
 2. Separar contenido conversacional, transcripciones, grabaciones, resúmenes y metadatos operativos.
@@ -24,7 +24,7 @@ No se debe elegir arbitrariamente una duración de retención ni almacenar datos
 9. Documentar regiones, subprocesadores, transferencia a terceros, controles de acceso y cifrado.
 10. Aplicar aislamiento por usuario y pruebas de acceso cruzado.
 
-## Decisiones pendientes antes de implementación
+## Decisiones pendientes antes de implementar almacenamiento conversacional
 
 - Duración de retención de mensajes, audio, transcripción y resumen.
 - Si audio original se persiste o se procesa efímeramente.
@@ -45,7 +45,7 @@ No se debe elegir arbitrariamente una duración de retención ni almacenar datos
 - Se requiere inventario de datos y flujos a proveedor antes de crear tablas de conversación.
 - Deben existir controles de acceso, retención, eliminación, auditoría y tests.
 - La UI de tutor necesita estados claros para consentimiento, grabación y eliminación.
-- La duración de retención no queda aprobada por este ADR.
+- La duración de retención no queda aprobada por este ADR: se resolverá con el diseño de privacidad de Fase 5 y antes de persistir datos conversacionales.
 
 ## Referencias
 
