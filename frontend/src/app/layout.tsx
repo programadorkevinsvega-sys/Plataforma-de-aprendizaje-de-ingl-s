@@ -13,6 +13,10 @@ export const metadata: Metadata = {
     'Rust',
     'Microservicios',
   ],
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/apple-icon.png',
+  },
   openGraph: {
     title: 'DevFluency AI - Platform for Tech Professionals',
     description: 'Adquisición natural del lenguaje técnico para hispanohablantes.',
