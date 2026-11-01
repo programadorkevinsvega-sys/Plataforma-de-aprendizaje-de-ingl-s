@@ -52,9 +52,6 @@ export default function DashboardPage() {
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="bg-emerald-500/20 text-emerald-300 text-xs font-bold px-3 py-1 rounded-full border border-emerald-500/30">
-                    🔒 Sesión Multi-Tenant Aislada
-                  </span>
                   <span className="bg-cyan-500/20 text-cyan-300 text-xs font-bold px-3 py-1 rounded-full border border-cyan-500/30">
                     {user.targetRole}
                   </span>
@@ -63,7 +60,7 @@ export default function DashboardPage() {
                   Bienvenido de nuevo, <span className="gradient-text">{user.fullName}</span> 👋
                 </h1>
                 <p className="text-xs text-slate-400">
-                  ID de Usuario aislado en PostgreSQL RLS: <code className="text-cyan-300 font-mono">{user.id}</code> | Nivel Actual: <strong className="text-white">{user.currentLevel}</strong>
+                  Nivel actual: <strong className="text-white">{user.currentLevel}</strong>
                 </p>
               </div>
 
