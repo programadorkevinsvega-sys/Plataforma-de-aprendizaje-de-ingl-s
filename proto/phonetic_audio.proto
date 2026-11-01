@@ -19,10 +19,18 @@ message PhoneticResponse {
 
 message SynthesizeRequest {
   string text = 1;
+  string voice = 2;
+  string rate = 3;
 }
 
 message SynthesizeResponse {
   string audio_base64 = 1;
+  string format = 2;
+  string voice = 3;
+  string text = 4;
+  string provider = 5;
+  string model = 6;
+  double playback_rate = 7;
 }
 
 message TranscribeRequest {

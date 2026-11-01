@@ -3,6 +3,7 @@ import type {
   IContentRepository,
   Lesson,
   VocabularyQuery,
+  SynthesizedSpeech,
 } from '@/domain/repositories/IContentRepository'
 import type { BffHttpClient } from '../api/BffHttpClient'
 import { toAudioUrl, toLesson, toVocabularyWord } from '../api/mappers'
@@ -35,14 +36,25 @@ export class BffContentRepository implements IContentRepository {
     return toLesson((dto.lesson ?? dto) as Dto)
   }
 
-  async synthesizeSpeech(text: string, voice = 'Joanna', rate?: string): Promise<string> {
+  async synthesizeSpeech(
+    text: string,
+    voice = '',
+    rate?: string,
+  ): Promise<SynthesizedSpeech> {
     const dto = await this.http.post<Dto>('/api/v1/content/speech', {
       text,
       voice,
       engine: 'neural',
       ...(rate ? { rate } : {}),
     })
-    return toAudioUrl(dto)
+    return {
+      audioUrl: toAudioUrl(dto),
+      provider: dto.provider === 'cloudflare' ? 'cloudflare' : 'aws',
+      playbackRate:
+        typeof dto.playback_rate === 'number' && Number.isFinite(dto.playback_rate)
+          ? dto.playback_rate
+          : 1,
+    }
   }
 
   async markWordCompleted(wordId: string): Promise<void> {

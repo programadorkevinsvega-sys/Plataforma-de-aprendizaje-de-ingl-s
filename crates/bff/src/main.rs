@@ -34,6 +34,7 @@ use proto::ai_evaluator::ai_evaluator_service_client::AiEvaluatorServiceClient;
 use proto::auth::auth_service_client::AuthServiceClient;
 use proto::content::content_service_client::ContentServiceClient;
 use proto::gamification::gamification_service_client::GamificationServiceClient;
+use proto::phonetic_audio::phonetic_audio_service_client::PhoneticAudioServiceClient;
 use proto::srs::srs_service_client::SrsServiceClient;
 use std::net::SocketAddr;
 use tonic::transport::Channel;
@@ -45,6 +46,7 @@ pub struct AppState {
     pub content_client: ContentServiceClient<Channel>,
     pub srs_client: SrsServiceClient<Channel>,
     pub ai_client: AiEvaluatorServiceClient<Channel>,
+    pub phonetic_audio_client: PhoneticAudioServiceClient<Channel>,
     pub gamification_client: GamificationServiceClient<Channel>,
 }
 
@@ -104,6 +106,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     let srs_client =
         SrsServiceClient::new(Channel::from_static("http://127.0.0.1:50055").connect_lazy());
+    let phonetic_audio_url = std::env::var("PHONETIC_SERVICE_GRPC_URL")
+        .unwrap_or_else(|_| "http://127.0.0.1:50054".to_string());
+    let phonetic_audio_client =
+        PhoneticAudioServiceClient::new(Channel::from_shared(phonetic_audio_url)?.connect_lazy());
     let gamification_client = GamificationServiceClient::new(
         Channel::from_static("http://127.0.0.1:50056").connect_lazy(),
     );
@@ -113,6 +119,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         content_client,
         srs_client,
         ai_client,
+        phonetic_audio_client,
         gamification_client,
     };
 

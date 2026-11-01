@@ -17,7 +17,6 @@ common = { path = "../common" }
 jsonwebtoken = { workspace = true }
 uuid = { workspace = true }
 aws-config = { workspace = true }
-aws-sdk-polly = { workspace = true }
 aws-sdk-transcribestreaming = { workspace = true }
 base64 = { workspace = true }
 futures = { workspace = true }

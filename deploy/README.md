@@ -68,6 +68,60 @@ Si existe una instalación previa en `/opt/devfluency` y `/etc/devfluency/devflu
 
 Después de completar el archivo de entorno y verificar los permisos DDL del usuario de base de datos, ejecutar **Actions → Deploy Ubuntu (systemd) → Run workflow** sobre `main`.
 
+## Configuración del proveedor TTS
+
+El proveedor de síntesis se carga al iniciar `devfluency@phonetic-audio-service`. La misma ruta
+de entorno compartida se carga para los servicios Rust; no es necesario recompilar ni modificar
+el frontend para cambiar el proveedor.
+
+Para AWS Polly (predeterminado):
+
+```dotenv
+TTS_PROVIDER=aws
+AWS_REGION=us-east-1
+AWS_POLLY_VOICE_ID=Matthew
+AWS_POLLY_TIMEOUT_SECONDS=30
+```
+
+La VM debe tener un IAM Instance Profile con permisos `polly:SynthesizeSpeech` para las voces
+y región utilizadas. El SDK de AWS usa su cadena estándar de credenciales; no se requieren
+claves permanentes si EC2 tiene un IAM Role.
+
+Para Cloudflare Workers AI:
+
+```dotenv
+TTS_PROVIDER=cloudflare
+CLOUDFLARE_ACCOUNT_ID=valor_del_account_id
+CLOUDFLARE_API_TOKEN=valor_del_token
+CLOUDFLARE_TTS_MODEL_EN=@cf/deepgram/aura-2-en
+CLOUDFLARE_TTS_MODEL_ES=@cf/deepgram/aura-2-es
+CLOUDFLARE_TTS_SPEAKER_EN=luna
+CLOUDFLARE_TTS_SPEAKER_ES=aquila
+CLOUDFLARE_TTS_TIMEOUT_SECONDS=30
+```
+
+Crea un API Token con permisos Workers AI Read y Workers AI Edit para la cuenta. El token se almacena únicamente
+en el archivo de entorno de la VM con propietario/permisos restrictivos; nunca en GitHub ni en
+el frontend. Aura-2 admite speakers propios por idioma: cambiar de proveedor conserva las voces
+lógicas del frontend, pero no implica equivalencia acústica de voces AWS y Deepgram.
+
+`TTS_PROVIDER=cloudflare` elimina la dependencia de credenciales AWS para solicitudes TTS.
+AWS Transcribe Streaming continúa usando la cadena de credenciales AWS y sus permisos por
+separado (`transcribe:StartStreamTranscription`); seleccionar Cloudflare no migra STT.
+
+Tras desplegar los binarios y editar manualmente el archivo de entorno, reinicia solamente
+el servicio de audio y el BFF:
+
+```bash
+sudo systemctl restart 'devfluency@phonetic-audio-service'
+sudo systemctl restart 'devfluency@bff'
+sudo systemctl status 'devfluency@phonetic-audio-service' 'devfluency@bff' --no-pager
+sudo journalctl -u 'devfluency@phonetic-audio-service' -n 100 --no-pager
+```
+
+El reinicio valida configuración local y construye el cliente; no realiza una síntesis facturable.
+La comprobación de puerto/health no demuestra conectividad ni síntesis real con el proveedor.
+
 ## Servicios systemd administrados
 
 - `devfluency@auth-identity-service`
