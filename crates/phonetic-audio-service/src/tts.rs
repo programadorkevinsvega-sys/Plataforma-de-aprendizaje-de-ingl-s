@@ -973,10 +973,14 @@ mod tests {
         let audio = provider.synthesize("Hola", "Lupe", "x-slow").await.unwrap();
         let request = server.await.unwrap();
 
-        assert!(
-            request.contains("authorization: bearer mock-token")
-                || request.contains("Authorization: Bearer mock-token")
-        );
+        let has_bearer_auth = request.lines().any(|line| {
+            let Some((name, value)) = line.split_once(':') else {
+                return false;
+            };
+            name.eq_ignore_ascii_case("authorization")
+                && value.trim().eq_ignore_ascii_case("Bearer mock-token")
+        });
+        assert!(has_bearer_auth, "Cloudflare request must include Bearer authentication");
         assert!(request.contains("/ai/run/@cf/deepgram/aura-2-es"));
         assert!(request.contains(r#""speaker":"aquila""#));
         assert!(request.contains(r#""encoding":"mp3""#));
