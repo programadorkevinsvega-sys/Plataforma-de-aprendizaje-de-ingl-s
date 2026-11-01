@@ -980,7 +980,10 @@ mod tests {
             name.eq_ignore_ascii_case("authorization")
                 && value.trim().eq_ignore_ascii_case("Bearer mock-token")
         });
-        assert!(has_bearer_auth, "Cloudflare request must include Bearer authentication");
+        assert!(
+            has_bearer_auth,
+            "Cloudflare request must include Bearer authentication"
+        );
         assert!(request.contains("/ai/run/@cf/deepgram/aura-2-es"));
         assert!(request.contains(r#""speaker":"aquila""#));
         assert!(request.contains(r#""encoding":"mp3""#));
