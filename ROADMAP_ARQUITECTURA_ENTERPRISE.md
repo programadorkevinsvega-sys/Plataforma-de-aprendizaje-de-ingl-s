@@ -1,216 +1,143 @@
-# 🚀 ROADMAP & ARQUITECTURA ENTERPRISE EN RUST: DevFluency AI
-**Plataforma de Inglés Conversacional para Desarrolladores Hispanohablantes**
+# ROADMAP Y ARQUITECTURA ENTERPRISE — DEVFLUENCY
+
+> **Estado:** documento original sincronizado con la planificación vigente.
+> **Última sincronización:** 2026-11-01.
+> **Documento rector de ejecución:** [docs/roadmap/ROADMAP_PLATAFORMA_APRENDIZAJE_PROFESIONAL.md](docs/roadmap/ROADMAP_PLATAFORMA_APRENDIZAJE_PROFESIONAL.md).
+> **Documento complementario de arquitectura:** [DOCUMENTO_MAESTRO_ARQUITECTURA_DEVFLUENCY.md](DOCUMENTO_MAESTRO_ARQUITECTURA_DEVFLUENCY.md).
 
 ---
 
-## 📌 1. Visión Pedagógica y Filosofía Inversa
+## 1. Propósito y autoridad de este documento
 
-### Principio Fundamento: Natural Learning First
-El aprendizaje imita la adquisición de la lengua materna:
-$$\text{Escuchar} \longrightarrow \text{Repetir} \longrightarrow \text{Asociar} \longrightarrow \text{Hablar} \longrightarrow \text{Comprender} \longrightarrow \text{Gramática (Al final)}$$
+Este archivo conserva la planificación enterprise original de DevFluency y su división histórica en seis grandes etapas, pero ya no funciona como un plan de ejecución independiente.
 
----
+La planificación vigente del producto está organizada en **11 fases (Fase 0 a Fase 10)** en el documento rector. Este archivo resume esa planificación, explica cómo se relaciona con las seis fases originales y registra el estado observado de la implementación para evitar que una intención histórica se confunda con una capacidad terminada.
 
-### 🔊 Característica Core: Fonética Natural en Español (Sin IPA / Sin AFI)
-Toda frase en inglés debe presentarse obligatoriamente con su fonética adaptada para hispanohablantes (usando tildes de intensidad sonora y sin símbolos fonéticos complejos):
+**Jerarquía documental obligatoria:**
 
-```text
-🇺🇸 Inglés
-I'm developing software in Rust.
+1. **ROADMAP_PLATAFORMA_APRENDIZAJE_PROFESIONAL.md:** fuente única para alcance, fases, subfases, tareas, criterios de aceptación, pruebas y Definition of Done.
+2. **DOCUMENTO_MAESTRO_ARQUITECTURA_DEVFLUENCY.md:** especificación complementaria de visión pedagógica, arquitectura actual, contratos, datos, proveedores y arquitectura objetivo.
+3. **Este documento:** vista ejecutiva y trazabilidad entre el roadmap original de seis fases y la planificación vigente.
+4. **Guías técnicas y auditorías:** evidencia y procedimientos específicos; no sustituyen los criterios del roadmap rector.
 
-🔊 Pronunciación para Hispanohablantes
-Aim divélopin sofgüer in rast.
+Si aparece una diferencia entre este archivo y el roadmap rector, prevalece el roadmap rector y los documentos complementarios deben actualizarse para eliminar la diferencia.
 
-🇪🇸 Traducción
-Estoy desarrollando software en Rust.
-```
+## 2. Visión del producto
 
----
+DevFluency debe evolucionar hacia una plataforma de aprendizaje de inglés general y profesional, con especialización en comunicación para desarrolladores y profesionales de tecnología.
 
-### 📚 Vocabulario en Contexto Práctico (5,000 - 8,000 Términos Tech)
-No se enseñan palabras aisladas. Para cada término, la base de datos almacena la palabra clave junto a **3 a 5 oraciones conversacionales reales** con su fonética y traducción:
+La experiencia formativa debe ayudar al estudiante a:
 
-* **Palabra**: `Developer` | 🔊 **divéloper** | 📖 Desarrollador
-  1. 🇺🇸 *I'm a backend developer.* $\rightarrow$ 🔊 **Aim a bákend divéloper.** $\rightarrow$ 🇪🇸 Soy un desarrollador backend.
-  2. 🇺🇸 *We need a senior Rust developer.* $\rightarrow$ 🔊 **Güi nid a sínior rast divéloper.** $\rightarrow$ 🇪🇸 Necesitamos un desarrollador Rust senior.
-  3. 🇺🇸 *The developer fixed the production bug.* $\rightarrow$ 🔊 **Da divéloper fíkst da prodákshon bag.** $\rightarrow$ 🇪🇸 El desarrollador corrigió el error de producción.
+- Iniciar desde Pre-A1/A0 y avanzar mediante una ruta compatible con el MCER/CEFR hasta C1, con una extensión C2 definida por objetivos propios.
+- Aprender inglés general y, en paralelo, inglés profesional y tecnológico.
+- Relacionar texto, sonido y significado mediante el Sistema Dual de Pronunciación para Hispanohablantes.
+- Practicar lectura, escritura, comprensión auditiva, expresión oral e interacción.
+- Recibir evaluación basada en evidencias adecuadas a cada competencia.
+- Reforzar memoria con repetición espaciada.
+- Recibir tutoría conversacional y recomendaciones adaptadas a sus objetivos.
+- Comprender su dominio académico sin confundirlo con XP, monedas, rachas o clasificaciones.
 
----
+El objetivo no es replicar literalmente otro producto, sino crear una plataforma con identidad propia, progresión demostrable y prácticas contextualizadas.
 
-## 🤖 2. Motor de Evaluación IA Adaptativa & Examen de 6 Métricas
+## 3. Estado real del producto en el repositorio
 
-### Examen Dinámico (90% Pass Rate Target)
-La IA no utiliza preguntas predefinidas ni estáticas. Salta de tema inesperadamente (*"Tell me about your experience with Rust"*, *"Why choose microservices over a monolith?"*, *"What do you do on weekends?"*) para medir improvisación real.
+Los siguientes estados describen la evidencia de código y pruebas observada en la rama main al sincronizar este documento. No equivalen a una certificación de producción ni a la finalización de una fase.
 
-#### Matriz de Ponderación de Competencia:
-$$\text{Score Total} = (0.20 \times \text{Listening}) + (0.20 \times \text{Pronunciación}) + (0.20 \times \text{Fluidez}) + (0.15 \times \text{Vocabulario}) + (0.15 \times \text{Conversación}) + (0.10 \times \text{Gramática})$$
+| Área | Estado observado | Evidencia en el repositorio | Límite que debe respetarse |
+|---|---|---|---|
+| Workspace y servicios Rust | Implementado parcialmente | Workspace Cargo, BFF Axum, servicios Rust, contratos Protobuf/gRPC | La existencia y compilación de un servicio no prueban todos sus flujos operativos |
+| Autenticación | Implementado parcialmente | Argon2id, JWT configurado mediante JWT_SECRET, perfiles autenticados, refresh tokens persistidos con hash, rotación y revocación en código | La implementación actual usa el algoritmo predeterminado de jsonwebtoken con secreto simétrico; no describirla como Ed25519. La seguridad integral debe seguir verificándose |
+| Contenido | Implementado parcialmente | Servicio de vocabulario, semillas A0 y A1, frases de contexto y campos fonéticos | Hay 322 entradas A0 y 469 A1 en las semillas revisadas; no existe todavía el catálogo curricular completo de 5.000–8.000 términos ni todas las rutas A2–C2 |
+| Sistema Dual de Pronunciación | Implementado parcialmente | Pantalla /learn, campos spanish_phonetic y spanish_phonetic_natural, controles de escucha lenta y natural, TTS configurable | El generador actual produce el mismo texto para los campos lento/natural; el contenido sembrado puede diferir, pero requiere validación editorial y fonética. La práctica no es una evaluación |
+| TTS | Implementado en su flujo actual | phonetic-audio-service, selector TTS_PROVIDER con AWS Polly y Cloudflare Workers AI/Aura-2 | El proveedor se carga al iniciar y no existe fallback automático. Su selección es independiente de la IA conversacional |
+| STT | Implementado en su flujo actual | AWS Transcribe Streaming mediante WebSocket | La transcripción es texto reconocido; no equivale a análisis acústico de pronunciación |
+| Evaluación de entrevistas | Implementado parcialmente | ai-evaluator-service con AWS Bedrock, seis campos de puntuación, cálculo ponderado y detección de dos debilidades | La evaluación recibe texto transcrito o escrito. Actualmente no analiza el audio original para pronunciación ni pausas; sus métricas de listening, pronunciación y fluidez no deben tratarse como mediciones acústicas válidas |
+| Evaluación escrita/hablada separada | Pendiente | La UI admite voz o texto, pero el endpoint de evaluación consume texto y rechaza audio no vacío | Faltan modalidades, rúbricas, resultados y evidencias independientes según el roadmap rector |
+| SRS | Implementado parcialmente | Servicio Rust, SM-2, tarjetas, revisiones y pantallas de repaso | Falta integrarlo completamente con objetivos curriculares, retención medida y plan académico |
+| Gamificación | Implementado parcialmente | XP, monedas, estadísticas, rachas, eventos idempotentes de progreso por palabra y pantallas asociadas | El nivel derivado de XP sigue existiendo; debe separarse del dominio académico real. Misiones, temporadas y economía completa no se consideran terminadas |
+| Tutor conversacional | Pendiente como capacidad de producto | Existe evaluación de entrevistas mediante Bedrock | El evaluador de entrevistas no es el tutor conversacional con historial, escenarios, correcciones y selector Cloudflare/AWS definido en la Fase 5 del roadmap rector |
+| Personalización | Implementado parcialmente | Perfil, dashboard y datos de progreso | No hay todavía un plan académico adaptativo completo basado en dominio confiable y disponibilidad |
+| Frontend | Implementado parcialmente | Rutas de dashboard, aprendizaje, entrevista, resultado, drill, SRS, logros, leaderboard, perfil y configuración | Accesibilidad, UX integral, responsive, todos los estados y recorridos E2E deben validarse |
+| Seguridad y RLS | Implementado parcialmente | JWT, autorización de perfil, contexto RLS; políticas sobre SRS, exámenes, estadísticas y eventos de progreso | No afirmar que todas las tablas sensibles están cubiertas ni que existe aislamiento completo sin la matriz de pruebas correspondiente |
+| Redis y NATS | Infraestructura configurada; uso funcional no acreditado en todos los flujos | Compose, variables de entorno y dependencias del workspace | No describirlos como un bus de eventos o una caché activa de extremo a extremo hasta verificar productores, consumidores y casos de uso reales |
+| CI/CD y despliegue | Implementado parcialmente | GitHub Actions, compilación de binarios Rust, frontend standalone, paquete de release, SQLx migrations y servicios systemd | El código del pipeline no sustituye la verificación de despliegue, rollback, backups, restauración y observabilidad en un entorno representativo |
+| Producción y lanzamiento | No verificado de extremo a extremo | Scripts de despliegue, health checks y configuración operativa | No declarar preparación o lanzamiento de producción hasta cumplir Fase 9 y Fase 10 |
 
----
+### 3.1. Evidencia de verificaciones históricas de las seis fases originales
 
-## 🏗️ 3. Arquitectura de Microservicios en Rust
+Existen artefactos bajo **artifacts/verify/** que registran resultados PASSED para comprobaciones acotadas de las fases originales 1 a 5:
 
-```mermaid
-graph TD
-    Client[Frontend React / Next.js] --> Gateway[API Gateway - Axum / Rust]
-    Gateway --> Auth[Auth & Identity Microservice - Rust]
-    Gateway --> Content[Content & Vocab Microservice - Rust]
-    Gateway --> AudioEngine[Audio & Phonetic Microservice - Rust]
-    Gateway --> AIEngine[AI Conversational & Exam Microservice - Rust]
-    Gateway --> SRS[SRS Anki Engine Microservice - Rust]
-    Gateway --> Gamification[Gamification & Progress Microservice - Rust]
+| Fase original | Comprobaciones registradas | Qué demuestra y qué no demuestra |
+|---|---|---|
+| 1 | Cargo workspace check, contratos Protobuf/gRPC y migración RLS | Verificación acotada de compilación/contratos/migración; no prueba producción, recuperación ni toda la seguridad |
+| 2 | Compilación de auth-identity-service y BFF | Comprueba compilación de ambos componentes; no es una suite de pruebas E2E de autenticación |
+| 3 | Dos pruebas unitarias del motor fonético y compilación de content-vocabulary-service | Comprueba dos ejemplos de transliteración y compilación; no valida todo el catálogo ni la calidad fonética |
+| 4 | Dos pruebas unitarias de matriz de métricas y compilación del evaluador | Comprueba cálculo y selección de debilidades; no valida que las seis métricas tengan evidencia pedagógica suficiente ni que Bedrock mida audio |
+| 5 | Dos pruebas SM-2 y una prueba de gamificación | Comprueba escenarios unitarios básicos; no valida retención, concurrencia o economía completa |
+| 6 | No se encontró un artefacto equivalente en el árbol revisado | La fase original de carga/producción no puede considerarse acreditada por estos artefactos |
 
-    Auth & Content & AudioEngine & AIEngine & SRS & Gamification <--> NATS[NATS JetStream Event Bus]
-    Auth & Content & AIEngine & SRS & Gamification <--> Redis[(Redis Cluster)]
-    Auth & Content & AIEngine & SRS & Gamification <--> DB[(PostgreSQL 16 - Multi-Tenant RLS)]
-```
+Estos resultados son históricos y limitados. No se deben convertir automáticamente en estado DONE de las fases nuevas. La evidencia vigente para cada fase debe estar enlazada a su requisito, implementación, prueba y CI, de acuerdo con el roadmap rector.
 
----
+## 4. Cómo se conserva y transforma el roadmap original de seis fases
 
-### 📦 3.1. Descomposición de Microservicios en Rust
+Las seis fases originales se mantienen como agrupaciones históricas y de trazabilidad. Sus periodos de semanas 1–12 dejan de ser compromisos de calendario y no constituyen el orden actual de ejecución.
 
-#### 1. `auth-identity-service` (Rust + Axum + Jwt Ed25519)
-* **Responsabilidad**: Gestión de usuarios, autenticación, OAuth2, emisión de tokens JWT asimétricos y aislamiento de sesión.
-* **Seguridad**: Hash de contraseñas con Argon2id, tokens firmados con llaves privadas Ed25519.
+| Fase original | Intención original | Fases vigentes relacionadas | Estado resumido |
+|---|---|---|---|
+| 1. Infraestructura base | Workspace Rust, persistencia, contratos, Redis y NATS | Fase 0, Fase 1 y Fase 9 | Parcial: la base existe; falta completar auditoría, modelo curricular, integración efectiva de dependencias y hardening |
+| 2. Autenticación y seguridad | Registro, login, sesiones y autorización | Fase 0 y Fase 9 | Parcial: existen Argon2id, JWT y refresh tokens; faltan verificaciones integrales de seguridad, RLS y transporte |
+| 3. Motor fonético y contenido | Vocabulario contextual, guía fonética y audio | Fase 1, Fase 2 y Fase 8 | Parcial: existen semillas, pantalla de aprendizaje y TTS; el catálogo y la distinción pedagógica/sonora lento-natural requieren completar validaciones |
+| 4. Entrevistas y evaluador IA | Entrevista, evaluación y ejercicios de refuerzo | Fase 2, Fase 3 y Fase 5 | Parcial: existe un evaluador textual Bedrock; falta corregir evidencias y construir el tutor conversacional independiente |
+| 5. SRS y gamificación | SM-2, XP, rachas, monedas y logros | Fase 4, Fase 6 y Fase 7 | Parcial: existen SM-2 y recompensas básicas; falta dominio académico fiable, personalización y gamificación sostenible completa |
+| 6. Carga y producción | Rendimiento, monitoreo y despliegue | Fase 9 y Fase 10 | Parcial/no verificado: hay CI/CD y systemd; faltan pruebas de carga, recuperación, observabilidad y aceptación integral |
 
-#### 2. `content-vocabulary-service` (Rust + Axum + SQLx)
-* **Responsabilidad**: Gestión del banco de 8,000+ palabras y frases en contexto por niveles (A0 a C1) y situaciones reales (Standups, PR Reviews, System Design, HR Interviews).
+## 5. Plan de ejecución vigente: Fase 0 a Fase 10
 
-#### 3. `phonetic-audio-service` (Rust + Axum + Whisper + Web Audio)
-* **Responsabilidad**: Transliteración fonética natural al español, streaming de audio TTS (Text-to-Speech) y procesamiento de voz STT (Speech-to-Text).
+La secuencia de abajo resume el roadmap rector. Los checklists completos, entregables y gates se mantienen exclusivamente en ROADMAP_PLATAFORMA_APRENDIZAJE_PROFESIONAL.md.
 
-#### 4. `ai-evaluator-service` (Rust + Tokio + Gemini API / OpenAI)
-* **Responsabilidad**: Motor del reclutador virtual IA. Genera preguntas inesperadas, evalúa las 6 métricas y genera la rutina personalizada de 20 minutos.
+| Fase vigente | Resultado que debe producir | Estado observado |
+|---|---|---|
+| 0. Descubrimiento, inventario y diseño técnico | Línea base funcional/técnica, ADR, trazabilidad, calidad y riesgos | Parcial: existe inventario y auditoría inicial; falta completar la matriz integral y las decisiones aprobadas |
+| 1. Currículo, contenido y catálogo académico | Rutas general y tecnológica, niveles Pre-A1/A0–C1 y extensión C2, contenido validado y versionado | Parcial: hay semillas A0/A1 y servicio de contenido; falta el currículo completo, catálogo ampliado, revisión y versionado |
+| 2. Motor de lecciones y ejercicios | Contrato reutilizable, familias de ejercicios, feedback y Sistema Dual de Pronunciación integrado | Parcial: hay flujos actuales de vocabulario, audio y entrevista; falta el motor general y completar la validación del Sistema Dual |
+| 3. Diagnóstico, evaluación académica y dominio | Diagnóstico y dominio por competencia, con modalidades escrita y hablada separadas | Parcial con brecha crítica: el evaluador actual puntúa texto con seis métricas; no implementa aún las dos modalidades ni evidencia acústica real |
+| 4. Repetición espaciada y memoria | Repaso vinculado al currículo y retención demostrable | Parcial: SM-2 y revisiones existen; falta integración y medición académica |
+| 5. Tutor conversacional con proveedor intercambiable | Tutor contextual con adaptadores reales Cloudflare Workers AI/AWS Bedrock y selector propio | Pendiente: el evaluador Bedrock actual no cumple este alcance |
+| 6. Personalización y recomendador | Plan diario/semanal explicable basado en objetivos, dominio y disponibilidad | Parcial: existen datos de perfil/progreso y dashboard, no el recomendador completo |
+| 7. Gamificación y motivación sostenible | Recompensas justas, idempotentes y separadas del dominio académico | Parcial: existen recompensas básicas y ledger de progreso por palabra; falta el modelo completo y separar nivel académico |
+| 8. Experiencia de usuario, interfaz y móvil | Flujos coherentes, responsive, accesibles y sin estados ficticios | Parcial: existen rutas principales; la aceptación visual/accesible y E2E queda pendiente |
+| 9. Observabilidad, seguridad y operación | Seguridad, telemetría, resiliencia, backups, restauración, rendimiento, despliegue y rollback | Parcial/no verificado: CI y despliegue systemd existen; no se ha acreditado la operación completa |
+| 10. Validación integral y lanzamiento | Piloto, recorridos E2E, regresión, gates y salida | Pendiente: no marcar como listo sin evidencias integrales |
 
-#### 5. `srs-engine-service` (Rust + Tokio)
-* **Responsabilidad**: Algoritmo de repetición espaciada Anki SM-2 optimizado en Rust para máxima velocidad de cálculo en millones de tarjetas.
+## 6. Decisiones de producto y arquitectura que no deben volver a contradecirse
 
-#### 6. `gamification-progress-service` (Rust + Redis + SQLx)
-* **Responsabilidad**: Control de XP, Rachas (Streaks), Monedas, Niveles, Logros y Leaderboards globales.
+1. **Sistema Dual de Pronunciación:** se conserva como herramienta de enseñanza para hispanohablantes. La pronunciación lenta permite reconocer y practicar sonidos; la natural expone al estudiante al ritmo conversacional. No es un evaluador.
+2. **Evaluación escrita y hablada:** son modalidades independientes con rúbricas y resultados propios. La escrita no otorga puntuación de pronunciación ni fluidez oral. La hablada usa grabación real y transcripción complementaria.
+3. **Pronunciación y fluidez oral:** solo se califican cuando hay audio con calidad suficiente y análisis adecuado. La salida de STT por sí sola no prueba cómo se pronunció.
+4. **Listening:** se mide con actividades de comprensión auditiva cuyo estímulo principal es el audio y que no revelan la transcripción antes de responder.
+5. **Tutor conversacional y evaluador:** son capacidades distintas. El evaluador de entrevistas actual no equivale al tutor conversacional previsto.
+6. **Proveedores independientes:** TTS usa TTS_PROVIDER con AWS o Cloudflare; STT actual utiliza AWS Transcribe; el tutor tendrá CONVERSATIONAL_AI_PROVIDER con Cloudflare o AWS según el roadmap rector. Cambiar un proveedor no debe cambiar los otros.
+7. **Dominio académico y gamificación:** XP, monedas, rachas y niveles de juego no demuestran dominio CEFR.
+8. **Microservicios:** se conservan los límites actuales y se prefieren módulos internos; un nuevo microservicio requiere ADR y justificación operacional.
+9. **Despliegue:** producción compila binarios Rust y frontend en CI y despliega mediante release package/systemd en Ubuntu. Docker Compose puede servir para desarrollo local, pero Docker no es requisito de despliegue de las aplicaciones en las VMs. Kubernetes no es un objetivo aprobado por defecto.
+10. **Redis y NATS:** su presencia en configuración o dependencias no autoriza a afirmar que todos los flujos ya los utilizan. Documentar integraciones solo con evidencia real de productor, consumidor y comportamiento.
 
----
+## 7. Reglas de avance
 
-## 🔒 4. Seguridad Multi-Tenant y Aislamiento de Datos
+- El roadmap rector es la única fuente para marcar tareas, subfases y fases como pendientes, en curso, bloqueadas, en revisión o terminadas.
+- No cambiar una tarea a DONE por la existencia de una carpeta, endpoint, pantalla, interfaz, mock o test de humo.
+- No declarar una fase terminada por compilar un binario o pasar una prueba unitaria aislada.
+- Cada PR debe indicar fase/subfase, alcance, migraciones, contratos, pruebas, riesgos, compatibilidad, configuración y rollback.
+- Las pruebas de IA deben ser deterministas en CI mediante dobles controlados; las llamadas reales a proveedores deben ser smoke tests opt-in.
+- Los fallos de proveedores, dependencias o almacenamiento deben producir errores explícitos y recuperables, no puntuaciones ni datos inventados.
+- No implementar cambios de alcance que contradigan las decisiones de producto de la sección 6 sin actualizar primero el roadmap rector y el documento arquitectónico.
 
-Para garantizar que **ningún usuario pueda ver o acceder a los datos de otro**, se implementan 3 capas de seguridad en profundidad:
+## 8. Documentos relacionados
 
-### 1. PostgreSQL Row Level Security (RLS)
-Cada tabla del sistema habilita políticas RLS nativas en la base de datos:
+- [Roadmap maestro de implementación (fuente única de ejecución)](docs/roadmap/ROADMAP_PLATAFORMA_APRENDIZAJE_PROFESIONAL.md)
+- [Documento maestro de arquitectura DevFluency](DOCUMENTO_MAESTRO_ARQUITECTURA_DEVFLUENCY.md)
+- [Proveedores TTS](docs/tts-providers.md)
+- [Auditoría inicial de seguridad](docs/audits/2026-10-28-initial-security-audit.md)
+- [Excepciones de dependencias](docs/audits/2026-10-29-dependency-exceptions.md)
 
-```sql
--- Habilitar RLS en la tabla de progreso del usuario
-ALTER TABLE user_progress ENABLE ROW LEVEL SECURITY;
-
--- Crear política de aislamiento estricto por user_id
-CREATE POLICY user_progress_isolation_policy ON user_progress
-    FOR ALL
-    USING (user_id = current_setting('app.current_user_id')::uuid);
-```
-
-### 2. Autenticación Asimétrica EdDSA (Ed25519 JWT)
-Los microservicios validan la identidad del cliente mediante llaves públicas de JWT sin necesidad de consultar la base de datos en cada petición HTTP.
-
-### 3. Isolation & Rate Limiting con Redis ACLs
-Uso de cuotas independientes en Redis Token Bucket para evitar ataques DDoS o abuso de la API por usuario.
-
----
-
-## 🗄️ 5. Modelo de Base de Datos Relacional (PostgreSQL DDL)
-
-```sql
--- Extensión para UUIDs
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- 1. Tabla de Usuarios
-CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    full_name VARCHAR(100) NOT NULL,
-    target_role VARCHAR(50) DEFAULT 'Software Developer',
-    current_level VARCHAR(10) DEFAULT 'A1',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 2. Banco de Vocabulario en Contexto
-CREATE TABLE vocabulary_words (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    word VARCHAR(100) NOT NULL,
-    spanish_phonetic VARCHAR(150) NOT NULL,
-    spanish_translation VARCHAR(150) NOT NULL,
-    category VARCHAR(50) NOT NULL, -- 'programming', 'standup', 'system-design'
-    level VARCHAR(10) NOT NULL,    -- 'A1', 'B2', 'C1'
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE context_sentences (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    word_id UUID REFERENCES vocabulary_words(id) ON DELETE CASCADE,
-    english_text TEXT NOT NULL,
-    spanish_phonetic TEXT NOT NULL,
-    spanish_translation TEXT NOT NULL,
-    audio_url TEXT
-);
-
--- 3. Progreso de Repetición Espaciada (Anki SM-2)
-CREATE TABLE user_srs_progress (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    sentence_id UUID REFERENCES context_sentences(id),
-    easiness_factor FLOAT DEFAULT 2.5,
-    interval_days INT DEFAULT 1,
-    repetitions INT DEFAULT 0,
-    next_review TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 4. Exámenes e Historial de Evaluaciones IA
-CREATE TABLE ai_exam_sessions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    level_target VARCHAR(10) NOT NULL,
-    score_listening FLOAT NOT NULL,
-    score_pronunciation FLOAT NOT NULL,
-    score_fluency FLOAT NOT NULL,
-    score_vocabulary FLOAT NOT NULL,
-    score_grammar FLOAT NOT NULL,
-    score_conversation FLOAT NOT NULL,
-    total_score FLOAT NOT NULL,
-    passed BOOLEAN NOT NULL,
-    detected_weaknesses JSONB,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-```
-
----
-
-## 🚀 6. Roadmap de Desarrollo Fase por Fase
-
-### 🗓️ Detalle de Fases:
-
-#### **Fase 1: Configuración de la Infraestructura Base (Semanas 1-2)**
-* Configurar workspace de Rust (`Cargo.toml` multi-crate).
-* Desplegar contenedores de **PostgreSQL**, **Redis** y **NATS JetStream** mediante `docker-compose.yml`.
-* Crear script DDL de PostgreSQL e implementar políticas RLS.
-
-#### **Fase 2: Microservicio de Autenticación & Seguridad (Semanas 3-4)**
-* Implementar `auth-identity-service` en Rust con `Axum` y `SQLx`.
-* Registro/Login con hash `Argon2id` y firmado de JWTs asimétricos (`Ed25519`).
-* Middleware en Rust para validar permisos y establecer `app.current_user_id` en PostgreSQL RLS.
-
-#### **Fase 3: Motor Fonético y Banco de Vocabulario (Semanas 5-6)**
-* Implementar `content-vocabulary-service` con las 5,000+ palabras y oraciones en contexto.
-* Crear el convertidor fonético de inglés a español natural (con tildes de sonido).
-* Integrar `audioPlayer.js` con fallback dual (Web Speech + HTML5 Audio Stream).
-
-#### **Fase 4: Simulador de Entrevistas & Evaluador IA (Semanas 7-8)**
-* Implementar `ai-evaluator-service` en Rust para conectar con Gemini 2.0 Flash y GPT-4o.
-* Desarrollar la matriz de cálculo de las **6 Métricas** (Listening 20%, Pronunciación 20%, Fluidez 20%, Vocabulario 15%, Conversación 15%, Gramática 10%).
-* Crear el generador dinámico de driles de 20 minutos para reforzar áreas débiles.
-
-#### **Fase 5: Repetición Espaciada (Anki) & Gamificación (Semanas 9-10)**
-* Implementar el algoritmo SM-2 en Rust (`srs-engine-service`).
-* Construir el motor de gamificación: XP, Rachas (Streaks), Monedas 💎, Nivel A0 a C1 y Logros.
-
-#### **Fase 6: Pruebas de Carga & Producción (Semanas 11-12)**
-* Pruebas de estrés de microservicios Rust con `k6` / `locust`.
-* Monitoreo con Prometheus y Grafana.
-* Despliegue listo para Kubernetes / Docker Swarm.
+**Regla final:** la planificación original de seis fases queda preservada como historia y agrupación conceptual. La ejecución nueva, el progreso real y la aceptación del producto se controlan exclusivamente desde el roadmap maestro de Fase 0 a Fase 10.
