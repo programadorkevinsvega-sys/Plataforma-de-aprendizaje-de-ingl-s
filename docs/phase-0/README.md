@@ -16,7 +16,7 @@ Documentar el comportamiento y la arquitectura que existen antes de cambiar el d
 | 0.1 Auditoría funcional | in_progress | Inventario de páginas, rutas HTTP, RPC y tablas levantado. Falta validar recorridos E2E y confirmar el estado operativo de cada flujo. |
 | 0.2 Auditoría de arquitectura | in_progress | Responsabilidades, dependencias, comunicación y systemd documentados. Falta medir comportamiento en entorno representativo y verificar límites efectivos. |
 | 0.3 Decisiones de arquitectura | done | Los seis ADR están aceptados a nivel de arquitectura. ADR-0006 deja explícito que el calendario de retención y el consentimiento concreto se deben cerrar antes de persistir conversaciones. |
-| 0.4 Línea base de calidad | in_progress | CI documental pasa. Se fuerza ahora la matriz completa en el mismo árbol de código mediante un cambio de comentario (sin alterar la lógica del workflow); cobertura y rendimiento continúan pendientes de medición. |
+| 0.4 Línea base de calidad | in_progress | CI completo #174 pasó en 3 min 40 s sobre el mismo árbol de código de aplicación: 72 tests Rust y todos los jobs de validación correctos. Cobertura y rendimiento siguen sin medición. |
 
 ## Hallazgos que condicionan las siguientes fases
 
@@ -29,7 +29,7 @@ Documentar el comportamiento y la arquitectura que existen antes de cambiar el d
 7. `/api/v1/content/vocabulary/:id/complete` responde `completed: true`, pero el handler inspeccionado no persiste esa marca.
 8. La evaluación actual envía texto a Bedrock. Las métricas de pronunciación, fluidez y listening no están sustentadas por el audio original.
 9. El Sistema Dual de Pronunciación existe en aprendizaje, pero el generador actual calcula dos veces la misma transliteración. Debe conservarse y mejorarse como herramienta didáctica, no como rúbrica.
-10. El CI del commit auditado fue exitoso como validación documental; omitió compilación, lint y tests de Rust/frontend, auditorías de dependencias y shell validation.
+10. El CI #168 del commit base fue documental y omitió las suites de código. La matriz completa #174 se ejecutó sobre el mismo árbol de código de aplicación: todos los jobs pasaron, incluidos 72 tests Rust. Se detectaron 21 vulnerabilidades npm low/moderate y una advertencia ESLint; no se reportaron vulnerabilidades npm high bajo el umbral configurado.
 
 ## Documentos de la fase
 
@@ -53,7 +53,7 @@ Documentar el comportamiento y la arquitectura que existen antes de cambiar el d
 | Endpoints/RPC críticos tienen propietario documentado | Completado a nivel técnico: todos los RPC quedan asignados a su microservicio; los RPC sin consumidor están identificados para decisión de retiro/uso |
 | Dependencias externas tienen timeout, error y configuración evidenciados | Parcial: TTS y transcripción tienen controles visibles; faltan deadlines gRPC/DB y evidencia operativa de todos los proveedores |
 | ADR aprobados | Completado: ADR-0001 a ADR-0006 aceptados con límites y decisiones diferidas explícitos |
-| CI completo pasa sobre el árbol de código de partida | En ejecución: se ha disparado la matriz completa; requiere resultado satisfactorio |
+| CI completo pasa sobre el árbol de código de partida | Completado: CI #174 success, 3 min 40 s, SHA documental `d7e7f31008e9bcd4b665a73687d4358e984a5232`; los fuentes de aplicación coinciden con el commit base |
 | Cobertura y rendimiento iniciales registrados | Pendiente |
 
-**Gate de salida: NO APROBADO por ahora.** Los ADR están aceptados y la matriz completa está en ejecución; siguen pendientes el resultado de CI, mediciones de cobertura/rendimiento y la validación operativa de los flujos/dependencias.
+**Gate de salida: NO APROBADO por ahora.** Los seis ADR y la matriz CI completa están cerrados con evidencia. Siguen pendientes coverage, rendimiento/carga, recorridos E2E en entorno representativo y evidencia de timeout/deadline para todas las dependencias externas.
