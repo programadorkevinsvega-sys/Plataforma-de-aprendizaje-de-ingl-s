@@ -18,16 +18,25 @@ El script remoto solo administra esas rutas y unidades. No instala, reinicia ni 
 1. Espera que CI finalice correctamente en `main`.
 2. Checkout del SHA exacto validado por CI.
 3. Compila los siete ejecutables Rust con `cargo build --workspace --release --locked`.
-4. Compila Next.js en modo `standalone`.
-5. Empaqueta los binarios, frontend y scripts de despliegue.
-6. Conecta el runner a la tailnet mediante `TAILSCALE_AUTHKEY`.
-7. Transfiere el paquete por SSH a la IP Tailscale/MagicDNS de la VM.
-8. Instala/configura las unidades systemd de esta aplicación.
-9. Crea una release versionada, cambia el enlace `current` y reinicia solo los servicios de Plataforma.
-10. Comprueba los siete servicios Rust, los puertos gRPC/BFF y los endpoints HTTP.
-11. Si falla el reinicio o una comprobación, restaura la release anterior y reinicia los servicios de esta aplicación.
+4. Instala SQLx CLI 0.8.6 en el runner de CI.
+5. Compila Next.js en modo `standalone`.
+6. Empaqueta los binarios, SQLx CLI, frontend, scripts de despliegue y todos los archivos SQL de `migrations/`.
+7. Conecta el runner a la tailnet mediante `TAILSCALE_AUTHKEY`.
+8. Transfiere el paquete por SSH a la VM Ubuntu de la aplicación.
+9. Verifica que `DATABASE_URL` apunte exactamente a `aprendizaje_ingles` y ejecuta `sqlx migrate run` con el registro de migraciones `_sqlx_migrations`.
+10. Solo si todas las migraciones terminan correctamente, cambia el enlace `current`, reinicia los servicios systemd y comprueba los endpoints.
+11. Si una migración falla, aborta antes de cambiar la release activa o reiniciar servicios. Si falla la activación o un health check, restaura la release anterior.
+
+SQLx registra las migraciones aplicadas y sus checksums; los despliegues posteriores ejecutan únicamente las migraciones pendientes y detectan cambios en migraciones ya aplicadas. El comando se ejecuta desde la VM de aplicación contra PostgreSQL por la conexión privada configurada, no dentro de Docker ni en la VM de PostgreSQL.
 
 No instala Docker ni compila Rust en la VM. No despliega PostgreSQL, Redis ni NATS.
+
+## Requisitos de base de datos
+
+- `DATABASE_URL` debe apuntar a la base `aprendizaje_ingles`.
+- El usuario de esa conexión debe tener permisos para crear y alterar los objetos del esquema de la aplicación y para crear la tabla de control `_sqlx_migrations`. Si el usuario runtime no tiene permisos DDL, configura un usuario de migraciones con esos permisos en `DATABASE_URL` durante el despliegue; no uses un usuario sin privilegios esperando que SQLx pueda crear el esquema.
+- Las migraciones de esquema deben ser compatibles hacia delante con la versión anterior durante un despliegue. SQLx no revierte automáticamente cambios de esquema si una comprobación posterior obliga a volver a la release anterior.
+- Antes de la primera migración en producción, conserva un respaldo verificable de `aprendizaje_ingles`.
 
 ## Secrets requeridos
 
@@ -45,7 +54,7 @@ El workflow valida que `TAILSCALE_AUTHKEY` no esté vacío antes de invocar la a
 
 El bootstrap crea `/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env` solo si no existe, con permisos `0640` y propietario `root:devfluency`. Completar al menos:
 
-- `DATABASE_URL`: PostgreSQL por IP/DNS privado de VPC.
+- `DATABASE_URL`: PostgreSQL por IP/DNS privado de VPC, apuntando a `aprendizaje_ingles` y usando un rol con permisos DDL para las migraciones.
 - `JWT_SECRET`: secreto aleatorio de al menos 32 caracteres.
 - `REDIS_URL` y `NATS_URL`: endpoints privados si los servicios los requieren.
 - `CORS_ALLOWED_ORIGINS`: origen público real del frontend.
@@ -57,7 +66,7 @@ No guardar secretos en Git. Los servicios gRPC y BFF se enlazan a loopback por d
 
 Si existe una instalación previa en `/opt/devfluency` y `/etc/devfluency/devfluency.env`, el bootstrap copia las releases existentes y migra el archivo de entorno a la nueva ruta de esta aplicación, sin borrar ni sobrescribir el origen. Revisar la configuración migrada antes del primer despliegue.
 
-Después de completar el archivo de entorno, ejecutar **Actions → Deploy Ubuntu (systemd) → Run workflow** sobre `main`.
+Después de completar el archivo de entorno y verificar los permisos DDL del usuario de base de datos, ejecutar **Actions → Deploy Ubuntu (systemd) → Run workflow** sobre `main`.
 
 ## Servicios systemd administrados
 
@@ -74,7 +83,7 @@ Comandos útiles: `systemctl status devfluency.target`, `systemctl status 'devfl
 
 ## Límites deliberados
 
-- Las migraciones SQL no se ejecutan automáticamente: necesitan una estrategia idempotente y compatible con rollback.
+- El despliegue ejecuta migraciones SQL pendientes mediante SQLx y registra su versión/checksum.
 - El despliegue no modifica los servicios de datos ni otras aplicaciones de la VM.
 - La IP/hostname y los secretos no se inventan ni se escriben en el repositorio.
 - El pipeline despliega solo tras CI exitoso; el workflow manual permite reintentar en `main`.

@@ -31,6 +31,7 @@ jobs:
           bash -n deploy/deploy-release.sh
           bash -n deploy/lib/health-checks.sh
           bash deploy/tests/test-health-checks.sh
+          test -n "$(find migrations -maxdepth 1 -type f -name '*.sql' -print -quit)"
 
       - name: Install native build dependencies
         run: |
@@ -42,6 +43,11 @@ jobs:
         run: |
           rustup toolchain install stable --profile minimal
           rustup default stable
+
+      - name: Install SQLx migration CLI
+        run: |
+          cargo install sqlx-cli --version 0.8.6 --no-default-features --features rustls,postgres --locked
+          sqlx --version
 
       - name: Build all Rust production executables
         run: cargo build --workspace --release --locked
@@ -82,12 +88,14 @@ jobs:
           for binary in bff auth-identity-service content-vocabulary-service ai-evaluator-service phonetic-audio-service srs-engine-service gamification-progress-service; do
             install -m 0755 "target/release/$binary" "dist/bin/$binary"
           done
+          install -m 0755 "$(command -v sqlx)" dist/bin/sqlx
           cp -a frontend/.next/standalone/. dist/frontend/
           mkdir -p dist/frontend/.next
           cp -a frontend/.next/static dist/frontend/.next/static
           if [ -d frontend/public ]; then cp -a frontend/public dist/frontend/public; fi
           cp -a deploy/. dist/deploy/
-          tar -czf devfluency-deploy-package.tar.gz -C dist bin frontend deploy
+          cp -a migrations dist/migrations
+          tar -czf devfluency-deploy-package.tar.gz -C dist bin frontend deploy migrations
           sha256sum devfluency-deploy-package.tar.gz
 
       - name: Upload deployment package
@@ -143,4 +151,4 @@ jobs:
           package="devfluency-${RELEASE_SHA}.tar.gz"
           scp -o BatchMode=yes devfluency-deploy-package.tar.gz "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/$package"
           ssh -o BatchMode=yes "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "set -e; stage=/tmp/devfluency-${RELEASE_SHA}; mkdir -p \"\$stage\"; tar -xzf /tmp/$package -C \"\$stage\"; sudo bash \"\$stage/deploy/bootstrap-ubuntu.sh\"; tar -czf \"\$stage/release.tar.gz\" -C \"\$stage\" bin frontend; sudo bash \"\$stage/deploy/deploy-release.sh\" '$RELEASE_SHA' \"\$stage/release.tar.gz\"; rm -rf \"\$stage\" /tmp/$package"
+            "set -e; stage=/tmp/devfluency-${RELEASE_SHA}; mkdir -p \"\$stage\"; tar -xzf /tmp/$package -C \"\$stage\"; sudo bash \"\$stage/deploy/bootstrap-ubuntu.sh\"; tar -czf \"\$stage/release.tar.gz\" -C \"\$stage\" bin frontend migrations; sudo bash \"\$stage/deploy/deploy-release.sh\" '$RELEASE_SHA' \"\$stage/release.tar.gz\"; rm -rf \"\$stage\" /tmp/$package"
