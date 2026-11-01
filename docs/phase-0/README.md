@@ -15,8 +15,8 @@ Documentar el comportamiento y la arquitectura que existen antes de cambiar el d
 |---|---|---|
 | 0.1 Auditoría funcional | in_progress | Inventario de páginas, rutas HTTP, RPC y tablas levantado. Falta validar recorridos E2E y confirmar el estado operativo de cada flujo. |
 | 0.2 Auditoría de arquitectura | in_progress | Responsabilidades, dependencias, comunicación y systemd documentados. Falta medir comportamiento en entorno representativo y verificar límites efectivos. |
-| 0.3 Decisiones de arquitectura | in_progress | Seis ADR redactados. ADR-0003 refleja la decisión acordada; los demás siguen propuestos y requieren aprobación. |
-| 0.4 Línea base de calidad | blocked | CI documental pasa. Falta ejecutar el workflow_dispatch de CI completo, registrar cobertura y obtener métricas de carga/rendimiento. |
+| 0.3 Decisiones de arquitectura | done | Los seis ADR están aceptados a nivel de arquitectura. ADR-0006 deja explícito que el calendario de retención y el consentimiento concreto se deben cerrar antes de persistir conversaciones. |
+| 0.4 Línea base de calidad | in_progress | CI documental pasa. Se fuerza ahora la matriz completa en el mismo árbol de código mediante un cambio de comentario (sin alterar la lógica del workflow); cobertura y rendimiento continúan pendientes de medición. |
 
 ## Hallazgos que condicionan las siguientes fases
 
@@ -50,10 +50,10 @@ Documentar el comportamiento y la arquitectura que existen antes de cambiar el d
 | Criterio | Estado |
 |---|---|
 | Todos los flujos expuestos están inventariados | Parcial: inventario estático realizado; faltan recorridos E2E y validación de producción |
-| Endpoints/RPC críticos tienen propietario documentado | Parcial: propietario técnico asignado por módulo; faltan acuerdos para RPC huérfanos |
+| Endpoints/RPC críticos tienen propietario documentado | Completado a nivel técnico: todos los RPC quedan asignados a su microservicio; los RPC sin consumidor están identificados para decisión de retiro/uso |
 | Dependencias externas tienen timeout, error y configuración evidenciados | Parcial: TTS y transcripción tienen controles visibles; faltan deadlines gRPC/DB y evidencia operativa de todos los proveedores |
-| ADR aprobados | Parcial: ADR-0003 aceptado; cinco propuestas pendientes |
-| CI completo pasa en el commit de partida | Pendiente |
+| ADR aprobados | Completado: ADR-0001 a ADR-0006 aceptados con límites y decisiones diferidas explícitos |
+| CI completo pasa sobre el árbol de código de partida | En ejecución: se ha disparado la matriz completa; requiere resultado satisfactorio |
 | Cobertura y rendimiento iniciales registrados | Pendiente |
 
-**Gate de salida: NO APROBADO.** No iniciar migraciones académicas estructurales ni cambiar el modelo de persistencia hasta que se cierre la línea base, se aprueben los ADR y se confirme el alcance técnico.
+**Gate de salida: NO APROBADO por ahora.** Los ADR están aceptados y la matriz completa está en ejecución; siguen pendientes el resultado de CI, mediciones de cobertura/rendimiento y la validación operativa de los flujos/dependencias.
