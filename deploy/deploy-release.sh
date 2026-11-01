@@ -47,11 +47,16 @@ tar -xzf "$archive" -C "$stage"
 for binary in bff auth-identity-service content-vocabulary-service ai-evaluator-service phonetic-audio-service srs-engine-service gamification-progress-service; do
   test -x "$stage/bin/$binary"
 done
+test -x "$stage/bin/sqlx"
 test -f "$stage/frontend/server.js"
+test -d "$stage/migrations"
+migration_count="$(find "$stage/migrations" -maxdepth 1 -type f -name '*.sql' | wc -l)"
+[[ "$migration_count" -gt 0 ]] || { echo "No SQL migrations found in release package." >&2; exit 1; }
 chown -R root:devfluency "$stage"
 find "$stage" -type d -exec chmod 0750 {} +
 find "$stage/bin" -type f -exec chmod 0750 {} +
 find "$stage/frontend" -type f -exec chmod 0640 {} +
+find "$stage/migrations" -type f -exec chmod 0640 {} +
 chmod 0750 "$stage/frontend/server.js"
 
 if [[ -e "$release" ]]; then
@@ -62,6 +67,27 @@ else
   mv "$stage" "$release"
   stage=""
 fi
+
+# Run versioned SQLx migrations against the application's database before
+# switching the active release or restarting any service. The database name
+# guard prevents an accidental migration of the default "postgres" database.
+database_url="$(sed -n 's/^DATABASE_URL=//p' "$APP_CONFIG" | tail -n 1)"
+database_url="${database_url#\"}"
+database_url="${database_url%\"}"
+database_url="${database_url#\'}"
+database_url="${database_url%\'}"
+database_without_query="${database_url%%\?*}"
+database_name="${database_without_query##*/}"
+if [[ "$database_name" != "aprendizaje_ingles" ]]; then
+  echo "DATABASE_URL must target database aprendizaje_ingles; refusing to run migrations." >&2
+  exit 1
+fi
+echo "Applying $migration_count SQL migration files to aprendizaje_ingles."
+if ! DATABASE_URL="$database_url" "$release/bin/sqlx" migrate run --source "$release/migrations"; then
+  echo "Database migrations failed. The active application release was not changed and services were not restarted." >&2
+  exit 1
+fi
+echo "Database migrations completed successfully."
 
 restart_stack() {
   local service
