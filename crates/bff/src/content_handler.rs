@@ -1,6 +1,7 @@
 use axum::http::StatusCode;
 use axum::{extract::State, http::HeaderMap, Json};
 use proto::content::ListVocabularyWordsRequest;
+use proto::phonetic_audio::SynthesizeRequest;
 use serde::Serialize;
 
 use crate::srs_handler::{attach_bearer_metadata, validate_token_from_headers};
@@ -203,7 +204,7 @@ pub async fn today_lesson_handler(
     }
 }
 
-/// POST /api/v1/content/speech — TTS real via AWS Polly Neural
+/// POST /api/v1/content/speech — TTS delegado al microservicio de audio.
 pub async fn synthesize_speech_handler(
     State(mut state): State<AppState>,
     headers: HeaderMap,
@@ -227,10 +228,9 @@ pub async fn synthesize_speech_handler(
 
     let text = body
         .get("text")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default()
         .to_string();
-
     if text.trim().is_empty() || text.chars().count() > 500 {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -241,25 +241,28 @@ pub async fn synthesize_speech_handler(
         ));
     }
 
-    use aws_sdk_polly::{
-        config::Region,
-        types::{Engine, OutputFormat, TextType, VoiceId},
-        Client as PollyClient,
-    };
-    use std::env;
+    let voice = body
+        .get("voice")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("Matthew");
+    if !matches!(
+        voice,
+        "Lupe" | "Mia" | "Lucia" | "Enrique" | "Conchita" | "Matthew" | "Joanna" | "Ruth" | "Stephen"
+    ) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "message": "La voz solicitada no es válida.",
+                "code": "INVALID_SPEECH_VOICE"
+            })),
+        ));
+    }
 
-    let region = Region::new(env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string()));
-    let sdk_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
-        .region(region)
-        .load()
-        .await;
-
-    let polly_client = PollyClient::new(&sdk_config);
-
-    let req_voice = body.get("voice").and_then(|v| v.as_str()).unwrap_or("");
-
-    let req_rate = body.get("rate").and_then(|v| v.as_str()).unwrap_or("");
-    if !req_rate.is_empty() && !matches!(req_rate, "slow" | "medium" | "fast") {
+    let rate = body
+        .get("rate")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    if !rate.is_empty() && !matches!(rate, "x-slow" | "slow" | "medium" | "fast") {
         return Err((
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({
@@ -269,96 +272,78 @@ pub async fn synthesize_speech_handler(
         ));
     }
 
-    let default_voice = env::var("AWS_POLLY_VOICE_ID").unwrap_or_else(|_| "Matthew".to_string());
-    let voice_id_str = if !req_voice.is_empty() {
-        req_voice
-    } else {
-        default_voice.as_str()
-    };
-
-    let voice_id = match voice_id_str {
-        "Lupe" => VoiceId::Lupe,
-        "Mia" => VoiceId::Mia,
-        "Lucia" => VoiceId::Lucia,
-        "Enrique" => VoiceId::Enrique,
-        "Conchita" => VoiceId::Conchita,
-        "Matthew" => VoiceId::Matthew,
-        "Joanna" => VoiceId::Joanna,
-        "Ruth" => VoiceId::Ruth,
-        "Stephen" => VoiceId::Stephen,
-        _ => VoiceId::Matthew,
-    };
-
-    // Si viene un rate (slow/medium/fast), envolvemos el texto en SSML <prosody>
-    let (final_text, text_type) = if !req_rate.is_empty() {
-        let safe_text = text
-            .replace('&', "&amp;")
-            .replace('<', "&lt;")
-            .replace('>', "&gt;")
-            .replace('"', "&quot;");
-        let ssml = format!(
-            "<speak><prosody rate=\"{}\">{}</prosody></speak>",
-            req_rate, safe_text
-        );
-        (ssml, TextType::Ssml)
-    } else {
-        (text.clone(), TextType::Text)
-    };
-
-    tracing::info!(
-        "Solicitud de síntesis de voz recibida (voz={}, rate={})",
-        voice_id_str,
-        if req_rate.is_empty() {
-            "normal"
-        } else {
-            req_rate
-        }
-    );
-
-    match polly_client
-        .synthesize_speech()
-        .text(&final_text)
-        .text_type(text_type)
-        .voice_id(voice_id)
-        .engine(Engine::Neural)
-        .output_format(OutputFormat::Mp3)
-        .send()
-        .await
+    let mut request = tonic::Request::new(SynthesizeRequest {
+        text: text.clone(),
+        voice: voice.to_string(),
+        rate: rate.to_string(),
+    });
+    if let Some(correlation_id) = headers
+        .get("x-correlation-id")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| tonic::metadata::MetadataValue::try_from(value).ok())
     {
-        Ok(response) => match response.audio_stream.collect().await {
-            Ok(audio_data) => {
-                let bytes_vec = audio_data.into_bytes().to_vec();
-                let audio_b64 =
-                    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes_vec);
-                tracing::info!(
-                    "Polly TTS generó {} bytes MP3 para la voz {}",
-                    bytes_vec.len(),
-                    voice_id_str
-                );
-                Ok(Json(serde_json::json!({
-                    "audio_base64": audio_b64,
-                    "format": "mp3",
-                    "voice": voice_id_str,
-                    "text": text,
-                })))
-            }
-            Err(_error) => {
-                tracing::error!("Error interno recopilando el stream de audio de Polly");
-                Err((
-                    StatusCode::SERVICE_UNAVAILABLE,
-                    Json(
-                        serde_json::json!({ "message": "El servicio de síntesis de voz no está disponible.", "code": "TTS_UNAVAILABLE" }),
-                    ),
-                ))
-            }
-        },
-        Err(_error) => {
-            tracing::error!("Error interno solicitando síntesis de voz a Polly");
-            Err((
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(
-                    serde_json::json!({ "message": "El servicio de síntesis de voz no está disponible.", "code": "TTS_UNAVAILABLE" }),
+        request
+            .metadata_mut()
+            .insert("x-correlation-id", correlation_id);
+    }
+
+    match state.phonetic_audio_client.synthesize_audio(request).await {
+        Ok(response) => {
+            let audio = response.into_inner();
+            tracing::info!(
+                provider = %audio.provider,
+                model = %audio.model,
+                playback_rate = audio.playback_rate,
+                "BFF speech request completed"
+            );
+            Ok(Json(serde_json::json!({
+                "audio_base64": audio.audio_base64,
+                "format": audio.format,
+                "voice": audio.voice,
+                "text": audio.text,
+                "provider": audio.provider,
+                "model": audio.model,
+                "playback_rate": audio.playback_rate
+            })))
+        }
+        Err(error) => {
+            let (status, code, message) = match error.code() {
+                tonic::Code::InvalidArgument => (
+                    StatusCode::BAD_REQUEST,
+                    "INVALID_SPEECH_REQUEST",
+                    "La solicitud de síntesis de voz no es válida.",
                 ),
+                tonic::Code::ResourceExhausted => (
+                    StatusCode::TOO_MANY_REQUESTS,
+                    "TTS_PROVIDER_RATE_LIMITED",
+                    "El proveedor de voz alcanzó su límite temporal.",
+                ),
+                tonic::Code::DeadlineExceeded => (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "TTS_PROVIDER_TIMEOUT",
+                    "El proveedor de voz agotó el tiempo de espera.",
+                ),
+                tonic::Code::Unavailable => (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "TTS_PROVIDER_UNAVAILABLE",
+                    "El proveedor de síntesis de voz no está disponible.",
+                ),
+                _ => (
+                    StatusCode::BAD_GATEWAY,
+                    "TTS_UPSTREAM_ERROR",
+                    "No se pudo completar la síntesis de voz.",
+                ),
+            };
+            tracing::warn!(
+                grpc_code = ?error.code(),
+                "BFF could not complete the gRPC speech request"
+            );
+            Err((
+                status,
+                Json(serde_json::json!({
+                    "message": message,
+                    "code": code
+                })),
             ))
         }
     }

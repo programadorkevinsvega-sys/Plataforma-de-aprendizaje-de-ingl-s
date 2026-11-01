@@ -1,5 +1,6 @@
 mod aws_audio;
 mod transliteration;
+mod tts;
 
 use aws_audio::AwsAudioEngine;
 use proto::phonetic_audio::phonetic_audio_service_server::{
@@ -10,12 +11,15 @@ use proto::phonetic_audio::{
     TranscribeResponse,
 };
 use std::sync::Arc;
+use std::time::Instant;
 use tonic::{transport::Server, Request, Response, Status};
 use transliteration::PhoneticEngine;
+use tts::TtsEngine;
 
 #[derive(Clone)]
 pub struct PhoneticAudioServiceImpl {
     aws_audio: Arc<AwsAudioEngine>,
+    tts: Arc<TtsEngine>,
     engine: Arc<PhoneticEngine>,
 }
 
@@ -38,10 +42,51 @@ impl PhoneticAudioService for PhoneticAudioServiceImpl {
         &self,
         request: Request<SynthesizeRequest>,
     ) -> Result<Response<SynthesizeResponse>, Status> {
-        let text = request.into_inner().text;
-        match self.aws_audio.synthesize_speech_polly(&text).await {
-            Ok(b64) => Ok(Response::new(SynthesizeResponse { audio_base64: b64 })),
-            Err(e) => Err(Status::internal(format!("Error sintetizando audio: {}", e))),
+        let correlation_id = request
+            .metadata()
+            .get("x-correlation-id")
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or("none")
+            .to_string();
+        let request = request.into_inner();
+        let started = Instant::now();
+        let provider = self.tts.provider_name();
+
+        match self
+            .tts
+            .synthesize(&request.text, &request.voice, &request.rate)
+            .await
+        {
+            Ok(audio) => {
+                tracing::info!(
+                    provider,
+                    model = %audio.model,
+                    duration_ms = started.elapsed().as_millis() as u64,
+                    audio_bytes = audio.audio_bytes,
+                    playback_rate = audio.playback_rate,
+                    correlation_id = %correlation_id,
+                    "TTS synthesis completed"
+                );
+                Ok(Response::new(SynthesizeResponse {
+                    audio_base64: audio.audio_base64,
+                    format: "mp3".to_string(),
+                    voice: audio.voice,
+                    text: request.text,
+                    provider: provider.to_string(),
+                    model: audio.model,
+                    playback_rate: audio.playback_rate,
+                }))
+            }
+            Err(status) => {
+                tracing::warn!(
+                    provider,
+                    grpc_code = ?status.code(),
+                    duration_ms = started.elapsed().as_millis() as u64,
+                    correlation_id = %correlation_id,
+                    "TTS synthesis failed"
+                );
+                Err(status)
+            }
         }
     }
 
@@ -55,10 +100,10 @@ impl PhoneticAudioService for PhoneticAudioServiceImpl {
                 transcribed_text,
                 language_code: self.aws_audio.transcribe_language_code.clone(),
             })),
-            Err(e) => Err(Status::internal(format!(
-                "Error transcribiendo audio: {}",
-                e
-            ))),
+            Err(error) => {
+                tracing::error!(error_type = %std::any::type_name_of_val(&*error), "AWS Transcribe request failed");
+                Err(Status::unavailable("AWS Transcribe no está disponible"))
+            }
         }
     }
 }
@@ -68,27 +113,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok();
     tracing_subscriber::fmt::init();
 
+    let tts = Arc::new(TtsEngine::from_env().await?);
     let aws_audio = Arc::new(AwsAudioEngine::new());
     let engine = Arc::new(PhoneticEngine::new());
 
+    tracing::info!(
+        provider = tts.provider_name(),
+        "TTS provider configured; no remote synthesis is executed during startup"
+    );
     tracing::info!("🔊 [AUDIO] Inicializando Phonetic Audio Engine & gRPC Server...");
-
-    let aws_audio_clone = aws_audio.clone();
-    tokio::spawn(async move {
-        if let Ok(audio_b64) = aws_audio_clone
-            .synthesize_speech_polly("Initialization check")
-            .await
-        {
-            tracing::info!(
-                "✅ [AUDIO] Test TTS Polly: {} bytes generados",
-                audio_b64.len()
-            );
-        }
-    });
 
     let configured_addr = std::env::var("PHONETIC_SERVICE_BIND_ADDR").ok();
     let addr = common::parse_bind_addr(configured_addr.as_deref(), "127.0.0.1:50054")?;
-    let service = PhoneticAudioServiceImpl { aws_audio, engine };
+    let service = PhoneticAudioServiceImpl {
+        aws_audio,
+        tts,
+        engine,
+    };
 
     tracing::info!("🎙️ [AUDIO] gRPC Server escuchando en {}", addr);
 

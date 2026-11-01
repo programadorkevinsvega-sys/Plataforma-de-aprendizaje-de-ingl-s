@@ -736,7 +736,6 @@ version = "0.1.0"
 dependencies = [
  "async-stream",
  "aws-config",
- "aws-sdk-polly",
  "aws-sdk-transcribestreaming",
  "axum",
  "base64 0.22.1",
@@ -2172,6 +2171,8 @@ dependencies = [
  "tonic",
  "tracing",
  "tracing-subscriber",
+ "reqwest",
+ "serde_json",
 ]
 
 [[package]]
