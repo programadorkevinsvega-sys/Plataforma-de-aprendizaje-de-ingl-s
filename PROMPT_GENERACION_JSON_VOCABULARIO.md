@@ -81,6 +81,8 @@ EJEMPLO COMPLETO DE REFERENCIA
   ]
 }
 
+Si no puedes completar los 20 objetos, genera los que puedas y cierra el array con ] para que el JSON sea válido.
+
 AUTOVERIFICACIÓN (hazla internamente antes de responder, sin mostrarla)
 1. ¿Hay 20 objetos y 3 oraciones en cada uno?
 2. ¿Cada "is" del inglés aparece como "iz" en la lenta?
@@ -89,4 +91,6 @@ AUTOVERIFICACIÓN (hazla internamente antes de responder, sin mostrarla)
 5. ¿Alguna natural difiere de la lenta SIN que aplique una regla N? Si sí, corrígela.
 6. ¿El JSON es válido (comillas, comas, corchetes) y no hay texto fuera de él?
 
-Empieza directamente con [
+Responde únicamente con el JSON. El primer carácter de tu respuesta es [ y el último es ].
+
+
