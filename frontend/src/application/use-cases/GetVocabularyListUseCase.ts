@@ -3,6 +3,7 @@ import type {
   IContentRepository,
   Lesson,
   VocabularyQuery,
+  SynthesizedSpeech,
 } from '@/domain/repositories/IContentRepository'
 
 export class GetVocabularyListUseCase {
@@ -28,10 +29,8 @@ export class GetTodayLessonUseCase {
 export class SynthesizeSpeechUseCase {
   constructor(private readonly contentRepository: IContentRepository) {}
 
-  /** Voz neural (AWS Polly: 'Matthew' para inglés, 'Lupe' para fonética en español).
-   * @param rate  Velocidad SSML: 'x-slow' | 'slow' | 'medium' | 'fast'. Omitir = normal.
-   */
-  execute(text: string, voice?: string, rate?: string): Promise<string> {
+  /** Uses the provider-neutral speech contract; playback speed is provider-aware. */
+  execute(text: string, voice?: string, rate?: string): Promise<SynthesizedSpeech> {
     return this.contentRepository.synthesizeSpeech(text, voice, rate)
   }
 }

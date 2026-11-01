@@ -81,16 +81,17 @@ export default function InterviewPage() {
   }, [])
 
   // ──────────────────────────────────────────────
-  // 🔊 TTS: Reproducir la pregunta con AWS Polly
+  // 🔊 TTS: Reproducir la pregunta con el proveedor configurado
   // ──────────────────────────────────────────────
   const handlePlayQuestion = async () => {
     if (isPlayingQuestion) return
     setIsPlayingQuestion(true)
     try {
       const container = getContainer()
-      const audioDataUrl = await container.useCases.synthesizeSpeech.execute(question)
-      if (audioDataUrl && audioDataUrl.startsWith('data:')) {
-        const audio = new Audio(audioDataUrl)
+      const speech = await container.useCases.synthesizeSpeech.execute(question)
+      if (speech.audioUrl && speech.audioUrl.startsWith('data:')) {
+        const audio = new Audio(speech.audioUrl)
+        audio.playbackRate = speech.playbackRate
         audio.onended = () => setIsPlayingQuestion(false)
         audio.onerror = () => setIsPlayingQuestion(false)
         await audio.play()
@@ -336,7 +337,7 @@ export default function InterviewPage() {
             </div>
             <div>
               <h1 className="text-2xl font-black text-white">Simulador Reclutador IA (6 Métricas)</h1>
-              <p className="text-xs text-slate-400">AWS Bedrock (Claude 3.5 Sonnet) + AWS Transcribe + AWS Polly Neural</p>
+              <p className="text-xs text-slate-400">AWS Bedrock (Claude 3.5 Sonnet) + AWS Transcribe + TTS configurable</p>
             </div>
           </div>
 
@@ -361,7 +362,7 @@ export default function InterviewPage() {
               ) : (
                 <>
                   <span>🔊</span>
-                  <span>Escuchar pregunta (AWS Polly Matthew)</span>
+                  <span>Escuchar pregunta</span>
                 </>
               )}
             </button>

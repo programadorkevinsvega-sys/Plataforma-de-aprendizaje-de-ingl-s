@@ -505,6 +505,7 @@ fn is_mp3(bytes: &[u8]) -> bool {
         || (bytes.len() >= 2 && bytes[0] == 0xFF && (bytes[1] & 0xE0) == 0xE0)
 }
 
+#[cfg(test)]
 fn validate_model_and_speaker(model_en: &str, model_es: &str, speaker_en: &str, speaker_es: &str) -> bool {
     model_en == MODEL_EN
         && model_es == MODEL_ES

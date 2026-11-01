@@ -67,9 +67,10 @@ export default function LearnPage() {
     setIsPlayingAudio(true)
     try {
       const container = getContainer()
-      const audioDataUrl = await container.useCases.synthesizeSpeech.execute(textToPlay, voice, rate)
-      if (audioDataUrl && audioDataUrl.startsWith('data:')) {
-        const audio = new Audio(audioDataUrl)
+      const speech = await container.useCases.synthesizeSpeech.execute(textToPlay, voice, rate)
+      if (speech.audioUrl && speech.audioUrl.startsWith('data:')) {
+        const audio = new Audio(speech.audioUrl)
+        audio.playbackRate = speech.playbackRate
         audio.onended = () => setIsPlayingAudio(false)
         audio.onerror = () => setIsPlayingAudio(false)
         await audio.play()

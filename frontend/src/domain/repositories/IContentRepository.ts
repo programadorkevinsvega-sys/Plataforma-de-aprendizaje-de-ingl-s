@@ -16,13 +16,16 @@ export interface Lesson {
   words: VocabularyWord[]
 }
 
+export interface SynthesizedSpeech {
+  audioUrl: string
+  playbackRate: number
+  provider: 'aws' | 'cloudflare'
+}
+
 export interface IContentRepository {
   getVocabularyList(query?: VocabularyQuery): Promise<VocabularyWord[]>
   getTodayLesson(): Promise<Lesson>
-  /** Devuelve la URL de audio neural (AWS Polly) para un texto dado.
-   * @param voice  'Matthew' o 'Joanna' para inglés, 'Lupe' para fonética en español.
-   * @param rate   Velocidad SSML: 'x-slow' | 'slow' | 'medium' | 'fast'. Omitir = normal.
-   */
-  synthesizeSpeech(text: string, voice?: string, rate?: string): Promise<string>
+  /** Synthesizes speech using the provider selected by backend configuration. */
+  synthesizeSpeech(text: string, voice?: string, rate?: string): Promise<SynthesizedSpeech>
   markWordCompleted(wordId: string): Promise<void>
 }
