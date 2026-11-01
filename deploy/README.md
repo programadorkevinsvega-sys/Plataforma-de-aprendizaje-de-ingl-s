@@ -80,6 +80,7 @@ Para AWS Polly (predeterminado):
 TTS_PROVIDER=aws
 AWS_REGION=us-east-1
 AWS_POLLY_VOICE_ID=Matthew
+AWS_POLLY_TIMEOUT_SECONDS=30
 ```
 
 La VM debe tener un IAM Instance Profile con permisos `polly:SynthesizeSpeech` para las voces

@@ -47,7 +47,6 @@ fn parse_provider(value: Option<&str>) -> Result<ProviderKind, String> {
 
 #[derive(Debug)]
 enum TtsError {
-    InvalidInput(&'static str),
     RateLimited,
     ProviderAuthentication,
     Timeout,
@@ -58,7 +57,6 @@ enum TtsError {
 impl TtsError {
     fn category(&self) -> &'static str {
         match self {
-            Self::InvalidInput(_) => "invalid_input",
             Self::RateLimited => "rate_limited",
             Self::ProviderAuthentication => "provider_authentication",
             Self::Timeout => "timeout",
@@ -69,14 +67,13 @@ impl TtsError {
 
     fn into_status(self) -> Status {
         match self {
-            Self::InvalidInput(message) => Status::invalid_argument(message),
             Self::RateLimited => Status::resource_exhausted("TTS_PROVIDER_RATE_LIMITED"),
             Self::Timeout => Status::deadline_exceeded("TTS_PROVIDER_TIMEOUT"),
             Self::ProviderAuthentication => {
                 Status::unavailable("TTS_PROVIDER_AUTHENTICATION_FAILED")
             }
-            Self::InvalidResponse => Status::unavailable("TTS_PROVIDER_INVALID_RESPONSE"),
-            Self::Upstream => Status::unavailable("TTS_PROVIDER_UNAVAILABLE"),
+            Self::InvalidResponse => Status::data_loss("TTS_PROVIDER_INVALID_RESPONSE"),
+            Self::Upstream => Status::unknown("TTS_UPSTREAM_FAILURE"),
         }
     }
 }
@@ -91,6 +88,7 @@ struct ProviderAudio {
 trait TtsProvider: Send + Sync {
     fn name(&self) -> &'static str;
     fn default_voice(&self) -> &str;
+    fn model_for_voice(&self, logical_voice: &str) -> &str;
     async fn synthesize(
         &self,
         text: &str,
@@ -129,6 +127,11 @@ impl TtsEngine {
                     .into());
                 }
 
+                let timeout_seconds = parse_timeout_seconds(
+                    "AWS_POLLY_TIMEOUT_SECONDS",
+                    env::var("AWS_POLLY_TIMEOUT_SECONDS").ok(),
+                )
+                .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidInput, message))?;
                 let sdk_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
                     .region(Region::new(region))
                     .load()
@@ -138,70 +141,29 @@ impl TtsEngine {
                     provider: Arc::new(AwsPollyProvider {
                         client,
                         default_voice,
+                        timeout_seconds,
                     }),
                 })
             }
             ProviderKind::Cloudflare => {
-                let account_id = required_env("CLOUDFLARE_ACCOUNT_ID")?;
-                if account_id.len() != 32 || !account_id.chars().all(|c| c.is_ascii_hexdigit()) {
-                    return Err(
-                        "CLOUDFLARE_ACCOUNT_ID debe ser un identificador Cloudflare hexadecimal de 32 caracteres"
-                            .into(),
-                    );
-                }
-                let api_token = required_env("CLOUDFLARE_API_TOKEN")?;
-                let model_en = env::var("CLOUDFLARE_TTS_MODEL_EN")
-                    .unwrap_or_else(|_| MODEL_EN.to_string());
-                let model_es = env::var("CLOUDFLARE_TTS_MODEL_ES")
-                    .unwrap_or_else(|_| MODEL_ES.to_string());
-                if model_en != MODEL_EN || model_es != MODEL_ES {
-                    return Err(format!(
-                        "Los modelos Cloudflare TTS admitidos son '{}' y '{}'",
-                        MODEL_EN, MODEL_ES
-                    )
-                    .into());
-                }
-                let speaker_en = env::var("CLOUDFLARE_TTS_SPEAKER_EN")
-                    .unwrap_or_else(|_| "luna".to_string());
-                let speaker_es = env::var("CLOUDFLARE_TTS_SPEAKER_ES")
-                    .unwrap_or_else(|_| "aquila".to_string());
-                if !ENGLISH_SPEAKERS.contains(&speaker_en.as_str()) {
-                    return Err(format!(
-                        "CLOUDFLARE_TTS_SPEAKER_EN no es válido para Aura-2 English: '{}'",
-                        speaker_en
-                    )
-                    .into());
-                }
-                if !SPANISH_SPEAKERS.contains(&speaker_es.as_str()) {
-                    return Err(format!(
-                        "CLOUDFLARE_TTS_SPEAKER_ES no es válido para Aura-2 Spanish: '{}'",
-                        speaker_es
-                    )
-                    .into());
-                }
-                let timeout_seconds = env::var("CLOUDFLARE_TTS_TIMEOUT_SECONDS")
-                    .unwrap_or_else(|_| "30".to_string())
-                    .parse::<u64>()?;
-                if !(1..=120).contains(&timeout_seconds) {
-                    return Err(
-                        "CLOUDFLARE_TTS_TIMEOUT_SECONDS debe estar entre 1 y 120".into(),
-                    );
-                }
+                let config = CloudflareConfig::from_env()
+                    .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidInput, message))?;
                 let client = reqwest::Client::builder()
-                    .timeout(Duration::from_secs(timeout_seconds))
+                    .timeout(Duration::from_secs(config.timeout_seconds))
                     .build()?;
 
                 Ok(Self {
                     provider: Arc::new(CloudflareWorkersAiProvider {
                         client,
-                        account_id,
-                        api_token,
-                        model_en,
-                        model_es,
-                        speaker_en,
-                        speaker_es,
+                        account_id: config.account_id,
+                        api_token: config.api_token,
+                        model_en: config.model_en,
+                        model_es: config.model_es,
+                        speaker_en: config.speaker_en,
+                        speaker_es: config.speaker_es,
                     }),
                 })
+            }
             }
         }
     }
@@ -234,6 +196,7 @@ impl TtsEngine {
         }
 
         let provider = self.provider.name();
+        let model = self.provider.model_for_voice(selected_voice);
         let started = std::time::Instant::now();
         let generated = self
             .provider
@@ -242,6 +205,7 @@ impl TtsEngine {
             .map_err(|error| {
                 tracing::error!(
                     provider,
+                    model,
                     error_type = error.category(),
                     duration_ms = started.elapsed().as_millis() as u64,
                     "TTS provider request failed"
@@ -260,12 +224,99 @@ impl TtsEngine {
     }
 }
 
-fn required_env(name: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let value = env::var(name).map_err(|_| format!("Falta la variable obligatoria {}", name))?;
-    if value.trim().is_empty() {
-        return Err(format!("La variable obligatoria {} está vacía", name).into());
+struct CloudflareConfig {
+    account_id: String,
+    api_token: String,
+    model_en: String,
+    model_es: String,
+    speaker_en: String,
+    speaker_es: String,
+    timeout_seconds: u64,
+}
+
+impl CloudflareConfig {
+    fn from_env() -> Result<Self, String> {
+        Self::parse(
+            env::var("CLOUDFLARE_ACCOUNT_ID").ok(),
+            env::var("CLOUDFLARE_API_TOKEN").ok(),
+            env::var("CLOUDFLARE_TTS_MODEL_EN").ok(),
+            env::var("CLOUDFLARE_TTS_MODEL_ES").ok(),
+            env::var("CLOUDFLARE_TTS_SPEAKER_EN").ok(),
+            env::var("CLOUDFLARE_TTS_SPEAKER_ES").ok(),
+            env::var("CLOUDFLARE_TTS_TIMEOUT_SECONDS").ok(),
+        )
     }
-    Ok(value)
+
+    fn parse(
+        account_id: Option<String>,
+        api_token: Option<String>,
+        model_en: Option<String>,
+        model_es: Option<String>,
+        speaker_en: Option<String>,
+        speaker_es: Option<String>,
+        timeout_seconds: Option<String>,
+    ) -> Result<Self, String> {
+        let account_id = required_config_value("CLOUDFLARE_ACCOUNT_ID", account_id)?;
+        if account_id.len() != 32 || !account_id.chars().all(|c| c.is_ascii_hexdigit()) {
+            return Err(
+                "CLOUDFLARE_ACCOUNT_ID debe ser un identificador hexadecimal de 32 caracteres"
+                    .to_string(),
+            );
+        }
+        let api_token = required_config_value("CLOUDFLARE_API_TOKEN", api_token)?;
+        let model_en = model_en.unwrap_or_else(|| MODEL_EN.to_string());
+        let model_es = model_es.unwrap_or_else(|| MODEL_ES.to_string());
+        if model_en != MODEL_EN || model_es != MODEL_ES {
+            return Err(format!(
+                "Los modelos Cloudflare TTS admitidos son '{}' y '{}'",
+                MODEL_EN, MODEL_ES
+            ));
+        }
+
+        let speaker_en = speaker_en.unwrap_or_else(|| "luna".to_string());
+        let speaker_es = speaker_es.unwrap_or_else(|| "aquila".to_string());
+        if !ENGLISH_SPEAKERS.contains(&speaker_en.as_str()) {
+            return Err(format!(
+                "CLOUDFLARE_TTS_SPEAKER_EN no es válido para Aura-2 English: '{}'",
+                speaker_en
+            ));
+        }
+        if !SPANISH_SPEAKERS.contains(&speaker_es.as_str()) {
+            return Err(format!(
+                "CLOUDFLARE_TTS_SPEAKER_ES no es válido para Aura-2 Spanish: '{}'",
+                speaker_es
+            ));
+        }
+
+        let timeout_seconds =
+            parse_timeout_seconds("CLOUDFLARE_TTS_TIMEOUT_SECONDS", timeout_seconds)?;
+        Ok(Self {
+            account_id,
+            api_token,
+            model_en,
+            model_es,
+            speaker_en,
+            speaker_es,
+            timeout_seconds,
+        })
+    }
+}
+
+fn required_config_value(name: &str, value: Option<String>) -> Result<String, String> {
+    let value = value.ok_or_else(|| format!("Falta la variable obligatoria {}", name))?;
+    if value.trim().is_empty() {
+        return Err(format!("La variable obligatoria {} está vacía", name));
+    }
+    Ok(value.trim().to_string())
+}
+
+fn parse_timeout_seconds(name: &str, value: Option<String>) -> Result<u64, String> {
+    let seconds = value.unwrap_or_else(|| "30".to_string()).parse::<u64>()
+        .map_err(|_| format!("{} debe ser un número entero", name))?;
+    if !(1..=120).contains(&seconds) {
+        return Err(format!("{} debe estar entre 1 y 120", name));
+    }
+    Ok(seconds)
 }
 
 fn is_logical_voice_valid(voice: &str) -> bool {
@@ -314,6 +365,7 @@ fn escape_ssml_text(text: &str) -> String {
 struct AwsPollyProvider {
     client: PollyClient,
     default_voice: String,
+    timeout_seconds: u64,
 }
 
 #[tonic::async_trait]
@@ -324,6 +376,10 @@ impl TtsProvider for AwsPollyProvider {
 
     fn default_voice(&self) -> &str {
         &self.default_voice
+    }
+
+    fn model_for_voice(&self, _logical_voice: &str) -> &str {
+        "aws-polly-neural"
     }
 
     async fn synthesize(
@@ -345,25 +401,31 @@ impl TtsProvider for AwsPollyProvider {
             )
         };
 
-        let response = self
-            .client
-            .synthesize_speech()
-            .text(input_text)
-            .text_type(text_type)
-            .voice_id(polly_voice(logical_voice))
-            .engine(Engine::Neural)
-            .output_format(OutputFormat::Mp3)
-            .send()
-            .await
-            .map_err(|_| TtsError::Upstream)?;
+        let bytes = tokio::time::timeout(
+            Duration::from_secs(self.timeout_seconds),
+            async {
+                let response = self
+                    .client
+                    .synthesize_speech()
+                    .text(input_text)
+                    .text_type(text_type)
+                    .voice_id(polly_voice(logical_voice))
+                    .engine(Engine::Neural)
+                    .output_format(OutputFormat::Mp3)
+                    .send()
+                    .await
+                    .map_err(|_| TtsError::Upstream)?;
 
-        let bytes = response
-            .audio_stream
-            .collect()
-            .await
-            .map_err(|_| TtsError::Upstream)?
-            .into_bytes()
-            .to_vec();
+                let audio = response
+                    .audio_stream
+                    .collect()
+                    .await
+                    .map_err(|_| TtsError::Upstream)?;
+                Ok::<Vec<u8>, TtsError>(audio.into_bytes().to_vec())
+            },
+        )
+        .await
+        .map_err(|_| TtsError::Timeout)??;
 
         if bytes.is_empty() {
             return Err(TtsError::InvalidResponse);
@@ -371,7 +433,7 @@ impl TtsProvider for AwsPollyProvider {
 
         Ok(ProviderAudio {
             bytes,
-            model: "aws-polly-neural".to_string(),
+            model: self.model_for_voice(logical_voice).to_string(),
             playback_rate: 1.0,
         })
     }
@@ -395,6 +457,14 @@ impl TtsProvider for CloudflareWorkersAiProvider {
 
     fn default_voice(&self) -> &str {
         "Matthew"
+    }
+
+    fn model_for_voice(&self, logical_voice: &str) -> &str {
+        if is_spanish_voice(logical_voice) {
+            &self.model_es
+        } else {
+            &self.model_en
+        }
     }
 
     async fn synthesize(
@@ -505,8 +575,12 @@ fn is_mp3(bytes: &[u8]) -> bool {
         || (bytes.len() >= 2 && bytes[0] == 0xFF && (bytes[1] & 0xE0) == 0xE0)
 }
 
-#[cfg(test)]
-fn validate_model_and_speaker(model_en: &str, model_es: &str, speaker_en: &str, speaker_es: &str) -> bool {
+fn validate_model_and_speaker(
+    model_en: &str,
+    model_es: &str,
+    speaker_en: &str,
+    speaker_es: &str,
+) -> bool {
     model_en == MODEL_EN
         && model_es == MODEL_ES
         && ENGLISH_SPEAKERS.contains(&speaker_en)
@@ -517,8 +591,9 @@ fn validate_model_and_speaker(model_en: &str, model_es: &str, speaker_en: &str, 
 mod tests {
     use super::{
         decode_cloudflare_audio, is_logical_voice_valid, is_mp3, is_rate_valid, is_spanish_voice,
-        parse_provider, playback_rate, validate_model_and_speaker, ProviderKind, BASE64_STANDARD,
-        MODEL_EN, MODEL_ES,
+        parse_provider, parse_timeout_seconds, playback_rate, required_config_value,
+        validate_model_and_speaker, CloudflareConfig, ProviderKind, BASE64_STANDARD, MODEL_EN,
+        MODEL_ES,
     };
 
     #[test]
@@ -568,6 +643,73 @@ mod tests {
         assert!(!validate_model_and_speaker(
             MODEL_EN, MODEL_ES, "aquila", "luna"
         ));
+    }
+
+    #[test]
+    fn rejects_missing_cloudflare_account_or_token() {
+        let missing_account = CloudflareConfig::parse(
+            None,
+            Some("token".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        assert!(missing_account.unwrap_err().contains("CLOUDFLARE_ACCOUNT_ID"));
+
+        let missing_token = CloudflareConfig::parse(
+            Some("0123456789abcdef0123456789abcdef".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        );
+        assert!(missing_token.unwrap_err().contains("CLOUDFLARE_API_TOKEN"));
+        assert!(required_config_value("TOKEN", Some("   ".to_string())).is_err());
+    }
+
+    #[test]
+    fn rejects_invalid_cloudflare_model_speaker_and_timeout_configuration() {
+        let account = Some("0123456789abcdef0123456789abcdef".to_string());
+        let token = Some("token".to_string());
+        let invalid_model = CloudflareConfig::parse(
+            account.clone(),
+            token.clone(),
+            Some("@cf/other/model".to_string()),
+            None,
+            None,
+            None,
+            None,
+        );
+        assert!(invalid_model.is_err());
+
+        let invalid_english_speaker = CloudflareConfig::parse(
+            account.clone(),
+            token.clone(),
+            None,
+            None,
+            Some("aquila".to_string()),
+            None,
+            None,
+        );
+        assert!(invalid_english_speaker.is_err());
+
+        let invalid_spanish_speaker = CloudflareConfig::parse(
+            account,
+            token,
+            None,
+            None,
+            None,
+            Some("luna".to_string()),
+            None,
+        );
+        assert!(invalid_spanish_speaker.is_err());
+        assert!(parse_timeout_seconds("timeout", Some("0".to_string())).is_err());
+        assert!(parse_timeout_seconds("timeout", Some("slow".to_string())).is_err());
+        assert_eq!(parse_timeout_seconds("timeout", None).unwrap(), 30);
     }
 
     #[test]

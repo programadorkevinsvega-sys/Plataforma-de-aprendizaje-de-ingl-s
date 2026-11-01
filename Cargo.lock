@@ -744,16 +744,15 @@ dependencies = [
  "futures",
  "jsonwebtoken",
  "proto",
- "serde",
  "serde_json",
+ "serde",
  "tokio",
  "tonic",
  "tower-http 0.5.2",
- "tracing",
  "tracing-subscriber",
+ "tracing",
  "uuid",
 ]
-
 [[package]]
 name = "bitflags"
 version = "2.13.2"
@@ -2166,15 +2165,14 @@ dependencies = [
  "dotenvy",
  "futures",
  "proto",
+ "reqwest",
+ "serde_json",
  "serde",
  "tokio",
  "tonic",
- "tracing",
  "tracing-subscriber",
- "reqwest",
- "serde_json",
+ "tracing",
 ]
-
 [[package]]
 name = "pin-project"
 version = "1.1.13"

@@ -241,10 +241,18 @@ pub async fn synthesize_speech_handler(
         ));
     }
 
-    let voice = body
-        .get("voice")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("Matthew");
+    let voice = match body.get("voice") {
+        None => "Matthew",
+        Some(value) => value.as_str().ok_or_else(|| {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "message": "La voz solicitada debe ser una cadena válida.",
+                    "code": "INVALID_SPEECH_VOICE"
+                })),
+            )
+        })?,
+    };
     if !matches!(
         voice,
         "Lupe" | "Mia" | "Lucia" | "Enrique" | "Conchita" | "Matthew" | "Joanna" | "Ruth" | "Stephen"
@@ -258,10 +266,18 @@ pub async fn synthesize_speech_handler(
         ));
     }
 
-    let rate = body
-        .get("rate")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or_default();
+    let rate = match body.get("rate") {
+        None => "",
+        Some(value) => value.as_str().ok_or_else(|| {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "message": "La velocidad de voz debe ser una cadena válida.",
+                    "code": "INVALID_SPEECH_RATE"
+                })),
+            )
+        })?,
+    };
     if !rate.is_empty() && !matches!(rate, "x-slow" | "slow" | "medium" | "fast") {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -327,6 +343,11 @@ pub async fn synthesize_speech_handler(
                     StatusCode::SERVICE_UNAVAILABLE,
                     "TTS_PROVIDER_UNAVAILABLE",
                     "El proveedor de síntesis de voz no está disponible.",
+                ),
+                tonic::Code::Unknown | tonic::Code::DataLoss | tonic::Code::Internal => (
+                    StatusCode::BAD_GATEWAY,
+                    "TTS_UPSTREAM_ERROR",
+                    "No se pudo completar la síntesis de voz.",
                 ),
                 _ => (
                     StatusCode::BAD_GATEWAY,
