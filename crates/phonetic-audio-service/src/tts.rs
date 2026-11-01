@@ -220,6 +220,8 @@ impl TtsEngine {
         self.provider.name()
     }
 
+    // tonic::Status is intentionally returned to preserve the gRPC status contract.
+    #[allow(clippy::result_large_err)]
     pub async fn synthesize(
         &self,
         text: &str,
