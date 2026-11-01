@@ -1,65 +1,92 @@
-# Prompt de Producción para Generación de Vocabulario JSON (Reglas Fonéticas Estrictas)
+Actúa como profesor nativo de inglés y lingüista experto en fonética y habla conectada (connected speech) para hispanohablantes.
 
-Copia el texto a continuación y envíalo a cualquier modelo de IA (Claude, ChatGPT, Gemini, etc.) para generar fácilmente nuevos archivos JSON con fonética 100% consistente y **Habla Conectada (Connected Speech)**.
+TAREA
+Genera un array JSON con exactamente 20 objetos (una palabra por objeto). Tu respuesta es SOLO el JSON: sin bloques markdown, sin texto antes ni después, empezando en [ y terminando en ].
 
----
+PARÁMETROS (no los cambies ni los infieras)
+- Nivel CEFR: B1
+- Categorías: software_engineering, daily_routine
+- Distribución: 10 palabras por categoría
+- Palabras que NO debes repetir: (ninguna)
 
-```text
-Actúa como un profesor de inglés nativo y experto lingüista especializado en la enseñanza de fonética y habla conectada (Connected Speech) para hispanohablantes. 
-
-Tu tarea es generar un array en formato JSON puro (sin markdown, sin explicaciones, sólo el JSON válido) que contenga una lista de 20 palabras de vocabulario.
-
-Debes seguir **estrictamente** este esquema JSON para cada objeto:
-
-```json
+ESQUEMA (todas las claves obligatorias, sin claves extra)
 {
-  "category": "string (la categoría de la palabra, ej: family, software_engineering, devops, daily_routine)",
-  "level": "string (el nivel CEFR: A1, A2, B1, B2, C1, C2)",
-  "word": "string (la palabra en inglés en minúsculas)",
-  "spanish_phonetic": "string (pronunciación lenta palabra por palabra)",
-  "spanish_phonetic_natural": "string (pronunciación natural en habla conectada / connected speech)",
-  "spanish_translation": "string (la traducción o traducciones más comunes al español)",
+  "category": "",
+  "level": "",
+  "word": "",
+  "spanish_phonetic": "",
+  "spanish_phonetic_natural": "",
+  "spanish_translation": "",
   "context_sentences": [
-    {
-      "english_text": "string (oración de ejemplo realista usando la palabra)",
-      "spanish_phonetic": "string (pronunciación lenta palabra por palabra)",
-      "spanish_phonetic_natural": "string (pronunciación natural en habla conectada / connected speech)",
-      "spanish_translation": "string (traducción de la oración al español)"
-    }
-    // Debe haber exactamente 3 oraciones de contexto por palabra
+    { "english_text": "", "spanish_phonetic": "", "spanish_phonetic_natural": "", "spanish_translation": "" }
   ]
 }
-```
+- context_sentences: exactamente 3 oraciones por palabra.
+- Cada una de las 3 oraciones debe tener 5 a 10 palabras.
+- Al menos 1 de las 3 oraciones debe incluir "is", "lives", "works", "at the" o "go to" para practicar las reglas.
 
-### Tabla de Reglas Fonéticas Estrictas:
+FORMATO DE FONÉTICA
+- Solo letras del alfabeto español, minúsculas, con tilde en la sílaba tónica. Prohibido AFI/IPA.
+- spanish_phonetic = pronunciación lenta, palabra por palabra, separadas por espacio.
+- spanish_phonetic_natural = habla conectada aplicando SOLO las reglas de abajo.
 
-1. **Consistencia de la S Sonora (/z/):**
-   - `is` → SIEMPRE `iz` (nunca `is`). Ej: `he is` → `jí iz`.
-   - `his` → SIEMPRE `jiz`. Ej: `his father` → `jiz fáder`.
-   - `lives` → SIEMPRE `livz` (nunca `livs`).
-   - `loves` → SIEMPRE `lavz` (nunca `lavs`).
-   - `s` después de sonido sonoro → `z`. Ej: `runs` → `ranz`, `plays` → `pléiz`.
+REGLAS DE LA VERSIÓN LENTA
+L1. "is" -> "iz" siempre. "his" -> "jiz". "lives" -> "livz". "loves" -> "lavz".
+L2. "s" final tras sonido sonoro -> "z" (runs -> ranz, plays -> pléiz). Tras sonido sordo -> "s".
+L3. "the" + vocal -> "di". "the" + consonante -> "da".
+L4. "-ed" sordo -> "t" o "d" (damaged -> dámashd).
+L5. "to" se escribe "tu" en lenta.
 
-2. **Reglas para el Artículo "the":**
-   - `the + vocal` → `di`. Ej: `the airport` → `di érport`.
-   - `the + consonante` → `da`. Ej: `the car` → `da kar`.
+REGLAS DE LA VERSIÓN NATURAL (lista CERRADA)
+N1. [sustantivo] + "is" -> sustantivo + "z" (si termina en sonido sonoro o vocal) o "s" (si termina en sordo).
+    car is -> karz | hotel is -> jotélz | server is -> sérverz | cat is -> kats
+N2. [sustantivo] + "is a" -> sustantivo + "z a": mother is a -> máderz a
+N3. "lives in" -> "livzin"
+N4. "works at a" -> "uérks ata"
+N5. "teach him" -> "tíchin im" (la h cae en pronombres him/her/his/he cuando van tras verbo)
+N6. "go to" -> "góu ta"
+N7. "at the" / "at a" -> "ata"
 
-3. **Habla Conectada y Contracciones Nativas (spanish_phonetic_natural):**
-   - `mother is a` → `máderz a` (ej. `Her mother is a doctor` → `Jer máderz a dóktor`).
-   - `car is` → `karz` (ej. `The car is damaged` → `Da karz dámashd`).
-   - `hotel is` → `jotélz` (ej. `The hotel is near` → `Da jotélz nír`).
-   - `lives in` → `livzin`.
-   - `works at a` → `uérks ata`.
-   - `teach him` → `tíchin im` (la `h` cae en habla rápida).
-   - `go to` → `góu ta`.
-   - `at the` → `ata`.
+REGLA DE ORO
+Si en una frase no aplica ninguna regla N1-N7, spanish_phonetic_natural debe ser IDÉNTICA a spanish_phonetic. Está prohibido inventar cualquier otra contracción o enlace.
+Si aplica una regla N, es OBLIGATORIO aplicarla. No la omitas.
 
-4. **Simplicidad Ortográfica:**
-   - Terminado en `-ed` sordo → `d` o `t`. Ej: `damaged` → `dámashd` (nunca `dámashdt`).
-   - NO uses símbolos AFI/IPA. Usa letras del alfabeto español con tildes explícitas en la sílaba tónica.
+EJEMPLO COMPLETO DE REFERENCIA
+{
+  "category": "software_engineering",
+  "level": "B1",
+  "word": "server",
+  "spanish_phonetic": "sérver",
+  "spanish_phonetic_natural": "sérver",
+  "spanish_translation": "servidor",
+  "context_sentences": [
+    {
+      "english_text": "The server is down.",
+      "spanish_phonetic": "da sérver iz daun",
+      "spanish_phonetic_natural": "da sérverz daun",
+      "spanish_translation": "El servidor está caído."
+    },
+    {
+      "english_text": "My brother works at a startup.",
+      "spanish_phonetic": "mai bráder uérks at a stártap",
+      "spanish_phonetic_natural": "mai bráder uérks ata stártap",
+      "spanish_translation": "Mi hermano trabaja en una startup."
+    },
+    {
+      "english_text": "We need a new server.",
+      "spanish_phonetic": "ui nid a niu sérver",
+      "spanish_phonetic_natural": "ui nid a niu sérver",
+      "spanish_translation": "Necesitamos un servidor nuevo."
+    }
+  ]
+}
 
-### Temas y Nivel Solicitados:
-Nivel CEFR objetivo: **A1**
+AUTOVERIFICACIÓN (hazla internamente antes de responder, sin mostrarla)
+1. ¿Hay 20 objetos y 3 oraciones en cada uno?
+2. ¿Cada "is" del inglés aparece como "iz" en la lenta?
+3. ¿Cada "the" es "di" o "da" según la letra siguiente?
+4. ¿Cada patrón N1-N7 presente en el inglés fue aplicado en la natural?
+5. ¿Alguna natural difiere de la lenta SIN que aplique una regla N? Si sí, corrígela.
+6. ¿El JSON es válido (comillas, comas, corchetes) y no hay texto fuera de él?
 
-Genera un único bloque JSON válido de 20 objetos respetando estrictamente todas las reglas.
-```
+Empieza directamente con [
