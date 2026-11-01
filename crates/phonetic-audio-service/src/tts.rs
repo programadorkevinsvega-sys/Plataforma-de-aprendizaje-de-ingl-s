@@ -307,9 +307,13 @@ impl CloudflareConfig {
         timeout_seconds: Option<String>,
     ) -> Result<Self, String> {
         let account_id = required_config_value("CLOUDFLARE_ACCOUNT_ID", account_id)?;
-        if account_id.len() != 32 || !account_id.chars().all(|c| c.is_ascii_hexdigit()) {
+        // Cloudflare documents account_id as an opaque 32-character identifier.
+        // Do not impose a hexadecimal-only constraint that is stricter than its API schema.
+        if account_id.chars().count() != 32
+            || account_id.chars().any(|character| character.is_whitespace() || character.is_control())
+        {
             return Err(
-                "CLOUDFLARE_ACCOUNT_ID debe ser un identificador hexadecimal de 32 caracteres"
+                "CLOUDFLARE_ACCOUNT_ID debe ser un identificador de 32 caracteres sin espacios"
                     .to_string(),
             );
         }
@@ -605,12 +609,27 @@ fn cloudflare_model_and_speaker<'a>(
 }
 
 fn cloudflare_model_url(api_base_url: &str, account_id: &str, model: &str) -> String {
+    // Account IDs are path segments. Encode reserved characters so the configured value
+    // cannot add path components or query/fragment data to the Cloudflare endpoint.
+    let account_id_segment = encode_url_path_segment(account_id);
     format!(
         "{}/client/v4/accounts/{}/ai/run/{}",
         api_base_url.trim_end_matches('/'),
-        account_id,
+        account_id_segment,
         model
     )
+}
+
+fn encode_url_path_segment(value: &str) -> String {
+    let mut encoded = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~') {
+            encoded.push(byte as char);
+        } else {
+            encoded.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    encoded
 }
 
 fn cloudflare_request_body(text: &str, speaker: &str) -> Value {
@@ -793,6 +812,40 @@ mod tests {
     }
 
     #[test]
+    fn accepts_a_32_character_cloudflare_account_id_without_hexadecimal_only_assumptions() {
+        let account_id = "z".repeat(32);
+        let config = CloudflareConfig::parse(
+            Some(account_id.clone()),
+            Some("token".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(config.account_id, account_id);
+    }
+
+    #[test]
+    fn rejects_cloudflare_account_ids_with_invalid_length_or_whitespace() {
+        let token = Some("token".to_string());
+        for account_id in ["too-short".to_string(), format!("{} ", "a".repeat(31))] {
+            assert!(CloudflareConfig::parse(
+                Some(account_id),
+                token.clone(),
+                None,
+                None,
+                None,
+                None,
+                None,
+            )
+            .is_err());
+        }
+    }
+
+    #[test]
     fn rejects_invalid_cloudflare_model_speaker_and_timeout_configuration() {
         let account = Some("0123456789abcdef0123456789abcdef".to_string());
         let token = Some("token".to_string());
@@ -857,6 +910,13 @@ mod tests {
         assert_eq!(body["text"], "Hello");
         assert_eq!(body["speaker"], "luna");
         assert_eq!(body["encoding"], "mp3");
+    }
+
+    #[test]
+    fn encodes_cloudflare_account_id_as_a_single_url_path_segment() {
+        let account_id = format!("{}{}", "a".repeat(31), "/");
+        let url = cloudflare_model_url("https://api.cloudflare.com", &account_id, MODEL_EN);
+        assert!(url.contains(&format!("/accounts/{}%2F/ai/run/", "a".repeat(31))));
     }
 
     #[test]
