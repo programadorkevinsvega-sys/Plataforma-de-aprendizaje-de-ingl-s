@@ -8,6 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -15,9 +16,59 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  detect-deployable-changes:
+    name: Detect deployable changes
+    if: ${{ (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') }}
+    runs-on: ubuntu-24.04
+    outputs:
+      deploy_required: ${{ steps.classify.outputs.deploy_required }}
+    steps:
+      - name: Download change classification from the completed CI run
+        if: ${{ github.event_name == 'workflow_run' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ci-change-metadata
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Read deployment decision
+        id: classify
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            deploy_required=true
+            echo "Manual production deployment requested."
+          else
+            if [[ ! -s ci-change-metadata.txt ]]; then
+              echo "::error::The completed CI run did not provide change metadata; refusing to guess deployment scope."
+              exit 1
+            fi
+
+            metadata_head="$(sed -n 's/^head_sha=//p' ci-change-metadata.txt)"
+            if [[ "$metadata_head" != "$RELEASE_SHA" ]]; then
+              echo "::error::CI metadata does not match the commit requested for deployment."
+              exit 1
+            fi
+
+            deploy_required="$(sed -n 's/^run_deploy=//p' ci-change-metadata.txt)"
+            if [[ "$deploy_required" != "true" && "$deploy_required" != "false" ]]; then
+              echo "::error::Invalid deploy_required value in CI metadata."
+              exit 1
+            fi
+          fi
+
+          echo "deploy_required=$deploy_required" >> "$GITHUB_OUTPUT"
+          echo "Production deployment required: $deploy_required"
+
   build:
-    environment: production
-    if: ${{ (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
+    name: Build production release
+    needs: detect-deployable-changes
+    if: ${{ needs.detect-deployable-changes.outputs.deploy_required == 'true' }}
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout exact commit validated by CI
@@ -107,7 +158,9 @@ jobs:
           retention-days: 7
 
   deploy:
+    name: Activate production release
     needs: build
+    if: ${{ needs.build.result == 'success' }}
     runs-on: ubuntu-24.04
     environment: production
     steps:
@@ -151,4 +204,4 @@ jobs:
           package="devfluency-${RELEASE_SHA}.tar.gz"
           scp -o BatchMode=yes devfluency-deploy-package.tar.gz "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/$package"
           ssh -o BatchMode=yes "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "set -e; stage=/tmp/devfluency-${RELEASE_SHA}; mkdir -p \"\$stage\"; tar -xzf /tmp/$package -C \"\$stage\"; sudo bash \"\$stage/deploy/bootstrap-ubuntu.sh\"; tar -czf \"\$stage/release.tar.gz\" -C \"\$stage\" bin frontend migrations; sudo bash \"\$stage/deploy/deploy-release.sh\" '$RELEASE_SHA' \"\$stage/release.tar.gz\"; rm -rf \"\$stage\" /tmp/$package"
+            "set -e; stage=/tmp/devfluency-${RELEASE_SHA}; mkdir -p \"\$stage\"; tar -xzf /tmp/$package -C \"\$stage\"; sudo bash \"\$stage/deploy/bootstrap-ubuntu.sh\"; tar -czf \"\$stage/release.tar.gz\" -C \"\$stage\" bin frontend migrations; sudo bash \"\$stage/deploy/deploy-release.sh\" '${RELEASE_SHA}' \"\$stage/release.tar.gz\"; rm -rf \"\$stage\" /tmp/$package"

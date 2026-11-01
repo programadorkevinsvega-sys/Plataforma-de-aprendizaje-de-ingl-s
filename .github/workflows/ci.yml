@@ -1,11 +1,14 @@
 name: CI
 
 on:
-  # Stacked security PRs use another feature branch as their base; run the same
-  # checks for every pull request, not only PRs whose base is main.
+  # Every PR is classified against its actual base, including stacked PRs.
   pull_request:
   push:
     branches: [main]
+  # Catch newly disclosed dependency advisories without making docs changes
+  # wait for compilation and integration tests.
+  schedule:
+    - cron: '17 4 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -16,8 +19,187 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Classify changed files
+    runs-on: ubuntu-latest
+    outputs:
+      run_rust: ${{ steps.classify.outputs.run_rust }}
+      run_frontend: ${{ steps.classify.outputs.run_frontend }}
+      run_rust_audit: ${{ steps.classify.outputs.run_rust_audit }}
+      run_frontend_audit: ${{ steps.classify.outputs.run_frontend_audit }}
+      run_shell: ${{ steps.classify.outputs.run_shell }}
+      run_docs: ${{ steps.classify.outputs.run_docs }}
+      run_deploy: ${{ steps.classify.outputs.run_deploy }}
+      base_sha: ${{ steps.classify.outputs.base_sha }}
+      head_sha: ${{ steps.classify.outputs.head_sha }}
+    steps:
+      - name: Checkout full history for reliable diffs
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+
+      - name: Classify affected areas
+        id: classify
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          run_rust=false
+          run_frontend=false
+          run_rust_audit=false
+          run_frontend_audit=false
+          run_shell=false
+          run_docs=false
+          run_deploy=false
+
+          set_full_ci() {
+            run_rust=true
+            run_frontend=true
+            run_rust_audit=true
+            run_frontend_audit=true
+            run_shell=true
+          }
+
+          base_sha=""
+          head_sha="$CURRENT_SHA"
+
+          case "$EVENT_NAME" in
+            workflow_dispatch)
+              # Manual CI means intentional full validation, never an
+              # implicit production deployment.
+              set_full_ci
+              ;;
+            schedule)
+              # Scheduled run is intentionally limited to both dependency audits.
+              run_rust_audit=true
+              run_frontend_audit=true
+              ;;
+            pull_request)
+              base_sha="$PR_BASE_SHA"
+              head_sha="$PR_HEAD_SHA"
+              ;;
+            push)
+              base_sha="$PUSH_BEFORE_SHA"
+              ;;
+            *)
+              echo "::error::Unsupported CI event: $EVENT_NAME"
+              exit 1
+              ;;
+          esac
+
+          if [[ "$EVENT_NAME" == "pull_request" || "$EVENT_NAME" == "push" ]]; then
+            if [[ -z "$base_sha" || "$base_sha" =~ ^0+$ ]]; then
+              echo "No usable base SHA; enabling all CI checks for safety."
+              set_full_ci
+              run_docs=true
+              run_deploy=true
+            else
+              changed_files="$(mktemp)"
+              git diff --name-only -z "$base_sha" "$head_sha" > "$changed_files"
+
+              while IFS= read -r -d '' file; do
+                # Markdown is checked separately and does not trigger builds,
+                # even when it is stored beside source code.
+                case "$file" in
+                  *.md|*.mdx)
+                    run_docs=true
+                    continue
+                    ;;
+                esac
+
+                case "$file" in
+                  .github/workflows/*)
+                    # Changes to CI/deployment definitions get the full suite.
+                    set_full_ci
+                    ;;
+                esac
+
+                case "$file" in
+                  Cargo.toml|Cargo.lock|build.rs|rust-toolchain*|.cargo/config*|crates/*|proto/*|migrations/*)
+                    run_rust=true
+                    run_deploy=true
+                    ;;
+                esac
+
+                case "$file" in
+                  Cargo.toml|Cargo.lock|crates/*/Cargo.toml|.cargo/audit.toml)
+                    run_rust_audit=true
+                    ;;
+                esac
+
+                case "$file" in
+                  frontend/*)
+                    run_frontend=true
+                    run_deploy=true
+                    ;;
+                esac
+
+                case "$file" in
+                  frontend/package.json|frontend/package-lock.json)
+                    run_frontend_audit=true
+                    ;;
+                esac
+
+                case "$file" in
+                  deploy/*)
+                    run_shell=true
+                    run_deploy=true
+                    ;;
+                  scripts/*|*.sh)
+                    run_shell=true
+                    ;;
+                esac
+              done < "$changed_files"
+
+              rm -f "$changed_files"
+            fi
+          fi
+
+          {
+            echo "run_rust=$run_rust"
+            echo "run_frontend=$run_frontend"
+            echo "run_rust_audit=$run_rust_audit"
+            echo "run_frontend_audit=$run_frontend_audit"
+            echo "run_shell=$run_shell"
+            echo "run_docs=$run_docs"
+            echo "run_deploy=$run_deploy"
+            echo "base_sha=$base_sha"
+            echo "head_sha=$head_sha"
+          } >> "$GITHUB_OUTPUT"
+
+          # The downstream workflow_run deployment gate consumes this exact
+          # classification, including the original push range (multi-commit pushes).
+          cat > ci-change-metadata.txt <<EOF
+          run_deploy=$run_deploy
+          base_sha=$base_sha
+          head_sha=$head_sha
+          EOF
+
+          echo "Rust checks: $run_rust"
+          echo "Frontend checks: $run_frontend"
+          echo "Rust dependency audit: $run_rust_audit"
+          echo "Frontend dependency audit: $run_frontend_audit"
+          echo "Shell/deploy checks: $run_shell"
+          echo "Markdown checks: $run_docs"
+          echo "Production deployment required: $run_deploy"
+
+      - name: Upload change classification for the deployment gate
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-change-metadata
+          path: ci-change-metadata.txt
+          if-no-files-found: error
+          retention-days: 1
+
   rust:
     name: Rust format, lint, build, and tests
+    needs: changes
+    if: ${{ needs.changes.outputs.run_rust == 'true' }}
     runs-on: ubuntu-latest
     env:
       TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/devfluency_test
@@ -66,6 +248,8 @@ jobs:
 
   frontend:
     name: Frontend lint and production build
+    needs: changes
+    if: ${{ needs.changes.outputs.run_frontend == 'true' }}
     runs-on: ubuntu-latest
     env:
       NEXT_PUBLIC_BFF_URL: https://app-ingles.jnmtortas.com
@@ -76,7 +260,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Set up Node.js
-        if: always()
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 24
@@ -89,18 +272,14 @@ jobs:
       - name: Build production bundle
         run: npm run build
 
-  dependency-audit:
-    name: Dependency vulnerability audit
+  rust-dependency-audit:
+    name: Rust dependency vulnerability audit
+    needs: changes
+    if: ${{ needs.changes.outputs.run_rust_audit == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Validate deployment shell scripts and health-check tests
-        run: |
-          set -euo pipefail
-          bash -n deploy/bootstrap-ubuntu.sh deploy/deploy-release.sh
-          bash -n deploy/lib/health-checks.sh deploy/tests/test-health-checks.sh
-          bash deploy/tests/test-health-checks.sh
       - name: Install stable Rust
         run: rustup toolchain install stable --profile minimal
       - name: Install cargo-audit
@@ -120,6 +299,15 @@ jobs:
           git diff --exit-code -- Cargo.lock
           cargo audit
           git diff --exit-code -- Cargo.lock
+
+  frontend-dependency-audit:
+    name: Frontend dependency vulnerability audit
+    needs: changes
+    if: ${{ needs.changes.outputs.run_frontend_audit == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
@@ -127,6 +315,97 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Audit frontend dependencies
-        if: always()
         working-directory: frontend
         run: npm ci && npm audit --audit-level=high
+
+  shell-validation:
+    name: Deployment scripts and shell validation
+    needs: changes
+    if: ${{ needs.changes.outputs.run_shell == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Validate shell scripts and deployment health checks
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' script; do
+            echo "Checking $script"
+            bash -n "$script"
+          done < <(
+            find deploy scripts -type f -name '*.sh' -print0
+            find . -maxdepth 1 -type f -name '*.sh' -print0
+          )
+          bash deploy/tests/test-health-checks.sh
+
+  markdown:
+    name: Markdown lint
+    needs: changes
+    if: ${{ needs.changes.outputs.run_docs == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+      - name: Lint only changed Markdown files
+        env:
+          BASE_SHA: ${{ needs.changes.outputs.base_sha }}
+          HEAD_SHA: ${{ needs.changes.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$BASE_SHA" || -z "$HEAD_SHA" ]]; then
+            echo "::error::Could not determine the Markdown diff range."
+            exit 1
+          fi
+
+          mapfile -d '' -t markdown_files < <(
+            git diff --name-only -z "$BASE_SHA" "$HEAD_SHA" -- '*.md' '*.mdx'
+          )
+
+          if [[ "${#markdown_files[@]}" -eq 0 ]]; then
+            echo "No Markdown files changed."
+            exit 0
+          fi
+
+          git diff --check "$BASE_SHA" "$HEAD_SHA" -- "${markdown_files[@]}"
+          npx --yes markdownlint-cli2@0.24.0 --config .github/markdownlint-cli2.jsonc "${markdown_files[@]}"
+
+  ci-result:
+    name: CI result
+    if: always()
+    needs:
+      - changes
+      - rust
+      - frontend
+      - rust-dependency-audit
+      - frontend-dependency-audit
+      - shell-validation
+      - markdown
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any selected validation failed
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          RUST_RESULT: ${{ needs.rust.result }}
+          FRONTEND_RESULT: ${{ needs.frontend.result }}
+          RUST_AUDIT_RESULT: ${{ needs.rust-dependency-audit.result }}
+          FRONTEND_AUDIT_RESULT: ${{ needs.frontend-dependency-audit.result }}
+          SHELL_RESULT: ${{ needs.shell-validation.result }}
+          MARKDOWN_RESULT: ${{ needs.markdown.result }}
+        run: |
+          set -euo pipefail
+          for result in "$CHANGES_RESULT" "$RUST_RESULT" "$FRONTEND_RESULT" "$RUST_AUDIT_RESULT" "$FRONTEND_AUDIT_RESULT" "$SHELL_RESULT" "$MARKDOWN_RESULT"; do
+            case "$result" in
+              success|skipped) ;;
+              *)
+                echo "::error::A required CI stage finished with status: $result"
+                exit 1
+                ;;
+            esac
+          done
+          echo "All validations selected for this change completed successfully."
