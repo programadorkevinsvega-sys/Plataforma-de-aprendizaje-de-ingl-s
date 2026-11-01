@@ -1,15 +1,15 @@
 # ADR-0002 — Dominio del aprendizaje y progreso
 
-- Estado: **Proposed**
+- Estado: **Accepted**
 - Fecha: 2026-11-01
 - Fase: 0.3
-- Decisores: pendiente de aprobación.
+- Decisores: decisión aceptada por el propietario del producto durante la revisión de Fase 0.
 
 ## Contexto
 
 El estado actual mezcla catálogo de vocabulario, lección del día derivada, progreso de gamificación y SRS. XP/racha/número de palabras no representan el nivel académico por competencia. No hay tablas o contratos para inscripción a cursos, avance de lección, intentos de actividad ni dominio académico.
 
-## Decisión propuesta
+## Decisión aceptada
 
 Separar cuatro conceptos que hoy aparecen parcialmente mezclados:
 
@@ -31,7 +31,7 @@ Conceptos de dominio a evaluar en el modelo:
 
 No se crea necesariamente una tabla por cada término. Se diseñará esquema normalizado a partir de límites, cardinalidad, invariantes y consultas.
 
-## Invariantes propuestos
+## Invariantes aceptados
 
 - Un intento referencia una versión concreta de actividad/contenido.
 - Un resultado académico incluye evidencia, rúbrica/versión y fecha de evaluación.
@@ -39,7 +39,7 @@ No se crea necesariamente una tabla por cada término. Se diseñará esquema nor
 - Un usuario no puede leer ni modificar el progreso de otro.
 - Recompensas y dominio académico se calculan y consultan por separado.
 - Cambiar contenido publicado no reescribe intentos históricos.
-- Recomendaciones guardan una razón auditable, no solo un orden de actividades.
+- Recomendaciones guardan una razón auditable, no solo un orden.
 
 ## Alternativas consideradas
 
@@ -53,6 +53,7 @@ No se crea necesariamente una tabla por cada término. Se diseñará esquema nor
 - Las migraciones deberán considerar RLS por usuario y tests de acceso cruzado.
 - El recomendador definitivo depende de datos fiables de dominio, por lo que no debe adelantarse a la evaluación.
 - Los datos actuales de SRS y gamificación deben migrarse/compatibilizarse, no perderse.
+- Esta aprobación fija los límites conceptuales del dominio; no autoriza todavía crear tablas, contratos o microservicios sin diseño detallado y compatibilidad.
 
 ## Referencias
 
