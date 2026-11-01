@@ -674,7 +674,6 @@ fn validate_model_and_speaker(
 
 #[cfg(test)]
 mod tests {
-    use base64::Engine as _;
     use super::{
         classify_cloudflare_status, cloudflare_model_and_speaker, cloudflare_model_url,
         cloudflare_request_body, decode_cloudflare_audio, is_logical_voice_valid, is_mp3,
@@ -683,6 +682,7 @@ mod tests {
         CloudflareWorkersAiProvider, ProviderKind, TtsProvider, BASE64_STANDARD, MODEL_EN,
         MODEL_ES,
     };
+    use base64::Engine as _;
     use std::time::Duration;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
