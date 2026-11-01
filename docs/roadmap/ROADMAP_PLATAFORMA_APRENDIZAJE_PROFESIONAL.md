@@ -1,8 +1,8 @@
 # Roadmap maestro: convertir DevFluency en una plataforma profesional de aprendizaje de inglés
 
-> Estado: especificación funcional y técnica para implementación  
-> Repositorio: Plataforma-de-aprendizaje-de-ingl-s  
-> Arquitectura actual: frontend Next.js, BFF Axum, microservicios Rust/gRPC, PostgreSQL, Redis y componentes de mensajería  
+> Estado: especificación funcional y técnica para implementación
+> Repositorio: Plataforma-de-aprendizaje-de-ingl-s
+> Arquitectura actual: frontend Next.js, BFF Axum, microservicios Rust/gRPC, PostgreSQL, Redis y componentes de mensajería
 > Estrategia: implementación incremental por fases, sin sustituir lo que ya funciona y sin aumentar microservicios innecesariamente.
 
 ---
