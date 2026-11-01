@@ -597,6 +597,46 @@ fn classify_cloudflare_status(status: u16) -> TtsError {
     }
 }
 
+fn cloudflare_model_and_speaker<'a>(
+    logical_voice: &str,
+    model_en: &'a str,
+    model_es: &'a str,
+    speaker_en: &'a str,
+    speaker_es: &'a str,
+) -> (&'a str, &'a str) {
+    if is_spanish_voice(logical_voice) {
+        (model_es, speaker_es)
+    } else {
+        (model_en, speaker_en)
+    }
+}
+
+fn cloudflare_model_url(api_base_url: &str, account_id: &str, model: &str) -> String {
+    format!(
+        "{}/client/v4/accounts/{}/ai/run/{}",
+        api_base_url.trim_end_matches('/'),
+        account_id,
+        model
+    )
+}
+
+fn cloudflare_request_body(text: &str, speaker: &str) -> Value {
+    json!({
+        "text": text,
+        "speaker": speaker,
+        "encoding": "mp3"
+    })
+}
+
+fn classify_cloudflare_status(status: u16) -> TtsError {
+    match status {
+        401 | 403 => TtsError::ProviderAuthentication,
+        408 | 504 => TtsError::Timeout,
+        429 => TtsError::RateLimited,
+        _ => TtsError::Upstream,
+    }
+}
+
 fn decode_cloudflare_audio(content_type: &str, response: &[u8]) -> Result<Vec<u8>, TtsError> {
     let first_non_whitespace = response
         .iter()
@@ -630,6 +670,7 @@ fn is_mp3(bytes: &[u8]) -> bool {
         || (bytes.len() >= 2 && bytes[0] == 0xFF && (bytes[1] & 0xE0) == 0xE0)
 }
 
+#[cfg(test)]
 #[cfg(test)]
 fn validate_model_and_speaker(
     model_en: &str,
@@ -855,6 +896,181 @@ mod tests {
             mp3
         );
         assert!(is_mp3(&decoded));
+    }
+
+
+    #[test]
+    fn routes_logical_voices_to_the_right_model_and_speaker() {
+        let (model, speaker) =
+            cloudflare_model_and_speaker("Joanna", MODEL_EN, MODEL_ES, "luna", "aquila");
+        assert_eq!(model, MODEL_EN);
+        assert_eq!(speaker, "luna");
+
+        let (model, speaker) =
+            cloudflare_model_and_speaker("Lupe", MODEL_EN, MODEL_ES, "luna", "aquila");
+        assert_eq!(model, MODEL_ES);
+        assert_eq!(speaker, "aquila");
+    }
+
+    #[test]
+    fn builds_cloudflare_rest_url_and_mp3_request_body() {
+        let url = cloudflare_model_url(
+            "https://api.cloudflare.com/",
+            "0123456789abcdef0123456789abcdef",
+            MODEL_EN,
+        );
+        assert_eq!(
+            url,
+            format!(
+                "https://api.cloudflare.com/client/v4/accounts/0123456789abcdef0123456789abcdef/ai/run/{}",
+                MODEL_EN
+            )
+        );
+        let body = cloudflare_request_body("Hello", "luna");
+        assert_eq!(body["text"], "Hello");
+        assert_eq!(body["speaker"], "luna");
+        assert_eq!(body["encoding"], "mp3");
+    }
+
+    #[test]
+    fn classifies_cloudflare_http_failures() {
+        assert_eq!(
+            classify_cloudflare_status(401).category(),
+            "provider_authentication"
+        );
+        assert_eq!(classify_cloudflare_status(429).category(), "rate_limited");
+        assert_eq!(classify_cloudflare_status(500).category(), "upstream");
+        assert_eq!(classify_cloudflare_status(504).category(), "timeout");
+    }
+
+    async fn spawn_mock_response(
+        status: u16,
+        response_body: Vec<u8>,
+        delay: std::time::Duration,
+    ) -> (String, tokio::task::JoinHandle<String>) {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let task = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
+            let mut chunk = [0u8; 2048];
+            loop {
+                let count = socket.read(&mut chunk).await.unwrap();
+                if count == 0 {
+                    break;
+                }
+                request.extend_from_slice(&chunk[..count]);
+                let Some(header_end) = request.windows(4).position(|part| part == b"\\r\\n\\r\\n") else {
+                    continue;
+                };
+                let headers = String::from_utf8_lossy(&request[..header_end]);
+                let content_length = headers
+                    .lines()
+                    .find_map(|line| {
+                        let (name, value) = line.split_once(':')?;
+                        name.eq_ignore_ascii_case("content-length")
+                            .then(|| value.trim().parse::<usize>().ok())
+                            .flatten()
+                    })
+                    .unwrap_or(0);
+                if request.len() >= header_end + 4 + content_length {
+                    break;
+                }
+            }
+
+            tokio::time::sleep(delay).await;
+            let reason = match status {
+                200 => "OK",
+                401 => "Unauthorized",
+                429 => "Too Many Requests",
+                500 => "Internal Server Error",
+                _ => "Mock Response",
+            };
+            let response = format!(
+                "HTTP/1.1 {} {}\\r\\nContent-Type: application/json\\r\\nContent-Length: {}\\r\\nConnection: close\\r\\n\\r\\n",
+                status,
+                reason,
+                response_body.len()
+            );
+            let _ = socket.write_all(response.as_bytes()).await;
+            let _ = socket.write_all(&response_body).await;
+            String::from_utf8_lossy(&request).to_string()
+        });
+        (format!("http://{}", address), task)
+    }
+
+    fn mock_cloudflare_provider(
+        base_url: String,
+        timeout: std::time::Duration,
+    ) -> CloudflareWorkersAiProvider {
+        CloudflareWorkersAiProvider {
+            client: reqwest::Client::builder().timeout(timeout).build().unwrap(),
+            api_base_url: base_url,
+            account_id: "0123456789abcdef0123456789abcdef".to_string(),
+            api_token: "mock-token".to_string(),
+            model_en: MODEL_EN.to_string(),
+            model_es: MODEL_ES.to_string(),
+            speaker_en: "luna".to_string(),
+            speaker_es: "aquila".to_string(),
+        }
+    }
+
+    #[tokio::test]
+    async fn cloudflare_provider_sends_auth_and_returns_mocked_spanish_mp3() {
+        let audio_b64 = BASE64_STANDARD.encode(b"ID3mock-mp3");
+        let body = format!(
+            r#"{{"success":true,"result":{{"audio":"{}"}}}}"#,
+            audio_b64
+        );
+        let (base_url, server) =
+            spawn_mock_response(200, body.into_bytes(), std::time::Duration::ZERO).await;
+        let provider = mock_cloudflare_provider(base_url, std::time::Duration::from_secs(2));
+        let audio = TtsProvider::synthesize(&provider, "Hola", "Lupe", "x-slow")
+            .await
+            .unwrap();
+        let request = server.await.unwrap();
+
+        assert!(request.to_ascii_lowercase().contains("authorization: bearer mock-token"));
+        assert!(request.contains("/ai/run/@cf/deepgram/aura-2-es"));
+        assert!(request.contains(r#""speaker":"aquila""#));
+        assert!(request.contains(r#""encoding":"mp3""#));
+        assert_eq!(audio.bytes.as_slice(), b"ID3mock-mp3");
+        assert_eq!(audio.model, MODEL_ES);
+        assert_eq!(audio.playback_rate, 0.65);
+    }
+
+    #[tokio::test]
+    async fn cloudflare_provider_maps_authentication_rate_limit_and_timeout() {
+        for (status, expected) in [(401, "provider_authentication"), (429, "rate_limited")] {
+            let (base_url, server) = spawn_mock_response(
+                status,
+                b"{}".to_vec(),
+                std::time::Duration::ZERO,
+            )
+            .await;
+            let provider = mock_cloudflare_provider(base_url, std::time::Duration::from_secs(2));
+            let error = TtsProvider::synthesize(&provider, "Hello", "Joanna", "")
+                .await
+                .err()
+                .unwrap();
+            let _request = server.await.unwrap();
+            assert_eq!(error.category(), expected);
+        }
+
+        let (base_url, server) = spawn_mock_response(
+            200,
+            b"{\\"result\\":{\\"audio\\":\\"SUQ=\\"}}".to_vec(),
+            std::time::Duration::from_millis(100),
+        )
+        .await;
+        let provider = mock_cloudflare_provider(base_url, std::time::Duration::from_millis(10));
+        let error = TtsProvider::synthesize(&provider, "Hello", "Joanna", "")
+            .await
+            .err()
+            .unwrap();
+        let _request = server.await.unwrap();
+        assert_eq!(error.category(), "timeout");
     }
 
     #[test]
