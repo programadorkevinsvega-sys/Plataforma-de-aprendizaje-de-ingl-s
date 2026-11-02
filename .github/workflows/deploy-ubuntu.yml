@@ -177,6 +177,7 @@ jobs:
             install -m 0755 "target/release/$binary" "dist/bin/$binary"
           done
           install -m 0755 "$(command -v sqlx)" dist/bin/sqlx
+          install -m 0755 target/release/tts-smoke-test dist/bin/tts-smoke-test
           cp -a frontend/.next/standalone/. dist/frontend/
           mkdir -p dist/frontend/.next
           cp -a frontend/.next/static dist/frontend/.next/static
@@ -250,7 +251,7 @@ jobs:
           eval "$(ssh-agent -s)"
           printf '%s\n' "$DEPLOY_SSH_KEY" | tr -d '\r' | ssh-add -
           package="devfluency-${RELEASE_SHA}.tar.gz"
-          checksum="devfluency-${RELEASE_SHA}.tar.gz.sha256"
+          checksum="devfluency-deploy-package.tar.gz.sha256"
           scp -o BatchMode=yes devfluency-deploy-package.tar.gz devfluency-deploy-package.tar.gz.sha256 \
             "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/"
           ssh -o BatchMode=yes "${DEPLOY_USER}@${DEPLOY_HOST}" \
