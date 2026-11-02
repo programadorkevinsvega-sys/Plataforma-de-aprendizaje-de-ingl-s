@@ -8,7 +8,7 @@ El workflow `.github/workflows/deploy-ubuntu.yml` construye y despliega **única
 - Releases versionadas por SHA: `/opt/apps/plataforma-aprendizaje/releases/<sha>`.
 - Enlace activo: `/opt/apps/plataforma-aprendizaje/current`.
 - Configuración exclusiva: `/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env`.
-- Usuario de proceso: `devfluency`.
+- Usuarios de proceso: `devfluency` para los servicios generales y `devfluency-audio` (grupo `devfluency`) para el microservicio de audio/TTS.
 - Unidades systemd: `devfluency@*.service`, `devfluency.target` y `devfluency-frontend.service`.
 
 El script remoto solo administra esas rutas y unidades. No instala, reinicia ni modifica PostgreSQL, Redis, NATS ni otras aplicaciones alojadas en la VM. Las conexiones de datos se configuran mediante endpoints privados en el archivo de entorno de esta aplicación.
@@ -97,9 +97,11 @@ CLOUDFLARE_API_TOKEN=valor_del_token
 El bootstrap migra automáticamente una variable `CLOUDFLARE_API_TOKEN` que encuentre en el
 archivo compartido y la elimina de allí. El archivo dedicado queda como `root:root` con modo
 `0600`; un drop-in de systemd lo carga únicamente en
-`devfluency@phonetic-audio-service.service`. Los otros seis servicios Rust no reciben ese
-secreto. Para rotarlo, actualiza ese archivo dedicado; no vuelvas a poner el token en el archivo
-compartido.
+`devfluency@phonetic-audio-service.service` y asigna a esa unidad la cuenta Unix
+`devfluency-audio`. Ese microservicio usa el usuario Unix
+`devfluency-audio`, distinto al usuario `devfluency` de los otros procesos. Los otros seis
+servicios Rust no reciben ese secreto ni comparten su identidad de proceso. Para rotarlo,
+actualiza ese archivo dedicado; no vuelvas a poner el token en el archivo compartido.
 
 Para Cloudflare Workers AI, configura los valores no secretos en `/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env`:
 
