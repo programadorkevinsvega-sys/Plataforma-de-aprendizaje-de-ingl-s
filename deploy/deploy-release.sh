@@ -175,15 +175,8 @@ case "${tts_smoke_setting,,}" in
     ;;
   *)
     echo "Running one functional TTS synthesis against the configured provider."
-    smoke_unit="devfluency-tts-smoke-$sha"
-    if ! systemd-run --quiet --wait --collect --unit="$smoke_unit" \
-      --property=Type=exec \
-      --property=User=devfluency \
-      --property=Group=devfluency \
-      --property="WorkingDirectory=$APP_ROOT/current" \
-      --property="EnvironmentFile=$APP_CONFIG" \
-      --property="EnvironmentFile=$PHONETIC_SECRET_CONFIG" \
-      "$APP_ROOT/current/bin/phonetic-audio-service" --smoke-test-tts; then
+    systemctl reset-failed devfluency-tts-smoke.service || true
+    if ! systemctl start devfluency-tts-smoke.service; then
       echo "TTS functional smoke test failed for release $sha." >&2
       rollback
     fi
