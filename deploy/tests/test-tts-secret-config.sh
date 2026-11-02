@@ -43,4 +43,9 @@ if grep -q 'CLOUDFLARE_API_TOKEN' "$unit"; then
 fi
 grep -Fq 'EnvironmentFile=/etc/apps/plataforma-aprendizaje/phonetic-audio-service.secrets' "$dropin"
 
+smoke_unit="$ROOT/deploy/systemd/devfluency-tts-smoke.service"
+grep -Fq 'EnvironmentFile=/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env' "$smoke_unit"
+grep -Fq 'EnvironmentFile=/etc/apps/plataforma-aprendizaje/phonetic-audio-service.secrets' "$smoke_unit"
+grep -Fq -- '--smoke-test-tts' "$smoke_unit"
+
 echo "TTS secret isolation tests passed."
