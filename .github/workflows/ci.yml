@@ -113,8 +113,16 @@ jobs:
                 esac
 
                 case "$file" in
+                  .github/workflows/deploy-ubuntu.yml)
+                    # A deployment-pipeline change must pass full CI and exercise
+                    # the actual release path; otherwise fixes to deployment itself
+                    # can remain green while never being validated on the VM.
+                    set_full_ci
+                    run_deploy=true
+                    ;;
                   .github/workflows/*)
-                    # Changes to CI/deployment definitions get the full suite.
+                    # Other CI/workflow definitions get the full suite, but do not
+                    # independently publish the application.
                     set_full_ci
                     ;;
                 esac
