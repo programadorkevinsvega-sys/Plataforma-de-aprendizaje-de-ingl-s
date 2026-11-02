@@ -88,6 +88,7 @@ chmod 0600 "$PHONETIC_SECRET_CONFIG"
 install -m 0644 "$SCRIPT_DIR/systemd/devfluency@.service" /etc/systemd/system/devfluency@.service
 install -m 0644 "$(dirname "$0")/systemd/devfluency.target" /etc/systemd/system/devfluency.target
 install -m 0644 "$SCRIPT_DIR/systemd/devfluency-frontend.service" /etc/systemd/system/devfluency-frontend.service
+install -m 0644 "$SCRIPT_DIR/systemd/devfluency-tts-smoke.service" /etc/systemd/system/devfluency-tts-smoke.service
 install -d -o root -g root -m 0755 /etc/systemd/system/devfluency@phonetic-audio-service.service.d
 install -m 0644 "$SCRIPT_DIR/systemd/devfluency@phonetic-audio-service.service.d/10-tts-secrets.conf" \
   /etc/systemd/system/devfluency@phonetic-audio-service.service.d/10-tts-secrets.conf
