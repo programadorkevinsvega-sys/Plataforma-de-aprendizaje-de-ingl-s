@@ -82,6 +82,8 @@ fi
 # shellcheck source=deploy/lib/tts-secret-config.sh
 source "$SCRIPT_DIR/lib/tts-secret-config.sh"
 migrate_cloudflare_api_token "$APP_CONFIG/plataforma-aprendizaje.env" "$PHONETIC_SECRET_CONFIG"
+chown root:root "$PHONETIC_SECRET_CONFIG"
+chmod 0600 "$PHONETIC_SECRET_CONFIG"
 
 install -m 0644 "$SCRIPT_DIR/systemd/devfluency@.service" /etc/systemd/system/devfluency@.service
 install -m 0644 "$(dirname "$0")/systemd/devfluency.target" /etc/systemd/system/devfluency.target
