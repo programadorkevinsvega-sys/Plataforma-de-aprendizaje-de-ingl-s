@@ -114,6 +114,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
 
     let tts = Arc::new(TtsEngine::from_env().await?);
+    if std::env::args().any(|argument| argument == "--smoke-test-tts") {
+        let provider = tts.provider_name();
+        let audio = tts
+            .synthesize("DevFluency deployment smoke test.", "Joanna", "")
+            .await?;
+        if audio.audio_bytes == 0 || audio.audio_base64.is_empty() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "TTS smoke test returned empty audio",
+            )
+            .into());
+        }
+        tracing::info!(
+            provider,
+            model = %audio.model,
+            audio_bytes = audio.audio_bytes,
+            "TTS functional smoke test passed"
+        );
+        return Ok(());
+    }
+
     let aws_audio = Arc::new(AwsAudioEngine::new());
     let engine = Arc::new(PhoneticEngine::new());
 
