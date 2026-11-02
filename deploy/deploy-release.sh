@@ -151,16 +151,20 @@ for port in "$BFF_HTTP_PROBE_PORT" 3000; do
   [[ "$ready" -eq 1 ]] || { echo "Timed out waiting for HTTP port $port on $BFF_HTTP_PROBE_HOST." >&2; rollback; }
 done
 
+http_healthy=0
 for _ in $(seq 1 30); do
   if curl --connect-timeout 2 -fsS "http://$BFF_HTTP_PROBE_HOST:$BFF_HTTP_PROBE_PORT/health" >/dev/null &&
      curl --connect-timeout 2 -fsS "http://$BFF_HTTP_PROBE_HOST:3000/" >/dev/null; then
-    echo "Platform deployment $sha healthy."
-    exit 0
+    echo "Platform deployment $sha passed HTTP health checks."
+    http_healthy=1
+    break
   fi
   sleep 1
 done
-echo "HTTP health checks failed for BFF or frontend on $BFF_HTTP_PROBE_HOST." >&2
-rollback
+if [[ "$http_healthy" -ne 1 ]]; then
+  echo "HTTP health checks failed for BFF or frontend on $BFF_HTTP_PROBE_HOST." >&2
+  rollback
+fi
 
 # Verify one real provider synthesis after the release is active. This catches
 # invalid credentials/upstream failures that process and HTTP health checks miss.
