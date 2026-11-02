@@ -41,8 +41,33 @@ jobs:
           set -euo pipefail
 
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            # A manual run is a retry mechanism, not a CI bypass. Require the
+            # latest completed push CI run for this exact main SHA to pass.
+            ci_runs="$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs" \
+              -f branch=main \
+              -f event=push \
+              -f head_sha="$RELEASE_SHA" \
+              -f status=completed \
+              -F per_page=100)"
+
+            latest_ci="$(jq -r --arg sha "$RELEASE_SHA" '
+              [.workflow_runs[]
+                | select(.head_sha == $sha
+                         and .head_branch == "main"
+                         and .event == "push"
+                         and .status == "completed")]
+              | sort_by(.created_at)
+              | last
+              | if . == null then "" else (.conclusion // "") end
+            ' <<< "$ci_runs")"
+
+            if [[ "$latest_ci" != "success" ]]; then
+              echo "::error::Manual deployment refused: the latest completed push CI run for main SHA $RELEASE_SHA is '$latest_ci' (expected success)."
+              exit 1
+            fi
+
             deploy_required=true
-            echo "Manual production deployment requested."
+            echo "Manual deployment retry authorized by successful CI for $RELEASE_SHA."
           else
             if [[ ! -s ci-change-metadata.txt ]]; then
               echo "::error::The completed CI run did not provide change metadata; refusing to guess deployment scope."
@@ -147,13 +172,16 @@ jobs:
           cp -a deploy/. dist/deploy/
           cp -a migrations dist/migrations
           tar -czf devfluency-deploy-package.tar.gz -C dist bin frontend deploy migrations
-          sha256sum devfluency-deploy-package.tar.gz
+          sha256sum devfluency-deploy-package.tar.gz | awk '{print $1}' > devfluency-deploy-package.tar.gz.sha256
+          test "$(wc -c < devfluency-deploy-package.tar.gz.sha256)" -eq 65
 
       - name: Upload deployment package
         uses: actions/upload-artifact@v4
         with:
           name: devfluency-release
-          path: devfluency-deploy-package.tar.gz
+          path: |
+            devfluency-deploy-package.tar.gz
+            devfluency-deploy-package.tar.gz.sha256
           if-no-files-found: error
           retention-days: 7
 
@@ -178,8 +206,15 @@ jobs:
             exit 1
           fi
 
+      - name: Verify downloaded deployment package checksum
+        run: |
+          set -euo pipefail
+          digest="$(cat devfluency-deploy-package.tar.gz.sha256)"
+          [[ "$digest" =~ ^[0-9a-f]{64}$ ]]
+          printf '%s  %s\n' "$digest" devfluency-deploy-package.tar.gz | sha256sum --check
+
       - name: Connect runner to private tailnet
-        uses: tailscale/github-action@v3
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
 
@@ -202,6 +237,7 @@ jobs:
           eval "$(ssh-agent -s)"
           printf '%s\n' "$DEPLOY_SSH_KEY" | tr -d '\r' | ssh-add -
           package="devfluency-${RELEASE_SHA}.tar.gz"
-          scp -o BatchMode=yes devfluency-deploy-package.tar.gz "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/$package"
+          digest="$(cat devfluency-deploy-package.tar.gz.sha256)"
+          scp -o BatchMode=yes devfluency-deploy-package.tar.gz devfluency-deploy-package.tar.gz.sha256 "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/"
           ssh -o BatchMode=yes "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "set -e; stage=/tmp/devfluency-${RELEASE_SHA}; mkdir -p \"\$stage\"; tar -xzf /tmp/$package -C \"\$stage\"; sudo bash \"\$stage/deploy/bootstrap-ubuntu.sh\"; tar -czf \"\$stage/release.tar.gz\" -C \"\$stage\" bin frontend migrations; sudo bash \"\$stage/deploy/deploy-release.sh\" '${RELEASE_SHA}' \"\$stage/release.tar.gz\"; rm -rf \"\$stage\" /tmp/$package"
+            "set -e; cd /tmp; [[ \"\$(cat devfluency-deploy-package.tar.gz.sha256)\" =~ ^[0-9a-f]{64}\$ ]]; printf '%s  %s\\n' \"\$(cat devfluency-deploy-package.tar.gz.sha256)\" devfluency-deploy-package.tar.gz | sha256sum --check; mv devfluency-deploy-package.tar.gz /tmp/$package; mv devfluency-deploy-package.tar.gz.sha256 /tmp/$package.sha256; stage=/tmp/devfluency-${RELEASE_SHA}; mkdir -p \"\$stage\"; tar -xzf /tmp/$package -C \"\$stage\"; sudo bash \"\$stage/deploy/bootstrap-ubuntu.sh\"; tar -czf \"\$stage/release.tar.gz\" -C \"\$stage\" bin frontend migrations; sudo bash \"\$stage/deploy/deploy-release.sh\" '${RELEASE_SHA}' \"\$stage/release.tar.gz\"; rm -rf \"\$stage\" /tmp/$package /tmp/$package.sha256"
