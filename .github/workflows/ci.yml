@@ -194,7 +194,7 @@ jobs:
           name: ci-change-metadata
           path: ci-change-metadata.txt
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 30
 
   rust:
     name: Rust format, lint, build, and tests
