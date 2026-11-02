@@ -9,7 +9,6 @@ archive="$2"
 
 APP_ROOT="/opt/apps/plataforma-aprendizaje"
 APP_CONFIG="/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env"
-PHONETIC_SECRET_CONFIG="/etc/apps/plataforma-aprendizaje/phonetic-audio-service.secrets"
 RELEASES_ROOT="$APP_ROOT/releases"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=deploy/lib/health-checks.sh
