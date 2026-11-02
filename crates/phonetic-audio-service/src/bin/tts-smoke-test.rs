@@ -47,7 +47,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let audio = BASE64_STANDARD.decode(&response.audio_base64)?;
     if audio.len() < 4 {
-        return Err(format!("TTS returned an empty or truncated audio payload ({} bytes)", audio.len()).into());
+        return Err(format!(
+            "TTS returned an empty or truncated audio payload ({} bytes)",
+            audio.len()
+        )
+        .into());
     }
 
     println!(
