@@ -5,7 +5,7 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-User=devfluency
+User=devfluency-audio
 Group=devfluency
 WorkingDirectory=/opt/apps/plataforma-aprendizaje/current
 EnvironmentFile=/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env
@@ -15,5 +15,5 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/devfluency
+ReadWritePaths=/var/lib/devfluency-audio
 UMask=0027
