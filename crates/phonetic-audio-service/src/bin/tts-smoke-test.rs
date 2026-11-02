@@ -10,8 +10,8 @@ const SMOKE_TEXT: &str = "Deployment smoke test";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let endpoint = env::var("TTS_SMOKE_ENDPOINT")
-        .unwrap_or_else(|_| "http://127.0.0.1:50054".to_string());
+    let endpoint =
+        env::var("TTS_SMOKE_ENDPOINT").unwrap_or_else(|_| "http://127.0.0.1:50054".to_string());
     let expected_provider = env::var("TTS_PROVIDER")
         .unwrap_or_else(|_| "aws".to_string())
         .trim()
