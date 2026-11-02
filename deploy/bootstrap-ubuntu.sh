@@ -6,6 +6,8 @@ APP_ROOT="/opt/apps/plataforma-aprendizaje"
 APP_CONFIG="/etc/apps/plataforma-aprendizaje"
 LEGACY_ROOT="/opt/devfluency"
 LEGACY_CONFIG="/etc/devfluency/devfluency.env"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PHONETIC_SECRET_CONFIG="$APP_CONFIG/phonetic-audio-service.secrets"
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
@@ -73,9 +75,20 @@ fi
 chown root:devfluency "$APP_CONFIG/plataforma-aprendizaje.env"
 chmod 0640 "$APP_CONFIG/plataforma-aprendizaje.env"
 
-install -m 0644 "$(dirname "$0")/systemd/devfluency@.service" /etc/systemd/system/devfluency@.service
+# Migrate a legacy/shared Cloudflare token and keep it readable only by systemd.
+if [[ ! -f "$PHONETIC_SECRET_CONFIG" ]]; then
+  install -o root -g root -m 0600 /dev/null "$PHONETIC_SECRET_CONFIG"
+fi
+# shellcheck source=deploy/lib/tts-secret-config.sh
+source "$SCRIPT_DIR/lib/tts-secret-config.sh"
+migrate_cloudflare_api_token "$APP_CONFIG/plataforma-aprendizaje.env" "$PHONETIC_SECRET_CONFIG"
+
+install -m 0644 "$SCRIPT_DIR/systemd/devfluency@.service" /etc/systemd/system/devfluency@.service
 install -m 0644 "$(dirname "$0")/systemd/devfluency.target" /etc/systemd/system/devfluency.target
-install -m 0644 "$(dirname "$0")/systemd/devfluency-frontend.service" /etc/systemd/system/devfluency-frontend.service
+install -m 0644 "$SCRIPT_DIR/systemd/devfluency-frontend.service" /etc/systemd/system/devfluency-frontend.service
+install -d -o root -g root -m 0755 /etc/systemd/system/devfluency@phonetic-audio-service.service.d
+install -m 0644 "$SCRIPT_DIR/systemd/devfluency@phonetic-audio-service.service.d/10-tts-secrets.conf" \
+  /etc/systemd/system/devfluency@phonetic-audio-service.service.d/10-tts-secrets.conf
 systemctl daemon-reload
 systemctl enable devfluency.target devfluency-frontend.service
 
