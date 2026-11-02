@@ -6,6 +6,11 @@ on:
     types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      release_sha:
+        description: "Full commit SHA with successful CI on main and run_deploy=true"
+        required: true
+        type: string
 
 permissions:
   actions: read
@@ -30,9 +35,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_API_URL: ${{ github.api_url }}
           REPOSITORY: ${{ github.repository }}
-          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_SHA: ${{ github.event.inputs.release_sha || github.sha }}
         run: |
           set -euo pipefail
+          if [[ ! "$RELEASE_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "::error::Manual deployment requires a full 40-character commit SHA."
+            exit 1
+          fi
           runs_url="$GH_API_URL/repos/$REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$RELEASE_SHA&per_page=100"
           runs_json="$(curl --fail --silent --show-error --retry 3 \
             -H "Authorization: Bearer $GH_TOKEN" \
@@ -69,7 +78,7 @@ jobs:
         id: classify
         env:
           EVENT_NAME: ${{ github.event_name }}
-          RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.event.inputs.release_sha || github.sha }}
         run: |
           set -euo pipefail
 
@@ -112,7 +121,7 @@ jobs:
       - name: Checkout exact commit validated by CI
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha || github.event.inputs.release_sha || github.sha }}
 
       - name: Validate deployment scripts and health-check helpers
         run: |
@@ -239,7 +248,7 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-          RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.event.inputs.release_sha || github.sha }}
         run: |
           set -euo pipefail
           test -n "$DEPLOY_HOST"
