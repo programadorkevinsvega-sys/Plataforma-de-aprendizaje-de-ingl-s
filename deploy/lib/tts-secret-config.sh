@@ -26,6 +26,5 @@ migrate_cloudflare_api_token() {
     sed -i '/^CLOUDFLARE_API_TOKEN=/d' "$shared_env"
   fi
 
-  chown root:root "$audio_secrets"
   chmod 0600 "$audio_secrets"
 }
