@@ -50,5 +50,8 @@ grep -Fq 'User=devfluency-audio' "$smoke_unit"
 grep -Fq 'EnvironmentFile=/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env' "$smoke_unit"
 grep -Fq 'EnvironmentFile=/etc/apps/plataforma-aprendizaje/phonetic-audio-service.secrets' "$smoke_unit"
 grep -Fq -- '--smoke-test-tts' "$smoke_unit"
+grep -Fq 'id devfluency-audio' "$ROOT/deploy/bootstrap-ubuntu.sh"
+grep -Fq 'systemctl start devfluency-tts-smoke.service' "$ROOT/deploy/deploy-release.sh"
+grep -Fq -- '--smoke-test-tts' "$ROOT/crates/phonetic-audio-service/src/main.rs"
 
 echo "TTS secret isolation tests passed."
