@@ -100,6 +100,8 @@ CLOUDFLARE_TTS_SPEAKER_ES=aquila
 CLOUDFLARE_TTS_TIMEOUT_SECONDS=30
 ```
 
+Usa el Account ID de la cuenta Cloudflare (32 caracteres), no el Zone ID. La aplicación valida la longitud sin imponer un formato hexadecimal no especificado por el esquema de Cloudflare.
+
 Crea un API Token con permisos Workers AI Read y Workers AI Edit para la cuenta. El token se almacena únicamente
 en el archivo de entorno de la VM con propietario/permisos restrictivos; nunca en GitHub ni en
 el frontend. Aura-2 admite speakers propios por idioma: cambiar de proveedor conserva las voces
