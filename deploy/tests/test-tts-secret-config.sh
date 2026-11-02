@@ -42,8 +42,11 @@ if grep -q 'CLOUDFLARE_API_TOKEN' "$unit"; then
   exit 1
 fi
 grep -Fq 'EnvironmentFile=/etc/apps/plataforma-aprendizaje/phonetic-audio-service.secrets' "$dropin"
+grep -Fq 'User=devfluency-audio' "$dropin"
+grep -Fq 'Group=devfluency' "$dropin"
 
 smoke_unit="$ROOT/deploy/systemd/devfluency-tts-smoke.service"
+grep -Fq 'User=devfluency-audio' "$smoke_unit"
 grep -Fq 'EnvironmentFile=/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env' "$smoke_unit"
 grep -Fq 'EnvironmentFile=/etc/apps/plataforma-aprendizaje/phonetic-audio-service.secrets' "$smoke_unit"
 grep -Fq -- '--smoke-test-tts' "$smoke_unit"
