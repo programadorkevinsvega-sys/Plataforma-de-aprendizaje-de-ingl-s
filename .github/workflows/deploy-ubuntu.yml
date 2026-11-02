@@ -104,6 +104,7 @@ jobs:
 
   build:
     name: Build production release
+    environment: production
     needs: detect-deployable-changes
     if: ${{ needs.detect-deployable-changes.outputs.deploy_required == 'true' }}
     runs-on: ubuntu-24.04
