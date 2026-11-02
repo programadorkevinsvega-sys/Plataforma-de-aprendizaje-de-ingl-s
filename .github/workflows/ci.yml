@@ -397,15 +397,46 @@ jobs:
           FRONTEND_AUDIT_RESULT: ${{ needs.frontend-dependency-audit.result }}
           SHELL_RESULT: ${{ needs.shell-validation.result }}
           MARKDOWN_RESULT: ${{ needs.markdown.result }}
+          RUN_RUST: ${{ needs.changes.outputs.run_rust }}
+          RUN_FRONTEND: ${{ needs.changes.outputs.run_frontend }}
+          RUN_RUST_AUDIT: ${{ needs.changes.outputs.run_rust_audit }}
+          RUN_FRONTEND_AUDIT: ${{ needs.changes.outputs.run_frontend_audit }}
+          RUN_SHELL: ${{ needs.changes.outputs.run_shell }}
+          RUN_DOCS: ${{ needs.changes.outputs.run_docs }}
         run: |
           set -euo pipefail
-          for result in "$CHANGES_RESULT" "$RUST_RESULT" "$FRONTEND_RESULT" "$RUST_AUDIT_RESULT" "$FRONTEND_AUDIT_RESULT" "$SHELL_RESULT" "$MARKDOWN_RESULT"; do
-            case "$result" in
-              success|skipped) ;;
-              *)
-                echo "::error::A required CI stage finished with status: $result"
-                exit 1
-                ;;
-            esac
-          done
-          echo "All validations selected for this change completed successfully."
+
+          if [[ "$CHANGES_RESULT" != "success" ]]; then
+            echo "::error::The change classifier did not succeed: $CHANGES_RESULT"
+            exit 1
+          fi
+
+          assert_selected_job() {
+            local job_name="$1"
+            local selected="$2"
+            local result="$3"
+
+            if [[ "$selected" == "true" ]]; then
+              if [[ "$result" != "success" ]]; then
+                echo "::error::$job_name was selected by the classifier but finished with '$result' (success required)."
+                return 1
+              fi
+            elif [[ "$selected" == "false" ]]; then
+              if [[ "$result" != "skipped" ]]; then
+                echo "::error::$job_name was not selected but finished with '$result' (skipped required)."
+                return 1
+              fi
+            else
+              echo "::error::Invalid classifier output for $job_name: '$selected'."
+              return 1
+            fi
+          }
+
+          assert_selected_job "Rust" "$RUN_RUST" "$RUST_RESULT"
+          assert_selected_job "Frontend" "$RUN_FRONTEND" "$FRONTEND_RESULT"
+          assert_selected_job "Rust dependency audit" "$RUN_RUST_AUDIT" "$RUST_AUDIT_RESULT"
+          assert_selected_job "Frontend dependency audit" "$RUN_FRONTEND_AUDIT" "$FRONTEND_AUDIT_RESULT"
+          assert_selected_job "Shell validation" "$RUN_SHELL" "$SHELL_RESULT"
+          assert_selected_job "Markdown lint" "$RUN_DOCS" "$MARKDOWN_RESULT"
+
+          echo "Every classifier decision matches its job outcome; all selected validations succeeded."
