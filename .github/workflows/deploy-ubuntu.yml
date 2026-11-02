@@ -23,14 +23,47 @@ jobs:
     outputs:
       deploy_required: ${{ steps.classify.outputs.deploy_required }}
     steps:
-      - name: Download change classification from the completed CI run
-        if: ${{ github.event_name == 'workflow_run' }}
+      - name: Find successful push CI run for the exact manual deployment SHA
+        id: select-ci
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_API_URL: ${{ github.api_url }}
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          runs_url="$GH_API_URL/repos/$REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$RELEASE_SHA&per_page=100"
+          runs_json="$(curl --fail --silent --show-error --retry 3 \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "$runs_url")"
+          ci_run_id="$(jq -r --arg sha "$RELEASE_SHA" '
+            [.workflow_runs[]
+              | select(.head_sha == $sha)
+              | select(.event == "push")
+              | select(.head_branch == "main")
+              | select(.conclusion == "success")]
+            | sort_by(.run_number)
+            | last
+            | .id // empty
+          ' <<< "$runs_json")"
+
+          if [[ -z "$ci_run_id" ]]; then
+            echo "::error::Manual deployment refused: no successful CI push run exists for exact SHA $RELEASE_SHA on main."
+            exit 1
+          fi
+
+          echo "ci_run_id=$ci_run_id" >> "$GITHUB_OUTPUT"
+          echo "Manual retry will reuse successful CI run $ci_run_id for $RELEASE_SHA."
+
+      - name: Download change classification from the exact successful CI run
         uses: actions/download-artifact@v4
         with:
           name: ci-change-metadata
           github-token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
-          run-id: ${{ github.event.workflow_run.id }}
+          run-id: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || steps.select-ci.outputs.ci_run_id }}
 
       - name: Read deployment decision
         id: classify
@@ -40,26 +73,30 @@ jobs:
         run: |
           set -euo pipefail
 
+          if [[ ! -s ci-change-metadata.txt ]]; then
+            echo "::error::The successful CI run did not provide change metadata; refusing to guess deployment scope."
+            exit 1
+          fi
+
+          metadata_head="$(sed -n 's/^head_sha=//p' ci-change-metadata.txt)"
+          if [[ "$metadata_head" != "$RELEASE_SHA" ]]; then
+            echo "::error::CI metadata does not match the commit requested for deployment."
+            exit 1
+          fi
+
+          deploy_required="$(sed -n 's/^run_deploy=//p' ci-change-metadata.txt)"
+          if [[ "$deploy_required" != "true" && "$deploy_required" != "false" ]]; then
+            echo "::error::Invalid deploy_required value in CI metadata."
+            exit 1
+          fi
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$deploy_required" != "true" ]]; then
+            echo "::error::Manual deployment refused: the successful CI classification for this SHA did not mark it as deployable."
+            exit 1
+          fi
+
           if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            deploy_required=true
-            echo "Manual production deployment requested."
-          else
-            if [[ ! -s ci-change-metadata.txt ]]; then
-              echo "::error::The completed CI run did not provide change metadata; refusing to guess deployment scope."
-              exit 1
-            fi
-
-            metadata_head="$(sed -n 's/^head_sha=//p' ci-change-metadata.txt)"
-            if [[ "$metadata_head" != "$RELEASE_SHA" ]]; then
-              echo "::error::CI metadata does not match the commit requested for deployment."
-              exit 1
-            fi
-
-            deploy_required="$(sed -n 's/^run_deploy=//p' ci-change-metadata.txt)"
-            if [[ "$deploy_required" != "true" && "$deploy_required" != "false" ]]; then
-              echo "::error::Invalid deploy_required value in CI metadata."
-              exit 1
-            fi
+            echo "Manual retry authorized by successful CI for exact SHA $RELEASE_SHA."
           fi
 
           echo "deploy_required=$deploy_required" >> "$GITHUB_OUTPUT"
@@ -147,13 +184,17 @@ jobs:
           cp -a deploy/. dist/deploy/
           cp -a migrations dist/migrations
           tar -czf devfluency-deploy-package.tar.gz -C dist bin frontend deploy migrations
-          sha256sum devfluency-deploy-package.tar.gz
+          sha256sum devfluency-deploy-package.tar.gz | awk '{print $1}' > devfluency-deploy-package.tar.gz.sha256
+          test "$(wc -c < devfluency-deploy-package.tar.gz.sha256)" -eq 65
+          echo "Deployment package SHA-256: $(cat devfluency-deploy-package.tar.gz.sha256)"
 
       - name: Upload deployment package
         uses: actions/upload-artifact@v4
         with:
           name: devfluency-release
-          path: devfluency-deploy-package.tar.gz
+          path: |
+            devfluency-deploy-package.tar.gz
+            devfluency-deploy-package.tar.gz.sha256
           if-no-files-found: error
           retention-days: 7
 
@@ -169,6 +210,13 @@ jobs:
         with:
           name: devfluency-release
 
+      - name: Verify deployment package checksum before transfer
+        run: |
+          set -euo pipefail
+          expected="$(cat devfluency-deploy-package.tar.gz.sha256)"
+          [[ "$expected" =~ ^[0-9a-f]{64}$ ]]
+          printf '%s  %s\n' "$expected" "devfluency-deploy-package.tar.gz" | sha256sum --check
+
       - name: Validate Tailscale credential is configured
         env:
           TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
@@ -179,7 +227,7 @@ jobs:
           fi
 
       - name: Connect runner to private tailnet
-        uses: tailscale/github-action@v3
+        uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c
         with:
           authkey: ${{ secrets.TAILSCALE_AUTHKEY }}
 
@@ -202,6 +250,8 @@ jobs:
           eval "$(ssh-agent -s)"
           printf '%s\n' "$DEPLOY_SSH_KEY" | tr -d '\r' | ssh-add -
           package="devfluency-${RELEASE_SHA}.tar.gz"
-          scp -o BatchMode=yes devfluency-deploy-package.tar.gz "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/$package"
+          checksum="devfluency-${RELEASE_SHA}.tar.gz.sha256"
+          scp -o BatchMode=yes devfluency-deploy-package.tar.gz devfluency-deploy-package.tar.gz.sha256 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/"
           ssh -o BatchMode=yes "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "set -e; stage=/tmp/devfluency-${RELEASE_SHA}; mkdir -p \"\$stage\"; tar -xzf /tmp/$package -C \"\$stage\"; sudo bash \"\$stage/deploy/bootstrap-ubuntu.sh\"; tar -czf \"\$stage/release.tar.gz\" -C \"\$stage\" bin frontend migrations; sudo bash \"\$stage/deploy/deploy-release.sh\" '${RELEASE_SHA}' \"\$stage/release.tar.gz\"; rm -rf \"\$stage\" /tmp/$package"
+            "set -euo pipefail; package=/tmp/$package; checksum=/tmp/$checksum; expected=\$(cat \"\$checksum\"); [[ \"\$expected\" =~ ^[0-9a-f]{64}$ ]]; printf '%s  %s\\n' \"\$expected\" \"\$package\" | sha256sum --check; stage=/tmp/devfluency-${RELEASE_SHA}; mkdir -p \"\$stage\"; tar -xzf \"\$package\" -C \"\$stage\"; sudo bash \"\$stage/deploy/bootstrap-ubuntu.sh\"; tar -czf \"\$stage/release.tar.gz\" -C \"\$stage\" bin frontend migrations; sudo bash \"\$stage/deploy/deploy-release.sh\" '${RELEASE_SHA}' \"\$stage/release.tar.gz\"; rm -rf \"\$stage\" \"\$package\" \"\$checksum\""
