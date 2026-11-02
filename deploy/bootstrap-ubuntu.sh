@@ -20,9 +20,12 @@ fi
 
 getent group devfluency >/dev/null || groupadd --system devfluency
 id devfluency >/dev/null 2>&1 || useradd --system --gid devfluency --home-dir /var/lib/devfluency --shell /usr/sbin/nologin devfluency
+id devfluency-phonetic >/dev/null 2>&1 || useradd --system --gid devfluency --home-dir /var/lib/devfluency-phonetic --shell /usr/sbin/nologin devfluency-phonetic
+usermod --gid devfluency devfluency-phonetic
 
 install -d -o root -g devfluency -m 0750 "$APP_ROOT" "$APP_ROOT/releases" "$APP_CONFIG"
 install -d -o devfluency -g devfluency -m 0750 /var/lib/devfluency
+install -d -o devfluency-phonetic -g devfluency -m 0750 /var/lib/devfluency-phonetic
 
 # Preserve an existing installation when moving from the legacy single-app path.
 if [[ -d "$LEGACY_ROOT/releases" ]] && [[ -z "$(find "$APP_ROOT/releases" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
@@ -69,8 +72,9 @@ fi
 # in the shared file, so migrate them once while preserving dedicated-file values.
 AUDIO_CONFIG="$APP_CONFIG/phonetic-audio-service.env"
 touch "$AUDIO_CONFIG"
-chown root:devfluency "$AUDIO_CONFIG"
-chmod 0640 "$AUDIO_CONFIG"
+# systemd reads EnvironmentFile as root; runtime services must not read this file.
+chown root:root "$AUDIO_CONFIG"
+chmod 0600 "$AUDIO_CONFIG"
 
 is_audio_setting() {
   case "$1" in
@@ -123,8 +127,10 @@ ensure_audio_default CLOUDFLARE_TTS_SPEAKER_EN luna
 ensure_audio_default CLOUDFLARE_TTS_SPEAKER_ES aquila
 ensure_audio_default CLOUDFLARE_TTS_TIMEOUT_SECONDS 30
 
-chown root:devfluency "$AUDIO_CONFIG" "$APP_CONFIG/plataforma-aprendizaje.env"
-chmod 0640 "$AUDIO_CONFIG" "$APP_CONFIG/plataforma-aprendizaje.env"
+chown root:root "$AUDIO_CONFIG"
+chmod 0600 "$AUDIO_CONFIG"
+chown root:devfluency "$APP_CONFIG/plataforma-aprendizaje.env"
+chmod 0640 "$APP_CONFIG/plataforma-aprendizaje.env"
 
 # Keep the production browser origin explicit on both fresh and existing VMs.
 if grep -q '^CORS_ALLOWED_ORIGINS=' "$APP_CONFIG/plataforma-aprendizaje.env"; then
@@ -137,6 +143,13 @@ chmod 0640 "$APP_CONFIG/plataforma-aprendizaje.env"
 
 install -m 0644 "$(dirname "$0")/systemd/devfluency@.service" /etc/systemd/system/devfluency@.service
 install -m 0644 "$(dirname "$0")/systemd/devfluency.target" /etc/systemd/system/devfluency.target
+install -d -m 0755 /etc/systemd/system/devfluency@phonetic-audio-service.service.d
+cat > /etc/systemd/system/devfluency@phonetic-audio-service.service.d/identity.conf <<'UNIT'
+[Service]
+User=devfluency-phonetic
+Group=devfluency
+UNIT
+chmod 0644 /etc/systemd/system/devfluency@phonetic-audio-service.service.d/identity.conf
 install -m 0644 "$(dirname "$0")/systemd/devfluency-frontend.service" /etc/systemd/system/devfluency-frontend.service
 systemctl daemon-reload
 systemctl enable devfluency.target devfluency-frontend.service
