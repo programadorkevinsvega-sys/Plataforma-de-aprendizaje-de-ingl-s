@@ -5,6 +5,7 @@ After=network-online.target
 
 [Service]
 Type=oneshot
+TimeoutStartSec=180
 User=devfluency-audio
 Group=devfluency
 WorkingDirectory=/opt/apps/plataforma-aprendizaje/current
