@@ -252,7 +252,9 @@ jobs:
           printf '%s\n' "$DEPLOY_SSH_KEY" | tr -d '\r' | ssh-add -
           package="devfluency-${RELEASE_SHA}.tar.gz"
           checksum="devfluency-deploy-package.tar.gz.sha256"
-          scp -o BatchMode=yes devfluency-deploy-package.tar.gz devfluency-deploy-package.tar.gz.sha256 \
-            "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/"
+          scp -o BatchMode=yes devfluency-deploy-package.tar.gz \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/$package"
+          scp -o BatchMode=yes devfluency-deploy-package.tar.gz.sha256 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/$checksum"
           ssh -o BatchMode=yes "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "set -euo pipefail; package=/tmp/$package; checksum=/tmp/$checksum; expected=\$(cat \"\$checksum\"); [[ \"\$expected\" =~ ^[0-9a-f]{64}$ ]]; printf '%s  %s\\n' \"\$expected\" \"\$package\" | sha256sum --check; stage=/tmp/devfluency-${RELEASE_SHA}; mkdir -p \"\$stage\"; tar -xzf \"\$package\" -C \"\$stage\"; sudo bash \"\$stage/deploy/bootstrap-ubuntu.sh\"; tar -czf \"\$stage/release.tar.gz\" -C \"\$stage\" bin frontend migrations; sudo bash \"\$stage/deploy/deploy-release.sh\" '${RELEASE_SHA}' \"\$stage/release.tar.gz\"; rm -rf \"\$stage\" \"\$package\" \"\$checksum\""
