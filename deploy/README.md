@@ -1,6 +1,6 @@
 # Despliegue automático de Plataforma de Aprendizaje en Ubuntu (sin Docker)
 
-El workflow `.github/workflows/deploy-ubuntu.yml` construye y despliega **únicamente esta aplicación** cuando el workflow **CI** termina correctamente para `main`. También permite reintentar manualmente desde Actions sobre `main`.
+El workflow `.github/workflows/deploy-ubuntu.yml` construye y despliega **únicamente esta aplicación** cuando el workflow **CI** termina correctamente para `main`. También permite reintentar manualmente desde Actions sobre `main`, pero el dispatch manual exige que la ejecución push de CI más reciente para el mismo SHA haya terminado en `success`; no permite saltarse CI.
 
 ## Alcance y aislamiento
 
@@ -15,17 +15,18 @@ El script remoto solo administra esas rutas y unidades. No instala, reinicia ni 
 
 ## Qué hace el pipeline
 
-1. Espera que CI finalice correctamente en `main`.
+1. Espera que CI finalice correctamente en `main`. El dispatch manual solo puede reintentar el SHA actual si la ejecución push de CI más reciente para ese mismo SHA terminó en `success`.
 2. Checkout del SHA exacto validado por CI.
 3. Compila los siete ejecutables Rust con `cargo build --workspace --release --locked`.
 4. Instala SQLx CLI 0.8.6 en el runner de CI.
 5. Compila Next.js en modo `standalone`.
-6. Empaqueta los binarios, SQLx CLI, frontend, scripts de despliegue y todos los archivos SQL de `migrations/`.
-7. Conecta el runner a la tailnet mediante `TAILSCALE_AUTHKEY`.
-8. Transfiere el paquete por SSH a la VM Ubuntu de la aplicación.
+6. Empaqueta los binarios, SQLx CLI, frontend, scripts de despliegue y todos los archivos SQL de `migrations/`; genera un SHA-256 del paquete.
+7. Verifica el SHA-256 después de descargar el artefacto en el runner y otra vez en la VM por SSH, antes de extraerlo.
+8. Conecta el runner a la tailnet con `tailscale/github-action` fijada por SHA completo y transfiere el paquete a la VM Ubuntu.
 9. Verifica que `DATABASE_URL` apunte exactamente a `aprendizaje_ingles` y ejecuta `sqlx migrate run` con el registro de migraciones `_sqlx_migrations`.
-10. Solo si todas las migraciones terminan correctamente, cambia el enlace `current`, reinicia los servicios systemd y comprueba los endpoints.
-11. Si una migración falla, aborta antes de cambiar la release activa o reiniciar servicios. Si falla la activación o un health check, restaura la release anterior.
+10. Solo si todas las migraciones terminan correctamente, cambia el enlace `current`, reinicia los servicios systemd y comprueba puertos, BFF y frontend.
+11. Ejecuta una síntesis real y breve con el proveedor TTS configurado. Si falla, el despliegue hace rollback a la release anterior.
+12. Si una migración falla, aborta antes de cambiar la release activa o reiniciar servicios. Si falla la activación, un health check o el smoke test TTS, restaura la release anterior.
 
 SQLx registra las migraciones aplicadas y sus checksums; los despliegues posteriores ejecutan únicamente las migraciones pendientes y detectan cambios en migraciones ya aplicadas. El comando se ejecuta desde la VM de aplicación contra PostgreSQL por la conexión privada configurada, no dentro de Docker ni en la VM de PostgreSQL.
 
@@ -48,7 +49,7 @@ El job de despliegue usa el GitHub Environment `production`. Configura los sigui
 - `DEPLOY_SSH_KEY`: clave privada correspondiente a la clave pública instalada en `authorized_keys`.
 - `DEPLOY_KNOWN_HOSTS`: clave de host SSH verificada de forma independiente para el host indicado en `DEPLOY_HOST`.
 
-El workflow valida que `TAILSCALE_AUTHKEY` no esté vacío antes de invocar la acción Tailscale. Nunca pegues el valor de la auth key en el repositorio, issues o conversaciones.
+El workflow valida que `TAILSCALE_AUTHKEY` no esté vacío antes de invocar la acción Tailscale. La acción se fija a un SHA completo para evitar depender de una etiqueta mutable. Nunca pegues el valor de la auth key en el repositorio, issues o conversaciones.
 
 ## Configuración de aplicación en la VM
 
@@ -59,6 +60,7 @@ El bootstrap crea `/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env` 
 - `REDIS_URL` y `NATS_URL`: endpoints privados si los servicios los requieren.
 - `CORS_ALLOWED_ORIGINS`: origen público real del frontend.
 - Variables AWS necesarias; preferir IAM instance profile para AWS en vez de claves estáticas.
+- Variables no secretas del proveedor TTS, como `TTS_PROVIDER`, `CLOUDFLARE_ACCOUNT_ID` y los modelos/speakers Cloudflare. El token Cloudflare se mantiene fuera de este archivo compartido.
 
 No guardar secretos en Git. Los servicios gRPC y BFF se enlazan a loopback por defecto; el frontend escucha en `127.0.0.1:3000` para el reverse proxy.
 
@@ -66,13 +68,11 @@ No guardar secretos en Git. Los servicios gRPC y BFF se enlazan a loopback por d
 
 Si existe una instalación previa en `/opt/devfluency` y `/etc/devfluency/devfluency.env`, el bootstrap copia las releases existentes y migra el archivo de entorno a la nueva ruta de esta aplicación, sin borrar ni sobrescribir el origen. Revisar la configuración migrada antes del primer despliegue.
 
-Después de completar el archivo de entorno y verificar los permisos DDL del usuario de base de datos, ejecutar **Actions → Deploy Ubuntu (systemd) → Run workflow** sobre `main`.
+Después de completar los archivos de entorno y verificar los permisos DDL del usuario de base de datos, puedes ejecutar **Actions → Deploy Ubuntu (systemd) → Run workflow** sobre `main` para reintentar. Ese dispatch únicamente construye y despliega cuando existe una ejecución push de CI exitosa para el SHA exacto actual de `main`.
 
 ## Configuración del proveedor TTS
 
-El proveedor de síntesis se carga al iniciar `devfluency@phonetic-audio-service`. La misma ruta
-de entorno compartida se carga para los servicios Rust; no es necesario recompilar ni modificar
-el frontend para cambiar el proveedor.
+El proveedor de síntesis se carga al iniciar `devfluency@phonetic-audio-service`. La configuración no secreta del proveedor sigue en `plataforma-aprendizaje.env`, pero el token de Cloudflare se carga desde un archivo separado que solo recibe la unidad systemd del microservicio de audio. No es necesario recompilar ni modificar el frontend para cambiar el proveedor.
 
 Para AWS Polly (predeterminado):
 
@@ -87,12 +87,25 @@ La VM debe tener un IAM Instance Profile con permisos `polly:SynthesizeSpeech` p
 y región utilizadas. El SDK de AWS usa su cadena estándar de credenciales; no se requieren
 claves permanentes si EC2 tiene un IAM Role.
 
-Para Cloudflare Workers AI:
+El token de Cloudflare va exclusivamente en
+`/etc/apps/plataforma-aprendizaje/phonetic-audio-service.secrets`:
+
+```dotenv
+CLOUDFLARE_API_TOKEN=valor_del_token
+```
+
+El bootstrap migra automáticamente una variable `CLOUDFLARE_API_TOKEN` que encuentre en el
+archivo compartido y la elimina de allí. El archivo dedicado queda como `root:root` con modo
+`0600`; un drop-in de systemd lo carga únicamente en
+`devfluency@phonetic-audio-service.service`. Los otros seis servicios Rust no reciben ese
+secreto. Para rotarlo, actualiza ese archivo dedicado; no vuelvas a poner el token en el archivo
+compartido.
+
+Para Cloudflare Workers AI, configura los valores no secretos en `/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env`:
 
 ```dotenv
 TTS_PROVIDER=cloudflare
 CLOUDFLARE_ACCOUNT_ID=valor_del_account_id
-CLOUDFLARE_API_TOKEN=valor_del_token
 CLOUDFLARE_TTS_MODEL_EN=@cf/deepgram/aura-2-en
 CLOUDFLARE_TTS_MODEL_ES=@cf/deepgram/aura-2-es
 CLOUDFLARE_TTS_SPEAKER_EN=luna
@@ -109,8 +122,14 @@ lógicas del frontend, pero no implica equivalencia acústica de voces AWS y Dee
 AWS Transcribe Streaming continúa usando la cadena de credenciales AWS y sus permisos por
 separado (`transcribe:StartStreamTranscription`); seleccionar Cloudflare no migra STT.
 
-Tras desplegar los binarios y editar manualmente el archivo de entorno, reinicia solamente
-el servicio de audio y el BFF:
+En cada despliegue, `DEPLOY_TTS_SMOKE_TEST` está activado por defecto y el pipeline hace una
+síntesis real corta usando las credenciales y el proveedor configurados. Esto verifica credenciales,
+conectividad y respuesta de audio, pero genera una llamada al proveedor y puede consumir cuota o
+tener coste. Para omitirla de forma deliberada, agrega `DEPLOY_TTS_SMOKE_TEST=false` al archivo
+compartido de configuración. No desactiva las comprobaciones de puertos ni HTTP.
+
+Tras cambiar manualmente el proveedor o rotar el token, reinicia solamente el servicio de audio
+y el BFF:
 
 ```bash
 sudo systemctl restart 'devfluency@phonetic-audio-service'
