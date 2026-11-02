@@ -37,6 +37,7 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
@@ -46,7 +47,6 @@ jobs:
             ci_runs="$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs" \
               -f branch=main \
               -f event=push \
-              -f head_sha="$RELEASE_SHA" \
               -f status=completed \
               -F per_page=100)"
 
@@ -106,7 +106,9 @@ jobs:
           set -euo pipefail
           bash -n deploy/deploy-release.sh
           bash -n deploy/lib/health-checks.sh
+          bash -n deploy/lib/tts-secret-config.sh
           bash deploy/tests/test-health-checks.sh
+          bash deploy/tests/test-tts-secret-config.sh
           test -n "$(find migrations -maxdepth 1 -type f -name '*.sql' -print -quit)"
 
       - name: Install native build dependencies
