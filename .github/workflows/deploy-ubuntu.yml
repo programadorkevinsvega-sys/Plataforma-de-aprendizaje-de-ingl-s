@@ -1,3 +1,5 @@
+# Changes to this deployment workflow are classified as deploy-required in ci.yml,
+# so pipeline fixes are exercised through the automatic production release path.
 name: Deploy Ubuntu (systemd)
 
 on:
