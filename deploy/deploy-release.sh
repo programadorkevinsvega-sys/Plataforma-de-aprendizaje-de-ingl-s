@@ -9,6 +9,7 @@ archive="$2"
 
 APP_ROOT="/opt/apps/plataforma-aprendizaje"
 APP_CONFIG="/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env"
+PHONETIC_SECRET_CONFIG="/etc/apps/plataforma-aprendizaje/phonetic-audio-service.secrets"
 RELEASES_ROOT="$APP_ROOT/releases"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=deploy/lib/health-checks.sh
@@ -160,3 +161,31 @@ for _ in $(seq 1 30); do
 done
 echo "HTTP health checks failed for BFF or frontend on $BFF_HTTP_PROBE_HOST." >&2
 rollback
+
+# Verify one real provider synthesis after the release is active. This catches
+# invalid credentials/upstream failures that process and HTTP health checks miss.
+tts_smoke_setting="$(sed -n 's/^DEPLOY_TTS_SMOKE_TEST=//p' "$APP_CONFIG" | tail -n 1)"
+case "${tts_smoke_setting,,}" in
+  false|0|no)
+    echo "TTS functional smoke test disabled by DEPLOY_TTS_SMOKE_TEST."
+    ;;
+  *)
+    echo "Running one functional TTS synthesis against the configured provider."
+    smoke_unit="devfluency-tts-smoke-$sha"
+    if ! systemd-run --quiet --wait --collect --unit="$smoke_unit" \
+      --property=Type=exec \
+      --property=User=devfluency \
+      --property=Group=devfluency \
+      --property="WorkingDirectory=$APP_ROOT/current" \
+      --property="EnvironmentFile=$APP_CONFIG" \
+      --property="EnvironmentFile=$PHONETIC_SECRET_CONFIG" \
+      "$APP_ROOT/current/bin/phonetic-audio-service" --smoke-test-tts; then
+      echo "TTS functional smoke test failed for release $sha." >&2
+      rollback
+    fi
+    echo "TTS functional smoke test passed."
+    ;;
+esac
+
+echo "Platform deployment $sha passed all functional checks."
+exit 0
