@@ -388,24 +388,59 @@ jobs:
       - markdown
     runs-on: ubuntu-latest
     steps:
-      - name: Fail if any selected validation failed
+      - name: Require every selected validation to succeed
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
+          RUN_RUST: ${{ needs.changes.outputs.run_rust }}
           RUST_RESULT: ${{ needs.rust.result }}
+          RUN_FRONTEND: ${{ needs.changes.outputs.run_frontend }}
           FRONTEND_RESULT: ${{ needs.frontend.result }}
+          RUN_RUST_AUDIT: ${{ needs.changes.outputs.run_rust_audit }}
           RUST_AUDIT_RESULT: ${{ needs.rust-dependency-audit.result }}
+          RUN_FRONTEND_AUDIT: ${{ needs.changes.outputs.run_frontend_audit }}
           FRONTEND_AUDIT_RESULT: ${{ needs.frontend-dependency-audit.result }}
+          RUN_SHELL: ${{ needs.changes.outputs.run_shell }}
           SHELL_RESULT: ${{ needs.shell-validation.result }}
+          RUN_DOCS: ${{ needs.changes.outputs.run_docs }}
           MARKDOWN_RESULT: ${{ needs.markdown.result }}
         run: |
           set -euo pipefail
-          for result in "$CHANGES_RESULT" "$RUST_RESULT" "$FRONTEND_RESULT" "$RUST_AUDIT_RESULT" "$FRONTEND_AUDIT_RESULT" "$SHELL_RESULT" "$MARKDOWN_RESULT"; do
-            case "$result" in
-              success|skipped) ;;
+
+          if [[ "$CHANGES_RESULT" != "success" ]]; then
+            echo "::error::The change classifier did not finish successfully: $CHANGES_RESULT"
+            exit 1
+          fi
+
+          require_result() {
+            local job="$1"
+            local selected="$2"
+            local result="$3"
+
+            case "$selected" in
+              true)
+                if [[ "$result" != "success" ]]; then
+                  echo "::error::$job was selected by the classifier but finished as '$result' (expected success)."
+                  return 1
+                fi
+                ;;
+              false)
+                if [[ "$result" != "skipped" ]]; then
+                  echo "::error::$job was not selected by the classifier but finished as '$result' (expected skipped)."
+                  return 1
+                fi
+                ;;
               *)
-                echo "::error::A required CI stage finished with status: $result"
-                exit 1
+                echo "::error::Invalid classifier output for $job: '$selected'."
+                return 1
                 ;;
             esac
-          done
-          echo "All validations selected for this change completed successfully."
+          }
+
+          require_result "Rust" "$RUN_RUST" "$RUST_RESULT"
+          require_result "Frontend" "$RUN_FRONTEND" "$FRONTEND_RESULT"
+          require_result "Rust dependency audit" "$RUN_RUST_AUDIT" "$RUST_AUDIT_RESULT"
+          require_result "Frontend dependency audit" "$RUN_FRONTEND_AUDIT" "$FRONTEND_AUDIT_RESULT"
+          require_result "Shell validation" "$RUN_SHELL" "$SHELL_RESULT"
+          require_result "Markdown lint" "$RUN_DOCS" "$MARKDOWN_RESULT"
+
+          echo "Every selected validation succeeded; every unselected validation was skipped."
