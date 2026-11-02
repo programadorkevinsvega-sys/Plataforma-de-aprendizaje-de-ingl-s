@@ -9,12 +9,14 @@ archive="$2"
 
 APP_ROOT="/opt/apps/plataforma-aprendizaje"
 APP_CONFIG="/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env"
+AUDIO_CONFIG="/etc/apps/plataforma-aprendizaje/phonetic-audio-service.env"
 RELEASES_ROOT="$APP_ROOT/releases"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=deploy/lib/health-checks.sh
 source "$SCRIPT_DIR/lib/health-checks.sh"
 
 [[ -s "$APP_CONFIG" ]] || { echo "Missing $APP_CONFIG" >&2; exit 1; }
+[[ -s "$AUDIO_CONFIG" ]] || { echo "Missing $AUDIO_CONFIG" >&2; exit 1; }
 grep -Eq "^DATABASE_URL=.+$" "$APP_CONFIG" || { echo "Set DATABASE_URL in $APP_CONFIG before deploying." >&2; exit 1; }
 grep -Eq "^JWT_SECRET=.{32,}$" "$APP_CONFIG" || { echo "Set JWT_SECRET (at least 32 characters) in $APP_CONFIG before deploying." >&2; exit 1; }
 
@@ -48,6 +50,7 @@ for binary in bff auth-identity-service content-vocabulary-service ai-evaluator-
   test -x "$stage/bin/$binary"
 done
 test -x "$stage/bin/sqlx"
+test -x "$stage/bin/tts-smoke-test"
 test -f "$stage/frontend/server.js"
 test -d "$stage/migrations"
 migration_count="$(find "$stage/migrations" -maxdepth 1 -type f -name '*.sql' | wc -l)"
@@ -153,10 +156,27 @@ done
 for _ in $(seq 1 30); do
   if curl --connect-timeout 2 -fsS "http://$BFF_HTTP_PROBE_HOST:$BFF_HTTP_PROBE_PORT/health" >/dev/null &&
      curl --connect-timeout 2 -fsS "http://$BFF_HTTP_PROBE_HOST:3000/" >/dev/null; then
-    echo "Platform deployment $sha healthy."
-    exit 0
+    break
   fi
   sleep 1
 done
-echo "HTTP health checks failed for BFF or frontend on $BFF_HTTP_PROBE_HOST." >&2
-rollback
+
+if ! curl --connect-timeout 2 -fsS "http://$BFF_HTTP_PROBE_HOST:$BFF_HTTP_PROBE_PORT/health" >/dev/null ||
+   ! curl --connect-timeout 2 -fsS "http://$BFF_HTTP_PROBE_HOST:3000/" >/dev/null; then
+  echo "HTTP health checks failed for BFF or frontend on $BFF_HTTP_PROBE_HOST." >&2
+  rollback
+fi
+
+tts_provider="$(sed -n 's/^TTS_PROVIDER=//p' "$AUDIO_CONFIG" | tail -n 1)"
+tts_provider="${tts_provider#\"}"
+tts_provider="${tts_provider%\"}"
+tts_provider="${tts_provider#\'}"
+tts_provider="${tts_provider%\'}"
+tts_provider="${tts_provider:-aws}"
+echo "Running one real TTS synthesis smoke test against provider '$tts_provider'."
+if ! TTS_PROVIDER="$tts_provider" "$release/bin/tts-smoke-test"; then
+  echo "Functional TTS smoke test failed for provider '$tts_provider'." >&2
+  rollback
+fi
+
+echo "Platform deployment $sha passed HTTP and functional TTS health checks."
