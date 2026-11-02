@@ -114,7 +114,7 @@ CLOUDFLARE_TTS_TIMEOUT_SECONDS=30
 ```
 
 Crea un API Token con permisos Workers AI Read y Workers AI Edit para la cuenta. El token se almacena únicamente
-en el archivo de entorno de la VM con propietario/permisos restrictivos; nunca en GitHub ni en
+en el archivo de secretos dedicado de la VM con propietario/permisos restrictivos; nunca en GitHub ni en
 el frontend. Aura-2 admite speakers propios por idioma: cambiar de proveedor conserva las voces
 lógicas del frontend, pero no implica equivalencia acústica de voces AWS y Deepgram.
 
@@ -138,8 +138,10 @@ sudo systemctl status 'devfluency@phonetic-audio-service' 'devfluency@bff' --no-
 sudo journalctl -u 'devfluency@phonetic-audio-service' -n 100 --no-pager
 ```
 
-El reinicio valida configuración local y construye el cliente; no realiza una síntesis facturable.
+El reinicio valida configuración local y construye el cliente; no realiza una síntesis remota.
 La comprobación de puerto/health no demuestra conectividad ni síntesis real con el proveedor.
+El servicio `devfluency-tts-smoke.service` es una unidad `oneshot` separada que ejecuta la
+comprobación real con los mismos archivos de entorno, pero solo durante el despliegue.
 
 ## Servicios systemd administrados
 
@@ -159,4 +161,5 @@ Comandos útiles: `systemctl status devfluency.target`, `systemctl status 'devfl
 - El despliegue ejecuta migraciones SQL pendientes mediante SQLx y registra su versión/checksum.
 - El despliegue no modifica los servicios de datos ni otras aplicaciones de la VM.
 - La IP/hostname y los secretos no se inventan ni se escriben en el repositorio.
-- El pipeline despliega solo tras CI exitoso; el workflow manual permite reintentar en `main`.
+- El pipeline despliega solo tras CI exitoso; el workflow manual permite reintentar en `main` únicamente con CI exitoso para el SHA exacto.
+- La síntesis funcional TTS real se ejecuta una vez por despliegue, salvo que `DEPLOY_TTS_SMOKE_TEST=false`.
