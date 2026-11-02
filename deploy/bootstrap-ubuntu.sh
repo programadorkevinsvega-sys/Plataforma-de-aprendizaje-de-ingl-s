@@ -22,9 +22,11 @@ fi
 
 getent group devfluency >/dev/null || groupadd --system devfluency
 id devfluency >/dev/null 2>&1 || useradd --system --gid devfluency --home-dir /var/lib/devfluency --shell /usr/sbin/nologin devfluency
+id devfluency-audio >/dev/null 2>&1 || useradd --system --gid devfluency --home-dir /var/lib/devfluency-audio --shell /usr/sbin/nologin devfluency-audio
 
 install -d -o root -g devfluency -m 0750 "$APP_ROOT" "$APP_ROOT/releases" "$APP_CONFIG"
 install -d -o devfluency -g devfluency -m 0750 /var/lib/devfluency
+install -d -o devfluency-audio -g devfluency -m 0750 /var/lib/devfluency-audio
 
 # Preserve an existing installation when moving from the legacy single-app path.
 if [[ -d "$LEGACY_ROOT/releases" ]] && [[ -z "$(find "$APP_ROOT/releases" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
