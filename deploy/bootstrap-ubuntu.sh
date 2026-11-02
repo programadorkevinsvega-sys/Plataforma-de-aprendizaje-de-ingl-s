@@ -148,6 +148,7 @@ cat > /etc/systemd/system/devfluency@phonetic-audio-service.service.d/identity.c
 [Service]
 User=devfluency-phonetic
 Group=devfluency
+ReadWritePaths=/var/lib/devfluency-phonetic
 UNIT
 chmod 0644 /etc/systemd/system/devfluency@phonetic-audio-service.service.d/identity.conf
 install -m 0644 "$(dirname "$0")/systemd/devfluency-frontend.service" /etc/systemd/system/devfluency-frontend.service
