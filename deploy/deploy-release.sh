@@ -173,8 +173,14 @@ tts_provider="${tts_provider%\"}"
 tts_provider="${tts_provider#\'}"
 tts_provider="${tts_provider%\'}"
 tts_provider="${tts_provider:-aws}"
-echo "Running one real TTS synthesis smoke test against provider '$tts_provider'."
-if ! TTS_PROVIDER="$tts_provider" "$release/bin/tts-smoke-test"; then
+tts_smoke_endpoint="$(sed -n 's/^PHONETIC_SERVICE_GRPC_URL=//p' "$APP_CONFIG" | tail -n 1)"
+tts_smoke_endpoint="${tts_smoke_endpoint#\"}"
+tts_smoke_endpoint="${tts_smoke_endpoint%\"}"
+tts_smoke_endpoint="${tts_smoke_endpoint#\'}"
+tts_smoke_endpoint="${tts_smoke_endpoint%\'}"
+tts_smoke_endpoint="${tts_smoke_endpoint:-http://127.0.0.1:50054}"
+echo "Running one real TTS synthesis smoke test against provider '$tts_provider' via $tts_smoke_endpoint."
+if ! TTS_PROVIDER="$tts_provider" TTS_SMOKE_ENDPOINT="$tts_smoke_endpoint" "$release/bin/tts-smoke-test"; then
   echo "Functional TTS smoke test failed for provider '$tts_provider'." >&2
   rollback
 fi
