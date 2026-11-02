@@ -1,0 +1,19 @@
+[Unit]
+Description=DevFluency one-shot functional TTS smoke test
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=devfluency
+Group=devfluency
+WorkingDirectory=/opt/apps/plataforma-aprendizaje/current
+EnvironmentFile=/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env
+EnvironmentFile=/etc/apps/plataforma-aprendizaje/phonetic-audio-service.secrets
+ExecStart=/opt/apps/plataforma-aprendizaje/current/bin/phonetic-audio-service --smoke-test-tts
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/devfluency
+UMask=0027
