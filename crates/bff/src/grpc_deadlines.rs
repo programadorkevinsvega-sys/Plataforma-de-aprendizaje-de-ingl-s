@@ -53,10 +53,7 @@ mod tests {
 
         let request = interceptor.call(Request::new(())).unwrap();
 
-        assert_eq!(
-            request.metadata().get("grpc-timeout").unwrap(),
-            "5000000u"
-        );
+        assert_eq!(request.metadata().get("grpc-timeout").unwrap(), "5000000u");
     }
 
     #[test]
@@ -64,9 +61,6 @@ mod tests {
         let mut interceptor = GrpcDeadlineInterceptor::new(Duration::from_secs(75));
         let request = interceptor.call(Request::new(())).unwrap();
 
-        assert_eq!(
-            request.metadata().get("grpc-timeout").unwrap(),
-            "75000000u"
-        );
+        assert_eq!(request.metadata().get("grpc-timeout").unwrap(), "75000000u");
     }
 }
