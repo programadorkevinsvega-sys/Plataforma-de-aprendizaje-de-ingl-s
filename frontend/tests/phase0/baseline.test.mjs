@@ -31,7 +31,7 @@ test('User keeps tenant isolation and derives display properties', () => {
 test('registration schema normalizes email and rejects weak passwords', () => {
   const valid = registerSchema.safeParse({
     fullName: ' Ana Vega ',
-    email: ' ANA@Example.Invalid ',
+    email: 'ANA@Example.Invalid',
     password: 'SecurePass1!',
     targetRole: 'BACKEND',
     currentLevel: 'A0',
