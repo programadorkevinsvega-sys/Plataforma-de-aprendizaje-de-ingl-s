@@ -1,0 +1,42 @@
+[
+  {
+    "key": "student-a0",
+    "current_level": "A0",
+    "target_role": "BACKEND",
+    "words_mastered_range": [0, 4],
+    "due_reviews_range": [0, 2],
+    "description": "Estudiante inicial sin historial significativo."
+  },
+  {
+    "key": "student-a2",
+    "current_level": "A2",
+    "target_role": "FULLSTACK",
+    "words_mastered_range": [20, 60],
+    "due_reviews_range": [2, 12],
+    "description": "Estudiante elemental con actividad reciente."
+  },
+  {
+    "key": "student-b2",
+    "current_level": "B2",
+    "target_role": "DEVOPS",
+    "words_mastered_range": [100, 260],
+    "due_reviews_range": [5, 35],
+    "description": "Estudiante independiente con historial amplio."
+  },
+  {
+    "key": "student-c1",
+    "current_level": "C1",
+    "target_role": "DATA",
+    "words_mastered_range": [260, 520],
+    "due_reviews_range": [0, 18],
+    "description": "Estudiante avanzado con repaso parcialmente al día."
+  },
+  {
+    "key": "student-no-activity",
+    "current_level": "A1",
+    "target_role": "MOBILE",
+    "words_mastered_range": [0, 0],
+    "due_reviews_range": [0, 0],
+    "description": "Cuenta sin actividad académica registrada."
+  }
+]

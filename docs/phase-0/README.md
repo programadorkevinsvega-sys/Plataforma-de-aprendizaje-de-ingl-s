@@ -38,6 +38,8 @@ Documentar el comportamiento y la arquitectura que existen antes de cambiar el d
 - [Matriz de trazabilidad](traceability-matrix.md)
 - [Diagramas C4](c4-diagrams.md)
 - [Línea base de calidad](quality-baseline-2026-11-01.md)
+- [Fixtures, datos sintéticos y smoke de carga](../../tools/phase0/README.md)
+- [Escenario k6 de disponibilidad para staging](../../tests/load/README.md)
 - ADR-0001: [Modelo curricular y catálogo](../adr/0001-curriculum-and-content-model.md)
 - ADR-0002: [Dominio del aprendizaje](../adr/0002-learning-domain-model.md)
 - ADR-0003: [Evaluación y dominio académico](../adr/0003-assessment-and-academic-mastery.md)
@@ -57,3 +59,30 @@ Documentar el comportamiento y la arquitectura que existen antes de cambiar el d
 | Cobertura y rendimiento iniciales registrados | Pendiente |
 
 **Gate de salida: NO APROBADO por ahora.** Los seis ADR y la matriz CI completa están cerrados con evidencia. Siguen pendientes coverage, rendimiento/carga, recorridos E2E en entorno representativo y evidencia de timeout/deadline para todas las dependencias externas.
+
+## Seguimiento de cierre — 2026-11-03
+
+Se abrió el PR [#68 — medir cobertura y añadir fixtures reproducibles](https://github.com/programadorkevinsvega-sys/Plataforma-de-aprendizaje-de-ingl-s/pull/68), todavía sujeto a CI y revisión.
+
+El alcance propuesto añade:
+- Cobertura Rust con `cargo-llvm-cov`, archivada como LCOV de CI.
+- Cobertura del TypeScript no visual de dominio, aplicación, infraestructura y utilidades compartidas. No incluye componentes React/Next ni sustituye E2E.
+- Pruebas unitarias de referencia para reglas de registro, identidad/tenant, mapeadores BFF, errores UI y utilidades.
+- Fixtures estables de perfiles y contenido, más generador de usuarios sintéticos con semilla fija.
+- Un smoke k6 de `GET /health` que solo admite staging y bloquea el hostname productivo.
+
+La primera ejecución del runner TypeScript encontró una limitación del modo strip-only de Node 24 con propiedades de parámetro de TypeScript. Se sustituyó por un loader basado en el compilador TypeScript ya instalado en el frontend.
+
+### Evidencia de cobertura — CI #202
+
+- Frontend, lógica TypeScript medida (domain/application/infrastructure/shared): **30,71% de líneas, 65,71% de ramas y 13,41% de funciones**. Se ejecutaron 8 tests y pasaron 8. Los componentes y páginas React/Next (TSX) no forman parte de este universo de medición.
+- Rust, workspace instrumentado por `cargo llvm-cov`: **45,09% de líneas (1.846/4.094) y 29,55% de funciones (229/775)** en 33 archivos. El reporte LCOV generado no contiene registros de ramas, por lo que no se informa porcentaje de ramas.
+- Rust: **75 tests pasaron, 0 fallaron y 0 quedaron ignorados** en 12 grupos reportados por el runner de cobertura.
+- El artefacto `rust-coverage-lcov` se publicó en CI #202 y se conserva durante 30 días.
+
+Estos porcentajes son una línea base, no una meta de aceptación ni un umbral aprobado. La cobertura del frontend no representa cobertura visual/E2E y la de Rust no demuestra por sí sola que los flujos de producción estén probados.
+
+
+El generador sintético no escribe en PostgreSQL ni despliega datos. El smoke k6 no se ha ejecutado contra staging porque todavía no hay una URL/entorno de staging autorizado en el repositorio revisado.
+
+Los pendientes de deadlines gRPC, timeouts de adquisición SQLx, timeout explícito de Bedrock, E2E funcional y medición de carga siguen abiertos. **La Fase 0 y su gate no se cierran por este PR.**
