@@ -34,20 +34,14 @@ pub fn duration_from_value(
         ));
     }
 
-    let raw = value.unwrap_or_else(|| {
-        // This branch is only used when a caller explicitly asks the pure
-        // parser to apply its default.
-        ""
-    });
-    let seconds = if value.is_none() {
-        default_seconds
-    } else {
-        raw.parse::<u64>().map_err(|_| {
+    let seconds = match value {
+        None => default_seconds,
+        Some(raw) => raw.parse::<u64>().map_err(|_| {
             std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 format!("{name} must be an integer number of seconds"),
             )
-        })?
+        })?,
     };
 
     if seconds == 0 || seconds > max_seconds {
