@@ -37,10 +37,11 @@ use proto::content::content_service_client::ContentServiceClient;
 use proto::gamification::gamification_service_client::GamificationServiceClient;
 use proto::phonetic_audio::phonetic_audio_service_client::PhoneticAudioServiceClient;
 use proto::srs::srs_service_client::SrsServiceClient;
-use grpc_deadlines::{deadline_channel, DeadlineChannel};
 use std::net::SocketAddr;
 use tonic::transport::Endpoint;
 use tower_http::cors::{AllowOrigin, CorsLayer};
+
+use grpc_deadlines::{deadline_channel, DeadlineChannel};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -100,18 +101,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Per-service deadlines cap client waiting and propagate grpc-timeout to
     // the receiving Tonic server. Connection setup has a separate short limit.
-    let grpc_connect_timeout = common::timeout::duration_from_env(
-        "GRPC_CONNECT_TIMEOUT_SECONDS",
-        3,
-        30,
-    )?;
+    let grpc_connect_timeout =
+        common::timeout::duration_from_env("GRPC_CONNECT_TIMEOUT_SECONDS", 3, 30)?;
     let auth_timeout = common::timeout::duration_from_env("GRPC_AUTH_DEADLINE_SECONDS", 10, 120)?;
     let content_timeout =
         common::timeout::duration_from_env("GRPC_CONTENT_DEADLINE_SECONDS", 45, 180)?;
     let ai_timeout = common::timeout::duration_from_env("GRPC_AI_DEADLINE_SECONDS", 75, 180)?;
     let srs_timeout = common::timeout::duration_from_env("GRPC_SRS_DEADLINE_SECONDS", 10, 120)?;
-    let audio_timeout =
-        common::timeout::duration_from_env("GRPC_AUDIO_DEADLINE_SECONDS", 45, 180)?;
+    let audio_timeout = common::timeout::duration_from_env("GRPC_AUDIO_DEADLINE_SECONDS", 45, 180)?;
     let gamification_timeout =
         common::timeout::duration_from_env("GRPC_GAMIFICATION_DEADLINE_SECONDS", 10, 120)?;
 
