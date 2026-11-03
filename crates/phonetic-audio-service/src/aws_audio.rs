@@ -45,17 +45,10 @@ impl AwsAudioEngine {
     ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let audio_bytes: Vec<u8> =
             base64::Engine::decode(&base64::engine::general_purpose::STANDARD, audio_base64)?;
-        let operation_timeout = common::timeout::duration_from_env(
-            "AWS_TRANSCRIBE_TIMEOUT_SECONDS",
-            45,
-            300,
-        )?;
+        let operation_timeout =
+            common::timeout::duration_from_env("AWS_TRANSCRIBE_TIMEOUT_SECONDS", 45, 300)?;
 
-        with_transcribe_timeout(
-            operation_timeout,
-            self.transcribe_audio_bytes(audio_bytes),
-        )
-        .await
+        with_transcribe_timeout(operation_timeout, self.transcribe_audio_bytes(audio_bytes)).await
     }
 
     async fn transcribe_audio_bytes(
