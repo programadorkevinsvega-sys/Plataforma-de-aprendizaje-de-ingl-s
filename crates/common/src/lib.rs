@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod error;
 pub mod rls;
+pub mod timeout;
 pub mod vo;
 
 pub use auth::{
