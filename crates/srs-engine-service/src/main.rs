@@ -24,8 +24,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
     })?;
 
+    let database_acquire_timeout = common::timeout::duration_from_env(
+        "DATABASE_ACQUIRE_TIMEOUT_SECONDS",
+        5,
+        30,
+    )?;
     let pool = PgPoolOptions::new()
         .max_connections(10)
+        .acquire_timeout(database_acquire_timeout)
         .connect(&database_url)
         .await
         .expect("❌ No se pudo conectar a PostgreSQL en srs-engine-service.");
