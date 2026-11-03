@@ -71,7 +71,17 @@ El alcance propuesto añade:
 - Fixtures estables de perfiles y contenido, más generador de usuarios sintéticos con semilla fija.
 - Un smoke k6 de `GET /health` que solo admite staging y bloquea el hostname productivo.
 
-La primera ejecución del runner TypeScript encontró una limitación del modo strip-only de Node 24 con propiedades de parámetro de TypeScript. Se sustituyó por un loader basado en el compilador TypeScript ya instalado en el frontend. La ejecución corregida está pendiente de CI; no se fija todavía un porcentaje de cobertura aprobado.
+La primera ejecución del runner TypeScript encontró una limitación del modo strip-only de Node 24 con propiedades de parámetro de TypeScript. Se sustituyó por un loader basado en el compilador TypeScript ya instalado en el frontend.
+
+### Evidencia de cobertura — CI #202
+
+- Frontend, lógica TypeScript medida (domain/application/infrastructure/shared): **30,71% de líneas, 65,71% de ramas y 13,41% de funciones**. Se ejecutaron 8 tests y pasaron 8. Los componentes y páginas React/Next (TSX) no forman parte de este universo de medición.
+- Rust, workspace instrumentado por `cargo llvm-cov`: **45,09% de líneas (1.846/4.094) y 29,55% de funciones (229/775)** en 33 archivos. El reporte LCOV generado no contiene registros de ramas, por lo que no se informa porcentaje de ramas.
+- Rust: **75 tests pasaron, 0 fallaron y 0 quedaron ignorados** en 12 grupos reportados por el runner de cobertura.
+- El artefacto `rust-coverage-lcov` se publicó en CI #202 y se conserva durante 30 días.
+
+Estos porcentajes son una línea base, no una meta de aceptación ni un umbral aprobado. La cobertura del frontend no representa cobertura visual/E2E y la de Rust no demuestra por sí sola que los flujos de producción estén probados.
+
 
 El generador sintético no escribe en PostgreSQL ni despliega datos. El smoke k6 no se ha ejecutado contra staging porque todavía no hay una URL/entorno de staging autorizado en el repositorio revisado.
 
