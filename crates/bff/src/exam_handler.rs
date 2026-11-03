@@ -585,11 +585,8 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
     use tokio::sync::mpsc;
 
     let region = Region::new(env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string()));
-    let config_load_timeout = match common::timeout::duration_from_env(
-        "AWS_CONFIG_LOAD_TIMEOUT_SECONDS",
-        10,
-        30,
-    ) {
+    let config_load_timeout =
+        match common::timeout::duration_from_env("AWS_CONFIG_LOAD_TIMEOUT_SECONDS", 10, 30) {
         Ok(timeout) => timeout,
         Err(error) => {
             tracing::error!(%error, "Invalid AWS config loading timeout");
