@@ -112,8 +112,7 @@ impl AwsAudioEngine {
                 Ok(None) => break,
                 Err(error) => {
                     tracing::warn!(?error, "AWS Transcribe stream receive failed");
-                    return Err(Box::new(std::io::Error::new(
-                        std::io::ErrorKind::Other,
+                    return Err(Box::new(std::io::Error::other(
                         "AWS Transcribe stream receive failed",
                     )));
                 }
