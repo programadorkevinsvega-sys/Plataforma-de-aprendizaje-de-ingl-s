@@ -28,7 +28,26 @@ impl AwsAudioEngine {
     ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let audio_bytes: Vec<u8> =
             base64::Engine::decode(&base64::engine::general_purpose::STANDARD, audio_base64)?;
+        let operation_timeout = common::timeout::duration_from_env(
+            "AWS_TRANSCRIBE_TIMEOUT_SECONDS",
+            45,
+            300,
+        )?;
 
+        tokio::time::timeout(operation_timeout, self.transcribe_audio_bytes(audio_bytes))
+            .await
+            .map_err(|_| {
+                Box::new(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "AWS Transcribe exceeded AWS_TRANSCRIBE_TIMEOUT_SECONDS",
+                )) as Box<dyn std::error::Error + Send + Sync>
+            })?
+    }
+
+    async fn transcribe_audio_bytes(
+        &self,
+        audio_bytes: Vec<u8>,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let region = TranscribeRegion::new(self.aws_region.clone());
         let sdk_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
             .region(region)
@@ -86,7 +105,10 @@ impl AwsAudioEngine {
                 Ok(None) => break,
                 Err(error) => {
                     tracing::warn!(?error, "AWS Transcribe stream receive failed");
-                    break;
+                    return Err(Box::new(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        "AWS Transcribe stream receive failed",
+                    )));
                 }
             }
         }
