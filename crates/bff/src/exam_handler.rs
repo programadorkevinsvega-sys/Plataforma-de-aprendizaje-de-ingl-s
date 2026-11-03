@@ -587,17 +587,17 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
     let region = Region::new(env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string()));
     let config_load_timeout =
         match common::timeout::duration_from_env("AWS_CONFIG_LOAD_TIMEOUT_SECONDS", 10, 30) {
-        Ok(timeout) => timeout,
-        Err(error) => {
-            tracing::error!(%error, "Invalid AWS config loading timeout");
-            let message = serde_json::json!({
-                "error": "La configuración de AWS no está disponible."
-            })
-            .to_string();
-            let _ = socket.send(Message::Text(message)).await;
-            return;
-        }
-    };
+            Ok(timeout) => timeout,
+            Err(error) => {
+                tracing::error!(%error, "Invalid AWS config loading timeout");
+                let message = serde_json::json!({
+                    "error": "La configuración de AWS no está disponible."
+                })
+                .to_string();
+                let _ = socket.send(Message::Text(message)).await;
+                return;
+            }
+        };
     let sdk_config = match tokio::time::timeout(
         config_load_timeout,
         aws_config::defaults(aws_config::BehaviorVersion::latest())
