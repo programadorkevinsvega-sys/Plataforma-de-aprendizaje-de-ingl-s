@@ -45,7 +45,6 @@ pub fn deadline_channel(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tonic::service::Interceptor;
 
     #[test]
     fn interceptor_adds_server_visible_grpc_timeout_metadata() {
