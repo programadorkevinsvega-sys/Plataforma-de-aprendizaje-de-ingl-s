@@ -158,7 +158,7 @@ jobs:
                     run_shell=true
                     run_deploy=true
                     ;;
-                  scripts/*|*.sh)
+                  scripts/*|*.sh|tools/phase0/*|tests/fixtures/*|tests/load/*)
                     run_shell=true
                     ;;
                 esac
@@ -251,8 +251,22 @@ jobs:
         run: cargo build --workspace --all-targets --locked
       - name: Run Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
-      - name: Run Rust tests
-        run: cargo test --workspace --locked
+      - name: Install LLVM source-based coverage tooling
+        run: |
+          rustup component add llvm-tools-preview
+          cargo install cargo-llvm-cov --version 0.9.1 --locked
+      - name: Run Rust tests and measure coverage
+        run: |
+          set -euo pipefail
+          mkdir -p target/coverage
+          cargo llvm-cov --workspace --locked --lcov --output-path target/coverage/rust-lcov.info
+      - name: Upload Rust coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-coverage-lcov
+          path: target/coverage/rust-lcov.info
+          if-no-files-found: error
+          retention-days: 30
 
   frontend:
     name: Frontend lint and production build
@@ -277,6 +291,15 @@ jobs:
         run: npm ci
       - name: Lint
         run: npm run lint
+      - name: Measure frontend logic coverage
+        run: |
+          node --experimental-strip-types --experimental-test-coverage \
+            --experimental-loader ./tests/phase0/ts-path-loader.mjs \
+            --test-coverage-include='src/domain/**/*.ts' \
+            --test-coverage-include='src/application/**/*.ts' \
+            --test-coverage-include='src/infrastructure/**/*.ts' \
+            --test-coverage-include='src/shared/**/*.ts' \
+            --test tests/phase0/*.test.mjs
       - name: Build production bundle
         run: npm run build
 
@@ -345,6 +368,7 @@ jobs:
             find . -maxdepth 1 -type f -name '*.sh' -print0
           )
           bash deploy/tests/test-health-checks.sh
+          python3 -m unittest discover -s tools/phase0/tests -p 'test_*.py' -v
 
   markdown:
     name: Markdown lint
