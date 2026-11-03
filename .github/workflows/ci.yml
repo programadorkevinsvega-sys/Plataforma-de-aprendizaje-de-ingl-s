@@ -293,7 +293,7 @@ jobs:
         run: npm run lint
       - name: Measure frontend logic coverage
         run: |
-          node --experimental-strip-types --experimental-test-coverage \
+          node --experimental-test-coverage \
             --experimental-loader ./tests/phase0/ts-path-loader.mjs \
             --test-coverage-include='src/domain/**/*.ts' \
             --test-coverage-include='src/application/**/*.ts' \
