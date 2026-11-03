@@ -1,6 +1,7 @@
 mod auth_handler;
 mod content_handler;
 mod exam_handler;
+mod grpc_deadlines;
 mod progress_handler;
 mod request_limiter;
 mod srs_handler;
@@ -36,18 +37,19 @@ use proto::content::content_service_client::ContentServiceClient;
 use proto::gamification::gamification_service_client::GamificationServiceClient;
 use proto::phonetic_audio::phonetic_audio_service_client::PhoneticAudioServiceClient;
 use proto::srs::srs_service_client::SrsServiceClient;
+use grpc_deadlines::{deadline_channel, DeadlineChannel};
 use std::net::SocketAddr;
-use tonic::transport::Channel;
+use tonic::transport::Endpoint;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
 #[derive(Clone)]
 pub struct AppState {
-    pub auth_client: AuthServiceClient<Channel>,
-    pub content_client: ContentServiceClient<Channel>,
-    pub srs_client: SrsServiceClient<Channel>,
-    pub ai_client: AiEvaluatorServiceClient<Channel>,
-    pub phonetic_audio_client: PhoneticAudioServiceClient<Channel>,
-    pub gamification_client: GamificationServiceClient<Channel>,
+    pub auth_client: AuthServiceClient<DeadlineChannel>,
+    pub content_client: ContentServiceClient<DeadlineChannel>,
+    pub srs_client: SrsServiceClient<DeadlineChannel>,
+    pub ai_client: AiEvaluatorServiceClient<DeadlineChannel>,
+    pub phonetic_audio_client: PhoneticAudioServiceClient<DeadlineChannel>,
+    pub gamification_client: GamificationServiceClient<DeadlineChannel>,
 }
 
 /// Parse comma-separated exact HTTP(S) origins. Wildcards and URL paths are rejected.
@@ -96,23 +98,56 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::io::Error::new(std::io::ErrorKind::InvalidInput, error.to_string())
     })?;
 
-    // Clientes gRPC lazy — se conectan al primer uso
-    let auth_client =
-        AuthServiceClient::new(Channel::from_static("http://127.0.0.1:50051").connect_lazy());
-    let content_client =
-        ContentServiceClient::new(Channel::from_static("http://127.0.0.1:50052").connect_lazy());
-    let ai_client = AiEvaluatorServiceClient::new(
-        Channel::from_static("http://127.0.0.1:50053").connect_lazy(),
-    );
-    let srs_client =
-        SrsServiceClient::new(Channel::from_static("http://127.0.0.1:50055").connect_lazy());
+    // Per-service deadlines cap client waiting and propagate grpc-timeout to
+    // the receiving Tonic server. Connection setup has a separate short limit.
+    let grpc_connect_timeout = common::timeout::duration_from_env(
+        "GRPC_CONNECT_TIMEOUT_SECONDS",
+        3,
+        30,
+    )?;
+    let auth_timeout = common::timeout::duration_from_env("GRPC_AUTH_DEADLINE_SECONDS", 10, 120)?;
+    let content_timeout =
+        common::timeout::duration_from_env("GRPC_CONTENT_DEADLINE_SECONDS", 45, 180)?;
+    let ai_timeout = common::timeout::duration_from_env("GRPC_AI_DEADLINE_SECONDS", 75, 180)?;
+    let srs_timeout = common::timeout::duration_from_env("GRPC_SRS_DEADLINE_SECONDS", 10, 120)?;
+    let audio_timeout =
+        common::timeout::duration_from_env("GRPC_AUDIO_DEADLINE_SECONDS", 45, 180)?;
+    let gamification_timeout =
+        common::timeout::duration_from_env("GRPC_GAMIFICATION_DEADLINE_SECONDS", 10, 120)?;
+
+    // Clients remain lazy; timeouts apply once each RPC is invoked.
+    let auth_client = AuthServiceClient::new(deadline_channel(
+        Endpoint::from_static("http://127.0.0.1:50051"),
+        auth_timeout,
+        grpc_connect_timeout,
+    ));
+    let content_client = ContentServiceClient::new(deadline_channel(
+        Endpoint::from_static("http://127.0.0.1:50052"),
+        content_timeout,
+        grpc_connect_timeout,
+    ));
+    let ai_client = AiEvaluatorServiceClient::new(deadline_channel(
+        Endpoint::from_static("http://127.0.0.1:50053"),
+        ai_timeout,
+        grpc_connect_timeout,
+    ));
+    let srs_client = SrsServiceClient::new(deadline_channel(
+        Endpoint::from_static("http://127.0.0.1:50055"),
+        srs_timeout,
+        grpc_connect_timeout,
+    ));
     let phonetic_audio_url = std::env::var("PHONETIC_SERVICE_GRPC_URL")
         .unwrap_or_else(|_| "http://127.0.0.1:50054".to_string());
-    let phonetic_audio_client =
-        PhoneticAudioServiceClient::new(Channel::from_shared(phonetic_audio_url)?.connect_lazy());
-    let gamification_client = GamificationServiceClient::new(
-        Channel::from_static("http://127.0.0.1:50056").connect_lazy(),
-    );
+    let phonetic_audio_client = PhoneticAudioServiceClient::new(deadline_channel(
+        Endpoint::from_shared(phonetic_audio_url)?,
+        audio_timeout,
+        grpc_connect_timeout,
+    ));
+    let gamification_client = GamificationServiceClient::new(deadline_channel(
+        Endpoint::from_static("http://127.0.0.1:50056"),
+        gamification_timeout,
+        grpc_connect_timeout,
+    ));
 
     let state = AppState {
         auth_client,
