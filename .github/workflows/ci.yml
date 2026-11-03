@@ -141,6 +141,11 @@ jobs:
                 esac
 
                 case "$file" in
+                  frontend/tests/*)
+                    # Test-only additions validate frontend logic but do not
+                    # change the production application bundle.
+                    run_frontend=true
+                    ;;
                   frontend/*)
                     run_frontend=true
                     run_deploy=true
