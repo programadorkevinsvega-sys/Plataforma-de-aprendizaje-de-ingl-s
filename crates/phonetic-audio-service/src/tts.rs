@@ -180,10 +180,24 @@ impl TtsEngine {
                         std::io::Error::new(std::io::ErrorKind::InvalidInput, message)
                     })?;
 
-                    let sdk_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
-                        .region(Region::new(region))
-                        .load()
-                        .await;
+                    let config_load_timeout = common::timeout::duration_from_env(
+                        "AWS_CONFIG_LOAD_TIMEOUT_SECONDS",
+                        10,
+                        30,
+                    )?;
+                    let sdk_config = tokio::time::timeout(
+                        config_load_timeout,
+                        aws_config::defaults(aws_config::BehaviorVersion::latest())
+                            .region(Region::new(region))
+                            .load(),
+                    )
+                    .await
+                    .map_err(|_| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::TimedOut,
+                            "AWS credential/configuration loading exceeded AWS_CONFIG_LOAD_TIMEOUT_SECONDS",
+                        )
+                    })?;
                     let client = PollyClient::new(&sdk_config);
 
                     Arc::new(AwsPollyProvider {
