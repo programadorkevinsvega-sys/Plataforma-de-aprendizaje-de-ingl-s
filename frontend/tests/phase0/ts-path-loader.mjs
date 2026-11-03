@@ -1,4 +1,6 @@
 import { existsSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
+import ts from 'typescript'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -31,4 +33,31 @@ export async function resolve(specifier, context, nextResolve) {
   }
 
   return nextResolve(specifier, context)
+}
+
+export async function load(url, context, nextLoad) {
+  if (url.startsWith('file:') && url.endsWith('.ts')) {
+    const source = await readFile(fileURLToPath(url), 'utf8')
+    const result = ts.transpileModule(source, {
+      compilerOptions: {
+        target: ts.ScriptTarget.ES2022,
+        module: ts.ModuleKind.ESNext,
+        verbatimModuleSyntax: true,
+      },
+      fileName: fileURLToPath(url),
+      reportDiagnostics: true,
+    })
+    const errors = (result.diagnostics ?? []).filter(
+      (diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error,
+    )
+    if (errors.length > 0) {
+      const message = errors
+        .map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
+        .join('\n')
+      throw new Error(`Unable to transpile ${url}: ${message}`)
+    }
+    return { format: 'module', source: result.outputText, shortCircuit: true }
+  }
+
+  return nextLoad(url, context)
 }
