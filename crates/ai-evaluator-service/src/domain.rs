@@ -104,16 +104,12 @@ impl EvaluatorEngine {
         question: &str,
         _target_level: &str,
     ) -> Result<ExamMetrics, DomainError> {
-        let timeout = common::timeout::duration_from_env(
-            "AWS_BEDROCK_TIMEOUT_SECONDS",
-            60,
-            300,
-        )
-        .map_err(|error| {
-            DomainError::ExternalServiceError(format!(
-                "Invalid AWS_BEDROCK_TIMEOUT_SECONDS configuration: {error}"
-            ))
-        })?;
+        let timeout = common::timeout::duration_from_env("AWS_BEDROCK_TIMEOUT_SECONDS", 60, 300)
+            .map_err(|error| {
+                DomainError::ExternalServiceError(format!(
+                    "Invalid AWS_BEDROCK_TIMEOUT_SECONDS configuration: {error}"
+                ))
+            })?;
 
         bounded_external_call(
             timeout,
@@ -230,31 +226,29 @@ mod tests {
 
     #[tokio::test]
     async fn bedrock_timeout_cancels_a_slow_external_operation() {
-        let error = bounded_external_call(
-            Duration::from_millis(5),
-            "AWS Bedrock",
-            async {
-                tokio::time::sleep(Duration::from_millis(30)).await;
-                Ok::<(), std::io::Error>(())
-            },
-        )
+        let error = bounded_external_call(Duration::from_millis(5), "AWS Bedrock", async {
+            tokio::time::sleep(Duration::from_millis(30)).await;
+            Ok::<(), std::io::Error>(())
+        })
         .await
         .unwrap_err();
 
-        assert!(error.to_string().contains("AWS Bedrock timed out after 5 milliseconds"));
+        assert!(error
+            .to_string()
+            .contains("AWS Bedrock timed out after 5 milliseconds"));
     }
 
     #[tokio::test]
     async fn bedrock_provider_errors_remain_distinguishable_from_timeouts() {
-        let error = bounded_external_call(
-            Duration::from_secs(1),
-            "AWS Bedrock",
-            async { Err::<(), _>(std::io::Error::other("credentials unavailable")) },
-        )
+        let error = bounded_external_call(Duration::from_secs(1), "AWS Bedrock", async {
+            Err::<(), _>(std::io::Error::other("credentials unavailable"))
+        })
         .await
         .unwrap_err();
 
-        assert!(error.to_string().contains("AWS Bedrock error: credentials unavailable"));
+        assert!(error
+            .to_string()
+            .contains("AWS Bedrock error: credentials unavailable"));
         assert!(!error.to_string().contains("timed out"));
     }
 
