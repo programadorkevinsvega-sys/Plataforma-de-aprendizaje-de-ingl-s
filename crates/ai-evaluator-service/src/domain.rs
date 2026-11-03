@@ -6,6 +6,9 @@ use aws_sdk_bedrockruntime::{
 use common::{DomainError, ScoreMetric};
 use serde::{Deserialize, Serialize};
 use std::env;
+use std::fmt::Display;
+use std::future::Future;
+use std::time::Duration;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExamMetrics {
@@ -62,6 +65,35 @@ struct BedrockEvalResponse {
     phonetic_correction: Option<String>,
 }
 
+/// Bounds an external operation and classifies elapsed deadlines separately
+/// from provider errors. The future is cancelled when the deadline elapses.
+async fn bounded_external_call<T, F, E>(
+    timeout: Duration,
+    operation: &str,
+    future: F,
+) -> Result<T, DomainError>
+where
+    F: Future<Output = Result<T, E>>,
+    E: Display,
+{
+    match tokio::time::timeout(timeout, future).await {
+        Ok(Ok(value)) => Ok(value),
+        Ok(Err(error)) => Err(DomainError::ExternalServiceError(format!(
+            "{operation} error: {error}"
+        ))),
+        Err(_) => {
+            let elapsed = if timeout.subsec_millis() == 0 {
+                format!("{} seconds", timeout.as_secs())
+            } else {
+                format!("{} milliseconds", timeout.as_millis())
+            };
+            Err(DomainError::ExternalServiceError(format!(
+                "{operation} timed out after {elapsed}"
+            )))
+        }
+    }
+}
+
 pub struct EvaluatorEngine;
 
 impl EvaluatorEngine {
@@ -72,9 +104,19 @@ impl EvaluatorEngine {
         question: &str,
         _target_level: &str,
     ) -> Result<ExamMetrics, DomainError> {
-        Self::call_bedrock(user_text, question)
-            .await
-            .map_err(|e| DomainError::ExternalServiceError(format!("AWS Bedrock error: {}", e)))
+        let timeout = common::timeout::duration_from_env("AWS_BEDROCK_TIMEOUT_SECONDS", 60, 300)
+            .map_err(|error| {
+                DomainError::ExternalServiceError(format!(
+                    "Invalid AWS_BEDROCK_TIMEOUT_SECONDS configuration: {error}"
+                ))
+            })?;
+
+        bounded_external_call(
+            timeout,
+            "AWS Bedrock",
+            Self::call_bedrock(user_text, question),
+        )
+        .await
     }
 
     /// Llamada real a AWS Bedrock Runtime usando el modelo de texto configurado
@@ -181,6 +223,34 @@ Responde SOLO con este JSON exacto:
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn bedrock_timeout_cancels_a_slow_external_operation() {
+        let error = bounded_external_call(Duration::from_millis(5), "AWS Bedrock", async {
+            tokio::time::sleep(Duration::from_millis(30)).await;
+            Ok::<(), std::io::Error>(())
+        })
+        .await
+        .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("AWS Bedrock timed out after 5 milliseconds"));
+    }
+
+    #[tokio::test]
+    async fn bedrock_provider_errors_remain_distinguishable_from_timeouts() {
+        let error = bounded_external_call(Duration::from_secs(1), "AWS Bedrock", async {
+            Err::<(), _>(std::io::Error::other("credentials unavailable"))
+        })
+        .await
+        .unwrap_err();
+
+        assert!(error
+            .to_string()
+            .contains("AWS Bedrock error: credentials unavailable"));
+        assert!(!error.to_string().contains("timed out"));
+    }
 
     #[test]
     fn test_exam_metrics_calculation_and_pass_target() {

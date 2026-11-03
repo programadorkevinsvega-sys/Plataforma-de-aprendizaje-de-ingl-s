@@ -147,71 +147,83 @@ pub struct TtsEngine {
 
 impl TtsEngine {
     pub async fn from_env() -> Result<Self, Box<dyn std::error::Error>> {
-        let provider: Arc<dyn TtsProvider> =
-            match parse_provider(env::var("TTS_PROVIDER").ok().as_deref())? {
-                ProviderKind::Aws => {
-                    let region = env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string());
-                    if region.trim().is_empty() {
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::InvalidInput,
-                            "AWS_REGION no puede estar vacío cuando TTS_PROVIDER=aws",
-                        )
-                        .into());
-                    }
-
-                    let default_voice =
-                        env::var("AWS_POLLY_VOICE_ID").unwrap_or_else(|_| "Matthew".to_string());
-                    if !is_logical_voice_valid(&default_voice) {
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::InvalidInput,
-                            format!(
-                                "AWS_POLLY_VOICE_ID no es una voz admitida: '{}'",
-                                default_voice
-                            ),
-                        )
-                        .into());
-                    }
-
-                    let timeout_seconds = parse_timeout_seconds(
-                        "AWS_POLLY_TIMEOUT_SECONDS",
-                        env::var("AWS_POLLY_TIMEOUT_SECONDS").ok(),
+        let provider: Arc<dyn TtsProvider> = match parse_provider(
+            env::var("TTS_PROVIDER").ok().as_deref(),
+        )? {
+            ProviderKind::Aws => {
+                let region = env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string());
+                if region.trim().is_empty() {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "AWS_REGION no puede estar vacío cuando TTS_PROVIDER=aws",
                     )
-                    .map_err(|message| {
-                        std::io::Error::new(std::io::ErrorKind::InvalidInput, message)
-                    })?;
+                    .into());
+                }
 
-                    let sdk_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
+                let default_voice =
+                    env::var("AWS_POLLY_VOICE_ID").unwrap_or_else(|_| "Matthew".to_string());
+                if !is_logical_voice_valid(&default_voice) {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        format!(
+                            "AWS_POLLY_VOICE_ID no es una voz admitida: '{}'",
+                            default_voice
+                        ),
+                    )
+                    .into());
+                }
+
+                let timeout_seconds = parse_timeout_seconds(
+                    "AWS_POLLY_TIMEOUT_SECONDS",
+                    env::var("AWS_POLLY_TIMEOUT_SECONDS").ok(),
+                )
+                .map_err(|message| {
+                    std::io::Error::new(std::io::ErrorKind::InvalidInput, message)
+                })?;
+
+                let config_load_timeout =
+                    common::timeout::duration_from_env("AWS_CONFIG_LOAD_TIMEOUT_SECONDS", 10, 30)?;
+                let sdk_config = tokio::time::timeout(
+                    config_load_timeout,
+                    aws_config::defaults(aws_config::BehaviorVersion::latest())
                         .region(Region::new(region))
-                        .load()
-                        .await;
-                    let client = PollyClient::new(&sdk_config);
+                        .load(),
+                )
+                .await
+                .map_err(|_| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::TimedOut,
+                        "AWS credential/configuration loading exceeded AWS_CONFIG_LOAD_TIMEOUT_SECONDS",
+                    )
+                })?;
+                let client = PollyClient::new(&sdk_config);
 
-                    Arc::new(AwsPollyProvider {
-                        client,
-                        default_voice,
-                        timeout_seconds,
-                    })
-                }
-                ProviderKind::Cloudflare => {
-                    let config = CloudflareConfig::from_env().map_err(|message| {
-                        std::io::Error::new(std::io::ErrorKind::InvalidInput, message)
-                    })?;
-                    let client = reqwest::Client::builder()
-                        .timeout(Duration::from_secs(config.timeout_seconds))
-                        .build()?;
+                Arc::new(AwsPollyProvider {
+                    client,
+                    default_voice,
+                    timeout_seconds,
+                })
+            }
+            ProviderKind::Cloudflare => {
+                let config = CloudflareConfig::from_env().map_err(|message| {
+                    std::io::Error::new(std::io::ErrorKind::InvalidInput, message)
+                })?;
+                let client = reqwest::Client::builder()
+                    .timeout(Duration::from_secs(config.timeout_seconds))
+                    .build()?;
 
-                    Arc::new(CloudflareWorkersAiProvider {
-                        client,
-                        api_base_url: CLOUDFLARE_API_BASE_URL.to_string(),
-                        account_id: config.account_id,
-                        api_token: config.api_token,
-                        model_en: config.model_en,
-                        model_es: config.model_es,
-                        speaker_en: config.speaker_en,
-                        speaker_es: config.speaker_es,
-                    })
-                }
-            };
+                Arc::new(CloudflareWorkersAiProvider {
+                    client,
+                    api_base_url: CLOUDFLARE_API_BASE_URL.to_string(),
+                    account_id: config.account_id,
+                    api_token: config.api_token,
+                    model_en: config.model_en,
+                    model_es: config.model_es,
+                    speaker_en: config.speaker_en,
+                    speaker_es: config.speaker_es,
+                })
+            }
+        };
 
         Ok(Self { provider })
     }

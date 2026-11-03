@@ -4,7 +4,24 @@ use aws_sdk_transcribestreaming::{
     types::{AudioEvent, AudioStream, LanguageCode, MediaEncoding, TranscriptResultStream},
     Client as TranscribeClient,
 };
-use std::env;
+use std::{env, future::Future, time::Duration};
+
+async fn with_transcribe_timeout<T, F>(
+    timeout: Duration,
+    operation: F,
+) -> Result<T, Box<dyn std::error::Error + Send + Sync>>
+where
+    F: Future<Output = Result<T, Box<dyn std::error::Error + Send + Sync>>>,
+{
+    tokio::time::timeout(timeout, operation)
+        .await
+        .map_err(|_| {
+            Box::new(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "AWS Transcribe exceeded AWS_TRANSCRIBE_TIMEOUT_SECONDS",
+            )) as Box<dyn std::error::Error + Send + Sync>
+        })?
+}
 
 pub struct AwsAudioEngine {
     pub transcribe_language_code: String,
@@ -28,7 +45,16 @@ impl AwsAudioEngine {
     ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let audio_bytes: Vec<u8> =
             base64::Engine::decode(&base64::engine::general_purpose::STANDARD, audio_base64)?;
+        let operation_timeout =
+            common::timeout::duration_from_env("AWS_TRANSCRIBE_TIMEOUT_SECONDS", 45, 300)?;
 
+        with_transcribe_timeout(operation_timeout, self.transcribe_audio_bytes(audio_bytes)).await
+    }
+
+    async fn transcribe_audio_bytes(
+        &self,
+        audio_bytes: Vec<u8>,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let region = TranscribeRegion::new(self.aws_region.clone());
         let sdk_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
             .region(region)
@@ -86,7 +112,9 @@ impl AwsAudioEngine {
                 Ok(None) => break,
                 Err(error) => {
                     tracing::warn!(?error, "AWS Transcribe stream receive failed");
-                    break;
+                    return Err(Box::new(std::io::Error::other(
+                        "AWS Transcribe stream receive failed",
+                    )));
                 }
             }
         }
@@ -102,5 +130,44 @@ impl AwsAudioEngine {
         } else {
             transcript
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::with_transcribe_timeout;
+    use std::{error::Error, io, time::Duration};
+
+    #[tokio::test]
+    async fn total_timeout_cancels_a_slow_transcribe_operation() {
+        let error = with_transcribe_timeout(Duration::from_millis(5), async {
+            tokio::time::sleep(Duration::from_millis(30)).await;
+            Ok::<(), Box<dyn Error + Send + Sync>>(())
+        })
+        .await
+        .unwrap_err();
+
+        assert_eq!(
+            error.downcast_ref::<io::Error>().unwrap().kind(),
+            io::ErrorKind::TimedOut
+        );
+    }
+
+    #[tokio::test]
+    async fn provider_errors_are_preserved_and_not_reported_as_timeouts() {
+        let error = with_transcribe_timeout(Duration::from_secs(1), async {
+            Err::<(), Box<dyn Error + Send + Sync>>(Box::new(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "provider credentials unavailable",
+            )))
+        })
+        .await
+        .unwrap_err();
+
+        assert_eq!(error.to_string(), "provider credentials unavailable");
+        assert_eq!(
+            error.downcast_ref::<io::Error>().unwrap().kind(),
+            io::ErrorKind::PermissionDenied
+        );
     }
 }

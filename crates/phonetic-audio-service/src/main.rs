@@ -101,8 +101,20 @@ impl PhoneticAudioService for PhoneticAudioServiceImpl {
                 language_code: self.aws_audio.transcribe_language_code.clone(),
             })),
             Err(error) => {
-                tracing::error!(error_type = %std::any::type_name_of_val(&*error), "AWS Transcribe request failed");
-                Err(Status::unavailable("AWS Transcribe no está disponible"))
+                let timed_out = error
+                    .as_ref()
+                    .downcast_ref::<std::io::Error>()
+                    .is_some_and(|error| error.kind() == std::io::ErrorKind::TimedOut);
+                tracing::error!(
+                    error_type = %std::any::type_name_of_val(&*error),
+                    timed_out,
+                    "AWS Transcribe request failed"
+                );
+                if timed_out {
+                    Err(Status::deadline_exceeded("AWS_TRANSCRIBE_TIMEOUT"))
+                } else {
+                    Err(Status::unavailable("AWS Transcribe no está disponible"))
+                }
             }
         }
     }
