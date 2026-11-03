@@ -81,10 +81,16 @@ where
         Ok(Err(error)) => Err(DomainError::ExternalServiceError(format!(
             "{operation} error: {error}"
         ))),
-        Err(_) => Err(DomainError::ExternalServiceError(format!(
-            "{operation} timed out after {} seconds",
-            timeout.as_secs()
-        ))),
+        Err(_) => {
+            let elapsed = if timeout.subsec_millis() == 0 {
+                format!("{} seconds", timeout.as_secs())
+            } else {
+                format!("{} milliseconds", timeout.as_millis())
+            };
+            Err(DomainError::ExternalServiceError(format!(
+                "{operation} timed out after {elapsed}"
+            )))
+        }
     }
 }
 
@@ -235,7 +241,7 @@ mod tests {
         .await
         .unwrap_err();
 
-        assert!(error.to_string().contains("AWS Bedrock timed out after 0 seconds"));
+        assert!(error.to_string().contains("AWS Bedrock timed out after 5 milliseconds"));
     }
 
     #[tokio::test]
