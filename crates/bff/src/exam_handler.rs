@@ -585,10 +585,41 @@ async fn handle_transcribe_socket(mut socket: WebSocket) {
     use tokio::sync::mpsc;
 
     let region = Region::new(env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string()));
-    let sdk_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
-        .region(region)
-        .load()
-        .await;
+    let config_load_timeout = match common::timeout::duration_from_env(
+        "AWS_CONFIG_LOAD_TIMEOUT_SECONDS",
+        10,
+        30,
+    ) {
+        Ok(timeout) => timeout,
+        Err(error) => {
+            tracing::error!(%error, "Invalid AWS config loading timeout");
+            let message = serde_json::json!({
+                "error": "La configuración de AWS no está disponible."
+            })
+            .to_string();
+            let _ = socket.send(Message::Text(message)).await;
+            return;
+        }
+    };
+    let sdk_config = match tokio::time::timeout(
+        config_load_timeout,
+        aws_config::defaults(aws_config::BehaviorVersion::latest())
+            .region(region)
+            .load(),
+    )
+    .await
+    {
+        Ok(config) => config,
+        Err(_) => {
+            tracing::error!("AWS credential/configuration loading timed out");
+            let message = serde_json::json!({
+                "error": "La configuración de AWS excedió el tiempo permitido."
+            })
+            .to_string();
+            let _ = socket.send(Message::Text(message)).await;
+            return;
+        }
+    };
 
     let lang_code_str =
         env::var("AWS_TRANSCRIBE_LANGUAGE_CODE").unwrap_or_else(|_| "en-US".to_string());
