@@ -73,7 +73,7 @@ Estados:
 - **published:** visible para estudiantes y estrictamente inmutable.
 - **archived:** no admite nuevas matrículas ni cambios; permanece disponible para el historial de quienes ya se inscribieron.
 
-La base controla transiciones, exige revisor para publicar y evita alterar una versión publicada. La edición requiere crear version_number + 1, revisarla y publicarla. Un índice parcial impide dos versiones publicadas simultáneas del mismo curso y nivel. Esto permite publicar General A1, A2, B1, etc. en paralelo, igual que los niveles de Tecnología.
+La base controla transiciones, exige la última revisión aprobada del revisor registrado para publicar, congela metadatos/contenido durante review y evita alterar una versión publicada. La edición requiere crear version_number + 1, revisarla y publicarla. Un índice parcial impide dos versiones publicadas simultáneas del mismo curso y nivel. Esto permite publicar General A1, A2, B1, etc. en paralelo, igual que los niveles de Tecnología.
 
 El estado está en course_versions, no repetido en unidades y lecciones. Así la publicación aplica al agregado completo. course_version_reviews conserva un historial append-only; solo se permite anonimizar reviewer_id al eliminar un usuario.
 
