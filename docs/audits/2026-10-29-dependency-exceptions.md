@@ -1,4 +1,4 @@
-# Excepciones acotadas de RustSec — 29 de octubre de 2026
+# Excepciones acotadas de RustSec — 29 de octubre de 2026 (actualizado el 16 de noviembre de 2026)
 
 ## Política
 
@@ -17,6 +17,7 @@ La CI ejecuta el control de alcanzabilidad y falla si reaparece alguna versión 
 | [RUSTSEC-2026-0099](https://rustsec.org/advisories/RUSTSEC-2026-0099.html) | `rustls-webpki 0.101.7` | Dependencia opcional de `rustls 0.21.12` heredado | La validación de restricciones URI para wildcard es defectuosa; ruta inactiva. | Mismo control activo obligatorio. |
 | [RUSTSEC-2026-0382](https://rustsec.org/advisories/RUSTSEC-2026-0382.html) | `rustls-webpki 0.101.7` | Dependencia opcional de `rustls 0.21.12` heredado | La validación puede aceptar intermediarios revocados por distrust; ruta inactiva. | Mismo control activo obligatorio. |
 | [RUSTSEC-2026-0104](https://rustsec.org/advisories/RUSTSEC-2026-0104.html) | `rustls-webpki 0.101.7` | Dependencia opcional de `rustls 0.21.12` heredado | Puede ocurrir un panic alcanzable procesando CRLs; ruta inactiva. | Mismo control activo obligatorio. |
+| [RUSTSEC-2026-0459](https://rustsec.org/advisories/RUSTSEC-2026-0459.html) | `libsqlite3-sys 0.30.1` | Dependencia opcional de `sqlx-sqlite 0.8.6`, conservada en `Cargo.lock` aunque el workspace desactiva los features por defecto de SQLx y habilita únicamente `postgres`. | SQLite anterior a 3.54.0 puede exponer bytes no inicializados de la memoria del proceso al abrir un par de archivos de base de datos y WAL manipulado. La ruta del advisory es local y requiere que el proceso abra esos archivos; DevFluency no usa SQLite como motor de persistencia. | La CI ignora solo este ID al auditar el lockfile completo y falla si `sqlx-sqlite` o `libsqlite3-sys` aparece en `cargo tree --workspace --all-targets --target x86_64-unknown-linux-gnu`. Mantener SQLx PostgreSQL-only; retirar la excepción cuando el lockfile ya no incluya la dependencia o si el driver SQLite pasa a ser un requisito deliberado. |
 | [RUSTSEC-2023-0071](https://rustsec.org/advisories/RUSTSEC-2023-0071.html) | `rsa 0.9.10` | Dependencia opcional de `sqlx-mysql 0.8.6`; el workspace declara SQLx con `default-features = false` y solo la feature `postgres`. | El crate presenta el ataque de timing Marvin y no hay versión parcheada upstream según RustSec (revisión del 14 de septiembre de 2026). No se habilita el driver MySQL, por lo que no forma parte del grafo activo. | Mantener SQLx en modo PostgreSQL-only; el guard de CI detecta `rsa 0.9.10` si se activa. Revaluar al actualizar SQLx o habilitar MySQL. No usar RSA para operaciones criptográficas expuestas a observadores remotos. |
 
 ## Decisión
