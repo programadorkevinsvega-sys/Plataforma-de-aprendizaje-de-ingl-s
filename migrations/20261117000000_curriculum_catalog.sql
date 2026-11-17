@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS course_versions (
     submitted_at TIMESTAMPTZ,
     published_at TIMESTAMPTZ,
     archived_at TIMESTAMPTZ,
-    CONSTRAINT uq_course_version_number UNIQUE (course_id, version_number),
+    CONSTRAINT uq_course_version_number UNIQUE (course_id, cefr_level, version_number),
     CONSTRAINT uq_course_version_id_course UNIQUE (id, course_id),
     CONSTRAINT ck_course_version_lifecycle CHECK (
         (status IN ('draft', 'review') AND published_at IS NULL AND archived_at IS NULL)
@@ -45,10 +45,11 @@ CREATE TABLE IF NOT EXISTS course_versions (
     )
 );
 
--- Solo una versión puede estar publicada para nuevas inscripciones.
--- Las inscripciones históricas siguen apuntando a la versión archivada.
-CREATE UNIQUE INDEX IF NOT EXISTS uq_course_one_published_version
-    ON course_versions(course_id) WHERE status = 'published';
+-- Solo una versión por nivel puede estar publicada en cada ruta/curso.
+-- Los niveles General y Tecnología avanzan en paralelo; las inscripciones históricas
+-- siguen apuntando a la versión archivada.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_course_level_one_published_version
+    ON course_versions(course_id, cefr_level) WHERE status = 'published';
 
 CREATE INDEX IF NOT EXISTS idx_course_versions_published_level
     ON course_versions(cefr_level, course_id) WHERE status = 'published';
