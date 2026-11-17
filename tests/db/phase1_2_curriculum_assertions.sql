@@ -286,6 +286,49 @@ UPDATE course_versions
 SET status = 'archived', archived_at = NOW(), updated_at = NOW()
 WHERE id = '30000000-0000-4000-8000-000000000001';
 
+-- A student enrolled before archival retains read access to the exact
+-- historical version and its child content. A non-enrolled student does not.
+BEGIN;
+SET LOCAL ROLE devfluency_schema_test;
+SELECT set_config('app.current_user_id', '10000000-0000-4000-8000-000000000001', TRUE);
+DO $
+DECLARE
+    visible_versions BIGINT;
+    visible_units BIGINT;
+    visible_lessons BIGINT;
+    visible_enrollments BIGINT;
+BEGIN
+    SELECT count(*) INTO visible_versions FROM course_versions
+    WHERE id = '30000000-0000-4000-8000-000000000001';
+    SELECT count(*) INTO visible_units FROM course_units
+    WHERE id = '40000000-0000-4000-8000-000000000001';
+    SELECT count(*) INTO visible_lessons FROM course_lessons
+    WHERE id = '50000000-0000-4000-8000-000000000001';
+    SELECT count(*) INTO visible_enrollments FROM course_enrollments;
+
+    IF visible_versions <> 1 OR visible_units <> 1
+       OR visible_lessons <> 1 OR visible_enrollments <> 1 THEN
+        RAISE EXCEPTION 'Archived enrollment history was not accessible to its owner';
+    END IF;
+END
+$;
+SELECT set_config('app.current_user_id', '10000000-0000-4000-8000-000000000003', TRUE);
+DO $
+DECLARE
+    visible_versions BIGINT;
+    visible_lessons BIGINT;
+BEGIN
+    SELECT count(*) INTO visible_versions FROM course_versions
+    WHERE id = '30000000-0000-4000-8000-000000000001';
+    SELECT count(*) INTO visible_lessons FROM course_lessons
+    WHERE id = '50000000-0000-4000-8000-000000000001';
+    IF visible_versions <> 0 OR visible_lessons <> 0 THEN
+        RAISE EXCEPTION 'Non-enrolled user can view archived curriculum content';
+    END IF;
+END
+$;
+COMMIT;
+
 DO $
 DECLARE
     blocked BOOLEAN := FALSE;
