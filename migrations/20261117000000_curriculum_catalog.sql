@@ -414,17 +414,32 @@ DECLARE
 BEGIN
     IF TG_OP = 'DELETE' THEN
         version_id := OLD.course_version_id;
-    ELSE
-        version_id := NEW.course_version_id;
+        SELECT status INTO version_status
+        FROM course_versions
+        WHERE id = version_id;
+        IF version_status IS DISTINCT FROM 'draft' THEN
+            RAISE EXCEPTION 'Curriculum child records can only be changed while their version is draft'
+                USING ERRCODE = '55000';
+        END IF;
+        RETURN OLD;
     END IF;
 
     SELECT status INTO version_status
     FROM course_versions
-    WHERE id = version_id;
-
+    WHERE id = NEW.course_version_id;
     IF version_status IS DISTINCT FROM 'draft' THEN
         RAISE EXCEPTION 'Curriculum child records can only be changed while their version is draft'
             USING ERRCODE = '55000';
+    END IF;
+
+    IF TG_OP = 'UPDATE' THEN
+        SELECT status INTO version_status
+        FROM course_versions
+        WHERE id = OLD.course_version_id;
+        IF version_status IS DISTINCT FROM 'draft' THEN
+            RAISE EXCEPTION 'Published curriculum rows cannot be moved to another version'
+                USING ERRCODE = '55000';
+        END IF;
     END IF;
 
     IF TG_OP = 'DELETE' THEN
