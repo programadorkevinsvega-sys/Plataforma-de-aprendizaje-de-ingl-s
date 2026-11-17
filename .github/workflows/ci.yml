@@ -324,8 +324,8 @@ jobs:
         run: |
           set -euo pipefail
           cargo tree --locked --workspace --all-targets --target x86_64-unknown-linux-gnu > /tmp/devfluency-active-dependencies.txt
-          if grep -E 'h2 v0\.3\.27|rustls v0\.21\.12|rustls-webpki v0\.101\.7|rsa v0\.9\.10' /tmp/devfluency-active-dependencies.txt; then
-            echo "::error::An exception-listed vulnerable crate re-entered the active workspace dependency graph."
+          if grep -E 'h2 v0\.3\.27|rustls v0\.21\.12|rustls-webpki v0\.101\.7|rsa v0\.9\.10|sqlx-sqlite v|libsqlite3-sys v' /tmp/devfluency-active-dependencies.txt; then
+            echo "::error::An exception-listed vulnerable crate or SQLite-only dependency re-entered the active workspace dependency graph."
             exit 1
           fi
       - name: Audit Rust dependencies
