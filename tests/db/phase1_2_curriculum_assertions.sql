@@ -28,6 +28,17 @@ VALUES
     ('20000000-0000-4000-8000-000000000001', 'phase12-general-test', 'general'),
     ('20000000-0000-4000-8000-000000000002', 'phase12-draft-test', 'technology');
 
+-- One stable route can publish multiple levels at the same time.
+INSERT INTO course_versions (
+    id, course_id, version_number, status, cefr_level, title, description, created_by
+)
+VALUES (
+    '30000000-0000-4000-8000-000000000003',
+    '20000000-0000-4000-8000-000000000001',
+    1, 'draft', 'A1', 'Published A1 test course', 'A1 fixture',
+    '10000000-0000-4000-8000-000000000001'
+);
+
 INSERT INTO course_versions (
     id, course_id, version_number, status, cefr_level, title, description,
     created_by
