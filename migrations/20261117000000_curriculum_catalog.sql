@@ -218,6 +218,29 @@ CREATE TRIGGER trg_course_version_review_insert
     BEFORE INSERT ON course_version_reviews
     FOR EACH ROW EXECUTE FUNCTION guard_course_version_review_insert();
 
+CREATE OR REPLACE FUNCTION guard_course_version_review_immutability()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION 'Editorial review history is append-only'
+            USING ERRCODE = '55000';
+    END IF;
+
+    IF (to_jsonb(NEW) - 'reviewer_id') IS DISTINCT FROM (to_jsonb(OLD) - 'reviewer_id')
+       OR (NEW.reviewer_id IS NOT NULL AND NEW.reviewer_id IS DISTINCT FROM OLD.reviewer_id) THEN
+        RAISE EXCEPTION 'Editorial review decisions are immutable'
+            USING ERRCODE = '55000';
+    END IF;
+    RETURN NEW;
+END
+$;
+
+CREATE TRIGGER trg_course_version_review_immutability
+    BEFORE UPDATE OR DELETE ON course_version_reviews
+    FOR EACH ROW EXECUTE FUNCTION guard_course_version_review_immutability();
+
 CREATE TABLE IF NOT EXISTS course_enrollments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -357,17 +380,21 @@ BEGIN
         RETURN OLD;
     END IF;
 
-    IF OLD.status = 'archived' THEN
-        RAISE EXCEPTION 'Archived curriculum versions are immutable'
-            USING ERRCODE = '55000';
-    ELSIF OLD.status = 'published' THEN
-        IF NEW.status NOT IN ('published', 'archived') THEN
+    IF OLD.status IN ('published', 'archived') THEN
+        IF OLD.status = 'published' AND NEW.status NOT IN ('published', 'archived') THEN
             RAISE EXCEPTION 'A published curriculum version can only be archived'
+                USING ERRCODE = '55000';
+        END IF;
+        IF OLD.status = 'archived' AND NEW.status <> 'archived' THEN
+            RAISE EXCEPTION 'Archived curriculum versions are immutable'
                 USING ERRCODE = '55000';
         END IF;
         IF (to_jsonb(NEW) - 'status' - 'archived_at' - 'updated_at' - 'created_by' - 'reviewed_by')
            IS DISTINCT FROM
-           (to_jsonb(OLD) - 'status' - 'archived_at' - 'updated_at' - 'created_by' - 'reviewed_by') THEN
+           (to_jsonb(OLD) - 'status' - 'archived_at' - 'updated_at' - 'created_by' - 'reviewed_by')
+           OR (NEW.created_by IS NOT NULL AND NEW.created_by IS DISTINCT FROM OLD.created_by)
+           OR (NEW.reviewed_by IS NOT NULL AND NEW.reviewed_by IS DISTINCT FROM OLD.reviewed_by)
+           OR (OLD.status = 'archived' AND NEW.archived_at IS DISTINCT FROM OLD.archived_at) THEN
             RAISE EXCEPTION 'Published curriculum content is immutable; create a new version'
                 USING ERRCODE = '55000';
         END IF;
