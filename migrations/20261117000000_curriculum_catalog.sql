@@ -585,13 +585,13 @@ CREATE OR REPLACE FUNCTION require_published_course_for_enrollment()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = pg_catalog, public
+SET search_path = pg_catalog
 AS $$
 DECLARE
     version_status VARCHAR(12);
 BEGIN
     SELECT status INTO version_status
-    FROM course_versions
+    FROM public.course_versions
     WHERE id = NEW.course_version_id
     FOR SHARE;
 
@@ -606,6 +606,9 @@ $$;
 CREATE TRIGGER trg_course_enrollment_published_version
     BEFORE INSERT ON course_enrollments
     FOR EACH ROW EXECUTE FUNCTION require_published_course_for_enrollment();
+
+-- Internal trigger guard, not an application-callable API.
+REVOKE ALL ON FUNCTION require_published_course_for_enrollment() FROM PUBLIC;
 
 COMMENT ON TABLE courses IS 'Stable identity of a learning track; pedagogical content belongs to immutable versions.';
 COMMENT ON TABLE course_versions IS 'Versioned curriculum aggregate with draft/review/published/archived lifecycle.';
