@@ -212,7 +212,7 @@ Las conversaciones deben tener política configurable de retención, controles d
 
 ### Objetivo
 
-Establecer una línea base verificable antes de cambiar el comportamiento.
+Establecer una línea base verificable del producto, su arquitectura y su calidad antes de evolucionar el dominio académico. Los pendientes de validación operativa se mantienen visibles y trazables, pero no detienen el inicio de la Fase 1.
 
 ### Subfases
 
@@ -243,12 +243,18 @@ Establecer una línea base verificable antes de cambiar el comportamiento.
 
 #### 0.4. Línea base de calidad
 
-- [x] Ejecutar CI completo sobre el árbol de código del commit de partida (CI #174; SHA documental del PR, fuentes de aplicación idénticos al commit base).
-- [x] Registrar duración y resultado de CI completo (CI #174: 3 min 40 s, success; 72 tests passed, 0 failed).
-- [ ] Medir cobertura actual de Rust y frontend.
-- [ ] Establecer fixtures de usuarios y contenidos de prueba.
-- [ ] Definir datos sintéticos reproducibles para pruebas de carga.
+- [x] Ejecutar CI completo sobre el árbol de código del commit de partida (CI #174).
+- [x] Registrar duración y resultado de CI completo (CI #174: 3 min 40 s; 72 tests pasaron).
+- [x] Medir cobertura actual de Rust y frontend (CI #202; resultados documentados abajo).
+- [x] Establecer fixtures reproducibles de usuarios y contenidos de prueba.
+- [x] Definir datos sintéticos reproducibles para pruebas de carga.
 - [x] Definir métricas iniciales para comparar antes y después.
+- [x] Añadir un escenario k6 de smoke para disponibilidad de BFF; su alcance es únicamente `GET /health`, no una prueba de capacidad.
+- [x] Implementar en código los límites configurables de espera de PostgreSQL, deadlines gRPC y timeouts de Bedrock/Transcribe, con pruebas deterministas (PR #69).
+- [ ] Ejecutar recorridos E2E completos y pruebas de integración/recuperación en un entorno controlado.
+- [ ] Verificar llamadas reales y fallos de cada proveedor externo habilitado.
+- [ ] Ejecutar carga representativa y registrar throughput, latencia p50/p95/p99 y tasa de errores.
+- [ ] Confirmar los valores efectivos de configuración y comportamiento de las dependencias en las VMs de prueba.
 
 ### Entregables
 
@@ -256,25 +262,47 @@ Establecer una línea base verificable antes de cambiar el comportamiento.
 - Diagramas C4 de contexto, contenedores y componentes relevantes.
 - Matriz de trazabilidad.
 - ADR aprobados.
-- Línea base de CI, cobertura y rendimiento.
+- Línea base de CI y cobertura.
+- Fixtures y generador de datos sintéticos reproducibles.
+- Escenario k6 de smoke y definición de métricas de rendimiento.
+- Matriz de límites, errores y configuración de dependencias.
 
 ### Pruebas y aceptación
 
 - [x] La matriz incluye todos los flujos actualmente expuestos.
 - [x] No hay endpoints o RPC críticos sin propietario documentado.
-- [ ] Cada dependencia externa tiene timeout, manejo de error y evidencia de configuración.
-- [x] CI completo pasa antes de comenzar la implementación funcional.
+- [x] Las dependencias activas tienen límites de espera y manejo de errores implementados en código, con pruebas deterministas donde corresponde.
+- [x] CI completo pasa sobre el árbol de código de partida.
+- [x] Se registraron las métricas de cobertura y existen fixtures reproducibles.
+- [ ] Los flujos críticos tienen recorridos E2E e integración ejecutados en un entorno representativo.
+- [ ] Los fallos, latencia y recuperación de proveedores/dependencias se verificaron en ejecución.
+- [ ] Existe una medición de rendimiento/carga representativa; el smoke de salud no la sustituye.
 
-### Estado de Fase 0 al 2026-11-01
+### Estado de Fase 0 al 2026-11-16
 
-- 0.1 Auditoría funcional: inventario estático y matriz completados; tutor conversacional, cursos versionados y otros flujos no existentes quedaron documentados como pendientes, no como implementados.
-- 0.2 Auditoría de arquitectura: dependencias, llamadas síncronas, límites ausentes y unidades systemd documentados. La aceptación de esta subfase no implica que todos los controles ya existan en código.
+- 0.1 Auditoría funcional: inventario estático y matriz de trazabilidad completados. Las diferencias entre capacidades completas, parciales y simuladas quedaron registradas; la ejecución E2E se difiere.
+- 0.2 Auditoría de arquitectura: responsabilidades, dependencias, riesgos de consistencia y systemd documentados. PR #69 añadió límites SQLx, deadlines gRPC y límites Bedrock/Transcribe; su comportamiento operativo real sigue pendiente de validación.
 - 0.3 Decisiones: ADR-0001 a ADR-0006 aceptados. ADR-0006 difiere las duraciones de retención y el consentimiento concreto hasta antes de persistir conversaciones.
-- 0.4 Línea base: CI #174 pasó (3 min 40 s; 72 tests Rust pasaron). La cobertura no está medida; no hay fixtures comunes reproducibles ni generador de carga.
+- 0.4 Línea base: cobertura Rust de 45,09% de líneas y 29,55% de funciones; cobertura frontend TypeScript de dominio/aplicación/infraestructura/shared de 30,71% de líneas, 65,71% de ramas y 13,41% de funciones. Se añadieron fixtures y generador sintético reproducible (PR #68). Estos valores son una línea base, no umbrales de aceptación.
+- El smoke k6 existente consulta únicamente `GET /health`; todavía no acredita capacidad, latencias bajo carga ni SLO.
+- Los límites añadidos por PR #69 tienen pruebas deterministas, pero aún faltan fallos controlados, recuperación y llamadas reales con Polly, Transcribe y Bedrock. Cloudflare TTS ya tuvo un smoke real en Deploy #32.
 
-Siguen pendientes la medición de cobertura/rendimiento, datos sintéticos reproducibles para carga, recorridos E2E/validación operativa y evidencias de timeout/deadline para todas las dependencias externas.
+### Pendientes diferidos — no bloquean el inicio de Fase 1
 
-**Gate de salida: NO APROBADO.** No se inicia una migración académica estructural hasta cerrar esos pendientes y aprobar el alcance operativo.
+Se mantienen abiertos para ejecución y cierre posterior, en paralelo con el trabajo de las siguientes fases:
+
+1. Recorridos E2E de registro, autenticación, perfil, contenido, lecciones, progreso, SRS, gamificación y audio.
+2. Pruebas de integración de contratos HTTP/gRPC, persistencia, permisos, aislamiento, idempotencia, concurrencia y efectos parciales entre SRS y Gamification.
+3. Fallos controlados de PostgreSQL, deadlines gRPC y proveedores externos; timeout, desconexión, cuota/rate limit y recuperación.
+4. Pruebas reales de Polly, Transcribe y Bedrock, además de revalidación del proveedor TTS seleccionado.
+5. Carga representativa con k6 y medición de throughput, p50/p95/p99, errores y recuperación.
+6. Verificación en las VMs de prueba de las variables y límites efectivos, sin usar producción como entorno de carga.
+
+**Decisión de continuidad:** estos pendientes no son un gate de entrada para la Fase 1. Se pueden definir el currículo, el catálogo y el modelo académico mientras se prepara la infraestructura de prueba y se ejecutan las validaciones pendientes. No se declara cerrada la Fase 0 hasta registrar sus evidencias de cierre.
+
+Los cambios nuevos de cada fase sí deben incluir sus propias pruebas unitarias, de integración, migración y aceptación según el alcance que incorporen. Los flujos existentes documentados como simulados o incompletos no se deben tratar como comportamiento correcto ni usarse como dependencia funcional sin resolverlos.
+
+**Gate de continuidad: FASE 1 AUTORIZADA. Fase 0 permanece abierta con validaciones diferidas no bloqueantes.**
 
 ---
 
@@ -283,6 +311,8 @@ Siguen pendientes la medición de cobertura/rendimiento, datos sintéticos repro
 ### Objetivo
 
 Convertir el conjunto de palabras y preguntas existente en un currículo estructurado, progresivo, versionado y revisable.
+
+**Condición de inicio:** la Fase 1 está autorizada aunque permanezcan pendientes diferidos de Fase 0. El diseño curricular, la organización del catálogo y el modelado académico pueden avanzar. Las migraciones, endpoints y flujos nuevos deben incluir sus propias pruebas de migración, contrato, integración y aceptación; no deben heredar como correctos los comportamientos simulados documentados en la auditoría.
 
 ### Subfase 1.1. Definición del currículo
 

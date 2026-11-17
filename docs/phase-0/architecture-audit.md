@@ -1,10 +1,12 @@
 # Auditoría de arquitectura — Fase 0.2
 
+> Actualización al 2026-11-16: las referencias históricas a ausencia de deadlines gRPC, timeouts de adquisición SQLx o timeout de Bedrock quedan supersedidas por PR #69. La implementación actual y sus límites se describen en las secciones 2 y 4. La validación operativa queda pendiente y no bloquea el inicio de Fase 1.
+
 ## 1. Vista actual de servicios
 
 | Componente | Responsabilidad observada | Dependencias directas | Estado |
 |---|---|---|---|
-| Next.js frontend | UI, casos de uso y repositorios HTTP; AudioWorklet para micrófono | BFF HTTP/WebSocket, navegador y micrófono | Existe; sin suite frontend de tests |
+| Next.js frontend | UI, casos de uso y repositorios HTTP; AudioWorklet para micrófono | BFF HTTP/WebSocket, navegador y micrófono | Tests parciales de lógica TypeScript; faltan E2E y cobertura visual/TSX |
 | BFF Axum | HTTP, autenticación de requests, orquestación gRPC, WebSocket Transcribe, rate limit local | 6 clientes gRPC, AWS Transcribe, memoria local | Existe; concentra orquestación y flujo STT |
 | Auth Identity | Registro/login, JWT, refresh token, perfil | PostgreSQL | Funcionalidad implementada, con pruebas de auth |
 | Content Vocabulary | Consulta vocabulario/frases/preguntas | PostgreSQL | No carga JSON seed al arrancar |
@@ -35,7 +37,7 @@ El BFF usa `connect_lazy` para gRPC. La URL del cliente de audio admite `PHONETI
 
 ### PostgreSQL
 
-Auth, Content, SRS y Gamification construyen un pool SQLx con `max_connections(10)`. No se encontraron límites explícitos de `acquire_timeout`, `connect_timeout` o `idle_timeout` en los constructores inspeccionados. El proceso falla al iniciar si no obtiene conexión. Las pruebas de integración usan `TEST_DATABASE_URL`.
+Auth, Content, SRS y Gamification construyen un pool SQLx con `max_connections(10)` y `acquire_timeout` configurable mediante `DATABASE_ACQUIRE_TIMEOUT_SECONDS` (5 s por defecto, máximo 30 s; añadido en PR #69). El proceso falla al iniciar si no obtiene conexión. Las pruebas de integración usan `TEST_DATABASE_URL`. La saturación del pool y la recuperación tras caída siguen pendientes de validación operativa.
 
 ### Redis
 
@@ -51,10 +53,10 @@ El rate limiter de BFF usa `OnceLock<Mutex<HashMap<...>>>` en memoria. El propio
 
 | Dependencia | Consumidor actual | Configuración observable | Manejo de error / timeout |
 |---|---|---|---|
-| AWS Bedrock | AI Evaluator | `AWS_REGION`, `AWS_BEDROCK_TEXT_EVAL_MODEL_ID` o `AWS_BEDROCK_MODEL_ID` | Error se convierte en error de servicio; no se encontró timeout explícito de aplicación en el evaluator |
+| AWS Bedrock | AI Evaluator | `AWS_REGION`, `AWS_BEDROCK_TEXT_EVAL_MODEL_ID` o `AWS_BEDROCK_MODEL_ID`; `AWS_BEDROCK_TIMEOUT_SECONDS` (60 s por defecto, máximo 300 s) | Timeout explícito de operación/carga de configuración; errores externos se convierten en error de servicio. Falta validar llamadas y clasificación de errores reales |
 | AWS Polly | TTS audio | Región/voz y `AWS_POLLY_TIMEOUT_SECONDS` | Timeout propio y error tipado |
 | Cloudflare Workers AI | TTS audio | Account ID, API token, modelo, speaker, `CLOUDFLARE_TTS_TIMEOUT_SECONDS` | Timeout, clasificación de status, no fallback silencioso |
-| AWS Transcribe | Streaming STT en BFF | `AWS_REGION`, `AWS_TRANSCRIBE_LANGUAGE_CODE` | WebSocket, tickets temporales y timeout de sesión |
+| AWS Transcribe | Streaming STT en BFF y operación unary en Audio | `AWS_REGION`, `AWS_TRANSCRIBE_LANGUAGE_CODE`, `AWS_CONFIG_LOAD_TIMEOUT_SECONDS` (10 s default, máximo 30 s); unary: `AWS_TRANSCRIBE_TIMEOUT_SECONDS` (45 s default, máximo 300 s) | Errores de recepción se propagan y timeout unary se mapea a `DeadlineExceeded`; falta E2E de desconexión/reanudación y prueba real completa |
 | Browser Media APIs | Captura de voz | Permiso de micrófono, AudioContext 16 kHz, AudioWorklet | Errores locales de permisos/dispositivo/conexión |
 
 No se encontró el adaptador conversacional Cloudflare/AWS definido como objetivo. Cloudflare TTS no equivale al proveedor conversacional.
@@ -89,17 +91,20 @@ Mantener el flujo síncrono hasta diseñar consistencia. No sustituir la secuenc
 
 | Área | Evidencia en código | Evaluación |
 |---|---|---|
-| Frontend → BFF HTTP | AbortController; default 30 s; evaluación/drill hasta 90 s | Timeout de cliente, no sustituye deadline del servidor |
-| TTS proveedores | Configuración de timeout separada para Polly y Cloudflare | Evidencia positiva |
-| AWS Transcribe WS | Timeout durante la sesión y límite de espera de transcripción | Evidencia parcial; falta prueba de desconexiones/reanudación |
-| gRPC BFF → servicios | Canales `connect_lazy`; no se encontró deadline por llamada | Pendiente |
-| PostgreSQL SQLx | Máximo 10 conexiones por pool | Faltan límites explícitos de adquisición/espera en constructores inspeccionados |
+| Frontend → BFF HTTP | AbortController; default 30 s; evaluación/drill hasta 90 s | Timeout de cliente; E2E de cancelación y recuperación pendiente |
+| TTS proveedores | Timeouts separados para Polly y Cloudflare; carga de configuración AWS limitada a 10 s por defecto | Evidencia de código; Cloudflare TTS tiene smoke real, Polly live pendiente |
+| AWS Transcribe | Carga de configuración con límite de 10 s por defecto; operación unary con 45 s por defecto y máximo 300 s; los errores de stream se propagan | Código y tests deterministas en PR #69; falta prueba real de streaming, desconexión y recuperación |
+| gRPC BFF → servicios | Timeout local de conexión de 3 s por defecto; deadlines por servicio (Auth 10 s, Content 45 s, AI 75 s, SRS 10 s, Audio 45 s y Gamification 10 s) con interceptor que añade metadato `grpc-timeout` | Implementado y con tests deterministas en PR #69; falta inducir latencia/corte de red en entorno controlado |
+| PostgreSQL SQLx | Cuatro pools con `max_connections=10` y `DATABASE_ACQUIRE_TIMEOUT_SECONDS=5` por defecto (máximo 30 s) | Implementado en PR #69; falta prueba de saturación y recuperación del pool |
+| AWS Bedrock | `AWS_BEDROCK_TIMEOUT_SECONDS=60` por defecto, máximo 300 s; abarca carga de config/credenciales y operación | Implementado y test determinista; faltan llamadas reales y pruebas de cuota/error del proveedor |
 | Reintentos | No se encontró política general de reintentos gRPC | Pendiente; no añadir retries ciegos a operaciones no idempotentes |
-| Circuit breaker | No se encontró implementación | Pendiente; justificar por dependencia/coste y probar recuperación |
-| Graceful shutdown | Servidores usan `.serve(addr)`; no se encontró `serve_with_shutdown` | Pendiente |
+| Circuit breaker | No se encontró implementación | Pendiente; evaluar cuando haya un caso operacional y una política de degradación justificable |
+| Graceful shutdown | Servidores usan `.serve(addr)`; no se encontró `serve_with_shutdown` | Pendiente; se puede tratar como mejora de resiliencia, no como bloqueo para el diseño curricular |
 | systemd | `SIGTERM`, `TimeoutStopSec=30`, restart on failure, 5 s | systemd reinicia; no demuestra shutdown ordenado de recursos internos |
 
 No se debe añadir retry global sin clasificar errores transitorios/permanentes y sin idempotencia. En particular, registro, rotación de refresh tokens y operaciones de progreso necesitan semántica explícita.
+
+La validación de fallos, latencia y recuperación se mantiene como pendiente diferido de Fase 0. No bloquea el inicio de Fase 1; cada operación nueva que se introduzca debe definir sus propios límites y pruebas en su PR.
 
 ## 5. systemd y configuración
 
@@ -144,8 +149,8 @@ El rollback de binarios no revierte automáticamente migraciones ya aplicadas. L
 |---|---|---|
 | A-01 | Redis/NATS declarados pero no usados | Definir si existe necesidad real; retirar dependencias/config sin uso o justificar/implementar con tests |
 | A-02 | Rate limit solo local | Definir número de réplicas y persistencia compartida |
-| A-03 | Deadlines gRPC no evidenciados | Especificar por RPC y error |
-| A-04 | Timeouts DB no configurados explícitamente | Medir saturación y fijar límites de pool |
+| A-03 | Deadlines gRPC implementados; comportamiento bajo fallo de red aún no validado | Ejecutar pruebas controladas de latencia, timeout y recuperación |
+| A-04 | Timeout de adquisición SQLx implementado; saturación del pool no validada | Medir saturación/recuperación y revisar límites con datos de carga |
 | A-05 | Shutdown ordenado no demostrado | Añadir señal de terminación y tests |
 | A-06 | Progreso cruza SRS/Gamification secuencialmente | Decidir transacción, saga o outbox con idempotencia |
 | A-07 | Migración SQL y rollback binario separados | Documentar estrategia de compatibilidad/rollback |
