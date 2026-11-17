@@ -584,7 +584,9 @@ CREATE TRIGGER trg_course_enrollment_identity
 CREATE OR REPLACE FUNCTION require_published_course_for_enrollment()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-AS $$
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $
 DECLARE
     version_status VARCHAR(12);
 BEGIN
