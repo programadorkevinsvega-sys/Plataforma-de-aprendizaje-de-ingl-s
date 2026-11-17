@@ -81,6 +81,23 @@ UPDATE course_versions
 SET status = 'review', submitted_at = NOW()
 WHERE id = '30000000-0000-4000-8000-000000000001';
 
+DO $
+DECLARE
+    blocked BOOLEAN := FALSE;
+BEGIN
+    BEGIN
+        UPDATE course_versions
+        SET title = 'Changed while under review'
+        WHERE id = '30000000-0000-4000-8000-000000000001';
+    EXCEPTION
+        WHEN SQLSTATE '55000' THEN blocked := TRUE;
+    END;
+    IF NOT blocked THEN
+        RAISE EXCEPTION 'A curriculum version under review was mutable';
+    END IF;
+END
+$;
+
 INSERT INTO course_version_reviews (
     course_version_id, reviewer_id, decision, comments
 )
@@ -234,7 +251,24 @@ END
 $$;
 COMMIT;
 
-DO $$
+DO $
+DECLARE
+    blocked BOOLEAN := FALSE;
+BEGIN
+    BEGIN
+        UPDATE courses
+        SET track_code = 'technology'
+        WHERE id = '20000000-0000-4000-8000-000000000001';
+    EXCEPTION
+        WHEN SQLSTATE '55000' THEN blocked := TRUE;
+    END;
+    IF NOT blocked THEN
+        RAISE EXCEPTION 'Course track identity was mutable after version creation';
+    END IF;
+END
+$;
+
+DO $
 DECLARE
     blocked BOOLEAN := FALSE;
 BEGIN
