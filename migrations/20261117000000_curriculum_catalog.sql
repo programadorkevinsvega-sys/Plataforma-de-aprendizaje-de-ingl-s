@@ -435,16 +435,16 @@ CREATE TRIGGER trg_course_version_lifecycle
 CREATE OR REPLACE FUNCTION guard_curriculum_child_write()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-AS $$
+AS $
 DECLARE
-    version_id UUID;
     version_status VARCHAR(12);
 BEGIN
     IF TG_OP = 'DELETE' THEN
-        version_id := OLD.course_version_id;
         SELECT status INTO version_status
         FROM course_versions
-        WHERE id = version_id;
+        WHERE id = OLD.course_version_id
+        FOR UPDATE;
+
         IF version_status IS DISTINCT FROM 'draft' THEN
             RAISE EXCEPTION 'Curriculum child records can only be changed while their version is draft'
                 USING ERRCODE = '55000';
@@ -452,15 +452,15 @@ BEGIN
         RETURN OLD;
     END IF;
 
-    SELECT status INTO version_status
-    FROM course_versions
-    WHERE id = NEW.course_version_id;
-    IF version_status IS DISTINCT FROM 'draft' THEN
-        RAISE EXCEPTION 'Curriculum child records can only be changed while their version is draft'
-            USING ERRCODE = '55000';
-    END IF;
+    -- Lock both versions in a stable order when an UPDATE moves a row. This
+    -- serializes child edits with the parent transition to review/published.
+    IF TG_OP = 'UPDATE' AND OLD.course_version_id IS DISTINCT FROM NEW.course_version_id THEN
+        PERFORM id
+        FROM course_versions
+        WHERE id IN (OLD.course_version_id, NEW.course_version_id)
+        ORDER BY id
+        FOR UPDATE;
 
-    IF TG_OP = 'UPDATE' THEN
         SELECT status INTO version_status
         FROM course_versions
         WHERE id = OLD.course_version_id;
@@ -470,12 +470,19 @@ BEGIN
         END IF;
     END IF;
 
-    IF TG_OP = 'DELETE' THEN
-        RETURN OLD;
+    SELECT status INTO version_status
+    FROM course_versions
+    WHERE id = NEW.course_version_id
+    FOR UPDATE;
+
+    IF version_status IS DISTINCT FROM 'draft' THEN
+        RAISE EXCEPTION 'Curriculum child records can only be changed while their version is draft'
+            USING ERRCODE = '55000';
     END IF;
+
     RETURN NEW;
 END
-$$;
+$;
 
 DO $$
 DECLARE
@@ -501,16 +508,35 @@ BEGIN
 END
 $$;
 
+CREATE OR REPLACE FUNCTION guard_course_enrollment_identity()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $
+BEGIN
+    IF NEW.user_id IS DISTINCT FROM OLD.user_id
+       OR NEW.course_version_id IS DISTINCT FROM OLD.course_version_id THEN
+        RAISE EXCEPTION 'An enrollment cannot change its owner or pinned curriculum version'
+            USING ERRCODE = '55000';
+    END IF;
+    RETURN NEW;
+END
+$;
+
+CREATE TRIGGER trg_course_enrollment_identity
+    BEFORE UPDATE OF user_id, course_version_id ON course_enrollments
+    FOR EACH ROW EXECUTE FUNCTION guard_course_enrollment_identity();
+
 CREATE OR REPLACE FUNCTION require_published_course_for_enrollment()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-AS $$
+AS $
 DECLARE
     version_status VARCHAR(12);
 BEGIN
     SELECT status INTO version_status
     FROM course_versions
-    WHERE id = NEW.course_version_id;
+    WHERE id = NEW.course_version_id
+    FOR SHARE;
 
     IF version_status IS DISTINCT FROM 'published' THEN
         RAISE EXCEPTION 'A new enrollment requires a published course version'
@@ -518,7 +544,7 @@ BEGIN
     END IF;
     RETURN NEW;
 END
-$$;
+$;
 
 CREATE TRIGGER trg_course_enrollment_published_version
     BEFORE INSERT OR UPDATE OF course_version_id ON course_enrollments
