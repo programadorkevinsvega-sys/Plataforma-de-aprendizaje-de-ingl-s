@@ -10,7 +10,7 @@ assertions="tests/db/phase1_2_curriculum_assertions.sql"
 # TEST_DATABASE_URL is a new database. Reconstruct the known existing schema
 # separately, then apply only the new migration to that baseline.
 upgrade_database_url="${TEST_DATABASE_URL%/*}/devfluency_upgrade"
-createdb --maintenance-db="$TEST_DATABASE_URL" devfluency_upgrade
+psql "$TEST_DATABASE_URL" --set ON_ERROR_STOP=1 --command="CREATE DATABASE devfluency_upgrade"
 
 echo "Applying complete migration history to an empty database."
 for file in migrations/*.sql; do
