@@ -37,7 +37,7 @@ El agregado es Course → CourseVersion → Unit → Lesson → LearningObjectiv
 | Entidad física | Función | Claves y restricciones principales |
 |---|---|---|
 | courses | Identidad estable de una ruta | slug único; track general o technology |
-| course_versions | Snapshot editorial de un curso y nivel | versión positiva única por curso; nivel canónico; estado; máximo una versión publicada por curso |
+| course_versions | Snapshot editorial de un curso y nivel | versión positiva única por curso y nivel; nivel canónico; estado; máximo una versión publicada por curso/nivel |
 | course_units | Unidad temática ordenada | código y posición únicos dentro de la versión |
 | course_lessons | Lección dentro de una unidad | posición única por unidad; patrón discover/understand/practice/integrate/custom |
 | learning_objectives | Resultado observable y criterio de éxito | código único por versión; criterio de éxito obligatorio |
@@ -73,7 +73,7 @@ Estados:
 - **published:** visible para estudiantes y estrictamente inmutable.
 - **archived:** no admite nuevas matrículas ni cambios; permanece disponible para el historial de quienes ya se inscribieron.
 
-La base controla transiciones, exige revisor para publicar y evita alterar una versión publicada. La edición requiere crear version_number + 1, revisarla y publicarla. Un índice parcial impide dos versiones publicadas simultáneas del mismo curso.
+La base controla transiciones, exige revisor para publicar y evita alterar una versión publicada. La edición requiere crear version_number + 1, revisarla y publicarla. Un índice parcial impide dos versiones publicadas simultáneas del mismo curso y nivel. Esto permite publicar General A1, A2, B1, etc. en paralelo, igual que los niveles de Tecnología.
 
 El estado está en course_versions, no repetido en unidades y lecciones. Así la publicación aplica al agregado completo. course_version_reviews conserva el historial de decisiones.
 
