@@ -263,7 +263,7 @@ BEGIN
 END
 $$;
 
-DO $
+DO $$
 DECLARE
     blocked BOOLEAN := FALSE;
 BEGIN
@@ -280,7 +280,7 @@ BEGIN
         RAISE EXCEPTION 'Draft version accepted a new enrollment';
     END IF;
 END
-$;
+$$;
 
 UPDATE course_versions
 SET status = 'archived', archived_at = NOW(), updated_at = NOW()
@@ -291,7 +291,7 @@ WHERE id = '30000000-0000-4000-8000-000000000001';
 BEGIN;
 SET LOCAL ROLE devfluency_schema_test;
 SELECT set_config('app.current_user_id', '10000000-0000-4000-8000-000000000001', TRUE);
-DO $
+DO $$
 DECLARE
     visible_versions BIGINT;
     visible_units BIGINT;
@@ -311,9 +311,9 @@ BEGIN
         RAISE EXCEPTION 'Archived enrollment history was not accessible to its owner';
     END IF;
 END
-$;
+$$;
 SELECT set_config('app.current_user_id', '10000000-0000-4000-8000-000000000003', TRUE);
-DO $
+DO $$
 DECLARE
     visible_versions BIGINT;
     visible_lessons BIGINT;
@@ -326,10 +326,10 @@ BEGIN
         RAISE EXCEPTION 'Non-enrolled user can view archived curriculum content';
     END IF;
 END
-$;
+$$;
 COMMIT;
 
-DO $
+DO $$
 DECLARE
     blocked BOOLEAN := FALSE;
 BEGIN
