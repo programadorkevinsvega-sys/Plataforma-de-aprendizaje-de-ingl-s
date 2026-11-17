@@ -105,7 +105,7 @@ El servicio debe establecer identidad con set_config(..., true) dentro de la mis
 
 ### Catálogo compartido
 
-El currículo no es propiedad de un estudiante. Las políticas permiten lectura de versiones publicadas y sus descendientes. Los borradores/revisiones solo son visibles cuando la operación editorial autenticada establece app.content_editor=true.
+El currículo no es propiedad de un estudiante. Las políticas permiten lectura de versiones publicadas y sus descendientes. Una versión archivada y sus lecciones siguen visibles únicamente para estudiantes que ya tengan una matrícula fijada a esa versión. Los borradores/revisiones solo son visibles cuando la operación editorial autenticada establece app.content_editor=true.
 
 Ese parámetro no autentica por sí solo a un editor. Antes de exponer operaciones editoriales, el backend debe comprobar un permiso real, establecer el GUC localmente y hacerlo dentro de una transacción. Nunca se debe confiar en un valor enviado por el navegador. El test RLS usa un rol PostgreSQL no propietario y sin BYPASSRLS, no el superusuario del runner.
 
