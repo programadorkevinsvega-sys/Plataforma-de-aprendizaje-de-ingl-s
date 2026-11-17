@@ -238,12 +238,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes postgresql-client protobuf-compiler
           protoc --version
-      - name: Apply database migrations for integration tests
-        run: |
-          for migration in migrations/*.sql; do
-            echo "Applying $migration"
-            psql "$TEST_DATABASE_URL" --set ON_ERROR_STOP=1 --file "$migration"
-          done
+      - name: Verify fresh and upgraded curriculum migration paths
+        run: bash scripts/test-phase1-2-migrations.sh
       - name: Install stable Rust
         run: |
           rustup toolchain install stable --profile minimal --component rustfmt --component clippy
