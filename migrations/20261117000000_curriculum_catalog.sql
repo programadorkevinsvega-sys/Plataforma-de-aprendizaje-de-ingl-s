@@ -305,8 +305,17 @@ CREATE POLICY courses_editor_write ON courses
 
 ALTER TABLE course_versions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE course_versions FORCE ROW LEVEL SECURITY;
-CREATE POLICY course_versions_published_read ON course_versions
-    FOR SELECT USING (status = 'published');
+CREATE POLICY course_versions_published_or_enrolled_read ON course_versions
+    FOR SELECT USING (
+        status = 'published'
+        OR EXISTS (
+            SELECT 1
+            FROM course_enrollments enrollment
+            WHERE enrollment.course_version_id = course_versions.id
+              AND enrollment.user_id =
+                  NULLIF(current_setting('app.current_user_id', TRUE), '')::UUID
+        )
+    );
 CREATE POLICY course_versions_editor_write ON course_versions
     FOR ALL USING (app_is_content_editor())
     WITH CHECK (app_is_content_editor());
@@ -331,13 +340,12 @@ BEGIN
             'CREATE POLICY %I ON %I FOR SELECT USING (
                 EXISTS (
                     SELECT 1 FROM course_versions cv
-                    WHERE cv.id = %I.course_version_id AND cv.status = %L
+                    WHERE cv.id = %I.course_version_id
                 )
             )',
-            table_name || '_published_read',
+            table_name || '_published_or_enrolled_read',
             table_name,
-            table_name,
-            'published'
+            table_name
         );
         EXECUTE format(
             'CREATE POLICY %I ON %I FOR ALL USING (app_is_content_editor())
