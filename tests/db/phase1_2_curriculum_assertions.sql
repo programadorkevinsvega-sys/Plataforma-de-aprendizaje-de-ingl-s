@@ -263,11 +263,30 @@ BEGIN
 END
 $$;
 
+DO $
+DECLARE
+    blocked BOOLEAN := FALSE;
+BEGIN
+    BEGIN
+        INSERT INTO course_enrollments (user_id, course_version_id)
+        VALUES (
+            '10000000-0000-4000-8000-000000000003',
+            '30000000-0000-4000-8000-000000000002'
+        );
+    EXCEPTION
+        WHEN check_violation THEN blocked := TRUE;
+    END;
+    IF NOT blocked THEN
+        RAISE EXCEPTION 'Draft version accepted a new enrollment';
+    END IF;
+END
+$;
+
 UPDATE course_versions
 SET status = 'archived', archived_at = NOW(), updated_at = NOW()
 WHERE id = '30000000-0000-4000-8000-000000000001';
 
-DO $$
+DO $
 DECLARE
     blocked BOOLEAN := FALSE;
 BEGIN
