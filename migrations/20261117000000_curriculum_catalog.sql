@@ -197,7 +197,7 @@ CREATE TABLE IF NOT EXISTS course_version_reviews (
 CREATE OR REPLACE FUNCTION guard_course_version_review_insert()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-AS $ 
+AS $$
 DECLARE
     version_status VARCHAR(12);
 BEGIN
@@ -211,7 +211,7 @@ BEGIN
     END IF;
     RETURN NEW;
 END
-$;
+$$;
 
 CREATE TRIGGER trg_course_version_review_insert
     BEFORE INSERT ON course_version_reviews
