@@ -183,13 +183,25 @@ VALUES (
     '30000000-0000-4000-8000-000000000001'
 );
 
-DO $$
+DO $
 DECLARE
     visible_enrollments BIGINT;
+    identity_change_blocked BOOLEAN := FALSE;
 BEGIN
     SELECT count(*) INTO visible_enrollments FROM course_enrollments;
     IF visible_enrollments <> 1 THEN
         RAISE EXCEPTION 'User cannot read its own enrollment';
+    END IF;
+
+    BEGIN
+        UPDATE course_enrollments
+        SET course_version_id = '30000000-0000-4000-8000-000000000003'
+        WHERE user_id = '10000000-0000-4000-8000-000000000001';
+    EXCEPTION
+        WHEN SQLSTATE '55000' THEN identity_change_blocked := TRUE;
+    END;
+    IF NOT identity_change_blocked THEN
+        RAISE EXCEPTION 'Enrollment version pin was mutable';
     END IF;
 
     BEGIN
@@ -204,7 +216,7 @@ BEGIN
         WHEN insufficient_privilege THEN NULL;
     END;
 END
-$$;
+$;
 COMMIT;
 
 BEGIN;
