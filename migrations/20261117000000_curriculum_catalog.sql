@@ -118,6 +118,7 @@ CREATE TABLE IF NOT EXISTS learning_objectives (
     position INTEGER NOT NULL CHECK (position > 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_learning_objective_code UNIQUE (course_version_id, objective_code),
+    CONSTRAINT uq_learning_objective_position UNIQUE (course_version_id, position),
     CONSTRAINT uq_learning_objective_id_version UNIQUE (id, course_version_id)
 );
 
@@ -169,6 +170,7 @@ CREATE TABLE IF NOT EXISTS learning_objective_vocabulary (
         CHECK (usage_mode IN ('receptive', 'productive', 'both')),
     position INTEGER NOT NULL CHECK (position > 0),
     PRIMARY KEY (learning_objective_id, vocabulary_word_id),
+    CONSTRAINT uq_objective_vocabulary_position UNIQUE (learning_objective_id, position),
     FOREIGN KEY (learning_objective_id, course_version_id)
         REFERENCES learning_objectives(id, course_version_id) ON DELETE RESTRICT
 );
@@ -181,6 +183,7 @@ CREATE TABLE IF NOT EXISTS learning_objective_sentences (
         CHECK (usage_mode IN ('listening', 'reading', 'speaking', 'writing', 'example')),
     position INTEGER NOT NULL CHECK (position > 0),
     PRIMARY KEY (learning_objective_id, context_sentence_id),
+    CONSTRAINT uq_objective_sentence_position UNIQUE (learning_objective_id, position),
     FOREIGN KEY (learning_objective_id, course_version_id)
         REFERENCES learning_objectives(id, course_version_id) ON DELETE RESTRICT
 );
@@ -250,6 +253,10 @@ CREATE TABLE IF NOT EXISTS course_enrollments (
     started_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_accessed_at TIMESTAMPTZ,
     completed_at TIMESTAMPTZ,
+    CONSTRAINT ck_course_enrollment_completion CHECK (
+        (status = 'completed' AND completed_at IS NOT NULL)
+        OR (status <> 'completed' AND completed_at IS NULL)
+    ),
     CONSTRAINT uq_user_course_version UNIQUE (user_id, course_version_id),
     CONSTRAINT uq_course_enrollment_id_user UNIQUE (id, user_id)
 );
