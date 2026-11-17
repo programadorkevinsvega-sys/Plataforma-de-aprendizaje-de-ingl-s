@@ -296,7 +296,7 @@ CREATE POLICY courses_published_read ON courses
         app_is_content_editor()
         OR EXISTS (
             SELECT 1 FROM course_versions cv
-            WHERE cv.course_id = courses.id AND cv.status = 'published'
+            WHERE cv.course_id = courses.id
         )
     );
 CREATE POLICY courses_editor_write ON courses
