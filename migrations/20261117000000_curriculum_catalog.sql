@@ -188,7 +188,7 @@ CREATE TABLE IF NOT EXISTS course_version_reviews (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     course_version_id UUID NOT NULL REFERENCES course_versions(id) ON DELETE RESTRICT,
     reviewer_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    decision VARCHAR(16) NOT NULL
+    decision VARCHAR(20) NOT NULL
         CHECK (decision IN ('approved', 'rejected', 'changes_requested')),
     comments TEXT NOT NULL DEFAULT '',
     reviewed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -317,6 +317,14 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 BEGIN
+    IF TG_OP = 'INSERT' THEN
+        IF NEW.status <> 'draft' THEN
+            RAISE EXCEPTION 'A curriculum version must be created as draft'
+                USING ERRCODE = '55000';
+        END IF;
+        RETURN NEW;
+    END IF;
+
     IF TG_OP = 'DELETE' THEN
         IF OLD.status IN ('published', 'archived') THEN
             RAISE EXCEPTION 'Published curriculum versions cannot be deleted'
@@ -347,12 +355,25 @@ BEGIN
             USING ERRCODE = '55000';
     END IF;
 
+    IF NEW.status = 'published' AND OLD.status <> 'published' THEN
+        IF NEW.reviewed_by IS NULL OR NEW.published_at IS NULL OR NOT EXISTS (
+            SELECT 1
+            FROM course_version_reviews review_record
+            WHERE review_record.course_version_id = NEW.id
+              AND review_record.reviewer_id = NEW.reviewed_by
+              AND review_record.decision = 'approved'
+        ) THEN
+            RAISE EXCEPTION 'Publication requires an approved review by the recorded reviewer'
+                USING ERRCODE = '23514';
+        END IF;
+    END IF;
+
     RETURN NEW;
 END
 $$;
 
 CREATE TRIGGER trg_course_version_lifecycle
-    BEFORE UPDATE OR DELETE ON course_versions
+    BEFORE INSERT OR UPDATE OR DELETE ON course_versions
     FOR EACH ROW EXECUTE FUNCTION guard_course_version_lifecycle();
 
 CREATE OR REPLACE FUNCTION guard_curriculum_child_write()
