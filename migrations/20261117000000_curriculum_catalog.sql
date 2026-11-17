@@ -406,6 +406,11 @@ BEGIN
             RAISE EXCEPTION 'A curriculum version must be created as draft'
                 USING ERRCODE = '55000';
         END IF;
+        -- Serialize version creation with changes to the stable course slug/track.
+        PERFORM id
+        FROM courses
+        WHERE id = NEW.course_id
+        FOR UPDATE;
         RETURN NEW;
     END IF;
 
