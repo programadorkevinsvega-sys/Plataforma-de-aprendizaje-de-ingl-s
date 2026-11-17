@@ -39,6 +39,26 @@ VALUES (
     '10000000-0000-4000-8000-000000000001'
 );
 
+UPDATE course_versions
+SET status = 'review', submitted_at = NOW()
+WHERE id = '30000000-0000-4000-8000-000000000003';
+
+INSERT INTO course_version_reviews (
+    course_version_id, reviewer_id, decision, comments
+)
+VALUES (
+    '30000000-0000-4000-8000-000000000003',
+    '10000000-0000-4000-8000-000000000002',
+    'approved',
+    'Second level in the same published track'
+);
+
+UPDATE course_versions
+SET status = 'published',
+    reviewed_by = '10000000-0000-4000-8000-000000000002',
+    published_at = NOW()
+WHERE id = '30000000-0000-4000-8000-000000000003';
+
 INSERT INTO course_versions (
     id, course_id, version_number, status, cefr_level, title, description,
     created_by
@@ -146,7 +166,7 @@ BEGIN
     SELECT count(*) INTO visible_lessons FROM course_lessons;
     SELECT count(*) INTO visible_enrollments FROM course_enrollments;
 
-    IF visible_courses <> 1 OR visible_versions <> 1
+    IF visible_courses <> 1 OR visible_versions <> 2
        OR visible_units <> 1 OR visible_lessons <> 1 THEN
         RAISE EXCEPTION 'Published-content RLS failed: courses %, versions %, units %, lessons %',
             visible_courses, visible_versions, visible_units, visible_lessons;
@@ -195,8 +215,8 @@ DECLARE
     visible_versions BIGINT;
 BEGIN
     SELECT count(*) INTO visible_versions FROM course_versions;
-    IF visible_versions <> 2 THEN
-        RAISE EXCEPTION 'Authorized editorial context cannot see draft versions';
+    IF visible_versions <> 3 THEN
+        RAISE EXCEPTION 'Authorized editorial context cannot see all draft/published versions';
     END IF;
 END
 $$;
