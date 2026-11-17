@@ -221,7 +221,7 @@ CREATE TRIGGER trg_course_version_review_insert
 CREATE OR REPLACE FUNCTION guard_course_version_review_immutability()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-AS $
+AS $$
 BEGIN
     IF TG_OP = 'DELETE' THEN
         RAISE EXCEPTION 'Editorial review history is append-only'
@@ -235,7 +235,7 @@ BEGIN
     END IF;
     RETURN NEW;
 END
-$;
+$$;
 
 CREATE TRIGGER trg_course_version_review_immutability
     BEFORE UPDATE OR DELETE ON course_version_reviews
@@ -448,7 +448,7 @@ CREATE TRIGGER trg_course_version_lifecycle
 CREATE OR REPLACE FUNCTION guard_curriculum_child_write()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-AS $
+AS $$
 DECLARE
     version_status VARCHAR(12);
 BEGIN
@@ -495,7 +495,7 @@ BEGIN
 
     RETURN NEW;
 END
-$;
+$$;
 
 DO $$
 DECLARE
@@ -524,7 +524,7 @@ $$;
 CREATE OR REPLACE FUNCTION guard_course_enrollment_identity()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-AS $
+AS $$
 BEGIN
     IF NEW.user_id IS DISTINCT FROM OLD.user_id
        OR NEW.course_version_id IS DISTINCT FROM OLD.course_version_id THEN
@@ -533,7 +533,7 @@ BEGIN
     END IF;
     RETURN NEW;
 END
-$;
+$$;
 
 CREATE TRIGGER trg_course_enrollment_identity
     BEFORE UPDATE OF user_id, course_version_id ON course_enrollments
@@ -542,7 +542,7 @@ CREATE TRIGGER trg_course_enrollment_identity
 CREATE OR REPLACE FUNCTION require_published_course_for_enrollment()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-AS $
+AS $$
 DECLARE
     version_status VARCHAR(12);
 BEGIN
@@ -557,7 +557,7 @@ BEGIN
     END IF;
     RETURN NEW;
 END
-$;
+$$;
 
 CREATE TRIGGER trg_course_enrollment_published_version
     BEFORE INSERT OR UPDATE OF course_version_id ON course_enrollments
