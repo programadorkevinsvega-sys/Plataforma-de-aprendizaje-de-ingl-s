@@ -316,15 +316,17 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 
 ### Subfase 1.1. Definición del currículo
 
-- [ ] Definir la ruta general desde Pre-A1/A0 hasta C1 y la extensión C2.
-- [ ] Definir la ruta tecnológica y su relación con los niveles generales.
-- [ ] Definir cursos, unidades, temas, objetivos y resultados esperados.
-- [ ] Definir vocabulario receptivo y productivo por nivel.
-- [ ] Definir gramática por nivel y prerequisitos.
-- [ ] Definir objetivos de lectura, escritura, comprensión auditiva e interacción.
-- [ ] Definir cantidad y dificultad de actividades por objetivo.
-- [ ] Definir criterios de desbloqueo, repaso y evaluación de unidad.
-- [ ] Evitar saltos de dificultad y repetición innecesaria entre niveles.
+- [x] Definir la ruta general desde Pre-A1/A0 hasta C1 y la extensión C2.
+- [x] Definir la ruta tecnológica y su relación con los niveles generales.
+- [x] Definir cursos, unidades, temas, objetivos y resultados esperados.
+- [x] Definir vocabulario receptivo y productivo por nivel, con rangos internos sujetos a validación editorial.
+- [x] Definir gramática por nivel y prerequisitos.
+- [x] Definir objetivos de lectura, escritura, comprensión auditiva, expresión hablada e interacción.
+- [x] Definir tamaño de curso/unidad/lección, cantidad y dificultad de actividades por objetivo.
+- [x] Definir criterios de desbloqueo, recuperación, repaso y evaluación de unidad.
+- [x] Definir reglas de progresión espiral para evitar saltos de dificultad y repetición innecesaria.
+
+**Entregable:** [Blueprint curricular de Fase 1.1](../curriculum/phase-1.1-curricular-blueprint.md) — propuesta v1.0 para revisión del producto. Las cantidades léxicas y los umbrales de rúbrica son metas internas provisionales; no equivalen a estándares oficiales del MCER y se calibrarán en el piloto.
 
 ### Subfase 1.2. Modelo y migraciones
 
