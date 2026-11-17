@@ -54,6 +54,27 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_course_level_one_published_version
 CREATE INDEX IF NOT EXISTS idx_course_versions_published_level
     ON course_versions(cefr_level, course_id) WHERE status = 'published';
 
+CREATE OR REPLACE FUNCTION guard_course_identity()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF (NEW.slug IS DISTINCT FROM OLD.slug OR NEW.track_code IS DISTINCT FROM OLD.track_code)
+       AND EXISTS (
+           SELECT 1 FROM course_versions
+           WHERE course_id = OLD.id
+       ) THEN
+        RAISE EXCEPTION 'A course slug and track are stable after the first version is created'
+            USING ERRCODE = '55000';
+    END IF;
+    RETURN NEW;
+END
+$$;
+
+CREATE TRIGGER trg_course_identity_stable
+    BEFORE UPDATE OF slug, track_code ON courses
+    FOR EACH ROW EXECUTE FUNCTION guard_course_identity();
+
 CREATE TABLE IF NOT EXISTS course_units (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     course_version_id UUID NOT NULL REFERENCES course_versions(id) ON DELETE RESTRICT,
@@ -207,7 +228,8 @@ DECLARE
 BEGIN
     SELECT status INTO version_status
     FROM course_versions
-    WHERE id = NEW.course_version_id;
+    WHERE id = NEW.course_version_id
+    FOR UPDATE;
 
     IF version_status IS DISTINCT FROM 'review' OR NEW.reviewer_id IS NULL THEN
         RAISE EXCEPTION 'Review decisions require a reviewer and a course version in review'
@@ -575,7 +597,7 @@ END
 $$;
 
 CREATE TRIGGER trg_course_enrollment_published_version
-    BEFORE INSERT OR UPDATE OF course_version_id ON course_enrollments
+    BEFORE INSERT ON course_enrollments
     FOR EACH ROW EXECUTE FUNCTION require_published_course_for_enrollment();
 
 COMMENT ON TABLE courses IS 'Stable identity of a learning track; pedagogical content belongs to immutable versions.';
