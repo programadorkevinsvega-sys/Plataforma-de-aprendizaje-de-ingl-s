@@ -77,43 +77,6 @@ VALUES
         '10000000-0000-4000-8000-000000000001'
     );
 
-UPDATE course_versions
-SET status = 'review', submitted_at = NOW()
-WHERE id = '30000000-0000-4000-8000-000000000001';
-
-DO $$
-DECLARE
-    blocked BOOLEAN := FALSE;
-BEGIN
-    BEGIN
-        UPDATE course_versions
-        SET title = 'Changed while under review'
-        WHERE id = '30000000-0000-4000-8000-000000000001';
-    EXCEPTION
-        WHEN SQLSTATE '55000' THEN blocked := TRUE;
-    END;
-    IF NOT blocked THEN
-        RAISE EXCEPTION 'A curriculum version under review was mutable';
-    END IF;
-END
-$$;
-
-INSERT INTO course_version_reviews (
-    course_version_id, reviewer_id, decision, comments
-)
-VALUES (
-    '30000000-0000-4000-8000-000000000001',
-    '10000000-0000-4000-8000-000000000002',
-    'approved',
-    'Automated schema fixture approval'
-);
-
-UPDATE course_versions
-SET status = 'published',
-    reviewed_by = '10000000-0000-4000-8000-000000000002',
-    published_at = NOW()
-WHERE id = '30000000-0000-4000-8000-000000000001';
-
 INSERT INTO course_units (id, course_version_id, unit_code, position, title, theme)
 VALUES (
     '40000000-0000-4000-8000-000000000001',
@@ -159,6 +122,45 @@ VALUES (
     '60000000-0000-4000-8000-000000000001',
     1, TRUE
 );
+
+UPDATE course_versions
+SET status = 'review', submitted_at = NOW()
+WHERE id = '30000000-0000-4000-8000-000000000001';
+
+DO $$
+DECLARE
+    blocked BOOLEAN := FALSE;
+BEGIN
+    BEGIN
+        UPDATE course_versions
+        SET title = 'Changed while under review'
+        WHERE id = '30000000-0000-4000-8000-000000000001';
+    EXCEPTION
+        WHEN SQLSTATE '55000' THEN blocked := TRUE;
+    END;
+    IF NOT blocked THEN
+        RAISE EXCEPTION 'A curriculum version under review was mutable';
+    END IF;
+END
+$$;
+
+INSERT INTO course_version_reviews (
+    course_version_id, reviewer_id, decision, comments
+)
+VALUES (
+    '30000000-0000-4000-8000-000000000001',
+    '10000000-0000-4000-8000-000000000002',
+    'approved',
+    'Automated schema fixture approval'
+);
+
+UPDATE course_versions
+SET status = 'published',
+    reviewed_by = '10000000-0000-4000-8000-000000000002',
+    published_at = NOW()
+WHERE id = '30000000-0000-4000-8000-000000000001';
+
+
 
 INSERT INTO course_enrollments (user_id, course_version_id)
 VALUES (
