@@ -30,24 +30,41 @@ VALUES
 
 INSERT INTO course_versions (
     id, course_id, version_number, status, cefr_level, title, description,
-    created_by, reviewed_by, submitted_at, published_at
+    created_by
 )
 VALUES
     (
         '30000000-0000-4000-8000-000000000001',
         '20000000-0000-4000-8000-000000000001',
-        1, 'published', 'PRE_A1', 'Published test course', 'Published fixture',
-        '10000000-0000-4000-8000-000000000001',
-        '10000000-0000-4000-8000-000000000002',
-        NOW(), NOW()
+        1, 'draft', 'PRE_A1', 'Published test course', 'Published fixture',
+        '10000000-0000-4000-8000-000000000001'
     ),
     (
         '30000000-0000-4000-8000-000000000002',
         '20000000-0000-4000-8000-000000000002',
         1, 'draft', 'A2', 'Draft test course', 'Draft fixture',
-        '10000000-0000-4000-8000-000000000001',
-        NULL, NULL, NULL
+        '10000000-0000-4000-8000-000000000001'
     );
+
+UPDATE course_versions
+SET status = 'review', submitted_at = NOW()
+WHERE id = '30000000-0000-4000-8000-000000000001';
+
+INSERT INTO course_version_reviews (
+    course_version_id, reviewer_id, decision, comments
+)
+VALUES (
+    '30000000-0000-4000-8000-000000000001',
+    '10000000-0000-4000-8000-000000000002',
+    'approved',
+    'Automated schema fixture approval'
+);
+
+UPDATE course_versions
+SET status = 'published',
+    reviewed_by = '10000000-0000-4000-8000-000000000002',
+    published_at = NOW()
+WHERE id = '30000000-0000-4000-8000-000000000001';
 
 INSERT INTO course_units (id, course_version_id, unit_code, position, title, theme)
 VALUES (
