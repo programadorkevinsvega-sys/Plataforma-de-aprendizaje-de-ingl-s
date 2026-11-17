@@ -183,7 +183,7 @@ VALUES (
     '30000000-0000-4000-8000-000000000001'
 );
 
-DO $
+DO $$
 DECLARE
     visible_enrollments BIGINT;
     identity_change_blocked BOOLEAN := FALSE;
@@ -216,7 +216,7 @@ BEGIN
         WHEN insufficient_privilege THEN NULL;
     END;
 END
-$;
+$$;
 COMMIT;
 
 BEGIN;
