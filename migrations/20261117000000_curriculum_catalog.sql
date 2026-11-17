@@ -401,12 +401,25 @@ BEGIN
     ELSIF OLD.status = 'draft' AND NEW.status NOT IN ('draft', 'review') THEN
         RAISE EXCEPTION 'A draft must enter review before publication'
             USING ERRCODE = '55000';
-    ELSIF OLD.status = 'review' AND NEW.status NOT IN ('review', 'draft', 'published') THEN
+    ELSIF OLD.status = 'review' AND NEW.status = 'review' THEN
+        IF (to_jsonb(NEW) - 'updated_at') IS DISTINCT FROM
+           (to_jsonb(OLD) - 'updated_at') THEN
+            RAISE EXCEPTION 'A version under editorial review is frozen; return it to draft before editing'
+                USING ERRCODE = '55000';
+        END IF;
+    ELSIF OLD.status = 'review' AND NEW.status NOT IN ('draft', 'published') THEN
         RAISE EXCEPTION 'Invalid curriculum review transition'
             USING ERRCODE = '55000';
     END IF;
 
     IF NEW.status = 'published' AND OLD.status <> 'published' THEN
+        IF (to_jsonb(NEW) - 'status' - 'published_at' - 'updated_at' - 'reviewed_by')
+           IS DISTINCT FROM
+           (to_jsonb(OLD) - 'status' - 'published_at' - 'updated_at' - 'reviewed_by') THEN
+            RAISE EXCEPTION 'Submitted curriculum metadata cannot change during publication'
+                USING ERRCODE = '55000';
+        END IF;
+
         IF NEW.reviewed_by IS NULL OR NEW.published_at IS NULL OR NOT EXISTS (
             SELECT 1
             FROM (
