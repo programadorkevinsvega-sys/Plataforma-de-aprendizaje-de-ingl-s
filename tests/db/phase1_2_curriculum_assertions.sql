@@ -227,7 +227,7 @@ BEGIN
         INSERT INTO course_enrollments (user_id, course_version_id)
         VALUES (
             '10000000-0000-4000-8000-000000000002',
-            '30000000-0000-4000-8000-000000000001'
+            '30000000-0000-4000-8000-000000000003'
         );
         RAISE EXCEPTION 'RLS accepted an enrollment for a different user'
             USING ERRCODE = 'P0001';
