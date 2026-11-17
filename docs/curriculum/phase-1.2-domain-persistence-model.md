@@ -36,7 +36,7 @@ El agregado es Course → CourseVersion → Unit → Lesson → LearningObjectiv
 
 | Entidad física | Función | Claves y restricciones principales |
 |---|---|---|
-| courses | Identidad estable de una ruta | slug único; track general o technology |
+| courses | Identidad estable de una ruta | slug único; track general o technology; slug y ruta congelados al crear la primera versión |
 | course_versions | Snapshot editorial de un curso y nivel | versión positiva única por curso y nivel; nivel canónico; estado; máximo una versión publicada por curso/nivel |
 | course_units | Unidad temática ordenada | código y posición únicos dentro de la versión |
 | course_lessons | Lección dentro de una unidad | posición única por unidad; patrón discover/understand/practice/integrate/custom |
@@ -73,7 +73,7 @@ Estados:
 - **published:** visible para estudiantes y estrictamente inmutable.
 - **archived:** no admite nuevas matrículas ni cambios; permanece disponible para el historial de quienes ya se inscribieron.
 
-La base controla transiciones, exige la última revisión aprobada del revisor registrado para publicar, congela metadatos/contenido durante review y evita alterar una versión publicada. La edición requiere crear version_number + 1, revisarla y publicarla. Un índice parcial impide dos versiones publicadas simultáneas del mismo curso y nivel. Esto permite publicar General A1, A2, B1, etc. en paralelo, igual que los niveles de Tecnología.
+La base controla transiciones, exige la última revisión aprobada del revisor registrado para publicar, congela metadatos/contenido durante review, serializa revisiones/ediciones con la publicación y evita alterar una versión publicada. La identidad (slug/ruta) del curso también queda fija desde que existe la primera versión. La edición requiere crear version_number + 1, revisarla y publicarla. Un índice parcial impide dos versiones publicadas simultáneas del mismo curso y nivel. Esto permite publicar General A1, A2, B1, etc. en paralelo, igual que los niveles de Tecnología.
 
 El estado está en course_versions, no repetido en unidades y lecciones. Así la publicación aplica al agregado completo. course_version_reviews conserva un historial append-only; solo se permite anonimizar reviewer_id al eliminar un usuario.
 
@@ -101,7 +101,7 @@ Una matrícula referencia course_version_id, no solo course_id. La base rechaza 
 
 course_enrollments contiene estado privado. Tiene RLS habilitado y forzado, con políticas USING y WITH CHECK por app.current_user_id. Sin contexto de usuario no devuelve matrículas y una escritura con otro user_id es rechazada.
 
-El servicio debe establecer identidad con set_config(..., true) dentro de la misma transacción que consulta o modifica la matrícula. No debe dejar un contexto de sesión persistente que pueda contaminar otra conexión del pool.
+El servicio debe establecer identidad con set_config(..., true) dentro de la misma transacción que consulta o modifica la matrícula. La versión fijada no se puede cambiar ni siquiera a otra versión publicada; la operación futura de traslado debe mantener un historial explícito. No debe dejar un contexto de sesión persistente que pueda contaminar otra conexión del pool.
 
 ### Catálogo compartido
 
