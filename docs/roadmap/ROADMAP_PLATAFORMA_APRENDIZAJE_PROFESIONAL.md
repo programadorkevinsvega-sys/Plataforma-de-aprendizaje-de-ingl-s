@@ -335,7 +335,8 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 - [x] Versionar cursos y contenido publicado con inscripción fijada a CourseVersion.
 - [x] Agregar estados draft, review, published y archived con transiciones/inmutabilidad.
 - [x] Agregar metadatos de nivel, tema, competencia, objetivo y prerequisito.
-- [x] Crear índices iniciales de integridad y acceso para las consultas previstas; medir y ajustar índices no únicos en staging.
+- [x] Crear índices iniciales de integridad y acceso para las consultas previstas.
+- [ ] Medir planes de consulta y ajustar índices no únicos con datos representativos en staging.
 - [x] Aplicar RLS forzado a matrículas y políticas de lectura de contenido publicado/edición.
 - [x] Crear pruebas automatizadas desde base vacía y desde la secuencia de migraciones actualmente versionada.
 
