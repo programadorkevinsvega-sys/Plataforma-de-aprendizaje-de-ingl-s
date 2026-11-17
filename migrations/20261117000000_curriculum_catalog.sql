@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS course_versions (
     CONSTRAINT ck_course_version_lifecycle CHECK (
         (status IN ('draft', 'review') AND published_at IS NULL AND archived_at IS NULL)
         OR
-        (status = 'published' AND published_at IS NOT NULL AND archived_at IS NULL AND reviewed_by IS NOT NULL)
+        (status = 'published' AND published_at IS NOT NULL AND archived_at IS NULL)
         OR
         (status = 'archived' AND published_at IS NOT NULL AND archived_at IS NOT NULL)
     ),
@@ -194,6 +194,29 @@ CREATE TABLE IF NOT EXISTS course_version_reviews (
     reviewed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE OR REPLACE FUNCTION guard_course_version_review_insert()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $
+DECLARE
+    version_status VARCHAR(12);
+BEGIN
+    SELECT status INTO version_status
+    FROM course_versions
+    WHERE id = NEW.course_version_id;
+
+    IF version_status IS DISTINCT FROM 'review' OR NEW.reviewer_id IS NULL THEN
+        RAISE EXCEPTION 'Review decisions require a reviewer and a course version in review'
+            USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+END
+$;
+
+CREATE TRIGGER trg_course_version_review_insert
+    BEFORE INSERT ON course_version_reviews
+    FOR EACH ROW EXECUTE FUNCTION guard_course_version_review_insert();
+
 CREATE TABLE IF NOT EXISTS course_enrollments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -341,9 +364,9 @@ BEGIN
             RAISE EXCEPTION 'A published curriculum version can only be archived'
                 USING ERRCODE = '55000';
         END IF;
-        IF (to_jsonb(NEW) - 'status' - 'archived_at' - 'updated_at')
+        IF (to_jsonb(NEW) - 'status' - 'archived_at' - 'updated_at' - 'created_by' - 'reviewed_by')
            IS DISTINCT FROM
-           (to_jsonb(OLD) - 'status' - 'archived_at' - 'updated_at') THEN
+           (to_jsonb(OLD) - 'status' - 'archived_at' - 'updated_at' - 'created_by' - 'reviewed_by') THEN
             RAISE EXCEPTION 'Published curriculum content is immutable; create a new version'
                 USING ERRCODE = '55000';
         END IF;
@@ -358,10 +381,15 @@ BEGIN
     IF NEW.status = 'published' AND OLD.status <> 'published' THEN
         IF NEW.reviewed_by IS NULL OR NEW.published_at IS NULL OR NOT EXISTS (
             SELECT 1
-            FROM course_version_reviews review_record
-            WHERE review_record.course_version_id = NEW.id
-              AND review_record.reviewer_id = NEW.reviewed_by
-              AND review_record.decision = 'approved'
+            FROM (
+                SELECT reviewer_id, decision
+                FROM course_version_reviews
+                WHERE course_version_id = NEW.id
+                ORDER BY reviewed_at DESC, id DESC
+                LIMIT 1
+            ) latest_review
+            WHERE latest_review.reviewer_id = NEW.reviewed_by
+              AND latest_review.decision = 'approved'
         ) THEN
             RAISE EXCEPTION 'Publication requires an approved review by the recorded reviewer'
                 USING ERRCODE = '23514';
