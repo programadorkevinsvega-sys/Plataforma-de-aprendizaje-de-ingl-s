@@ -1,0 +1,238 @@
+-- Executed as database owner to create fixtures. Access checks run as a
+-- non-owner PostgreSQL role without BYPASSRLS.
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'devfluency_schema_test') THEN
+        CREATE ROLE devfluency_schema_test NOLOGIN NOSUPERUSER NOBYPASSRLS;
+    END IF;
+END
+$$;
+
+GRANT SELECT ON
+    courses, course_versions, course_units, course_lessons,
+    learning_objectives, learning_skills, learning_objective_skills,
+    lesson_learning_objectives, lesson_prerequisites,
+    learning_objective_vocabulary, learning_objective_sentences
+TO devfluency_schema_test;
+GRANT SELECT, INSERT, UPDATE, DELETE ON course_enrollments TO devfluency_schema_test;
+
+INSERT INTO users (id, email, password_hash, full_name, target_role, current_level)
+VALUES
+    ('10000000-0000-4000-8000-000000000001', 'phase12-one@example.test', 'test-hash', 'Schema Test One', 'learner', 'A1'),
+    ('10000000-0000-4000-8000-000000000002', 'phase12-two@example.test', 'test-hash', 'Schema Test Two', 'learner', 'A1'),
+    ('10000000-0000-4000-8000-000000000003', 'phase12-three@example.test', 'test-hash', 'Schema Test Three', 'learner', 'A1');
+
+INSERT INTO courses (id, slug, track_code)
+VALUES
+    ('20000000-0000-4000-8000-000000000001', 'phase12-general-test', 'general'),
+    ('20000000-0000-4000-8000-000000000002', 'phase12-draft-test', 'technology');
+
+INSERT INTO course_versions (
+    id, course_id, version_number, status, cefr_level, title, description,
+    created_by, reviewed_by, submitted_at, published_at
+)
+VALUES
+    (
+        '30000000-0000-4000-8000-000000000001',
+        '20000000-0000-4000-8000-000000000001',
+        1, 'published', 'PRE_A1', 'Published test course', 'Published fixture',
+        '10000000-0000-4000-8000-000000000001',
+        '10000000-0000-4000-8000-000000000002',
+        NOW(), NOW()
+    ),
+    (
+        '30000000-0000-4000-8000-000000000002',
+        '20000000-0000-4000-8000-000000000002',
+        1, 'draft', 'A2', 'Draft test course', 'Draft fixture',
+        '10000000-0000-4000-8000-000000000001',
+        NULL, NULL, NULL
+    );
+
+INSERT INTO course_units (id, course_version_id, unit_code, position, title, theme)
+VALUES (
+    '40000000-0000-4000-8000-000000000001',
+    '30000000-0000-4000-8000-000000000001',
+    'unit-01', 1, 'First unit', 'Introductions'
+);
+
+INSERT INTO course_lessons (
+    id, course_version_id, unit_id, lesson_code, position, lesson_pattern, title
+)
+VALUES (
+    '50000000-0000-4000-8000-000000000001',
+    '30000000-0000-4000-8000-000000000001',
+    '40000000-0000-4000-8000-000000000001',
+    'lesson-01', 1, 'discover', 'First lesson'
+);
+
+INSERT INTO learning_objectives (
+    id, course_version_id, objective_code, description, success_criteria, position
+)
+VALUES (
+    '60000000-0000-4000-8000-000000000001',
+    '30000000-0000-4000-8000-000000000001',
+    'objective-01', 'Understand a basic greeting',
+    'Select the correct greeting in at least four of five examples', 1
+);
+
+INSERT INTO learning_objective_skills (
+    course_version_id, learning_objective_id, skill_code, is_primary
+)
+VALUES (
+    '30000000-0000-4000-8000-000000000001',
+    '60000000-0000-4000-8000-000000000001',
+    'listening', TRUE
+);
+
+INSERT INTO lesson_learning_objectives (
+    course_version_id, lesson_id, learning_objective_id, position, is_required
+)
+VALUES (
+    '30000000-0000-4000-8000-000000000001',
+    '50000000-0000-4000-8000-000000000001',
+    '60000000-0000-4000-8000-000000000001',
+    1, TRUE
+);
+
+INSERT INTO course_enrollments (user_id, course_version_id)
+VALUES (
+    '10000000-0000-4000-8000-000000000002',
+    '30000000-0000-4000-8000-000000000001'
+);
+
+BEGIN;
+SET LOCAL ROLE devfluency_schema_test;
+SELECT set_config('app.current_user_id', '10000000-0000-4000-8000-000000000001', TRUE);
+DO $$
+DECLARE
+    visible_courses BIGINT;
+    visible_versions BIGINT;
+    visible_units BIGINT;
+    visible_lessons BIGINT;
+    visible_enrollments BIGINT;
+BEGIN
+    SELECT count(*) INTO visible_courses FROM courses;
+    SELECT count(*) INTO visible_versions FROM course_versions;
+    SELECT count(*) INTO visible_units FROM course_units;
+    SELECT count(*) INTO visible_lessons FROM course_lessons;
+    SELECT count(*) INTO visible_enrollments FROM course_enrollments;
+
+    IF visible_courses <> 1 OR visible_versions <> 1
+       OR visible_units <> 1 OR visible_lessons <> 1 THEN
+        RAISE EXCEPTION 'Published-content RLS failed: courses %, versions %, units %, lessons %',
+            visible_courses, visible_versions, visible_units, visible_lessons;
+    END IF;
+    IF visible_enrollments <> 0 THEN
+        RAISE EXCEPTION 'Enrollment RLS exposed another user enrollment';
+    END IF;
+END
+$$;
+
+INSERT INTO course_enrollments (user_id, course_version_id)
+VALUES (
+    '10000000-0000-4000-8000-000000000001',
+    '30000000-0000-4000-8000-000000000001'
+);
+
+DO $$
+DECLARE
+    visible_enrollments BIGINT;
+BEGIN
+    SELECT count(*) INTO visible_enrollments FROM course_enrollments;
+    IF visible_enrollments <> 1 THEN
+        RAISE EXCEPTION 'User cannot read its own enrollment';
+    END IF;
+
+    BEGIN
+        INSERT INTO course_enrollments (user_id, course_version_id)
+        VALUES (
+            '10000000-0000-4000-8000-000000000002',
+            '30000000-0000-4000-8000-000000000001'
+        );
+        RAISE EXCEPTION 'RLS accepted an enrollment for a different user'
+            USING ERRCODE = 'P0001';
+    EXCEPTION
+        WHEN insufficient_privilege THEN NULL;
+    END;
+END
+$$;
+COMMIT;
+
+BEGIN;
+SET LOCAL ROLE devfluency_schema_test;
+SELECT set_config('app.content_editor', 'true', TRUE);
+DO $$
+DECLARE
+    visible_versions BIGINT;
+BEGIN
+    SELECT count(*) INTO visible_versions FROM course_versions;
+    IF visible_versions <> 2 THEN
+        RAISE EXCEPTION 'Authorized editorial context cannot see draft versions';
+    END IF;
+END
+$$;
+COMMIT;
+
+DO $$
+DECLARE
+    blocked BOOLEAN := FALSE;
+BEGIN
+    BEGIN
+        UPDATE course_versions
+        SET title = 'Mutated published title'
+        WHERE id = '30000000-0000-4000-8000-000000000001';
+    EXCEPTION
+        WHEN SQLSTATE '55000' THEN blocked := TRUE;
+    END;
+    IF NOT blocked THEN
+        RAISE EXCEPTION 'Published course version was mutable';
+    END IF;
+
+    blocked := FALSE;
+    BEGIN
+        UPDATE course_units
+        SET title = 'Mutated published unit'
+        WHERE id = '40000000-0000-4000-8000-000000000001';
+    EXCEPTION
+        WHEN SQLSTATE '55000' THEN blocked := TRUE;
+    END;
+    IF NOT blocked THEN
+        RAISE EXCEPTION 'Published child content was mutable';
+    END IF;
+END
+$$;
+
+UPDATE course_versions
+SET status = 'archived', archived_at = NOW(), updated_at = NOW()
+WHERE id = '30000000-0000-4000-8000-000000000001';
+
+DO $$
+DECLARE
+    blocked BOOLEAN := FALSE;
+BEGIN
+    BEGIN
+        INSERT INTO course_enrollments (user_id, course_version_id)
+        VALUES (
+            '10000000-0000-4000-8000-000000000003',
+            '30000000-0000-4000-8000-000000000001'
+        );
+    EXCEPTION
+        WHEN check_violation THEN blocked := TRUE;
+    END;
+    IF NOT blocked THEN
+        RAISE EXCEPTION 'Archived version accepted a new enrollment';
+    END IF;
+END
+$$;
+
+DO $$
+DECLARE
+    skill_count BIGINT;
+BEGIN
+    SELECT count(*) INTO skill_count FROM learning_skills;
+    IF skill_count < 9 THEN
+        RAISE EXCEPTION 'Expected nine initial learning skills, found %', skill_count;
+    END IF;
+END
+$$;
