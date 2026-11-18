@@ -1020,6 +1020,7 @@ impl ContentService for MyContentService {
             Option<String>,
             Option<String>,
             Option<String>,
+            Option<String>,
             bool,
         )> = sqlx::query_as(
             r#"SELECT

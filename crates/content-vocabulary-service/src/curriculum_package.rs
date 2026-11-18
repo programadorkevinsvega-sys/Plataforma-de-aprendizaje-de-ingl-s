@@ -1393,6 +1393,7 @@ pub async fn import_package(
 #[cfg(test)]
 mod tests {
     use super::{valid_http_url, validate_package_json};
+    use serde_json::Value;
 
     const VALID_PACKAGE: &str =
         include_str!("../../../tests/fixtures/curriculum/phase1_3_content_package_v1.json");
