@@ -346,17 +346,24 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 
 ### Subfase 1.3. Gestión y validación de contenido
 
-**Avance parcial (PR de Fase 1.3):** se incorpora el contrato canónico v1 de paquetes curriculares, JSON Schema, fixture reproducible y validador offline con pruebas semánticas de referencias internas, duplicados, competencias, prerequisitos y ciclos. El validador no accede a PostgreSQL ni importa datos. La subfase sigue abierta: faltan resolver referencias contra el catálogo real, construir el importador/exportador transaccional e idempotente, completar controles editoriales y validar traducciones/ejemplos/fonética del catálogo. La coherencia con ejercicios y respuestas se cerrará cuando exista el contrato de actividades de Fase 2. El importador legado queda protegido por opt-in explícito porque su comportamiento anterior podía borrar progreso SRS.
+**Avance parcial (PR #75 y siguiente incremento de importación):** ya existe el contrato canónico v1 de paquetes curriculares, JSON Schema, fixture reproducible y validador offline. El siguiente incremento añade un importador PostgreSQL transaccional: resuelve palabras y frases contra el catálogo existente, crea exclusivamente versiones nuevas en estado `draft`, registra SHA-256 y metadatos de procedencia, ofrece dry-run por defecto y aplica idempotencia/no-sobrescritura. La subfase continúa abierta: faltan exportación, flujo de revisión editorial operativo y curación/validación lingüística. La coherencia con actividades y respuestas depende del contrato que se definirá en Fase 2.
 
+**Alcance del importador:** no crea ni modifica vocabulario/frases, no toca tarjetas SRS o progreso, no publica contenido y aborta la transacción ante referencias ausentes o ambiguas. Un paquete diferente no puede reemplazar la misma versión; debe incrementarse `version_number`. La capacidad `app.content_editor` se utiliza únicamente desde un CLI administrativo confiable y no sustituye la autorización de usuarios finales.
 
-- [ ] Crear un formato canónico de importación/exportación.
-- [ ] Validar estructura, campos requeridos, identificadores, referencias y duplicados.
-- [ ] Validar coherencia entre nivel, objetivo, ejercicio y respuesta.
-- [ ] Validar traducciones, ejemplos, explicaciones y metadatos.
-- [ ] Crear flujo de revisión editorial antes de publicar.
-- [ ] Registrar autor, fecha, fuente, revisor y versión.
-- [ ] Crear herramientas CLI o scripts reproducibles para importar contenido.
-- [ ] Evitar modificar contenido publicado sin generar una nueva versión.
+- [x] Definir el formato canónico v1 para paquetes de importación.
+- [ ] Implementar la exportación relacional al mismo formato canónico.
+- [x] Validar estructura, campos requeridos, identificadores, referencias internas y duplicados en el paquete offline.
+- [x] Resolver referencias externas a vocabulario/frases durante la importación y rechazar ausencias o ambigüedades.
+- [ ] Validar coherencia entre nivel, objetivo, ejercicio y respuesta cuando exista el contrato de actividades de Fase 2.
+- [ ] Validar editorialmente traducciones, ejemplos, explicaciones y metadatos del catálogo.
+- [ ] Crear y operar el flujo de revisión editorial antes de publicar; la base de datos ya protege estados e historial, pero no existe aún una experiencia administrativa completa.
+- [x] Registrar autor, fecha, fuente y licencia del paquete; asociar versión y SHA-256 canónico al registro importado.
+- [ ] Registrar y gestionar la identidad del revisor dentro del flujo editorial operativo.
+- [x] Crear CLI reproducible para importación con dry-run por defecto y opción explícita `--apply`.
+- [x] Hacer la importación transaccional e idempotente; rechazar sobrescritura de una versión existente.
+- [x] Mantener protegido el importador legado destructivo mediante opt-in explícito.
+
+**Pruebas agregadas en este incremento:** importación completa de un paquete, referencias faltantes, rollback, dry-run, repetición idempotente, rechazo de contenido distinto para la misma versión y dos importaciones concurrentes. La aceptación requiere que estas pruebas de PostgreSQL pasen en CI tanto con instalación nueva como con actualización de esquema.
 
 ### Subfase 1.4. Curación y expansión del catálogo
 

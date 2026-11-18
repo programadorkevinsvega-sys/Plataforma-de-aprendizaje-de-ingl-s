@@ -374,8 +374,8 @@ def validate_package(data: Any) -> list[str]:
             if ref is None:
                 continue
             _check_keys(ref, ref_path, errors, required={"word", "category", "usage_mode", "position"})
-            word = _string(ref, "word", ref_path, errors, max_length=120)
-            category = _string(ref, "category", ref_path, errors, max_length=80, pattern=CATEGORY_RE)
+            word = _string(ref, "word", ref_path, errors, max_length=100)
+            category = _string(ref, "category", ref_path, errors, max_length=50, pattern=CATEGORY_RE)
             _enum(ref.get("usage_mode"), VOCABULARY_USAGE, f"{ref_path}/usage_mode", errors)
             ref_position = _positive_int(ref, "position", ref_path, errors)
             if word and category:
@@ -397,7 +397,7 @@ def validate_package(data: Any) -> list[str]:
             if ref is None:
                 continue
             _check_keys(ref, ref_path, errors, required={"word", "english_text", "usage_mode", "position"})
-            word = _string(ref, "word", ref_path, errors, max_length=120)
+            word = _string(ref, "word", ref_path, errors, max_length=100)
             english_text = _string(ref, "english_text", ref_path, errors, max_length=500)
             _enum(ref.get("usage_mode"), SENTENCE_USAGE, f"{ref_path}/usage_mode", errors)
             ref_position = _positive_int(ref, "position", ref_path, errors)

@@ -161,6 +161,14 @@ jobs:
                 esac
 
                 case "$file" in
+                  tools/curriculum/*|tests/db/*)
+                    # Curriculum package importer changes require the PostgreSQL
+                    # integration suite, not only the offline Python validator.
+                    run_rust=true
+                    ;;
+                esac
+
+                case "$file" in
                   deploy/*)
                     run_shell=true
                     run_deploy=true
@@ -242,6 +250,19 @@ jobs:
           protoc --version
       - name: Verify fresh and upgraded curriculum migration paths
         run: bash scripts/test-phase1-2-migrations.sh
+      - name: Set up Node.js 26 and pnpm 12 for curriculum import tests
+        uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
+        with:
+          version: 12.21.0
+          runtime: node@26.13.1
+          cache: true
+          install: false
+      - name: Install curriculum importer dependencies
+        run: pnpm install --filter devfluency-node-workspace --frozen-lockfile
+      - name: Test transactional curriculum package importer
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/devfluency_test
+        run: node --test tools/curriculum/tests/import_content_package.test.mjs
       - name: Install stable Rust
         run: |
           rustup toolchain install stable --profile minimal --component rustfmt --component clippy
