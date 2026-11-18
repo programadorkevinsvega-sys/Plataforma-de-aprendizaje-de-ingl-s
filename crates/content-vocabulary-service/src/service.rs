@@ -294,7 +294,8 @@ impl ContentService for MyContentService {
                       WHEN 'PRE_A1' THEN 1 WHEN 'A1' THEN 2 WHEN 'A2' THEN 3
                       WHEN 'B1' THEN 4 WHEN 'B2' THEN 5 WHEN 'C1' THEN 6 ELSE 7
                     END,
-                    course.slug"#,
+                    course.slug,
+                    version.version_number DESC"#,
             )
             .bind(user_id)
             .fetch_all(&mut *tx)
@@ -402,7 +403,7 @@ impl ContentService for MyContentService {
 
         let (version_id, slug, track, version_number, level, title, description, status, enrolled) =
             course_row.ok_or_else(|| {
-                Status::not_found("No existe un curso publicado en esa ruta y nivel")
+                Status::not_found("No existe una versión curricular disponible para esta cuenta")
             })?;
 
         let unit_rows: Vec<(Uuid, i32, String, String, String, Option<i32>)> = sqlx::query_as(
