@@ -6,6 +6,9 @@ service ContentService {
   rpc GetVocabularyWord (GetVocabularyWordRequest) returns (VocabularyWordResponse);
   rpc ListVocabularyWords (ListVocabularyWordsRequest) returns (ListVocabularyWordsResponse);
   rpc GetRandomInterviewQuestion (GetRandomInterviewQuestionRequest) returns (InterviewQuestionResponse);
+  rpc ListCurriculumCourses (ListCurriculumCoursesRequest) returns (ListCurriculumCoursesResponse);
+  rpc GetCurriculumCourse (GetCurriculumCourseRequest) returns (GetCurriculumCourseResponse);
+  rpc EnrollInCourse (EnrollInCourseRequest) returns (EnrollInCourseResponse);
 }
 
 message ContextSentence {
@@ -55,4 +58,88 @@ message InterviewQuestionResponse {
   string question = 2;
   string category = 3;
   string difficulty = 4;
+}
+
+message ListCurriculumCoursesRequest {
+  string user_id = 1;
+}
+
+message ListCurriculumCoursesResponse {
+  repeated CurriculumCourseSummary items = 1;
+  int32 total = 2;
+}
+
+message GetCurriculumCourseRequest {
+  string user_id = 1;
+  string slug = 2;
+  string cefr_level = 3;
+}
+
+message GetCurriculumCourseResponse {
+  CurriculumCourseSummary course = 1;
+  repeated CurriculumUnit units = 2;
+}
+
+message CurriculumCourseSummary {
+  string course_version_id = 1;
+  string slug = 2;
+  string track_code = 3;
+  string cefr_level = 4;
+  int32 version_number = 5;
+  string title = 6;
+  string description = 7;
+  int32 unit_count = 8;
+  int32 lesson_count = 9;
+  int32 estimated_minutes = 10;
+  bool enrolled = 11;
+}
+
+message CurriculumUnit {
+  string id = 1;
+  int32 position = 2;
+  string title = 3;
+  string theme = 4;
+  string description = 5;
+  int32 estimated_minutes = 6;
+  repeated CurriculumLesson lessons = 7;
+}
+
+message CurriculumLesson {
+  string id = 1;
+  string lesson_code = 2;
+  int32 position = 3;
+  string lesson_pattern = 4;
+  string title = 5;
+  string description = 6;
+  int32 estimated_minutes = 7;
+  repeated CurriculumObjective objectives = 8;
+  repeated CurriculumPrerequisite prerequisites = 9;
+}
+
+message CurriculumObjective {
+  string id = 1;
+  string objective_code = 2;
+  string description = 3;
+  string success_criteria = 4;
+  int32 position = 5;
+  bool required = 6;
+  repeated string skills = 7;
+}
+
+message CurriculumPrerequisite {
+  string lesson_id = 1;
+  string required_state = 2;
+  double minimum_mastery_score = 3;
+}
+
+message EnrollInCourseRequest {
+  string user_id = 1;
+  string course_version_id = 2;
+}
+
+message EnrollInCourseResponse {
+  string enrollment_id = 1;
+  string course_version_id = 2;
+  string status = 3;
+  string started_at = 4;
 }
