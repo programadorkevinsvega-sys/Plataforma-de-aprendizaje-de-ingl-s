@@ -326,6 +326,44 @@ if (!DATABASE_URL) {
     });
   });
 
+  test("database refuses publication when optional lesson objectives cannot be represented by package v1", async () => {
+    await withDraftVersion(async (client, selector) => {
+      await client.query(
+        `UPDATE lesson_learning_objectives
+            SET is_required = FALSE
+          WHERE course_version_id = (
+              SELECT version.id
+                FROM courses course
+                JOIN course_versions version ON version.course_id = course.id
+               WHERE course.slug = $1
+          )`,
+        [selector.course],
+      );
+
+      await applyEditorialAction(client, {
+        action: "submit",
+        ...selector,
+        actorUserId: editorId,
+      });
+      await applyEditorialAction(client, {
+        action: "review",
+        decision: "approved",
+        comments: "Approved despite an optional objective not representable by v1.",
+        ...selector,
+        actorUserId: editorId,
+      });
+
+      await assert.rejects(
+        applyEditorialAction(client, {
+          action: "publish",
+          ...selector,
+          actorUserId: editorId,
+        }),
+        /Canonical curriculum package v1 cannot represent optional lesson objectives/,
+      );
+    });
+  });
+
   test("database refuses publication when an objective has no primary skill", async () => {
     await withDraftVersion(async (client, selector) => {
       const version = await client.query(
