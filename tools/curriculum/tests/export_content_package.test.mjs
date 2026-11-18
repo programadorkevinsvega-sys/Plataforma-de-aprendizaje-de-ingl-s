@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import test, { after } from "node:test";
+import test, { after, before } from "node:test";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { exportCurriculumPackage } from "../export_content_package.mjs";
@@ -16,9 +16,22 @@ const FIXTURE = path.join(ROOT, "tests/fixtures/curriculum/phase1_3_content_pack
 const VALIDATOR = path.join(ROOT, "tools/curriculum/validate_content_package.py");
 const DATABASE_URL = process.env.DATABASE_URL;
 const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, max: 4 }) : null;
+const editorId = randomUUID();
+
+before(async () => {
+  if (!pool) return;
+  await pool.query(
+    "INSERT INTO users (id, email, password_hash, full_name) VALUES ($1, $2, $3, $4)",
+    [editorId, `${editorId}@curriculum-export-test.invalid`, "ci-test-password-hash", "CI Curriculum Editor"],
+  );
+  await pool.query("INSERT INTO content_editors (user_id) VALUES ($1)", [editorId]);
+});
 
 after(async () => {
-  await pool?.end();
+  if (!pool) return;
+  await pool.query("DELETE FROM content_editors WHERE user_id = $1", [editorId]);
+  await pool.query("DELETE FROM users WHERE id = $1", [editorId]);
+  await pool.end();
 });
 
 function canonicalHash(data) {
@@ -95,7 +108,7 @@ async function seedAndImport({ explicitContentSchemaVersion }) {
     }
 
     const packageSha256 = canonicalHash(data);
-    const imported = await importCurriculumPackage(pool, data, packageSha256, { apply: true });
+    const imported = await importCurriculumPackage(pool, data, packageSha256, { apply: true, actorUserId: editorId });
     assert.equal(imported.state, "imported");
 
     return {
@@ -150,7 +163,7 @@ if (!DATABASE_URL) {
         course: seeded.data.course.slug,
         level: seeded.data.version.cefr_level,
         versionNumber: seeded.data.version.version_number,
-      });
+      }, { actorUserId: editorId });
       assert.equal(exported.status, "draft");
       assert.equal(exported.packageSha256, seeded.packageSha256);
       assert.equal(canonicalHash(exported.data), seeded.packageSha256);
@@ -170,7 +183,7 @@ if (!DATABASE_URL) {
         course: seeded.data.course.slug,
         level: seeded.data.version.cefr_level,
         versionNumber: seeded.data.version.version_number,
-      });
+      }, { actorUserId: editorId });
       assert.equal(Object.hasOwn(exported.data.version, "content_schema_version"), false);
       assert.equal(exported.packageSha256, seeded.packageSha256);
     } finally {
@@ -198,7 +211,7 @@ if (!DATABASE_URL) {
           course: seeded.data.course.slug,
           level: seeded.data.version.cefr_level,
           versionNumber: seeded.data.version.version_number,
-        }),
+        }, { actorUserId: editorId }),
         /Export integrity check failed/,
       );
     } finally {
