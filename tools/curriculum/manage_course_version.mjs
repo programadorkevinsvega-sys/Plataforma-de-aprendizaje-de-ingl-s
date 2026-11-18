@@ -163,7 +163,7 @@ export async function applyEditorialAction(client, args) {
       `SELECT reviewer_id, decision
          FROM course_version_reviews
         WHERE course_version_id = $1
-        ORDER BY reviewed_at DESC, id DESC
+        ORDER BY review_order DESC
         LIMIT 1`,
       [version.id],
     );
