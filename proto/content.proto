@@ -11,6 +11,7 @@ service ContentService {
   rpc EnrollInCourse (EnrollInCourseRequest) returns (EnrollInCourseResponse);
   rpc ListEditorialVersions (ListEditorialVersionsRequest) returns (ListEditorialVersionsResponse);
   rpc ManageEditorialVersion (ManageEditorialVersionRequest) returns (ManageEditorialVersionResponse);
+  rpc ImportCurriculumPackage (ImportCurriculumPackageRequest) returns (ImportCurriculumPackageResponse);
 }
 
 message ContextSentence {
@@ -212,4 +213,24 @@ message ManageEditorialVersionResponse {
   string next_status = 4;
   string review_id = 5;
   string reviewed_at = 6;
+}
+
+
+message ImportCurriculumPackageRequest {
+  string user_id = 1;
+  string package_json = 2;
+  bool apply = 3;
+}
+
+message ImportCurriculumPackageResponse {
+  string state = 1;
+  string course_version_id = 2;
+  string package_sha256 = 3;
+  int32 units = 4;
+  int32 lessons = 5;
+  int32 objectives = 6;
+  int32 vocabulary_references = 7;
+  int32 sentence_references = 8;
+  bool applied = 9;
+  bool dry_run = 10;
 }
