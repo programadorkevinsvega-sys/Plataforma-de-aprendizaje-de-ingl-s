@@ -602,19 +602,20 @@ impl ContentService for MyContentService {
         {
             let lesson_prerequisites = prerequisites_by_lesson.remove(&id).unwrap_or_default();
             let lesson_progress = progress_by_lesson.get(&id);
-            let unlocked = enrolled && lesson_prerequisites.iter().all(|prerequisite| {
-                Uuid::parse_str(&prerequisite.prerequisite_lesson_id)
-                    .ok()
-                    .and_then(|prerequisite_id| progress_by_lesson.get(&prerequisite_id))
-                    .map(|(status, score)| {
-                        if prerequisite.required_state == "mastered" {
-                            status == "mastered" && *score >= prerequisite.minimum_mastery_score
-                        } else {
-                            status == "completed" || status == "mastered"
-                        }
-                    })
-                    .unwrap_or(false)
-            });
+            let unlocked = enrolled
+                && lesson_prerequisites.iter().all(|prerequisite| {
+                    Uuid::parse_str(&prerequisite.prerequisite_lesson_id)
+                        .ok()
+                        .and_then(|prerequisite_id| progress_by_lesson.get(&prerequisite_id))
+                        .map(|(status, score)| {
+                            if prerequisite.required_state == "mastered" {
+                                status == "mastered" && *score >= prerequisite.minimum_mastery_score
+                            } else {
+                                status == "completed" || status == "mastered"
+                            }
+                        })
+                        .unwrap_or(false)
+                });
             lessons_by_unit
                 .entry(unit_id)
                 .or_default()
@@ -628,7 +629,9 @@ impl ContentService for MyContentService {
                     estimated_minutes: minutes.unwrap_or_default(),
                     objectives: objectives_by_lesson.remove(&id).unwrap_or_default(),
                     prerequisites: lesson_prerequisites,
-                    progress_state: lesson_progress.map(|(status, _)| status.clone()).unwrap_or_else(|| "not_started".to_string()),
+                    progress_state: lesson_progress
+                        .map(|(status, _)| status.clone())
+                        .unwrap_or_else(|| "not_started".to_string()),
                     unlocked,
                     mastery_score: lesson_progress.map(|(_, score)| *score).unwrap_or(0.0),
                 });
@@ -740,12 +743,18 @@ impl ContentService for MyContentService {
         let evidence_event_id = Uuid::parse_str(&req.evidence_event_id)
             .map_err(|_| Status::invalid_argument("evidence_event_id inválido"))?;
         if !req.mastery_score.is_finite() || !(0.0..=1.0).contains(&req.mastery_score) {
-            return Err(Status::invalid_argument("mastery_score debe estar entre 0 y 1"));
+            return Err(Status::invalid_argument(
+                "mastery_score debe estar entre 0 y 1",
+            ));
         }
 
-        let mut tx = self.pool.begin().await
+        let mut tx = self
+            .pool
+            .begin()
+            .await
             .map_err(|_| Status::internal("No se pudo iniciar el registro de evidencia"))?;
-        common::set_current_user_id(&mut tx, user_id).await
+        common::set_current_user_id(&mut tx, user_id)
+            .await
             .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
 
         let enrollment: Option<(Uuid, Uuid)> = sqlx::query_as(
@@ -793,7 +802,9 @@ impl ContentService for MyContentService {
         .await
         .map_err(|_| Status::internal("No se pudieron validar los prerrequisitos"))?;
         if blocked {
-            return Err(Status::failed_precondition("La lección tiene prerrequisitos pendientes"));
+            return Err(Status::failed_precondition(
+                "La lección tiene prerrequisitos pendientes",
+            ));
         }
 
         let outcome_status = if req.mastery_score >= 0.90 {
@@ -838,12 +849,15 @@ impl ContentService for MyContentService {
             let (prior_lesson, state, score) = prior
                 .ok_or_else(|| Status::internal("La evidencia repetida no está disponible"))?;
             if prior_lesson != lesson_id || (score - req.mastery_score).abs() > f64::EPSILON {
-                return Err(Status::already_exists("El identificador de evidencia ya pertenece a otro resultado"));
+                return Err(Status::already_exists(
+                    "El identificador de evidencia ya pertenece a otro resultado",
+                ));
             }
             (state, score, false)
         };
 
-        tx.commit().await
+        tx.commit()
+            .await
             .map_err(|_| Status::internal("No se pudo confirmar la evidencia curricular"))?;
         Ok(Response::new(RecordCurriculumLessonEvidenceResponse {
             applied,
