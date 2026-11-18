@@ -328,7 +328,8 @@ jobs:
         run: |
           set -euo pipefail
           pnpm install --no-frozen-lockfile
-          pnpm update --latest
+          pnpm --filter devfluency-frontend up --latest
+          pnpm --filter devfluency-node-workspace up --latest
           pnpm install --no-frozen-lockfile
       - name: Validate updated frontend
         run: |
