@@ -384,12 +384,13 @@ jobs:
           BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
         run: |
           set -euo pipefail
+          payload="$(jq -n --arg ref "$BRANCH_NAME" '{ref: $ref}')"
           curl --fail --silent --show-error --retry 3 \
             -X POST \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             "$GH_API_URL/repos/$REPOSITORY/actions/workflows/ci.yml/dispatches" \
-            -d "{\\"ref\\":\\"$BRANCH_NAME\\"}"
+            -d "$payload"
           echo "Dispatched a complete CI run for the dependency update."
 
       - name: Audit refreshed Node workspace dependencies
