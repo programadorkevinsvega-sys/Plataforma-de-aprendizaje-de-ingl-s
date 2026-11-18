@@ -1374,10 +1374,13 @@ mod curriculum_progress_tests {
     #[test]
     fn student_catalog_query_uses_safe_defaults_and_normalizes_search() {
         let request = ListCurriculumCoursesRequest {
+            user_id: String::new(),
             page: 0,
             page_size: 0,
+            track_code: String::new(),
+            cefr_level: String::new(),
             search_query: "  English GENERAL  ".to_string(),
-            ..Default::default()
+            enrolled_only: false,
         };
         let filters = validate_student_catalog_query(&request).expect("defaults are valid");
         assert_eq!(filters.page, 1);
@@ -1390,26 +1393,46 @@ mod curriculum_progress_tests {
     #[test]
     fn student_catalog_query_rejects_oversized_or_unknown_filters() {
         let oversized_page = ListCurriculumCoursesRequest {
+            user_id: String::new(),
+            page: 1,
             page_size: 51,
-            ..Default::default()
+            track_code: String::new(),
+            cefr_level: String::new(),
+            search_query: String::new(),
+            enrolled_only: false,
         };
         assert!(validate_student_catalog_query(&oversized_page).is_err());
 
         let invalid_track = ListCurriculumCoursesRequest {
+            user_id: String::new(),
+            page: 1,
+            page_size: 12,
             track_code: "all".to_string(),
-            ..Default::default()
+            cefr_level: String::new(),
+            search_query: String::new(),
+            enrolled_only: false,
         };
         assert!(validate_student_catalog_query(&invalid_track).is_err());
 
         let invalid_level = ListCurriculumCoursesRequest {
+            user_id: String::new(),
+            page: 1,
+            page_size: 12,
+            track_code: String::new(),
             cefr_level: "C3".to_string(),
-            ..Default::default()
+            search_query: String::new(),
+            enrolled_only: false,
         };
         assert!(validate_student_catalog_query(&invalid_level).is_err());
 
         let oversized_search = ListCurriculumCoursesRequest {
+            user_id: String::new(),
+            page: 1,
+            page_size: 12,
+            track_code: String::new(),
+            cefr_level: String::new(),
             search_query: "a".repeat(121),
-            ..Default::default()
+            enrolled_only: false,
         };
         assert!(validate_student_catalog_query(&oversized_search).is_err());
     }
