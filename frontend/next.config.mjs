@@ -3,8 +3,10 @@ import path from 'node:path'
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  // pnpm stores packages in the repository workspace; make the workspace root
+  // explicit so Turbopack can resolve Next.js and workspace dependencies.
   turbopack: {
-    root: path.resolve('.'),
+    root: path.resolve('..'),
   },
   typescript: {
     ignoreBuildErrors: true,
