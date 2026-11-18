@@ -152,13 +152,13 @@ jobs:
       - name: Build all Rust production executables
         run: cargo build --workspace --release --locked
 
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - name: Set up Node.js 26 and pnpm 12
+        uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
-          node-version: 26.13.1
+          version: 12.21.0
+          runtime: node@26.13.1
+          cache: true
 
-      - name: Install pinned pnpm
-        run: npm install --global pnpm@12.21.0
 
       - name: Build standalone frontend
         working-directory: frontend
