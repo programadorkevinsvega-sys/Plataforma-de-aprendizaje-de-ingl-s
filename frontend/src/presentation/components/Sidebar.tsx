@@ -10,6 +10,7 @@ export const Sidebar: React.FC = () => {
   const mainItems = [
     { label: 'Panel Principal', icon: '📊', path: '/dashboard' },
     { label: 'Catálogo de cursos', icon: '🧭', path: '/courses' },
+    { label: 'Administración curricular', icon: '🛠️', path: '/admin/curriculum' },
     { label: 'Lecciones Fonéticas', icon: '📚', path: '/learn' },
     { label: 'Entrevista IA (6 Métricas)', icon: '🤖', path: '/interview' },
     { label: 'Repetición Anki SM-2', icon: '🧠', path: '/srs' },
