@@ -67,6 +67,9 @@ pub struct CurriculumLessonDto {
     pub estimated_minutes: i32,
     pub objectives: Vec<CurriculumObjectiveDto>,
     pub prerequisites: Vec<CurriculumPrerequisiteDto>,
+    pub progress_state: String,
+    pub unlocked: bool,
+    pub mastery_score: f64,
 }
 
 #[derive(Serialize)]
@@ -154,6 +157,9 @@ impl From<CurriculumLesson> for CurriculumLessonDto {
             estimated_minutes: lesson.estimated_minutes,
             objectives: lesson.objectives.into_iter().map(Into::into).collect(),
             prerequisites: lesson.prerequisites.into_iter().map(Into::into).collect(),
+            progress_state: lesson.progress_state,
+            unlocked: lesson.unlocked,
+            mastery_score: lesson.mastery_score,
         }
     }
 }

@@ -42,6 +42,9 @@ export interface CurriculumLesson {
   estimatedMinutes: number
   objectives: CurriculumObjective[]
   prerequisites: CurriculumPrerequisite[]
+  progressState: 'not_started' | 'in_progress' | 'completed' | 'mastered'
+  unlocked: boolean
+  masteryScore: number
 }
 
 export interface CurriculumUnit {

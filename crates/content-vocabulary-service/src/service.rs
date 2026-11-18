@@ -5,6 +5,7 @@ use proto::content::{
     GetCurriculumCourseRequest, GetCurriculumCourseResponse, GetRandomInterviewQuestionRequest,
     GetVocabularyWordRequest, InterviewQuestionResponse, ListCurriculumCoursesRequest,
     ListCurriculumCoursesResponse, ListVocabularyWordsRequest, ListVocabularyWordsResponse,
+    RecordCurriculumLessonEvidenceRequest, RecordCurriculumLessonEvidenceResponse,
     VocabularyWordResponse,
 };
 use sqlx::PgPool;
@@ -547,6 +548,23 @@ impl ContentService for MyContentService {
         .await
         .map_err(|_| Status::internal("No se pudieron consultar los requisitos previos"))?;
 
+        let progress_rows: Vec<(Uuid, String, f64)> = sqlx::query_as(
+            r#"SELECT DISTINCT ON (lesson_id)
+                      lesson_id, outcome_status, mastery_score::DOUBLE PRECISION
+                 FROM course_lesson_progress_events
+                WHERE user_id = $1 AND course_version_id = $2
+                ORDER BY lesson_id, recorded_at DESC, id DESC"#,
+        )
+        .bind(user_id)
+        .bind(version_id)
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudo consultar el progreso curricular"))?;
+        let progress_by_lesson: HashMap<Uuid, (String, f64)> = progress_rows
+            .into_iter()
+            .map(|(lesson_id, status, score)| (lesson_id, (status, score)))
+            .collect();
+
         let mut objectives_by_lesson: HashMap<Uuid, Vec<CurriculumObjective>> = HashMap::new();
         for (lesson_id, id, code, objective, criteria, position, required, skills) in objective_rows
         {
@@ -582,6 +600,22 @@ impl ContentService for MyContentService {
         for (id, unit_id, code, position, pattern, lesson_title, lesson_description, minutes) in
             lesson_rows
         {
+            let lesson_prerequisites = prerequisites_by_lesson.remove(&id).unwrap_or_default();
+            let lesson_progress = progress_by_lesson.get(&id);
+            let unlocked = enrolled
+                && lesson_prerequisites.iter().all(|prerequisite| {
+                    Uuid::parse_str(&prerequisite.prerequisite_lesson_id)
+                        .ok()
+                        .and_then(|prerequisite_id| progress_by_lesson.get(&prerequisite_id))
+                        .map(|(status, score)| {
+                            if prerequisite.required_state == "mastered" {
+                                status == "mastered" && *score >= prerequisite.minimum_mastery_score
+                            } else {
+                                status == "completed" || status == "mastered"
+                            }
+                        })
+                        .unwrap_or(false)
+                });
             lessons_by_unit
                 .entry(unit_id)
                 .or_default()
@@ -594,7 +628,12 @@ impl ContentService for MyContentService {
                     description: lesson_description,
                     estimated_minutes: minutes.unwrap_or_default(),
                     objectives: objectives_by_lesson.remove(&id).unwrap_or_default(),
-                    prerequisites: prerequisites_by_lesson.remove(&id).unwrap_or_default(),
+                    prerequisites: lesson_prerequisites,
+                    progress_state: lesson_progress
+                        .map(|(status, _)| status.clone())
+                        .unwrap_or_else(|| "not_started".to_string()),
+                    unlocked,
+                    mastery_score: lesson_progress.map(|(_, score)| *score).unwrap_or(0.0),
                 });
         }
 
@@ -690,6 +729,140 @@ impl ContentService for MyContentService {
             course_version_id: version_id.to_string(),
             status,
             started_at,
+        }))
+    }
+
+    async fn record_curriculum_lesson_evidence(
+        &self,
+        request: Request<RecordCurriculumLessonEvidenceRequest>,
+    ) -> Result<Response<RecordCurriculumLessonEvidenceResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let req = request.into_inner();
+        let lesson_id = Uuid::parse_str(&req.lesson_id)
+            .map_err(|_| Status::invalid_argument("lesson_id inválido"))?;
+        let evidence_event_id = Uuid::parse_str(&req.evidence_event_id)
+            .map_err(|_| Status::invalid_argument("evidence_event_id inválido"))?;
+        if !req.mastery_score.is_finite() || !(0.0..=1.0).contains(&req.mastery_score) {
+            return Err(Status::invalid_argument(
+                "mastery_score debe estar entre 0 y 1",
+            ));
+        }
+
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| Status::internal("No se pudo iniciar el registro de evidencia"))?;
+        common::set_current_user_id(&mut tx, user_id)
+            .await
+            .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
+
+        let enrollment: Option<(Uuid, Uuid)> = sqlx::query_as(
+            r#"SELECT enrollment.id, lesson.course_version_id
+                 FROM course_lessons lesson
+                 JOIN course_enrollments enrollment
+                   ON enrollment.course_version_id = lesson.course_version_id
+                WHERE lesson.id = $1 AND enrollment.user_id = $2
+                  AND enrollment.status = 'active'
+                FOR UPDATE OF enrollment"#,
+        )
+        .bind(lesson_id)
+        .bind(user_id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudo validar la matrícula de la lección"))?;
+        let (enrollment_id, course_version_id) = enrollment.ok_or_else(|| {
+            Status::failed_precondition("Se requiere una matrícula activa para registrar evidencia")
+        })?;
+
+        let blocked: bool = sqlx::query_scalar(
+            r#"SELECT EXISTS (
+                   SELECT 1 FROM lesson_prerequisites prerequisite
+                   LEFT JOIN LATERAL (
+                       SELECT outcome_status, mastery_score
+                         FROM course_lesson_progress_events event
+                        WHERE event.user_id = $1
+                          AND event.lesson_id = prerequisite.prerequisite_lesson_id
+                        ORDER BY event.recorded_at DESC, event.id DESC LIMIT 1
+                   ) prior ON TRUE
+                  WHERE prerequisite.lesson_id = $2
+                    AND NOT (
+                        (prerequisite.required_state = 'completed'
+                         AND prior.outcome_status IN ('completed', 'mastered'))
+                        OR
+                        (prerequisite.required_state = 'mastered'
+                         AND prior.outcome_status = 'mastered'
+                         AND prior.mastery_score >= prerequisite.minimum_mastery_score)
+                    )
+               )"#,
+        )
+        .bind(user_id)
+        .bind(lesson_id)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudieron validar los prerrequisitos"))?;
+        if blocked {
+            return Err(Status::failed_precondition(
+                "La lección tiene prerrequisitos pendientes",
+            ));
+        }
+
+        let outcome_status = if req.mastery_score >= 0.90 {
+            "mastered"
+        } else if req.mastery_score >= 0.70 {
+            "completed"
+        } else {
+            "in_progress"
+        };
+        let inserted: Option<(String, f64)> = sqlx::query_as(
+            r#"INSERT INTO course_lesson_progress_events
+                   (user_id, enrollment_id, course_version_id, lesson_id,
+                    evidence_event_id, outcome_status, mastery_score)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)
+               ON CONFLICT (user_id, evidence_event_id) DO NOTHING
+               RETURNING outcome_status, mastery_score::DOUBLE PRECISION"#,
+        )
+        .bind(user_id)
+        .bind(enrollment_id)
+        .bind(course_version_id)
+        .bind(lesson_id)
+        .bind(evidence_event_id)
+        .bind(outcome_status)
+        .bind(req.mastery_score)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudo guardar la evidencia curricular"))?;
+
+        let (state, score, applied) = if let Some((state, score)) = inserted {
+            (state, score, true)
+        } else {
+            let prior: Option<(Uuid, String, f64)> = sqlx::query_as(
+                r#"SELECT lesson_id, outcome_status, mastery_score::DOUBLE PRECISION
+                     FROM course_lesson_progress_events
+                    WHERE user_id = $1 AND evidence_event_id = $2"#,
+            )
+            .bind(user_id)
+            .bind(evidence_event_id)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(|_| Status::internal("No se pudo verificar la evidencia repetida"))?;
+            let (prior_lesson, state, score) = prior
+                .ok_or_else(|| Status::internal("La evidencia repetida no está disponible"))?;
+            if prior_lesson != lesson_id || (score - req.mastery_score).abs() > f64::EPSILON {
+                return Err(Status::already_exists(
+                    "El identificador de evidencia ya pertenece a otro resultado",
+                ));
+            }
+            (state, score, false)
+        };
+
+        tx.commit()
+            .await
+            .map_err(|_| Status::internal("No se pudo confirmar la evidencia curricular"))?;
+        Ok(Response::new(RecordCurriculumLessonEvidenceResponse {
+            applied,
+            progress_state: state,
+            mastery_score: score,
         }))
     }
 

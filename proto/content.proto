@@ -9,6 +9,7 @@ service ContentService {
   rpc ListCurriculumCourses (ListCurriculumCoursesRequest) returns (ListCurriculumCoursesResponse);
   rpc GetCurriculumCourse (GetCurriculumCourseRequest) returns (GetCurriculumCourseResponse);
   rpc EnrollInCourse (EnrollInCourseRequest) returns (EnrollInCourseResponse);
+  rpc RecordCurriculumLessonEvidence (RecordCurriculumLessonEvidenceRequest) returns (RecordCurriculumLessonEvidenceResponse);
 }
 
 message ContextSentence {
@@ -121,6 +122,9 @@ message CurriculumLesson {
   int32 estimated_minutes = 7;
   repeated CurriculumObjective objectives = 8;
   repeated CurriculumPrerequisite prerequisites = 9;
+  string progress_state = 10;
+  bool unlocked = 11;
+  double mastery_score = 12;
 }
 
 message CurriculumObjective {
@@ -149,4 +153,17 @@ message EnrollInCourseResponse {
   string course_version_id = 2;
   string status = 3;
   string started_at = 4;
+}
+
+message RecordCurriculumLessonEvidenceRequest {
+  string user_id = 1;
+  string lesson_id = 2;
+  string evidence_event_id = 3;
+  double mastery_score = 4;
+}
+
+message RecordCurriculumLessonEvidenceResponse {
+  bool applied = 1;
+  string progress_state = 2;
+  double mastery_score = 3;
 }

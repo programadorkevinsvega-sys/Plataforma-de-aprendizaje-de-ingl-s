@@ -123,6 +123,9 @@ function toLesson(dto: Dto): CurriculumLesson {
     estimatedMinutes: numberValue(dto, ['estimated_minutes', 'estimatedMinutes']),
     objectives: records(dto, 'objectives').map(toObjective),
     prerequisites: records(dto, 'prerequisites').map(toPrerequisite),
+    progressState: (['not_started', 'in_progress', 'completed', 'mastered'].includes(stringValue(dto, ['progress_state', 'progressState'])) ? stringValue(dto, ['progress_state', 'progressState']) : 'not_started') as CurriculumLesson['progressState'],
+    unlocked: booleanValue(dto, ['unlocked']),
+    masteryScore: numberValue(dto, ['mastery_score', 'masteryScore']),
   }
 }
 
