@@ -1,0 +1,12 @@
+packages:
+  - frontend
+
+autoDedupe: true
+
+onlyBuiltDependencies:
+  - "@swc/core"
+  - "@tailwindcss/oxide"
+  - esbuild
+  - lightningcss
+  - sharp
+  - unrs-resolver
