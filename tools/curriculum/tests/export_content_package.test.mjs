@@ -156,6 +156,22 @@ async function seedAndImport({ explicitContentSchemaVersion }) {
 if (!DATABASE_URL) {
   test("curriculum export integration tests require DATABASE_URL", { skip: true }, () => {});
 } else {
+  test("rejects an unregistered actor for package export", async () => {
+    const seeded = await seedAndImport({ explicitContentSchemaVersion: false });
+    try {
+      await assert.rejects(
+        exportCurriculumPackage(pool, {
+          course: seeded.data.course.slug,
+          level: seeded.data.version.cefr_level,
+          versionNumber: seeded.data.version.version_number,
+        }, { actorUserId: randomUUID() }),
+        /not registered as a curriculum content editor/,
+      );
+    } finally {
+      await seeded.cleanup();
+    }
+  });
+
   test("exports relational curriculum data to the same canonical package and hash", async () => {
     const seeded = await seedAndImport({ explicitContentSchemaVersion: true });
     try {
