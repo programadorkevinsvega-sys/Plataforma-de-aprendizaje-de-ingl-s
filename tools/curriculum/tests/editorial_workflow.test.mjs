@@ -423,7 +423,7 @@ if (!DATABASE_URL) {
             )`,
           [selector.course],
         ),
-        /Curriculum content is frozen while its course version is under review or published/,
+        /Curriculum child records can only be changed while their version is draft/,
       );
     });
   });
