@@ -6,9 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { Navbar } from '@/presentation/components/Navbar'
 import { Sidebar } from '@/presentation/components/Sidebar'
 import { getContainer } from '@/infrastructure/di/container'
-import type {
-  CurriculumCourseDetail,
-} from '@/domain/repositories/ICurriculumRepository'
+import type { CurriculumCourseDetail } from '@/domain/repositories/ICurriculumRepository'
 
 function levelLabel(level: string): string {
   return level === 'PRE_A1' ? 'Pre-A1' : level
