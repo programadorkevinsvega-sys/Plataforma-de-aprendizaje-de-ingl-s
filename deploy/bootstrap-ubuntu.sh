@@ -14,7 +14,7 @@ apt-get install -y --no-install-recommends ca-certificates curl tar
 NODE_REQUIRED_VERSION="26.13.1"
 INSTALLED_NODE_VERSION="$(node -p 'process.versions.node' 2>/dev/null || true)"
 if [[ -z "$INSTALLED_NODE_VERSION" ]] ||
-   [[ ! "$INSTALLED_NODE_VERSION" =~ ^26\\. ]] ||
+   [[ ! "$INSTALLED_NODE_VERSION" =~ ^26\. ]] ||
    ! dpkg --compare-versions "$INSTALLED_NODE_VERSION" ge "$NODE_REQUIRED_VERSION"; then
   curl -fsSL https://deb.nodesource.com/setup_26.x -o /tmp/nodesource_setup.sh
   bash /tmp/nodesource_setup.sh
