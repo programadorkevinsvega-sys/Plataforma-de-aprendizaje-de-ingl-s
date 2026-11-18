@@ -16,6 +16,21 @@ export interface CurriculumCourseSummary {
   status: 'published' | 'archived'
 }
 
+export interface CurriculumCourseQuery {
+  limit: number
+  offset: number
+  track?: CurriculumTrackCode
+  level?: CurriculumLevel
+  search?: string
+}
+
+export interface CurriculumCoursePage {
+  items: CurriculumCourseSummary[]
+  total: number
+  limit: number
+  offset: number
+}
+
 export interface CurriculumObjective {
   id: string
   objectiveCode: string
@@ -70,7 +85,7 @@ export interface CourseEnrollment {
 }
 
 export interface ICurriculumRepository {
-  listCourses(): Promise<CurriculumCourseSummary[]>
+  listCourses(query: CurriculumCourseQuery): Promise<CurriculumCoursePage>
   getCourse(courseVersionId: string): Promise<CurriculumCourseDetail>
   enroll(courseVersionId: string): Promise<CourseEnrollment>
   listEditorialVersions(status?: string): Promise<EditorialCourseVersion[]>
