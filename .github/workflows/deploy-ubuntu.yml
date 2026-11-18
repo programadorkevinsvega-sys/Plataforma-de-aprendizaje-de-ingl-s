@@ -158,6 +158,7 @@ jobs:
           version: 12.21.0
           runtime: node@26.13.1
           cache: true
+          install: false
 
 
       - name: Build standalone frontend
