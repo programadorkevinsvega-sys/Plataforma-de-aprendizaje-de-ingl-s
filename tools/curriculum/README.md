@@ -115,7 +115,9 @@ Publicar requiere que la **última** decisión sea `approved` y pertenezca al mi
 
     DATABASE_URL='postgresql://…' node tools/curriculum/manage_course_version.mjs --action publish --course english-general --level PRE_A1 --version 1 --actor-user-id <REVIEWER_UUID> --apply
 
-La base de datos vuelve a comprobar las transiciones y la aprobación. Los registros de revisión son inmutables; una decisión distinta se agrega al historial. El CLI no sustituye una futura pantalla/API administrativa de Fase 1.5.
+La base de datos vuelve a comprobar las transiciones, la aprobación y la integridad académica antes de publicar. La migración `20261118040000_curriculum_publication_completeness.sql` bloquea versiones sin unidades/lecciones/objetivos, unidades vacías, lecciones sin un objetivo obligatorio con criterio de éxito, objetivos huérfanos u objetivos sin exactamente una competencia principal. Esta comprobación también se ejecuta cuando una publicación se intenta mediante SQL u otro camino administrativo, no solo desde el CLI.
+
+Los registros de revisión son inmutables; una decisión distinta se agrega al historial. El CLI no sustituye una futura pantalla/API administrativa de Fase 1.5.
 
 ## Pruebas
 
