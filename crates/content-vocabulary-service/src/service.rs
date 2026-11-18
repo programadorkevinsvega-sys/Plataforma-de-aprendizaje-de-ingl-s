@@ -251,6 +251,34 @@ impl ContentService for MyContentService {
         request: Request<ListCurriculumCoursesRequest>,
     ) -> Result<Response<ListCurriculumCoursesResponse>, Status> {
         let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let req = request.into_inner();
+        let page = if req.page <= 0 { 1 } else { req.page };
+        let page_size = if req.page_size <= 0 {
+            12
+        } else if req.page_size > 50 {
+            return Err(Status::invalid_argument("page_size no puede superar 50"));
+        } else {
+            req.page_size
+        };
+        if !req.track_code.is_empty() && !matches!(req.track_code.as_str(), "general" | "technology") {
+            return Err(Status::invalid_argument("track_code no es válido"));
+        }
+        if !req.cefr_level.is_empty()
+            && !matches!(
+                req.cefr_level.as_str(),
+                "PRE_A1" | "A1" | "A2" | "B1" | "B2" | "C1" | "C2"
+            )
+        {
+            return Err(Status::invalid_argument("cefr_level no es válido"));
+        }
+        let search = req.search_query.trim().to_lowercase();
+        if search.len() > 120 {
+            return Err(Status::invalid_argument("search_query no puede superar 120 caracteres"));
+        }
+        let track = if req.track_code.is_empty() { None } else { Some(req.track_code) };
+        let level = if req.cefr_level.is_empty() { None } else { Some(req.cefr_level) };
+        let search = if search.is_empty() { None } else { Some(search) };
+
         let mut tx = self
             .pool
             .begin()
@@ -260,8 +288,44 @@ impl ContentService for MyContentService {
             .await
             .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
 
+        let visible_filter = r#"(
+            version.status = 'published'
+            OR EXISTS (
+                SELECT 1 FROM course_enrollments enrollment
+                 WHERE enrollment.course_version_id = version.id
+                   AND enrollment.user_id = $1
+            )
+        )"#;
+        let total: i64 = sqlx::query_scalar(&format!(
+            r#"SELECT COUNT(*)
+                 FROM courses course
+                 JOIN course_versions version ON version.course_id = course.id
+                WHERE {visible_filter}
+                  AND ($2::TEXT IS NULL OR course.track_code = $2)
+                  AND ($3::TEXT IS NULL OR version.cefr_level = $3)
+                  AND ($4::TEXT IS NULL OR (
+                      course.slug ILIKE '%' || $4 || '%'
+                      OR version.title ILIKE '%' || $4 || '%'
+                      OR version.description ILIKE '%' || $4 || '%'
+                  ))
+                  AND (NOT $5 OR EXISTS (
+                      SELECT 1 FROM course_enrollments enrollment
+                       WHERE enrollment.course_version_id = version.id
+                         AND enrollment.user_id = $1
+                  ))"#
+        ))
+        .bind(user_id)
+        .bind(track.as_deref())
+        .bind(level.as_deref())
+        .bind(search.as_deref())
+        .bind(req.enrolled_only)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudo contar el catálogo curricular"))?;
+
+        let offset = i64::from(page - 1).saturating_mul(i64::from(page_size));
         let rows: Vec<(String, String, String, i32, String, String, String, i64, i64, i64, bool, String)> =
-            sqlx::query_as(
+            sqlx::query_as(&format!(
                 r#"SELECT
                        course.slug,
                        course.track_code,
@@ -282,12 +346,19 @@ impl ContentService for MyContentService {
                        version.status
                    FROM courses course
                    JOIN course_versions version ON version.course_id = course.id
-                  WHERE version.status = 'published'
-                     OR EXISTS (
-                         SELECT 1 FROM course_enrollments enrollment
-                          WHERE enrollment.course_version_id = version.id
-                            AND enrollment.user_id = $1
-                     )
+                  WHERE {visible_filter}
+                    AND ($2::TEXT IS NULL OR course.track_code = $2)
+                    AND ($3::TEXT IS NULL OR version.cefr_level = $3)
+                    AND ($4::TEXT IS NULL OR (
+                        course.slug ILIKE '%' || $4 || '%'
+                        OR version.title ILIKE '%' || $4 || '%'
+                        OR version.description ILIKE '%' || $4 || '%'
+                    ))
+                    AND (NOT $5 OR EXISTS (
+                        SELECT 1 FROM course_enrollments enrollment
+                         WHERE enrollment.course_version_id = version.id
+                           AND enrollment.user_id = $1
+                    ))
                   ORDER BY
                     CASE course.track_code WHEN 'general' THEN 1 ELSE 2 END,
                     CASE version.cefr_level
@@ -295,14 +366,20 @@ impl ContentService for MyContentService {
                       WHEN 'B1' THEN 4 WHEN 'B2' THEN 5 WHEN 'C1' THEN 6 ELSE 7
                     END,
                     course.slug,
-                    version.version_number DESC"#,
-            )
+                    version.version_number DESC
+                  LIMIT $6 OFFSET $7"#
+            ))
             .bind(user_id)
+            .bind(track.as_deref())
+            .bind(level.as_deref())
+            .bind(search.as_deref())
+            .bind(req.enrolled_only)
+            .bind(i64::from(page_size))
+            .bind(offset)
             .fetch_all(&mut *tx)
             .await
             .map_err(|_| Status::internal("No se pudo consultar el catálogo curricular"))?;
 
-        let total = rows.len().min(i32::MAX as usize) as i32;
         let items = rows
             .into_iter()
             .map(
@@ -342,9 +419,18 @@ impl ContentService for MyContentService {
             .await
             .map_err(|_| Status::internal("No se pudo cerrar la consulta curricular"))?;
 
+        let total_pages = if total == 0 {
+            0
+        } else {
+            ((total + i64::from(page_size) - 1) / i64::from(page_size))
+                .min(i64::from(i32::MAX)) as i32
+        };
         Ok(Response::new(ListCurriculumCoursesResponse {
             items,
-            total,
+            total: total.min(i64::from(i32::MAX)) as i32,
+            page,
+            page_size,
+            total_pages,
         }))
     }
 
