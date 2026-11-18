@@ -6,8 +6,9 @@ use axum::{
 use proto::content::{
     CurriculumCourseSummary, CurriculumLesson, CurriculumObjective, CurriculumPrerequisite,
     CurriculumUnit, EditorialCourseVersionSummary, EnrollInCourseRequest,
-    GetCurriculumCourseRequest, ListCurriculumCoursesRequest,
-    ListEditorialVersionsRequest, ManageEditorialVersionRequest,
+    GetCurriculumCourseRequest, ImportCurriculumPackageRequest,
+    ListCurriculumCoursesRequest, ListEditorialVersionsRequest,
+    ManageEditorialVersionRequest,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -119,6 +120,27 @@ pub struct EditorialVersionsQuery {
     pub page_size: Option<i32>,
     pub status: Option<String>,
     pub search: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct ImportCurriculumPackageBody {
+    pub package_json: String,
+    #[serde(default)]
+    pub apply: bool,
+}
+
+#[derive(Serialize)]
+pub struct ImportCurriculumPackageDto {
+    pub state: String,
+    pub course_version_id: String,
+    pub package_sha256: String,
+    pub units: i32,
+    pub lessons: i32,
+    pub objectives: i32,
+    pub vocabulary_references: i32,
+    pub sentence_references: i32,
+    pub applied: bool,
+    pub dry_run: bool,
 }
 
 #[derive(Deserialize)]
@@ -422,6 +444,54 @@ pub async fn list_curriculum_editorial_versions_handler(
         page: response.page,
         page_size: response.page_size,
         total_pages: response.total_pages,
+    }))
+}
+
+/// POST /api/v1/curriculum/editor/import
+///
+/// A preview uses the same transactional importer and rolls back. Persisting a
+/// package requires the explicit apply=true confirmation from the editor.
+pub async fn import_curriculum_package_handler(
+    State(mut state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<ImportCurriculumPackageBody>,
+) -> Result<Json<ImportCurriculumPackageDto>, (StatusCode, Json<Value>)> {
+    if body.package_json.trim().is_empty() || body.package_json.len() > 3_500_000 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "message": "El paquete está vacío o supera el tamaño máximo permitido.",
+                "code": "CURRICULUM_PACKAGE_SIZE_INVALID"
+            })),
+        ));
+    }
+
+    let user_id = validate_token_from_headers(&headers, &mut state).await?;
+    let mut request = tonic::Request::new(ImportCurriculumPackageRequest {
+        user_id,
+        package_json: body.package_json,
+        apply: body.apply,
+    });
+    attach_bearer_metadata(&headers, &mut request)?;
+
+    let mut client = state.content_client.clone();
+    let response = client
+        .import_curriculum_package(request)
+        .await
+        .map_err(|error| curriculum_error(error, "import_curriculum_package"))?
+        .into_inner();
+
+    Ok(Json(ImportCurriculumPackageDto {
+        state: response.state,
+        course_version_id: response.course_version_id,
+        package_sha256: response.package_sha256,
+        units: response.units,
+        lessons: response.lessons,
+        objectives: response.objectives,
+        vocabulary_references: response.vocabulary_references,
+        sentence_references: response.sentence_references,
+        applied: response.applied,
+        dry_run: response.dry_run,
     }))
 }
 
