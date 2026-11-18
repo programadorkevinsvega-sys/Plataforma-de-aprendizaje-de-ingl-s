@@ -346,7 +346,7 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 
 ### Subfase 1.3. Gestión y validación de contenido
 
-**Estado:** implementación del contrato v1, validador, importador, exportador y flujo editorial operativo preparada en PR #77 y PR de continuación. La subfase cubre el ciclo técnico de un paquete curricular: validación offline, resolución contra el catálogo PostgreSQL, importación transaccional a `draft`, exportación relacional verificable y revisión/publicación con identidad de editor registrada.
+**Estado:** **completada técnicamente el 2026-11-18**, integrada en `main` y desplegada en la VM de producción. El contrato y validador se incorporaron en PR #75; la importación transaccional en PR #77; la exportación y el flujo editorial en PR #78; y la integridad de publicación/inmutabilidad en PR #79. CI #308 validó la PR final, CI #309 pasó sobre el commit integrado y Deploy #46 aplicó las migraciones y superó los health checks de producción. El alcance aceptado comprende validación offline, resolución contra el catálogo PostgreSQL, importación transaccional a `draft`, exportación relacional verificable y revisión/publicación con identidad de editor registrada. La evidencia y los límites operativos están en [el acta de aceptación de 1.3](../curriculum/phase-1.3-acceptance.md).
 
 **Contrato y validación**
 - [x] Definir el formato canónico v1 para paquetes de importación/exportación.
