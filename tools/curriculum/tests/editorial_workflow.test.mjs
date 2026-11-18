@@ -328,16 +328,37 @@ if (!DATABASE_URL) {
 
   test("database refuses publication when optional lesson objectives cannot be represented by package v1", async () => {
     await withDraftVersion(async (client, selector) => {
-      await client.query(
-        `UPDATE lesson_learning_objectives
-            SET is_required = FALSE
-          WHERE course_version_id = (
-              SELECT version.id
-                FROM courses course
-                JOIN course_versions version ON version.course_id = course.id
-               WHERE course.slug = $1
-          )`,
+      const version = await client.query(
+        `SELECT version.id
+           FROM courses course
+           JOIN course_versions version ON version.course_id = course.id
+          WHERE course.slug = $1`,
         [selector.course],
+      );
+      const optionalObjective = await client.query(
+        `INSERT INTO learning_objectives (
+            course_version_id, objective_code, description, success_criteria, position
+         )
+         VALUES ($1, 'objective-optional', 'Apply a greeting in context', 'Use a greeting in one short exchange', 2)
+         RETURNING id`,
+        [version.rows[0].id],
+      );
+      await client.query(
+        `INSERT INTO learning_objective_skills (
+            course_version_id, learning_objective_id, skill_code, is_primary
+         )
+         VALUES ($1, $2, 'vocabulary', TRUE)`,
+        [version.rows[0].id, optionalObjective.rows[0].id],
+      );
+      await client.query(
+        `INSERT INTO lesson_learning_objectives (
+            course_version_id, lesson_id, learning_objective_id, position, is_required
+         )
+         SELECT $1, lesson.id, $2, 2, FALSE
+           FROM course_lessons AS lesson
+          WHERE lesson.course_version_id = $1
+            AND lesson.lesson_code = 'lesson-01'`,
+        [version.rows[0].id, optionalObjective.rows[0].id],
       );
 
       await applyEditorialAction(client, {
