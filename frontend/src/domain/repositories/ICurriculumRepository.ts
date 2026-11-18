@@ -93,6 +93,58 @@ export interface CurriculumCourseDetail {
   units: CurriculumUnit[]
 }
 
+export type EditorialVersionStatus = 'draft' | 'review' | 'published' | 'archived'
+export type EditorialDecision = 'approved' | 'rejected' | 'changes_requested'
+export type EditorialAction = 'submit' | 'review' | 'publish'
+
+export interface EditorialVersionSummary {
+  courseVersionId: string
+  slug: string
+  trackCode: CurriculumTrackCode
+  cefrLevel: CurriculumLevel
+  versionNumber: number
+  status: EditorialVersionStatus
+  title: string
+  description: string
+  importedAt: string
+  packageSha256: string
+  latestDecision: EditorialDecision | ''
+  latestComments: string
+  latestReviewerId: string
+  canPublish: boolean
+}
+
+export interface EditorialVersionsFilter {
+  page: number
+  pageSize: number
+  status?: EditorialVersionStatus
+  search?: string
+}
+
+export interface EditorialVersionsPage {
+  items: EditorialVersionSummary[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+export interface EditorialActionInput {
+  courseVersionId: string
+  action: EditorialAction
+  decision?: EditorialDecision
+  comments?: string
+}
+
+export interface EditorialActionResult {
+  courseVersionId: string
+  action: EditorialAction
+  previousStatus: EditorialVersionStatus
+  nextStatus: EditorialVersionStatus
+  reviewId: string
+  reviewedAt: string
+}
+
 export interface CourseEnrollment {
   enrollmentId: string
   courseVersionId: string
@@ -104,4 +156,6 @@ export interface ICurriculumRepository {
   listCourses(filter: CurriculumCourseListFilter): Promise<CurriculumCoursePage>
   getCourse(courseVersionId: string): Promise<CurriculumCourseDetail>
   enroll(courseVersionId: string): Promise<CourseEnrollment>
+  listEditorialVersions(filter: EditorialVersionsFilter): Promise<EditorialVersionsPage>
+  manageEditorialVersion(input: EditorialActionInput): Promise<EditorialActionResult>
 }
