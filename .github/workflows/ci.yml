@@ -153,8 +153,10 @@ jobs:
                 esac
 
                 case "$file" in
-                  frontend/package.json|frontend/package-lock.json)
+                  frontend/package.json|frontend/package-lock.json|frontend/pnpm-lock.yaml|package.json|pnpm-lock.yaml|pnpm-workspace.yaml|.npmrc|.nvmrc|.node-version)
+                    run_frontend=true
                     run_frontend_audit=true
+                    run_deploy=true
                     ;;
                 esac
 
@@ -285,27 +287,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Set up Node.js
+      - name: Set up Node.js LTS
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install locked dependencies
-        run: npm ci
+          node-version: 26.13.1
+      - name: Install pinned pnpm
+        run: npm install --global pnpm@12.21.0
+      - name: Install locked workspace dependencies
+        working-directory: .
+        run: pnpm install --frozen-lockfile
       - name: Lint
-        run: npm run lint
+        working-directory: .
+        run: pnpm --filter devfluency-frontend lint
       - name: Measure frontend logic coverage
-        run: |
-          node --experimental-test-coverage \
-            --experimental-loader ./tests/phase0/ts-path-loader.mjs \
-            --test-coverage-include='src/domain/**/*.ts' \
-            --test-coverage-include='src/application/**/*.ts' \
-            --test-coverage-include='src/infrastructure/**/*.ts' \
-            --test-coverage-include='src/shared/**/*.ts' \
-            --test tests/phase0/*.test.mjs
+        working-directory: .
+        run: pnpm --filter devfluency-node-workspace test:frontend:phase0
       - name: Build production bundle
-        run: npm run build
+        working-directory: .
+        run: pnpm --filter devfluency-frontend build
 
   node-stack-refresh:
     name: Resolve latest Node workspace with pnpm
@@ -328,8 +327,7 @@ jobs:
         run: |
           set -euo pipefail
           pnpm install --no-frozen-lockfile
-          pnpm --filter devfluency-frontend up --latest
-          pnpm --filter devfluency-node-workspace up --latest
+          pnpm --recursive update --latest
           pnpm install --no-frozen-lockfile
       - name: Validate updated frontend
         run: |
@@ -387,15 +385,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Set up Node.js
+      - name: Set up Node.js LTS
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Audit frontend dependencies
-        working-directory: frontend
-        run: npm ci && npm audit --audit-level=high
+          node-version: 26.13.1
+      - name: Install pinned pnpm
+        run: npm install --global pnpm@12.21.0
+      - name: Install locked workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Audit workspace dependencies
+        run: pnpm audit --audit-level=high
 
   shell-validation:
     name: Deployment scripts and shell validation
@@ -431,7 +430,9 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
-          node-version: 24
+          node-version: 26.13.1
+      - name: Install pinned pnpm
+        run: npm install --global pnpm@12.21.0
       - name: Lint only changed Markdown files
         env:
           BASE_SHA: ${{ needs.changes.outputs.base_sha }}
@@ -453,7 +454,7 @@ jobs:
           fi
 
           git diff --check "$BASE_SHA" "$HEAD_SHA" -- "${markdown_files[@]}"
-          npx --yes markdownlint-cli2@0.24.0 --config .github/markdownlint-cli2.jsonc "${markdown_files[@]}"
+          pnpm dlx markdownlint-cli2@0.24.0 --config .github/markdownlint-cli2.jsonc "${markdown_files[@]}"
 
   ci-result:
     name: CI result

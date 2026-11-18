@@ -78,7 +78,7 @@ async function seed() {
     const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
 
     const client = new Client({
-        connectionString: process.env.DATABASE_URL || 'postgres://postgres:Kevins1612522026@127.0.0.1:5432/devfluency_db'
+        connectionString: process.env.DATABASE_URL
     });
 
     await client.connect();

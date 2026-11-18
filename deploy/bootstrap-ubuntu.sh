@@ -55,7 +55,7 @@ AWS_REGION=us-east-1
 AWS_BEDROCK_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
 AWS_POLLY_VOICE_ID=Matthew
 AWS_TRANSCRIBE_LANGUAGE_CODE=en-US
-CORS_ALLOWED_ORIGINS=https://app-ingles.jnmtortas.com
+CORS_ALLOWED_ORIGINS=https://ingles.vegtrixgroup.com
 BFF_HTTP_BIND_ADDR=127.0.0.1:8080
 AUTH_SERVICE_BIND_ADDR=127.0.0.1:50051
 CONTENT_SERVICE_BIND_ADDR=127.0.0.1:50052
@@ -136,9 +136,9 @@ chmod 0640 "$APP_CONFIG/plataforma-aprendizaje.env"
 
 # Keep the production browser origin explicit on both fresh and existing VMs.
 if grep -q '^CORS_ALLOWED_ORIGINS=' "$APP_CONFIG/plataforma-aprendizaje.env"; then
-  sed -i 's|^CORS_ALLOWED_ORIGINS=.*$|CORS_ALLOWED_ORIGINS=https://app-ingles.jnmtortas.com|' "$APP_CONFIG/plataforma-aprendizaje.env"
+  sed -i 's|^CORS_ALLOWED_ORIGINS=.*$|CORS_ALLOWED_ORIGINS=https://ingles.vegtrixgroup.com|' "$APP_CONFIG/plataforma-aprendizaje.env"
 else
-  printf '%s\n' 'CORS_ALLOWED_ORIGINS=https://app-ingles.jnmtortas.com' >> "$APP_CONFIG/plataforma-aprendizaje.env"
+  printf '%s\n' 'CORS_ALLOWED_ORIGINS=https://ingles.vegtrixgroup.com' >> "$APP_CONFIG/plataforma-aprendizaje.env"
 fi
 chown root:devfluency "$APP_CONFIG/plataforma-aprendizaje.env"
 chmod 0640 "$APP_CONFIG/plataforma-aprendizaje.env"
