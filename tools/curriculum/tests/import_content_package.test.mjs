@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import test, { after } from "node:test";
+import test, { after, before } from "node:test";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 
@@ -16,9 +16,22 @@ const FIXTURE = path.join(ROOT, "tests/fixtures/curriculum/phase1_3_content_pack
 const VALIDATOR = path.join(ROOT, "tools/curriculum/validate_content_package.py");
 const DATABASE_URL = process.env.DATABASE_URL;
 const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, max: 4 }) : null;
+const editorId = randomUUID();
+
+before(async () => {
+  if (!pool) return;
+  await pool.query(
+    "INSERT INTO users (id, email, password_hash, full_name) VALUES ($1, $2, $3, $4)",
+    [editorId, `${editorId}@curriculum-test.invalid`, "ci-test-password-hash", "CI Curriculum Editor"],
+  );
+  await pool.query("INSERT INTO content_editors (user_id) VALUES ($1)", [editorId]);
+});
 
 after(async () => {
-  await pool?.end();
+  if (!pool) return;
+  await pool.query("DELETE FROM content_editors WHERE user_id = $1", [editorId]);
+  await pool.query("DELETE FROM users WHERE id = $1", [editorId]);
+  await pool.end();
 });
 
 function canonicalHash(data) {
@@ -142,7 +155,7 @@ if (!DATABASE_URL) {
   test("imports a new draft version and resolves all existing references", async () => {
     const seeded = await seedPackage();
     try {
-      const result = await importCurriculumPackage(pool, seeded.data, seeded.packageSha256, { apply: true });
+      const result = await importCurriculumPackage(pool, seeded.data, seeded.packageSha256, { apply: true, actorUserId: editorId });
       assert.equal(result.state, "imported");
       assert.equal(result.applied, true);
       assert.equal(result.units, 1);
@@ -172,8 +185,8 @@ if (!DATABASE_URL) {
   test("re-importing identical content is an idempotent no-op", async () => {
     const seeded = await seedPackage();
     try {
-      const first = await importCurriculumPackage(pool, seeded.data, seeded.packageSha256, { apply: true });
-      const second = await importCurriculumPackage(pool, seeded.data, seeded.packageSha256, { apply: true });
+      const first = await importCurriculumPackage(pool, seeded.data, seeded.packageSha256, { apply: true, actorUserId: editorId });
+      const second = await importCurriculumPackage(pool, seeded.data, seeded.packageSha256, { apply: true, actorUserId: editorId });
       assert.equal(first.state, "imported");
       assert.equal(second.state, "already_imported");
       assert.equal(second.applied, false);
@@ -194,13 +207,13 @@ if (!DATABASE_URL) {
   test("rejects different content for an existing version without overwriting it", async () => {
     const seeded = await seedPackage();
     try {
-      await importCurriculumPackage(pool, seeded.data, seeded.packageSha256, { apply: true });
+      await importCurriculumPackage(pool, seeded.data, seeded.packageSha256, { apply: true, actorUserId: editorId });
       const changed = structuredClone(seeded.data);
       changed.version.title = "Different title for same version";
       const changedHash = canonicalHash(changed);
 
       await assert.rejects(
-        importCurriculumPackage(pool, changed, changedHash, { apply: true }),
+        importCurriculumPackage(pool, changed, changedHash, { apply: true, actorUserId: editorId }),
         /already exists with different content/,
       );
 
@@ -220,7 +233,7 @@ if (!DATABASE_URL) {
   test("dry run validates full inserts but leaves no curriculum records", async () => {
     const seeded = await seedPackage();
     try {
-      const result = await importCurriculumPackage(pool, seeded.data, seeded.packageSha256);
+      const result = await importCurriculumPackage(pool, seeded.data, seeded.packageSha256, { actorUserId: editorId });
       assert.equal(result.state, "imported");
       assert.equal(result.dryRun, true);
       assert.equal(result.applied, false);
@@ -242,7 +255,7 @@ if (!DATABASE_URL) {
         [seeded.data.objectives.flatMap((objective) => (objective.vocabulary ?? []).map((ref) => ref.word))],
       );
       await assert.rejects(
-        importCurriculumPackage(pool, seeded.data, seeded.packageSha256, { apply: true }),
+        importCurriculumPackage(pool, seeded.data, seeded.packageSha256, { apply: true, actorUserId: editorId }),
         /External curriculum reference not found/,
       );
 
@@ -259,8 +272,8 @@ if (!DATABASE_URL) {
     const seeded = await seedPackage();
     try {
       const [first, second] = await Promise.all([
-        importCurriculumPackage(pool, seeded.data, seeded.packageSha256, { apply: true }),
-        importCurriculumPackage(pool, seeded.data, seeded.packageSha256, { apply: true }),
+        importCurriculumPackage(pool, seeded.data, seeded.packageSha256, { apply: true, actorUserId: editorId }),
+        importCurriculumPackage(pool, seeded.data, seeded.packageSha256, { apply: true, actorUserId: editorId }),
       ]);
       assert.deepEqual(
         [first.state, second.state].sort(),
