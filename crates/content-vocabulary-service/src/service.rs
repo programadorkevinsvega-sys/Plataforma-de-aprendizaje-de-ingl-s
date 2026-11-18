@@ -454,6 +454,10 @@ impl ContentService for MyContentService {
         common::set_current_user_id(&mut tx, user_id)
             .await
             .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
+        let is_editor: bool = sqlx::query_scalar("SELECT app_is_content_editor()")
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|_| Status::internal("No se pudo verificar la capacidad editorial"))?;
 
         let course_row: Option<(
             Uuid,
@@ -495,6 +499,7 @@ impl ContentService for MyContentService {
         )
         .bind(course_version_id)
         .bind(user_id)
+        .bind(is_editor)
         .fetch_optional(&mut *tx)
         .await
         .map_err(|_| Status::internal("No se pudo consultar la versión del curso"))?;
@@ -962,10 +967,11 @@ impl ContentService for MyContentService {
                    latest.decision,
                    latest.comments,
                    latest.reviewer_id::TEXT,
-                   (
+                   COALESCE(
                        version.status = 'review'
                        AND latest.decision = 'approved'
-                       AND latest.reviewer_id = $1
+                       AND latest.reviewer_id = $1,
+                       FALSE
                    ) AS can_publish
                FROM courses course
                JOIN course_versions version ON version.course_id = course.id
