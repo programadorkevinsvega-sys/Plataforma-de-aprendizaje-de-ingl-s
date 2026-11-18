@@ -152,6 +152,25 @@ async function seedPackage() {
 if (!DATABASE_URL) {
   test("curriculum importer integration tests require DATABASE_URL", { skip: true }, () => {});
 } else {
+  test("rejects an actor who is not registered even when the database connection can bypass RLS", async () => {
+    const seeded = await seedPackage();
+    try {
+      await assert.rejects(
+        importCurriculumPackage(pool, seeded.data, seeded.packageSha256, {
+          apply: true,
+          actorUserId: randomUUID(),
+        }),
+        /not registered as a curriculum content editor/,
+      );
+      const count = await pool.query("SELECT count(*)::int AS total FROM courses WHERE slug = $1", [
+        seeded.data.course.slug,
+      ]);
+      assert.equal(count.rows[0].total, 0);
+    } finally {
+      await seeded.cleanup();
+    }
+  });
+
   test("imports a new draft version and resolves all existing references", async () => {
     const seeded = await seedPackage();
     try {
