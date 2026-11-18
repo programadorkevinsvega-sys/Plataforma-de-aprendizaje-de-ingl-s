@@ -1,6 +1,7 @@
 use proto::content::content_service_server::ContentService;
 use proto::content::{
-    ContextSentence, CurriculumCourseSummary, CurriculumLesson, CurriculumObjective,
+    ContextSentence, CurriculumCourseSummary, CurriculumLesson, CurriculumLessonProgress,
+    CurriculumObjective,
     CurriculumPrerequisite, CurriculumUnit, EnrollInCourseRequest, EnrollInCourseResponse,
     GetCurriculumCourseRequest, GetCurriculumCourseResponse, GetRandomInterviewQuestionRequest,
     GetVocabularyWordRequest, InterviewQuestionResponse, ListCurriculumCoursesRequest,
@@ -568,6 +569,65 @@ impl ContentService for MyContentService {
         .fetch_all(&mut *tx)
         .await
         .map_err(|_| Status::internal("No se pudieron consultar los requisitos previos"))?;
+
+        // Progreso calculado a partir de evidencia real ya persistida:
+        // - learning_progress_events registra palabras completadas por el usuario.
+        // - user_srs_progress registra revisiones exitosas (SM-2 incrementa
+        //   repetitions solo con calificaciones >= 3 y reinicia al fallar).
+        // Los ejercicios gramaticales/productivos aún no tienen intentos propios;
+        // por eso un objetivo sin referencias medibles no se marca completado
+        // ni obtiene una puntuación de dominio ficticia.
+        let objective_evidence_rows: Vec<(Uuid, i64, i64, f64)> = sqlx::query_as(
+            r#"SELECT
+                   objective.id,
+                   (
+                       SELECT COUNT(*)
+                         FROM learning_objective_vocabulary reference
+                        WHERE reference.learning_objective_id = objective.id
+                   ) + (
+                       SELECT COUNT(*)
+                         FROM learning_objective_sentences reference
+                        WHERE reference.learning_objective_id = objective.id
+                   ) AS evidence_total,
+                   (
+                       SELECT COUNT(*)
+                         FROM learning_objective_vocabulary reference
+                         JOIN learning_progress_events event
+                           ON event.word_id = reference.vocabulary_word_id
+                          AND event.user_id = $2
+                        WHERE reference.learning_objective_id = objective.id
+                   ) + (
+                       SELECT COUNT(*)
+                         FROM learning_objective_sentences reference
+                         JOIN user_srs_progress review
+                           ON review.sentence_id = reference.context_sentence_id
+                          AND review.user_id = $2
+                          AND review.repetitions > 0
+                        WHERE reference.learning_objective_id = objective.id
+                   ) AS evidence_completed,
+                   CASE
+                     WHEN EXISTS (
+                         SELECT 1 FROM learning_objective_sentences reference
+                          WHERE reference.learning_objective_id = objective.id
+                     )
+                     THEN COALESCE((
+                         SELECT AVG(LEAST(review.repetitions::DOUBLE PRECISION / 3.0, 1.0))
+                           FROM learning_objective_sentences reference
+                           LEFT JOIN user_srs_progress review
+                             ON review.sentence_id = reference.context_sentence_id
+                            AND review.user_id = $2
+                          WHERE reference.learning_objective_id = objective.id
+                     ), 0.0)
+                     ELSE 0.0
+                   END AS mastery_score
+               FROM learning_objectives objective
+              WHERE objective.course_version_id = $1"#,
+        )
+        .bind(version_id)
+        .bind(user_id)
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudo calcular la evidencia curricular del usuario"))?;
 
         let mut objectives_by_lesson: HashMap<Uuid, Vec<CurriculumObjective>> = HashMap::new();
         for (lesson_id, id, code, objective, criteria, position, required, skills) in objective_rows
