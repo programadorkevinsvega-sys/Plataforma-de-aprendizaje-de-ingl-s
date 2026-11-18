@@ -1,5 +1,7 @@
 import type {
   CourseEnrollment,
+  EditorialCourseVersion,
+  EditorialAction,
   CurriculumCourseDetail,
   CurriculumCoursePage,
   CurriculumCourseQuery,
@@ -30,5 +32,19 @@ export class EnrollInCurriculumCourseUseCase {
       throw new Error('courseVersionId es obligatorio')
     }
     return this.repository.enroll(courseVersionId)
+  }
+}
+
+export class GetEditorialCourseVersionsUseCase {
+  constructor(private readonly repository: ICurriculumRepository) {}
+  execute(status = ''): Promise<EditorialCourseVersion[]> {
+    return this.repository.listEditorialVersions(status)
+  }
+}
+
+export class ApplyEditorialActionUseCase {
+  constructor(private readonly repository: ICurriculumRepository) {}
+  execute(action: EditorialAction): Promise<void> {
+    return this.repository.applyEditorialAction(action)
   }
 }
