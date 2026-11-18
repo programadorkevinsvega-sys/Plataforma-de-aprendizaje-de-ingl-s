@@ -4,8 +4,9 @@ use proto::content::{
     ContextSentence, CurriculumCourseSummary, CurriculumLesson, CurriculumLessonProgress,
     CurriculumObjective, EditorialCourseVersionSummary, ListEditorialVersionsRequest,
     ListEditorialVersionsResponse, ManageEditorialVersionRequest,
-    ManageEditorialVersionResponse,
-    CurriculumPrerequisite, CurriculumUnit, EnrollInCourseRequest, EnrollInCourseResponse,
+    ManageEditorialVersionResponse, ImportCurriculumPackageRequest,
+    ImportCurriculumPackageResponse, CurriculumPrerequisite, CurriculumUnit,
+    EnrollInCourseRequest, EnrollInCourseResponse,
     GetCurriculumCourseRequest, GetCurriculumCourseResponse, GetRandomInterviewQuestionRequest,
     GetVocabularyWordRequest, InterviewQuestionResponse, ListCurriculumCoursesRequest,
     ListCurriculumCoursesResponse, ListVocabularyWordsRequest, ListVocabularyWordsResponse,
@@ -639,33 +640,34 @@ impl ContentService for MyContentService {
         .map_err(|_| Status::internal("No se pudo calcular la evidencia curricular del usuario"))?;
 
         let mut objectives_by_lesson: HashMap<Uuid, Vec<CurriculumObjective>> = HashMap::new();
-        for (lesson_id, id, code, objective, criteria, position, required, skills) in objective_rows
+        for (lesson_id, id, code, objective, criteria, position, required, skills) in &objective_rows
         {
             objectives_by_lesson
-                .entry(lesson_id)
+                .entry(*lesson_id)
                 .or_default()
                 .push(CurriculumObjective {
                     id: id.to_string(),
-                    objective_code: code,
-                    description: objective,
-                    success_criteria: criteria,
-                    position,
-                    required,
-                    skills,
+                    objective_code: code.clone(),
+                    description: objective.clone(),
+                    success_criteria: criteria.clone(),
+                    position: *position,
+                    required: *required,
+                    skills: skills.clone(),
                 });
         }
 
         let mut prerequisites_by_lesson: HashMap<Uuid, Vec<CurriculumPrerequisite>> =
             HashMap::new();
-        for (lesson_id, prerequisite_id, required_state, minimum_mastery_score) in prerequisite_rows
+        for (lesson_id, prerequisite_id, required_state, minimum_mastery_score) in
+            &prerequisite_rows
         {
             prerequisites_by_lesson
-                .entry(lesson_id)
+                .entry(*lesson_id)
                 .or_default()
                 .push(CurriculumPrerequisite {
                     prerequisite_lesson_id: prerequisite_id.to_string(),
-                    required_state,
-                    minimum_mastery_score,
+                    required_state: required_state.clone(),
+                    minimum_mastery_score: *minimum_mastery_score,
                 });
         }
 
@@ -764,22 +766,22 @@ impl ContentService for MyContentService {
 
         let mut lessons_by_unit: HashMap<Uuid, Vec<CurriculumLesson>> = HashMap::new();
         for (id, unit_id, code, position, pattern, lesson_title, lesson_description, minutes) in
-            lesson_rows
+            &lesson_rows
         {
             lessons_by_unit
-                .entry(unit_id)
+                .entry(*unit_id)
                 .or_default()
                 .push(CurriculumLesson {
                     id: id.to_string(),
-                    lesson_code: code,
-                    position,
-                    lesson_pattern: pattern,
-                    title: lesson_title,
-                    description: lesson_description,
+                    lesson_code: code.clone(),
+                    position: *position,
+                    lesson_pattern: pattern.clone(),
+                    title: lesson_title.clone(),
+                    description: lesson_description.clone(),
                     estimated_minutes: minutes.unwrap_or_default(),
-                    objectives: objectives_by_lesson.remove(&id).unwrap_or_default(),
-                    prerequisites: prerequisites_by_lesson.remove(&id).unwrap_or_default(),
-                    progress: progress_by_lesson.remove(&id),
+                    objectives: objectives_by_lesson.remove(id).unwrap_or_default(),
+                    prerequisites: prerequisites_by_lesson.remove(id).unwrap_or_default(),
+                    progress: progress_by_lesson.remove(id),
                 });
         }
 
