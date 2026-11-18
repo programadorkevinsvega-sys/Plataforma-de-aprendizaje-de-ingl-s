@@ -15,9 +15,10 @@ const VALIDATOR = path.join(ROOT, "tools/curriculum/validate_content_package.py"
 function usage() {
   return [
     "Usage:",
-    "  node tools/curriculum/export_content_package.mjs --course <slug> --level <CEFR> --version <number> [--output <file>]",
+    "  node tools/curriculum/export_content_package.mjs --course <slug> --level <CEFR> --version <number> --actor-user-id <uuid> [--output <file>]",
     "",
     "Exports an imported curriculum version to the canonical JSON package format.",
+    "The actor must be pre-registered in public.content_editors.",
     "The command is read-only and requires a trusted administrative DATABASE_URL.",
     "Without --output, the package is written to stdout.",
   ].join("\n");
@@ -28,7 +29,7 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const option = argv[index];
     if (option === "--help" || option === "-h") return { help: true };
-    if (!["--course", "--level", "--version", "--output"].includes(option)) {
+    if (!["--course", "--level", "--version", "--output", "--actor-user-id"].includes(option)) {
       throw new Error(`Unknown option: ${option}\n\n${usage()}`);
     }
     const value = argv[index + 1];
@@ -43,7 +44,11 @@ function parseArgs(argv) {
   const course = values.get("--course");
   const level = values.get("--level");
   const versionText = values.get("--version");
-  if (!course || !level || !versionText) throw new Error(usage());
+  const actorUserId = values.get("--actor-user-id");
+  if (!course || !level || !versionText || !actorUserId) throw new Error(usage());
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actorUserId)) {
+    throw new Error("--actor-user-id must be a valid UUID.");
+  }
 
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(course)) {
     throw new Error("--course must be a canonical lowercase slug.");
@@ -60,6 +65,7 @@ function parseArgs(argv) {
     level,
     versionNumber: Number(versionText),
     output: values.get("--output"),
+    actorUserId,
   };
 }
 
@@ -333,13 +339,16 @@ async function loadRelationalContent(client, version) {
   return { units, objectives };
 }
 
-export async function exportCurriculumPackage(pool, selector) {
+export async function exportCurriculumPackage(pool, selector, { actorUserId } = {}) {
+  if (typeof actorUserId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actorUserId)) {
+    throw new Error("actorUserId must be a valid UUID belonging to a registered content editor.");
+  }
   const client = await pool.connect();
   let transactionOpen = false;
   try {
     await client.query("BEGIN READ ONLY");
     transactionOpen = true;
-    await client.query("SELECT set_config('app.content_editor', 'true', true)");
+    await client.query("SELECT set_config('app.current_user_id', $1, true)", [actorUserId]);
 
     const version = await selectVersion(client, selector);
     const relational = await loadRelationalContent(client, version);
@@ -401,7 +410,7 @@ async function main(argv) {
   });
 
   try {
-    const { data, packageSha256, status } = await exportCurriculumPackage(pool, args);
+    const { data, packageSha256, status } = await exportCurriculumPackage(pool, args, { actorUserId: args.actorUserId });
     const serialized = `${JSON.stringify(data, null, 2)}\n`;
     if (args.output) {
       const outputPath = path.resolve(process.cwd(), args.output);
