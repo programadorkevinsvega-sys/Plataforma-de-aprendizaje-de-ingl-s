@@ -1,6 +1,23 @@
 export type CurriculumTrackCode = 'general' | 'technology'
 export type CurriculumLevel = 'PRE_A1' | 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
 
+export interface CurriculumCourseListFilter {
+  page: number
+  pageSize: number
+  trackCode?: CurriculumTrackCode
+  cefrLevel?: CurriculumLevel
+  search?: string
+  enrolledOnly?: boolean
+}
+
+export interface CurriculumCoursePage {
+  items: CurriculumCourseSummary[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
 export interface CurriculumCourseSummary {
   courseVersionId: string
   slug: string
@@ -32,6 +49,22 @@ export interface CurriculumPrerequisite {
   minimumMasteryScore: number
 }
 
+export type CurriculumLessonProgressState =
+  | 'not_enrolled'
+  | 'locked'
+  | 'available'
+  | 'in_progress'
+  | 'completed'
+  | 'mastered'
+
+export interface CurriculumLessonProgress {
+  state: CurriculumLessonProgressState
+  masteryScore: number
+  requiredObjectives: number
+  completedObjectives: number
+  prerequisitesSatisfied: boolean
+}
+
 export interface CurriculumLesson {
   id: string
   lessonCode: string
@@ -42,6 +75,7 @@ export interface CurriculumLesson {
   estimatedMinutes: number
   objectives: CurriculumObjective[]
   prerequisites: CurriculumPrerequisite[]
+  progress: CurriculumLessonProgress | null
 }
 
 export interface CurriculumUnit {
@@ -67,7 +101,7 @@ export interface CourseEnrollment {
 }
 
 export interface ICurriculumRepository {
-  listCourses(): Promise<CurriculumCourseSummary[]>
+  listCourses(filter: CurriculumCourseListFilter): Promise<CurriculumCoursePage>
   getCourse(courseVersionId: string): Promise<CurriculumCourseDetail>
   enroll(courseVersionId: string): Promise<CourseEnrollment>
 }
