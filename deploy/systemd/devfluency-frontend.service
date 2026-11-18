@@ -11,7 +11,7 @@ WorkingDirectory=/opt/apps/plataforma-aprendizaje/current/frontend
 Environment=NODE_ENV=production
 Environment=HOSTNAME=127.0.0.1
 Environment=PORT=3000
-ExecStart=/usr/bin/node server.js
+ExecStart=/usr/local/libexec/devfluency/start-frontend.sh
 Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true
