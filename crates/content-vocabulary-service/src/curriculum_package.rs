@@ -378,8 +378,11 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
     check_keys(metadata, "$/metadata", &["author", "authored_at", "source"], &["author", "authored_at", "source"])?;
     required_string(metadata, "author", "$/metadata", 160, false)?;
     let authored_at = required_string(metadata, "authored_at", "$/metadata", 10, false)?;
-    NaiveDate::parse_from_str(authored_at, "%Y-%m-%d")
+    let authored_date = NaiveDate::parse_from_str(authored_at, "%Y-%m-%d")
         .map_err(|_| "$/metadata/authored_at: debe ser una fecha YYYY-MM-DD válida".to_string())?;
+    if authored_date.format("%Y-%m-%d").to_string() != authored_at {
+        return Err("$/metadata/authored_at: debe usar el formato YYYY-MM-DD".to_string());
+    }
     let source = object(metadata.get("source").ok_or("$/metadata/source: es obligatorio")?, "$/metadata/source")?;
     check_keys(source, "$/metadata/source", &["name", "license"], &["name", "license", "url"])?;
     required_string(source, "name", "$/metadata/source", 200, false)?;
@@ -1130,7 +1133,7 @@ pub async fn import_package(
 
 #[cfg(test)]
 mod tests {
-    use super::validate_package_json;
+    use super::{validate_package_json, valid_http_url};
 
     const VALID_PACKAGE: &str = include_str!("../../../tests/fixtures/curriculum/phase1_3_content_package_v1.json");
 
@@ -1170,5 +1173,15 @@ mod tests {
         }"#;
         let error = validate_package_json(raw).expect_err("cycles must be rejected");
         assert!(error.contains("ciclo"));
+    }
+
+    #[test]
+    fn validates_http_urls_with_hosts_and_valid_ports() {
+        assert!(valid_http_url("https://example.com/source"));
+        assert!(valid_http_url("http://localhost:8080/package.json"));
+        assert!(valid_http_url("https://[::1]:8443/package"));
+        assert!(!valid_http_url("https://"));
+        assert!(!valid_http_url("https://example.com:99999"));
+        assert!(!valid_http_url("file:///tmp/package.json"));
     }
 }
