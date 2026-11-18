@@ -1,0 +1,382 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devfluency.vegtrixgroup.com/schemas/curriculum-content-v1.json",
+  "title": "DevFluency curriculum content package",
+  "description": "Portable, versioned package for an editable curriculum course version. Importers must create a draft; publishing is a separate editorial action.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "schema_version",
+    "metadata",
+    "course",
+    "version",
+    "units",
+    "objectives"
+  ],
+  "properties": {
+    "format": {
+      "const": "devfluency.curriculum-content"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "metadata": {
+      "$ref": "#/$defs/metadata"
+    },
+    "course": {
+      "$ref": "#/$defs/course"
+    },
+    "version": {
+      "$ref": "#/$defs/courseVersion"
+    },
+    "units": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/unit"
+      }
+    },
+    "objectives": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/objective"
+      }
+    }
+  },
+  "$defs": {
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["author", "authored_at", "source"],
+      "properties": {
+        "author": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "authored_at": {
+          "type": "string",
+          "format": "date"
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "license"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "url": {
+              "type": ["string", "null"],
+              "format": "uri"
+            },
+            "license": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            }
+          }
+        }
+      }
+    },
+    "course": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["slug", "track_code"],
+      "properties": {
+        "slug": {
+          "type": "string",
+          "maxLength": 120,
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+        },
+        "track_code": {
+          "enum": ["general", "technology"]
+        }
+      }
+    },
+    "courseVersion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version_number",
+        "cefr_level",
+        "title",
+        "description",
+        "locale"
+      ],
+      "properties": {
+        "version_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cefr_level": {
+          "enum": ["PRE_A1", "A1", "A2", "B1", "B2", "C1", "C2"]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string"
+        },
+        "locale": {
+          "type": "string",
+          "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+        },
+        "content_schema_version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "position",
+        "title",
+        "theme",
+        "description",
+        "lessons"
+      ],
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/code"
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "theme": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string"
+        },
+        "estimated_minutes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "lessons": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/lesson"
+          }
+        }
+      }
+    },
+    "lesson": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "position",
+        "pattern",
+        "title",
+        "description",
+        "objective_codes"
+      ],
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/code"
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "pattern": {
+          "enum": ["discover", "understand", "practice", "integrate", "custom"]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string"
+        },
+        "estimated_minutes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "objective_codes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/code"
+          }
+        },
+        "prerequisites": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/prerequisite"
+          }
+        }
+      }
+    },
+    "prerequisite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lesson_code",
+        "required_state",
+        "minimum_mastery_score"
+      ],
+      "properties": {
+        "lesson_code": {
+          "$ref": "#/$defs/code"
+        },
+        "required_state": {
+          "enum": ["completed", "mastered"]
+        },
+        "minimum_mastery_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "objective": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "position",
+        "description",
+        "success_criteria",
+        "skills"
+      ],
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/code"
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "success_criteria": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "skills": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/skill"
+          }
+        },
+        "vocabulary": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/vocabularyReference"
+          }
+        },
+        "sentences": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sentenceReference"
+          }
+        }
+      }
+    },
+    "skill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "is_primary"],
+      "properties": {
+        "code": {
+          "enum": [
+            "vocabulary",
+            "grammar",
+            "listening",
+            "reading",
+            "writing",
+            "speaking",
+            "interaction",
+            "mediation",
+            "phonology"
+          ]
+        },
+        "is_primary": {
+          "type": "boolean"
+        }
+      }
+    },
+    "vocabularyReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["word", "category", "usage_mode", "position"],
+      "properties": {
+        "word": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "usage_mode": {
+          "enum": ["receptive", "productive", "both"]
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "sentenceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["word", "english_text", "usage_mode", "position"],
+      "properties": {
+        "word": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "english_text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "usage_mode": {
+          "enum": ["listening", "reading", "speaking", "writing", "example"]
+        },
+        "position": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}
