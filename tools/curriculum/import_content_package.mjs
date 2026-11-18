@@ -4,7 +4,9 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { Pool } from "pg";
+import pg from "pg";
+
+const { Pool } = pg;
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const VALIDATOR = path.join(ROOT, "tools/curriculum/validate_content_package.py");
@@ -183,7 +185,7 @@ async function insertPackage(client, data, packageSha256) {
       data.version.title,
       data.version.description ?? "",
       data.version.locale,
-      data.schema_version,
+      data.version.content_schema_version ?? data.schema_version,
     ],
   );
   const courseVersionId = versionResult.rows[0].id;
