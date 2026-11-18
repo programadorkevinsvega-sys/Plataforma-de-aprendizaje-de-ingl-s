@@ -117,6 +117,12 @@ export async function applyEditorialAction(client, args) {
   }
 
   if (args.action === "review") {
+    if (!DECISIONS.has(args.decision)) {
+      throw new Error("A review decision must be approved, rejected or changes_requested.");
+    }
+    if (args.decision !== "approved" && !String(args.comments ?? "").trim()) {
+      throw new Error("A non-approved review decision requires non-empty comments.");
+    }
     if (version.status !== "review") {
       throw new Error(`A review decision requires status "review"; current status is "${version.status}".`);
     }
