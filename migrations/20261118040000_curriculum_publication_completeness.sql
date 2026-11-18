@@ -72,6 +72,16 @@ BEGIN
 
     IF EXISTS (
         SELECT 1
+          FROM lesson_learning_objectives AS link
+         WHERE link.course_version_id = p_course_version_id
+           AND link.is_required = FALSE
+    ) THEN
+        RAISE EXCEPTION 'Canonical curriculum package v1 cannot represent optional lesson objectives'
+            USING ERRCODE = '23514';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
           FROM learning_objectives AS objective
          WHERE objective.course_version_id = p_course_version_id
            AND NOT EXISTS (
@@ -154,7 +164,7 @@ BEGIN
      FOR UPDATE;
 
     IF v_version_status IN ('review', 'published', 'archived') THEN
-        RAISE EXCEPTION 'Curriculum content is frozen while its course version is under review or published; return it to draft before editing'
+        RAISE EXCEPTION 'Curriculum content is frozen while its course version is under review, published or archived; return it to draft before editing'
             USING ERRCODE = '55000';
     END IF;
 
