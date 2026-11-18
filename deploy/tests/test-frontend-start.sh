@@ -25,7 +25,7 @@ touch "$tmp/legacy/server.js"
 NODE_MARKER="$tmp/legacy-marker" \
 NODE_BINARY="$tmp/fake-node" \
 DEVFLUENCY_FRONTEND_ROOT="$tmp/legacy" \
-  "$START_SCRIPT" || fail "legacy frontend layout did not start"
+  bash "$START_SCRIPT" || fail "legacy frontend layout did not start"
 [[ "$(sed -n '1p' "$tmp/legacy-marker")" == "$tmp/legacy" ]] || fail "legacy layout selected the wrong working directory"
 [[ "$(sed -n '2p' "$tmp/legacy-marker")" == "server.js" ]] || fail "legacy layout did not execute server.js"
 
@@ -35,7 +35,7 @@ touch "$tmp/workspace/frontend/server.js"
 NODE_MARKER="$tmp/workspace-marker" \
 NODE_BINARY="$tmp/fake-node" \
 DEVFLUENCY_FRONTEND_ROOT="$tmp/workspace" \
-  "$START_SCRIPT" || fail "workspace frontend layout did not start"
+  bash "$START_SCRIPT" || fail "workspace frontend layout did not start"
 [[ "$(sed -n '1p' "$tmp/workspace-marker")" == "$tmp/workspace/frontend" ]] || fail "workspace layout selected the wrong working directory"
 [[ "$(sed -n '2p' "$tmp/workspace-marker")" == "server.js" ]] || fail "workspace layout did not execute server.js"
 
