@@ -1,7 +1,7 @@
 # Acta de aceptación técnica — Subfase 1.3
 
-**Fecha de cierre:** 2026-11-18  
-**Estado:** Completada técnicamente, integrada en `main` y desplegada en producción  
+**Fecha de cierre:** 2026-11-18
+**Estado:** Completada técnicamente, integrada en `main` y desplegada en producción
 **Alcance:** contrato canónico v1, validación offline, importación/exportación PostgreSQL y ciclo editorial draft → review → publish.
 
 ## 1. Alcance aceptado
