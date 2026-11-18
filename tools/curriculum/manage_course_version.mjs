@@ -99,6 +99,10 @@ async function findVersion(client, selector) {
  * The caller must set app.current_user_id before invoking this function.
  */
 export async function applyEditorialAction(client, args) {
+  const authorization = await client.query("SELECT app_is_content_editor() AS allowed");
+  if (authorization.rows[0]?.allowed !== true) {
+    throw new Error("The current database actor is not registered as a curriculum content editor.");
+  }
   const version = await findVersion(client, args);
 
   if (args.action === "submit") {
