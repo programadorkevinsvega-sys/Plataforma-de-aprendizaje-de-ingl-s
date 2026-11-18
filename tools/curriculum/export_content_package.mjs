@@ -110,6 +110,7 @@ function validateExportedPackage(data, expectedSha256) {
 async function selectVersion(client, { course, level, versionNumber }) {
   const result = await client.query(
     `SELECT
+        version.id,
         course.slug,
         course.track_code,
         version.version_number,
