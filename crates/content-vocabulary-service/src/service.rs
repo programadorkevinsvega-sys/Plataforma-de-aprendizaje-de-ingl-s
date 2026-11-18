@@ -401,7 +401,7 @@ impl ContentService for MyContentService {
             .await
             .map_err(|_| Status::internal("No se pudieron consultar las unidades del curso"))?;
 
-        let lesson_rows: Vec<(Uuid, Uuid, String, i32, String, String, Option<i32>)> =
+        let lesson_rows: Vec<(Uuid, Uuid, String, i32, String, String, String, Option<i32>)> =
             sqlx::query_as(
                 r#"SELECT id, unit_id, lesson_code, position, lesson_pattern, title, description, estimated_minutes
                      FROM course_lessons
