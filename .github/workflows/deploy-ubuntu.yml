@@ -69,7 +69,7 @@ jobs:
           echo "Manual retry will reuse successful CI run $ci_run_id for $RELEASE_SHA."
 
       - name: Download change classification from the exact successful CI run
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ci-change-metadata
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -121,7 +121,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout exact commit validated by CI
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.event.inputs.release_sha || github.sha }}
 
@@ -153,7 +153,7 @@ jobs:
         run: cargo build --workspace --release --locked
 
       - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26.13.1
 
@@ -229,7 +229,7 @@ jobs:
           echo "Deployment package SHA-256: $(cat devfluency-deploy-package.tar.gz.sha256)"
 
       - name: Upload deployment package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: devfluency-release
           path: |
@@ -246,7 +246,7 @@ jobs:
     environment: production
     steps:
       - name: Download deployment package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: devfluency-release
 
