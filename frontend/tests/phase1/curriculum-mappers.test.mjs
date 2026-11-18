@@ -20,6 +20,7 @@ test('course summary maps canonical curriculum fields and enrollment state', () 
     lesson_count: 12,
     estimated_minutes: 180,
     enrolled: true,
+    status: 'published',
   })
 
   assert.equal(course.courseVersionId, 'version-1')
@@ -29,6 +30,7 @@ test('course summary maps canonical curriculum fields and enrollment state', () 
   assert.equal(course.lessonCount, 12)
   assert.equal(course.estimatedMinutes, 180)
   assert.equal(course.enrolled, true)
+  assert.equal(course.status, 'published')
 })
 
 test('course detail maps nested units, lessons, objectives and prerequisites', () => {
@@ -45,6 +47,7 @@ test('course detail maps nested units, lessons, objectives and prerequisites', (
       lesson_count: 1,
       estimated_minutes: 20,
       enrolled: false,
+      status: 'archived',
     },
     units: [{
       id: 'unit-1',
@@ -80,6 +83,7 @@ test('course detail maps nested units, lessons, objectives and prerequisites', (
   })
 
   assert.equal(detail.course.title, 'English A1')
+  assert.equal(detail.course.status, 'archived')
   assert.equal(detail.units[0].lessons[0].lessonPattern, 'discover')
   assert.deepEqual(detail.units[0].lessons[0].objectives[0].skills, [
     'vocabulary',
