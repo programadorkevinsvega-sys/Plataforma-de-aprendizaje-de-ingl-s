@@ -386,17 +386,17 @@ impl ContentService for MyContentService {
                     status,
                 )| CurriculumCourseSummary {
                     course_version_id: version_id,
-                slug,
+                    slug,
                     track_code: track,
                     cefr_level: level,
-                version_number,
-                title,
-                description,
+                    version_number,
+                    title,
+                    description,
                     unit_count: unit_count.min(i32::MAX as i64) as i32,
                     lesson_count: lesson_count.min(i32::MAX as i64) as i32,
                     estimated_minutes: minutes.min(i32::MAX as i64) as i32,
-                enrolled,
-                status,
+                    enrolled,
+                    status,
                 },
             )
             .collect();
@@ -647,10 +647,10 @@ impl ContentService for MyContentService {
             units.push(CurriculumUnit {
                 id: id.to_string(),
                 position,
-                    title: unit_title,
+                title: unit_title,
                 theme,
-                    description: unit_description,
-                    estimated_minutes: minutes.unwrap_or_default(),
+                description: unit_description,
+                estimated_minutes: minutes.unwrap_or_default(),
                 lessons,
             });
         }
