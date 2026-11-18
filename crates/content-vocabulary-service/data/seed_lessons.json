@@ -1,0 +1,226 @@
+[
+  {
+    "category": "family",
+    "level": "A0",
+    "word": "mother",
+    "spanish_phonetic": "máder",
+    "spanish_translation": "madre / mamá",
+    "context_sentences": [
+      {
+        "english_text": "My mother lives in Colombia.",
+        "spanish_phonetic": "Mai máder livs in Kolómbia.",
+        "spanish_translation": "Mi madre vive en Colombia.",
+        "spanish_phonetic_natural": "Mai máder livzin Kolómbia."
+      },
+      {
+        "english_text": "I called my mother this morning.",
+        "spanish_phonetic": "Ai kold mai máder dis mórnin.",
+        "spanish_translation": "Llamé a mi madre esta mañana.",
+        "spanish_phonetic_natural": "Ai kold mai máder dis mórnin."
+      },
+      {
+        "english_text": "Her mother is a doctor.",
+        "spanish_phonetic": "Jer máder iz a dóktor.",
+        "spanish_translation": "Su madre es médica.",
+        "spanish_phonetic_natural": "Jer máderz a dóktor."
+      }
+    ],
+    "spanish_phonetic_natural": "máder"
+  },
+  {
+    "category": "family",
+    "level": "A0",
+    "word": "father",
+    "spanish_phonetic": "fáder",
+    "spanish_translation": "padre / papá",
+    "context_sentences": [
+      {
+        "english_text": "My father works at a bank.",
+        "spanish_phonetic": "Mai fáder uérks at a bank.",
+        "spanish_translation": "Mi padre trabaja en un banco.",
+        "spanish_phonetic_natural": "Mai fáder uérks ata bank."
+      },
+      {
+        "english_text": "His father is teaching him English.",
+        "spanish_phonetic": "Jiz fáder iz tíchin jim ínglish.",
+        "spanish_translation": "Su padre le está enseñando inglés.",
+        "spanish_phonetic_natural": "Jiz fáder iz tíchin im ínglish."
+      },
+      {
+        "english_text": "My father loves cooking.",
+        "spanish_phonetic": "Mai fáder lavs kúkin.",
+        "spanish_translation": "A mi padre le encanta cocinar.",
+        "spanish_phonetic_natural": "Mai fáder lavs kúkin."
+      }
+    ],
+    "spanish_phonetic_natural": "fáder"
+  },
+  {
+    "category": "transportation",
+    "level": "A1",
+    "word": "car",
+    "spanish_phonetic": "kar",
+    "spanish_translation": "carro / auto",
+    "context_sentences": [
+      {
+        "english_text": "The car is damaged.",
+        "spanish_phonetic": "Da kar iz dámashd.",
+        "spanish_translation": "El carro está dañado.",
+        "spanish_phonetic_natural": "Da karz dámashd."
+      },
+      {
+        "english_text": "I need to repair my car.",
+        "spanish_phonetic": "Ai nid tu ripér mai kar.",
+        "spanish_translation": "Necesito reparar mi carro.",
+        "spanish_phonetic_natural": "Ai nid tu ripér mai kar."
+      },
+      {
+        "english_text": "Where did you park the car?",
+        "spanish_phonetic": "Guér did yu park da kar?",
+        "spanish_translation": "¿Dónde parqueaste el carro?",
+        "spanish_phonetic_natural": "Guér did yu park da kar?"
+      }
+    ],
+    "spanish_phonetic_natural": "kar"
+  },
+  {
+    "category": "daily_life",
+    "level": "A0",
+    "word": "coffee",
+    "spanish_phonetic": "kófi",
+    "spanish_translation": "café",
+    "context_sentences": [
+      {
+        "english_text": "I drink hot coffee every morning.",
+        "spanish_phonetic": "Ai drink jot kófi évri mórnin.",
+        "spanish_translation": "Tomo café caliente cada mañana.",
+        "spanish_phonetic_natural": "Ai drink jot kófi évri mórnin."
+      },
+      {
+        "english_text": "Would you like a cup of coffee?",
+        "spanish_phonetic": "Gúld yu láik a kap ov kófi?",
+        "spanish_translation": "¿Te gustaría una taza de café?",
+        "spanish_phonetic_natural": "Gúld yu láik a kap ov kófi?"
+      },
+      {
+        "english_text": "This coffee shop has fast Wi-Fi.",
+        "spanish_phonetic": "Dis kófi shop jas fast uái-fai.",
+        "spanish_translation": "Esta cafetería tiene Wi-Fi rápido.",
+        "spanish_phonetic_natural": "Dis kófi shop jas fast uái-fai."
+      }
+    ],
+    "spanish_phonetic_natural": "kófi"
+  },
+  {
+    "category": "travel",
+    "level": "A1",
+    "word": "hotel",
+    "spanish_phonetic": "jotél",
+    "spanish_translation": "hotel",
+    "context_sentences": [
+      {
+        "english_text": "I have a reservation at the hotel.",
+        "spanish_phonetic": "Ai jav a rezervéishon at di jotél.",
+        "spanish_translation": "Tengo una reservación en el hotel.",
+        "spanish_phonetic_natural": "Ai jav a rezervéishon at di jotél."
+      },
+      {
+        "english_text": "The hotel is near the airport.",
+        "spanish_phonetic": "di jotél iz nír di érport.",
+        "spanish_translation": "El hotel está cerca del aeropuerto.",
+        "spanish_phonetic_natural": "di jotélz nír dierport."
+      },
+      {
+        "english_text": "What time is check-out at the hotel?",
+        "spanish_phonetic": "Guát táim iz chék-aut at di jotél?",
+        "spanish_translation": "¿A qué hora es la salida en el hotel?",
+        "spanish_phonetic_natural": "Guát táim iz chék-aut at di jotél?"
+      }
+    ],
+    "spanish_phonetic_natural": "jotél"
+  },
+  {
+    "category": "health",
+    "level": "A1",
+    "word": "doctor",
+    "spanish_phonetic": "dóktor",
+    "spanish_translation": "médico / doctor",
+    "context_sentences": [
+      {
+        "english_text": "I need to see a doctor today.",
+        "spanish_phonetic": "Ai nid tu si a dóktor tudéi.",
+        "spanish_translation": "Necesito ver a un médico hoy.",
+        "spanish_phonetic_natural": "Ai nid tu si a dóktor tudéi."
+      },
+      {
+        "english_text": "The doctor gave me a prescription.",
+        "spanish_phonetic": "Da dóktor gueiv mi a preskrípshon.",
+        "spanish_translation": "El doctor me dio una receta médica.",
+        "spanish_phonetic_natural": "Da dóktor gueiv mi a preskrípshon."
+      },
+      {
+        "english_text": "Call the doctor immediately.",
+        "spanish_phonetic": "Kol da dóktor imídietli.",
+        "spanish_translation": "Llama al médico inmediatamente.",
+        "spanish_phonetic_natural": "Kol da dóktor imídietli."
+      }
+    ],
+    "spanish_phonetic_natural": "dóktor"
+  },
+  {
+    "category": "programming",
+    "level": "A1",
+    "word": "developer",
+    "spanish_phonetic": "divéloper",
+    "spanish_translation": "desarrollador",
+    "context_sentences": [
+      {
+        "english_text": "I'm a backend developer.",
+        "spanish_phonetic": "Aim a bákend divéloper.",
+        "spanish_translation": "Soy un desarrollador backend.",
+        "spanish_phonetic_natural": "Aim a bákend divéloper."
+      },
+      {
+        "english_text": "We need a senior Rust developer.",
+        "spanish_phonetic": "Güi nid a sínior rast divéloper.",
+        "spanish_translation": "Necesitamos un desarrollador Rust senior.",
+        "spanish_phonetic_natural": "Güi nid a sínior rast divéloper."
+      },
+      {
+        "english_text": "The developer fixed the production bug.",
+        "spanish_phonetic": "Da divéloper fíkst da prodákshon bag.",
+        "spanish_translation": "El desarrollador corrigió el error de producción.",
+        "spanish_phonetic_natural": "Da divéloper fíkst da prodákshon bag."
+      }
+    ],
+    "spanish_phonetic_natural": "divéloper"
+  },
+  {
+    "category": "devops",
+    "level": "B2",
+    "word": "microservices",
+    "spanish_phonetic": "máikroservises",
+    "spanish_translation": "microservicios",
+    "context_sentences": [
+      {
+        "english_text": "We refactored the monolith into microservices.",
+        "spanish_phonetic": "Güi rifáktord da mónolith íntu máikroservises.",
+        "spanish_translation": "Reestructuramos el monolito en microservicios.",
+        "spanish_phonetic_natural": "Güi rifáktord da mónolith íntu máikroservises."
+      },
+      {
+        "english_text": "Microservices communicate via gRPC.",
+        "spanish_phonetic": "Máikroservises komiúnikeit vía yi-ar-pi-si.",
+        "spanish_translation": "Los microservicios se comunican mediante gRPC.",
+        "spanish_phonetic_natural": "Máikroservises komiúnikeit vía yi-ar-pi-si."
+      },
+      {
+        "english_text": "Decreasing latency is vital for microservices.",
+        "spanish_phonetic": "Dikrísin léitensi iz váital for máikroservises.",
+        "spanish_translation": "Reducir la latencia es vital para los microservicios.",
+        "spanish_phonetic_natural": "Dikrísin léitensi iz váital for máikroservises."
+      }
+    ],
+    "spanish_phonetic_natural": "máikroservises"
+  }
+]

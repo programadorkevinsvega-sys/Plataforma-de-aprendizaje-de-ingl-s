@@ -1,0 +1,66 @@
+[
+  {
+    "id": "phase0-a0-hello",
+    "word": "hello",
+    "spanish_phonetic": "jelóu",
+    "spanish_phonetic_natural": "jelóu",
+    "spanish_translation": "hola",
+    "category": "greetings",
+    "level": "A0",
+    "sentences": [
+      {
+        "id": "phase0-a0-hello-1",
+        "english": "Hello, my name is Ana.",
+        "spanish_translation": "Hola, me llamo Ana."
+      }
+    ]
+  },
+  {
+    "id": "phase0-a0-thank-you",
+    "word": "thank you",
+    "spanish_phonetic": "zank iu",
+    "spanish_phonetic_natural": "zánk iu",
+    "spanish_translation": "gracias",
+    "category": "courtesy",
+    "level": "A0",
+    "sentences": [
+      {
+        "id": "phase0-a0-thank-you-1",
+        "english": "Thank you for your help.",
+        "spanish_translation": "Gracias por tu ayuda."
+      }
+    ]
+  },
+  {
+    "id": "phase0-a2-deploy",
+    "word": "deploy",
+    "spanish_phonetic": "diplói",
+    "spanish_phonetic_natural": "diplói",
+    "spanish_translation": "desplegar",
+    "category": "software-delivery",
+    "level": "A2",
+    "sentences": [
+      {
+        "id": "phase0-a2-deploy-1",
+        "english": "We deploy the application every Friday.",
+        "spanish_translation": "Desplegamos la aplicación cada viernes."
+      }
+    ]
+  },
+  {
+    "id": "phase0-b2-incident",
+    "word": "incident",
+    "spanish_phonetic": "ínsident",
+    "spanish_phonetic_natural": "ínsident",
+    "spanish_translation": "incidente",
+    "category": "operations",
+    "level": "B2",
+    "sentences": [
+      {
+        "id": "phase0-b2-incident-1",
+        "english": "The team investigated the production incident.",
+        "spanish_translation": "El equipo investigó el incidente de producción."
+      }
+    ]
+  }
+]

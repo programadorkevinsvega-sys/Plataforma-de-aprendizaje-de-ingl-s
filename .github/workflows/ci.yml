@@ -1,0 +1,510 @@
+name: CI
+
+on:
+  # Every PR is classified against its actual base, including stacked PRs.
+  pull_request:
+  push:
+    branches: [main]
+  # Catch newly disclosed dependency advisories without making docs changes
+  # wait for compilation and integration tests.
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Classify changed files
+    runs-on: ubuntu-latest
+    outputs:
+      run_rust: ${{ steps.classify.outputs.run_rust }}
+      run_frontend: ${{ steps.classify.outputs.run_frontend }}
+      run_rust_audit: ${{ steps.classify.outputs.run_rust_audit }}
+      run_frontend_audit: ${{ steps.classify.outputs.run_frontend_audit }}
+      run_shell: ${{ steps.classify.outputs.run_shell }}
+      run_docs: ${{ steps.classify.outputs.run_docs }}
+      run_deploy: ${{ steps.classify.outputs.run_deploy }}
+      base_sha: ${{ steps.classify.outputs.base_sha }}
+      head_sha: ${{ steps.classify.outputs.head_sha }}
+    steps:
+      - name: Checkout full history for reliable diffs
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Classify affected areas
+        id: classify
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          run_rust=false
+          run_frontend=false
+          run_rust_audit=false
+          run_frontend_audit=false
+          run_shell=false
+          run_docs=false
+          run_deploy=false
+
+          set_full_ci() {
+            run_rust=true
+            run_frontend=true
+            run_rust_audit=true
+            run_frontend_audit=true
+            run_shell=true
+          }
+
+          base_sha=""
+          head_sha="$CURRENT_SHA"
+
+          case "$EVENT_NAME" in
+            workflow_dispatch)
+              # Manual CI means intentional full validation, never an
+              # implicit production deployment.
+              set_full_ci
+              ;;
+            schedule)
+              # Scheduled run is intentionally limited to both dependency audits.
+              run_rust_audit=true
+              run_frontend_audit=true
+              ;;
+            pull_request)
+              base_sha="$PR_BASE_SHA"
+              head_sha="$PR_HEAD_SHA"
+              ;;
+            push)
+              base_sha="$PUSH_BEFORE_SHA"
+              ;;
+            *)
+              echo "::error::Unsupported CI event: $EVENT_NAME"
+              exit 1
+              ;;
+          esac
+
+          if [[ "$EVENT_NAME" == "pull_request" || "$EVENT_NAME" == "push" ]]; then
+            if [[ -z "$base_sha" || "$base_sha" =~ ^0+$ ]]; then
+              echo "No usable base SHA; enabling all CI checks for safety."
+              set_full_ci
+              run_docs=true
+              run_deploy=true
+            else
+              changed_files="$(mktemp)"
+              git diff --name-only -z "$base_sha" "$head_sha" > "$changed_files"
+
+              while IFS= read -r -d '' file; do
+                # Markdown is checked separately and does not trigger builds,
+                # even when it is stored beside source code.
+                case "$file" in
+                  *.md|*.mdx)
+                    run_docs=true
+                    continue
+                    ;;
+                esac
+
+                case "$file" in
+                  .github/workflows/deploy-ubuntu.yml)
+                    # A deployment-pipeline change must pass full CI and exercise
+                    # the actual release path; otherwise fixes to deployment itself
+                    # can remain green while never being validated on the VM.
+                    set_full_ci
+                    run_deploy=true
+                    ;;
+                  .github/workflows/*)
+                    # Other CI/workflow definitions get the full suite, but do not
+                    # independently publish the application.
+                    set_full_ci
+                    ;;
+                esac
+
+                case "$file" in
+                  Cargo.toml|Cargo.lock|build.rs|rust-toolchain*|.cargo/config*|crates/*|proto/*|migrations/*)
+                    run_rust=true
+                    run_deploy=true
+                    ;;
+                esac
+
+                case "$file" in
+                  Cargo.toml|Cargo.lock|crates/*/Cargo.toml|.cargo/audit.toml)
+                    run_rust_audit=true
+                    ;;
+                esac
+
+                case "$file" in
+                  frontend/tests/*)
+                    # Test-only additions validate frontend logic but do not
+                    # change the production application bundle.
+                    run_frontend=true
+                    ;;
+                  frontend/*)
+                    run_frontend=true
+                    run_deploy=true
+                    ;;
+                esac
+
+                case "$file" in
+                  frontend/package.json|frontend/package-lock.json|frontend/pnpm-lock.yaml|package.json|pnpm-lock.yaml|pnpm-workspace.yaml|.npmrc|.nvmrc|.node-version)
+                    run_frontend=true
+                    run_frontend_audit=true
+                    run_deploy=true
+                    ;;
+                esac
+
+                case "$file" in
+                  tools/curriculum/*|tests/db/*)
+                    # Curriculum package importer changes require the PostgreSQL
+                    # integration suite, not only the offline Python validator.
+                    run_rust=true
+                    ;;
+                esac
+
+                case "$file" in
+                  deploy/*)
+                    run_shell=true
+                    run_deploy=true
+                    ;;
+                  scripts/*|*.sh|tools/phase0/*|tools/curriculum/*|tests/fixtures/*|tests/load/*)
+                    run_shell=true
+                    ;;
+                esac
+              done < "$changed_files"
+
+              rm -f "$changed_files"
+            fi
+          fi
+
+          {
+            echo "run_rust=$run_rust"
+            echo "run_frontend=$run_frontend"
+            echo "run_rust_audit=$run_rust_audit"
+            echo "run_frontend_audit=$run_frontend_audit"
+            echo "run_shell=$run_shell"
+            echo "run_docs=$run_docs"
+            echo "run_deploy=$run_deploy"
+            echo "base_sha=$base_sha"
+            echo "head_sha=$head_sha"
+          } >> "$GITHUB_OUTPUT"
+
+          # The downstream workflow_run deployment gate consumes this exact
+          # classification, including the original push range (multi-commit pushes).
+          cat > ci-change-metadata.txt <<EOF
+          run_deploy=$run_deploy
+          base_sha=$base_sha
+          head_sha=$head_sha
+          EOF
+
+          echo "Rust checks: $run_rust"
+          echo "Frontend checks: $run_frontend"
+          echo "Rust dependency audit: $run_rust_audit"
+          echo "Frontend dependency audit: $run_frontend_audit"
+          echo "Shell/deploy checks: $run_shell"
+          echo "Markdown checks: $run_docs"
+          echo "Production deployment required: $run_deploy"
+
+      - name: Upload change classification for the deployment gate
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ci-change-metadata
+          path: ci-change-metadata.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  rust:
+    name: Rust format, lint, build, and tests
+    needs: changes
+    if: ${{ needs.changes.outputs.run_rust == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/devfluency_test
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: devfluency_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d devfluency_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install PostgreSQL client and Protocol Buffers compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client protobuf-compiler
+          protoc --version
+      - name: Verify fresh and upgraded curriculum migration paths
+        run: bash scripts/test-phase1-2-migrations.sh
+      - name: Set up Node.js 26 and pnpm 12 for curriculum import tests
+        uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
+        with:
+          version: 12.21.0
+          runtime: node@26.13.1
+          cache: true
+          install: false
+      - name: Install curriculum importer dependencies
+        run: pnpm install --filter devfluency-node-workspace --frozen-lockfile
+      - name: Test transactional curriculum package importer
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/devfluency_test
+        run: node --test tools/curriculum/tests/*.test.mjs
+      - name: Install stable Rust
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+          rustup default stable
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Compile workspace
+        run: cargo check --workspace --all-targets --locked
+      - name: Build complete workspace
+        run: cargo build --workspace --all-targets --locked
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Install LLVM source-based coverage tooling
+        run: |
+          rustup component add llvm-tools-preview
+          cargo install cargo-llvm-cov --version 0.9.1 --locked
+      - name: Run Rust tests and measure coverage
+        run: |
+          set -euo pipefail
+          mkdir -p target/coverage
+          cargo llvm-cov --workspace --locked --lcov --output-path target/coverage/rust-lcov.info
+      - name: Upload Rust coverage report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rust-coverage-lcov
+          path: target/coverage/rust-lcov.info
+          if-no-files-found: error
+          retention-days: 30
+
+  frontend:
+    name: Frontend lint and production build
+    needs: changes
+    if: ${{ needs.changes.outputs.run_frontend == 'true' }}
+    runs-on: ubuntu-latest
+    # CI validates the frontend build with a reserved non-production URL.
+    # The production deploy injects vars.NEXT_PUBLIC_BFF_URL from the
+    # GitHub Environment named "production".
+    env:
+      NEXT_PUBLIC_BFF_URL: https://bff-ci.invalid
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Node.js 26 and pnpm 12
+        uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
+        with:
+          version: 12.21.0
+          runtime: node@26.13.1
+          cache: true
+          install: false
+      - name: Install locked workspace dependencies
+        working-directory: .
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        working-directory: .
+        run: pnpm --filter devfluency-frontend lint
+      - name: Measure frontend logic coverage
+        working-directory: .
+        run: pnpm --filter devfluency-node-workspace test:frontend:phase0
+      - name: Test curriculum API mappers
+        working-directory: .
+        run: pnpm --filter devfluency-node-workspace test:frontend:phase1
+      - name: Build production bundle
+        working-directory: .
+        run: pnpm --filter devfluency-frontend build
+
+  rust-dependency-audit:
+    name: Rust dependency vulnerability audit
+    needs: changes
+    if: ${{ needs.changes.outputs.run_rust_audit == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install stable Rust
+        run: rustup toolchain install stable --profile minimal
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --version 0.22.2 --locked
+      - name: Verify ignored RustSec packages are inactive
+        run: |
+          set -euo pipefail
+          cargo tree --locked --workspace --all-targets --target x86_64-unknown-linux-gnu > /tmp/devfluency-active-dependencies.txt
+          if grep -E 'h2 v0\.3\.27|rustls v0\.21\.12|rustls-webpki v0\.101\.7|rsa v0\.9\.10|sqlx-sqlite v|libsqlite3-sys v' /tmp/devfluency-active-dependencies.txt; then
+            echo "::error::An exception-listed vulnerable crate or SQLite-only dependency re-entered the active workspace dependency graph."
+            exit 1
+          fi
+      - name: Audit Rust dependencies
+        run: |
+          # cargo-audit 0.22.x no admite --locked; audita el Cargo.lock versionado.
+          # .cargo/audit.toml documents only inactive optional dependency advisories.
+          git diff --exit-code -- Cargo.lock
+          cargo audit
+          git diff --exit-code -- Cargo.lock
+
+  frontend-dependency-audit:
+    name: Frontend dependency vulnerability audit
+    needs: changes
+    if: ${{ needs.changes.outputs.run_frontend_audit == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Node.js 26 and pnpm 12
+        uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
+        with:
+          version: 12.21.0
+          runtime: node@26.13.1
+          cache: true
+          install: false
+      - name: Install locked workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Audit workspace dependencies
+        run: pnpm audit --audit-level=high
+
+  shell-validation:
+    name: Deployment scripts and shell validation
+    needs: changes
+    if: ${{ needs.changes.outputs.run_shell == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate shell scripts and deployment health checks
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' script; do
+            echo "Checking $script"
+            bash -n "$script"
+          done < <(
+            find deploy scripts -type f -name '*.sh' -print0
+            find . -maxdepth 1 -type f -name '*.sh' -print0
+          )
+          bash deploy/tests/test-health-checks.sh
+          bash deploy/tests/test-frontend-start.sh
+          bash deploy/tests/test-frontend-layout.sh
+          python3 -m unittest discover -s tools/phase0/tests -p 'test_*.py' -v
+          python3 -m unittest discover -s tools/curriculum/tests -p 'test_*.py' -v
+
+  markdown:
+    name: Markdown lint
+    needs: changes
+    if: ${{ needs.changes.outputs.run_docs == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Set up Node.js 26 and pnpm 12
+        uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
+        with:
+          version: 12.21.0
+          runtime: node@26.13.1
+          cache: true
+          install: false
+      - name: Lint only changed Markdown files
+        env:
+          BASE_SHA: ${{ needs.changes.outputs.base_sha }}
+          HEAD_SHA: ${{ needs.changes.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$BASE_SHA" || -z "$HEAD_SHA" ]]; then
+            echo "::error::Could not determine the Markdown diff range."
+            exit 1
+          fi
+
+          mapfile -d '' -t markdown_files < <(
+            git diff --name-only -z "$BASE_SHA" "$HEAD_SHA" -- '*.md' '*.mdx'
+          )
+
+          if [[ "${#markdown_files[@]}" -eq 0 ]]; then
+            echo "No Markdown files changed."
+            exit 0
+          fi
+
+          git diff --check "$BASE_SHA" "$HEAD_SHA" -- "${markdown_files[@]}"
+          pnpm dlx markdownlint-cli2@0.24.0 --config .github/markdownlint-cli2.jsonc "${markdown_files[@]}"
+
+  ci-result:
+    name: CI result
+    if: always()
+    needs:
+      - changes
+      - rust
+      - frontend
+      - rust-dependency-audit
+      - frontend-dependency-audit
+      - shell-validation
+      - markdown
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any selected validation failed
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          RUST_RESULT: ${{ needs.rust.result }}
+          FRONTEND_RESULT: ${{ needs.frontend.result }}
+          RUST_AUDIT_RESULT: ${{ needs.rust-dependency-audit.result }}
+          FRONTEND_AUDIT_RESULT: ${{ needs.frontend-dependency-audit.result }}
+          SHELL_RESULT: ${{ needs.shell-validation.result }}
+          MARKDOWN_RESULT: ${{ needs.markdown.result }}
+          RUN_RUST: ${{ needs.changes.outputs.run_rust }}
+          RUN_FRONTEND: ${{ needs.changes.outputs.run_frontend }}
+          RUN_RUST_AUDIT: ${{ needs.changes.outputs.run_rust_audit }}
+          RUN_FRONTEND_AUDIT: ${{ needs.changes.outputs.run_frontend_audit }}
+          RUN_SHELL: ${{ needs.changes.outputs.run_shell }}
+          RUN_DOCS: ${{ needs.changes.outputs.run_docs }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$CHANGES_RESULT" != "success" ]]; then
+            echo "::error::The change classifier did not succeed: $CHANGES_RESULT"
+            exit 1
+          fi
+
+          assert_selected_job() {
+            local job_name="$1"
+            local selected="$2"
+            local result="$3"
+
+            if [[ "$selected" == "true" ]]; then
+              if [[ "$result" != "success" ]]; then
+                echo "::error::$job_name was selected by the classifier but finished with '$result' (success required)."
+                return 1
+              fi
+            elif [[ "$selected" == "false" ]]; then
+              if [[ "$result" != "skipped" ]]; then
+                echo "::error::$job_name was not selected but finished with '$result' (skipped required)."
+                return 1
+              fi
+            else
+              echo "::error::Invalid classifier output for $job_name: '$selected'."
+              return 1
+            fi
+          }
+
+          assert_selected_job "Rust" "$RUN_RUST" "$RUST_RESULT"
+          assert_selected_job "Frontend" "$RUN_FRONTEND" "$FRONTEND_RESULT"
+          assert_selected_job "Rust dependency audit" "$RUN_RUST_AUDIT" "$RUST_AUDIT_RESULT"
+          assert_selected_job "Frontend dependency audit" "$RUN_FRONTEND_AUDIT" "$FRONTEND_AUDIT_RESULT"
+          assert_selected_job "Shell validation" "$RUN_SHELL" "$SHELL_RESULT"
+          assert_selected_job "Markdown lint" "$RUN_DOCS" "$MARKDOWN_RESULT"
+
+          echo "Every classifier decision matches its job outcome; all selected validations succeeded."

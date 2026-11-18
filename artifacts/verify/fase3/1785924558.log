@@ -1,0 +1,24 @@
+=== [Fase 3 Verification Gate] Spanish Phonetic Engine & Contextual Vocabulary ===
+[1/2] Ejecutando pruebas unitarias del Motor Fonético en Español (Sin IPA)...
+    Blocking waiting for file lock on build directory
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 39.51s
+warning: the following packages contain code that will be rejected by a future version of Rust: sqlx-postgres v0.7.4
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/main.rs (target/debug/deps/phonetic_audio_service-d05047754c4c65bb)
+
+running 2 tests
+test transliteration::tests::test_transliteration_rust_developer ... ok
+test transliteration::tests::test_transliteration_backend_position ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[2/2] Compilando content-vocabulary-service (Vocabulario en Contexto 3-5 oraciones)...
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.41s
+warning: the following packages contain code that will be rejected by a future version of Rust: sqlx-postgres v0.7.4
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+✅ [Fase 3 completada con éxito en 44s]
+Artefacto guardado en: artifacts/verify/fase3/1785924558.json

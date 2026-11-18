@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package ai_evaluator;
+
+service AIEvaluatorService {
+  rpc EvaluateExamAnswer (EvaluateExamAnswerRequest) returns (EvaluateExamAnswerResponse);
+  rpc GenerateTargetedDrill (GenerateTargetedDrillRequest) returns (GenerateTargetedDrillResponse);
+}
+
+message EvaluateExamAnswerRequest {
+  string user_id = 1;
+  string question_id = 2;
+  string user_text_response = 3;
+  string target_level = 4;
+}
+
+message DetectedWeakness {
+  string skill = 1;
+  float score = 2;
+  string tip = 3;
+}
+
+message EvaluateExamAnswerResponse {
+  float score_listening = 1;
+  float score_pronunciation = 2;
+  float score_fluency = 3;
+  float score_vocabulary = 4;
+  float score_grammar = 5;
+  float score_conversation = 6;
+  float total_score = 7;
+  bool passed = 8;
+  repeated DetectedWeakness detected_weaknesses = 9;
+}
+
+message GenerateTargetedDrillRequest {
+  string user_id = 1;
+  repeated string weak_skills = 2;
+}
+
+message DrillExercise {
+  string title = 1;
+  string english_text = 2;
+  string spanish_phonetic = 3;
+  string target_skill = 4;
+}
+
+message GenerateTargetedDrillResponse {
+  string drill_id = 1;
+  int32 duration_minutes = 2;
+  repeated DrillExercise exercises = 3;
+}

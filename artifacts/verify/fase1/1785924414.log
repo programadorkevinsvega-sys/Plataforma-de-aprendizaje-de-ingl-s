@@ -1,0 +1,109 @@
+=== [Fase 1 Verification Gate] DevFluency AI Enterprise Workspace ===
+[1/3] Compilando y verificando workspace de Rust...
+    Updating crates.io index
+     Locking 13 packages to latest compatible versions
+      Adding cfg_aliases v0.2.2
+      Adding chacha20 v0.10.1
+      Adding cpufeatures v0.3.0
+      Adding lru-slab v0.1.2
+      Adding quinn v0.11.11
+      Adding quinn-proto v0.11.16
+      Adding quinn-udp v0.5.15
+      Adding rand v0.10.2
+      Adding rand_core v0.10.1
+      Adding rand_pcg v0.10.2
+      Adding rustc-hash v2.1.3
+      Adding web-time v1.1.0
+      Adding webpki-roots v1.0.9
+ Downloading crates ...
+  Downloaded cfg_aliases v0.2.2
+  Downloaded chacha20 v0.10.1
+  Downloaded quinn-udp v0.5.15
+  Downloaded quinn v0.11.11
+  Downloaded rustc-hash v2.1.3
+  Downloaded rand_pcg v0.10.2
+  Downloaded rand v0.10.2
+  Downloaded quinn-proto v0.11.16
+  Downloaded webpki-roots v1.0.9
+    Blocking waiting for file lock on build directory
+   Compiling prost-derive v0.13.5
+    Checking hyper-util v0.1.20
+   Compiling getrandom v0.4.3
+    Checking sqlx-core v0.7.4
+   Compiling tempfile v3.27.0
+    Checking rustls-pki-types v1.15.1
+   Compiling rustls v0.23.43
+    Checking rustls-webpki v0.103.13
+    Checking axum v0.7.9
+    Checking hyper-timeout v0.5.2
+   Compiling prost v0.13.5
+   Compiling prost-types v0.13.5
+    Checking sqlx-postgres v0.7.4
+   Compiling prost-build v0.13.5
+    Checking sqlx v0.7.4
+    Checking common v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/common)
+   Compiling tonic-build v0.12.3
+    Checking tokio-rustls v0.26.4
+   Compiling num-conv v0.2.2
+   Compiling thiserror v2.0.19
+   Compiling crc16 v0.4.0
+   Compiling time-core v0.1.9
+   Compiling proto v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/proto)
+   Compiling time-macros v0.2.32
+    Checking num-integer v0.1.46
+   Compiling thiserror-impl v2.0.19
+    Checking tonic v0.12.3
+    Checking powerfmt v0.2.0
+    Checking deranged v0.5.8
+    Checking regex-syntax v0.8.11
+    Checking num-bigint v0.4.8
+    Checking regex-automata v0.4.18
+    Checking time v0.3.55
+    Checking webpki-roots v1.0.9
+    Checking bytes-utils v0.1.4
+    Checking futures-executor v0.3.33
+    Checking cookie-factory v0.3.2
+    Checking lazy_static v1.5.0
+    Checking base64ct v1.8.3
+    Checking redis-protocol v5.0.1
+    Checking password-hash v0.5.0
+    Checking sharded-slab v0.1.7
+    Checking futures v0.3.33
+    Checking matchers v0.2.0
+    Checking hyper-rustls v0.27.9
+    Checking tower-http v0.6.11
+    Checking arc-swap v1.9.2
+    Checking pem v3.0.6
+    Checking float-cmp v0.9.0
+    Checking tracing-serde v0.2.0
+    Checking blake2 v0.10.6
+    Checking tracing-log v0.2.0
+   Compiling fred-macros v0.1.0
+    Checking thread_local v1.1.10
+    Checking semver v1.0.28
+    Checking urlencoding v2.1.3
+    Checking nu-ansi-term v0.50.3
+    Checking argon2 v0.5.3
+    Checking simple_asn1 v0.6.4
+    Checking tracing-subscriber v0.3.23
+    Checking fred v9.4.0
+    Checking jsonwebtoken v9.3.1
+    Checking reqwest v0.12.28
+    Checking auth-identity-service v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/auth-identity-service)
+    Checking srs-engine-service v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/srs-engine-service)
+    Checking phonetic-audio-service v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/phonetic-audio-service)
+    Checking content-vocabulary-service v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/content-vocabulary-service)
+    Checking ai-evaluator-service v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/ai-evaluator-service)
+    Checking bff v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/bff)
+    Checking gamification-progress-service v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/gamification-progress-service)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 28.61s
+warning: the following packages contain code that will be rejected by a future version of Rust: sqlx-postgres v0.7.4
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+[2/3] Verificando compilación de contratos Protobuf gRPC...
+    Checking tonic v0.12.3
+    Checking proto v0.1.0 (/home/servidor-lenovo/ARCHIVOS-KEVINS/desarrollo/devfluency_app/crates/proto)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.37s
+[3/3] Verificando script de migración PostgreSQL RLS...
+Migración PostgreSQL RLS verificada.
+✅ [Fase 1 completada con éxito en 30s]
+Artefacto guardado en: artifacts/verify/fase1/1785924414.json
