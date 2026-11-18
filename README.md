@@ -2,32 +2,45 @@
 
 ## Entorno Node.js del frontend
 
-El repositorio utiliza un único gestor de paquetes para el ecosistema JavaScript: **pnpm**.
+El repositorio utiliza un único gestor de paquetes para todo el ecosistema JavaScript: **pnpm**.
 
-Versiones fijadas:
-- Node.js **26.13.1 LTS** (también indicada en `.nvmrc` y `.node-version`).
-- pnpm **12.21.0** (declarado en `package.json` mediante `packageManager`).
-- El lockfile de todo el workspace es `pnpm-lock.yaml`, ubicado en la raíz.
+Versiones fijadas en el repositorio:
+- Node.js **26.13.1 LTS** (archivos `.nvmrc` y `.node-version`).
+- pnpm **12.21.0** (campo `packageManager` del `package.json` raíz).
+- Lockfile único del workspace: `pnpm-lock.yaml`.
 
-Instala pnpm una vez en tu equipo si todavía no está disponible:
+### Instalación inicial en Linux/macOS
+
+pnpm 12 dispone de un ejecutable standalone; no requiere npm ni Node.js para instalarse. Instala la misma versión fijada por el repositorio:
 
 ```bash
-npm install --global pnpm@12.21.0
+curl -fsSL https://get.pnpm.io/install.sh | env PNPM_VERSION=12.21.0 sh -
 ```
 
-Este comando solo instala la herramienta pnpm; no instala dependencias del proyecto. Todas las dependencias del workspace se gestionan con pnpm:
+Abre una terminal nueva (o carga el perfil de tu shell) y verifica:
+
+```bash
+pnpm --version
+```
+
+Debe mostrar `12.21.0`. Instala Node.js 26.13.1 LTS usando tu gestor de versiones habitual o la versión indicada por `.nvmrc` y `.node-version`.
+
+### Instalar y ejecutar el proyecto
+
+Desde la raíz del repositorio:
 
 ```bash
 pnpm install --frozen-lockfile
 cp frontend/.env.example frontend/.env.local
 ```
 
-Configura `NEXT_PUBLIC_BFF_URL` en `frontend/.env.local` con el origen de BFF de tu entorno de desarrollo. Después puedes iniciar, compilar o revisar el frontend desde la raíz:
+Configura `NEXT_PUBLIC_BFF_URL` en `frontend/.env.local` con el origen del BFF del entorno local. Los comandos del workspace son:
 
 ```bash
 pnpm --filter devfluency-frontend dev
 pnpm --filter devfluency-frontend lint
 pnpm --filter devfluency-frontend build
+pnpm --filter devfluency-node-workspace test:frontend:phase0
 ```
 
-No uses `npm install`, `npm ci`, `npm run`, `npx` ni Bun para instalar o ejecutar el workspace. CI y despliegue verifican el lockfile con `pnpm install --frozen-lockfile`.
+No uses npm, npx, Yarn ni Bun para instalar, actualizar o ejecutar dependencias del proyecto. El CI y el despliegue verifican las dependencias exclusivamente con `pnpm install --frozen-lockfile`.

@@ -54,8 +54,8 @@ if ! command -v pnpm >/dev/null 2>&1; then
   echo "❌ pnpm 12.21.0 no está instalado. Instálalo según packageManager en package.json."
   exit 1
 fi
-if [[ "$(node -p 'Number(process.versions.node.split(".")[0])')" -lt 26 ]]; then
-  echo "❌ Se requiere Node.js 26 LTS o superior."
+if ! node -e 'const [major, minor, patch] = process.versions.node.split(".").map(Number); process.exit(major === 26 && (minor > 13 || (minor === 13 && patch >= 1)) ? 0 : 1);'; then
+  echo "❌ Se requiere Node.js 26.13.1 LTS o una versión posterior de la serie 26."
   exit 1
 fi
 
