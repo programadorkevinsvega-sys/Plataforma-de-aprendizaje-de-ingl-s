@@ -131,7 +131,7 @@ impl From<CurriculumObjective> for CurriculumObjectiveDto {
 impl From<CurriculumPrerequisite> for CurriculumPrerequisiteDto {
     fn from(prerequisite: CurriculumPrerequisite) -> Self {
         Self {
-            prerequisite_lesson_id: prerequisite.lesson_id,
+            prerequisite_lesson_id: prerequisite.prerequisite_lesson_id,
             required_state: prerequisite.required_state,
             minimum_mastery_score: prerequisite.minimum_mastery_score,
         }
