@@ -551,7 +551,7 @@ export default function CurriculumAdminPage() {
                             <div className="flex flex-wrap gap-2">
                               <button
                                 type="button"
-                                disabled={Boolean(activeVersionId) && !busy}
+                                disabled={Boolean(activeVersionId)}
                                 onClick={() => void handleEditorialAction(version, 'review', 'approved')}
                                 className="rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-[10px] font-bold text-emerald-200 hover:bg-emerald-400/20 disabled:opacity-40"
                               >
