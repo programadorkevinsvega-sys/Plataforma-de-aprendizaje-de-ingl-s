@@ -168,10 +168,7 @@ impl From<CurriculumUnit> for CurriculumUnitDto {
     }
 }
 
-fn curriculum_error(
-    error: tonic::Status,
-    operation: &'static str,
-) -> (StatusCode, Json<Value>) {
+fn curriculum_error(error: tonic::Status, operation: &'static str) -> (StatusCode, Json<Value>) {
     let (status, code, message) = match error.code() {
         tonic::Code::Unauthenticated => (
             StatusCode::UNAUTHORIZED,
