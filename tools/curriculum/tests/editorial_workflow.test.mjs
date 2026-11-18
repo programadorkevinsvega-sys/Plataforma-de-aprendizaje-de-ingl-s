@@ -102,6 +102,28 @@ async function seedDraftVersion() {
 if (!DATABASE_URL) {
   test("curriculum editorial integration tests require DATABASE_URL", { skip: true }, () => {});
 } else {
+  test("editor capability depends on the registered transaction-local user identity", async () => {
+    const client = await pool.connect();
+    const unregisteredId = randomUUID();
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT set_config('app.content_editor', 'true', true)");
+      await client.query("SELECT set_config('app.current_user_id', $1, true)", [unregisteredId]);
+      let result = await client.query("SELECT app_is_content_editor() AS allowed");
+      assert.equal(result.rows[0].allowed, false);
+
+      await client.query("SELECT set_config('app.current_user_id', $1, true)", [editorId]);
+      result = await client.query("SELECT app_is_content_editor() AS allowed");
+      assert.equal(result.rows[0].allowed, true);
+      await client.query("ROLLBACK");
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
+  });
+
   test("supports draft -> review -> changes requested -> draft -> approved review", async () => {
     const seeded = await seedDraftVersion();
     try {
