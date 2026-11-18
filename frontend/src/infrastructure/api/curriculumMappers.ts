@@ -4,6 +4,8 @@ import type {
   CurriculumCourseSummary,
   CurriculumLevel,
   CurriculumLesson,
+  CurriculumLessonProgress,
+  CurriculumLessonProgressState,
   CurriculumObjective,
   CurriculumPrerequisite,
   CurriculumTrackCode,
@@ -104,6 +106,29 @@ function toPrerequisite(dto: Dto): CurriculumPrerequisite {
 
 function toLesson(dto: Dto): CurriculumLesson {
   const pattern = stringValue(dto, ['lesson_pattern', 'lessonPattern'])
+  const rawProgress = value(dto, 'progress')
+  let progress: CurriculumLessonProgress | null = null
+  if (typeof rawProgress === 'object' && rawProgress !== null) {
+    const progressDto = rawProgress as Dto
+    const rawState = stringValue(progressDto, ['state'])
+    const allowedStates: CurriculumLessonProgressState[] = [
+      'not_enrolled',
+      'locked',
+      'available',
+      'in_progress',
+      'completed',
+      'mastered',
+    ]
+    progress = {
+      state: allowedStates.includes(rawState as CurriculumLessonProgressState)
+        ? (rawState as CurriculumLessonProgressState)
+        : 'locked',
+      masteryScore: Math.min(1, Math.max(0, numberValue(progressDto, ['mastery_score', 'masteryScore']))),
+      requiredObjectives: numberValue(progressDto, ['required_objectives', 'requiredObjectives']),
+      completedObjectives: numberValue(progressDto, ['completed_objectives', 'completedObjectives']),
+      prerequisitesSatisfied: booleanValue(progressDto, ['prerequisites_satisfied', 'prerequisitesSatisfied']),
+    }
+  }
   const allowed: CurriculumLesson['lessonPattern'][] = [
     'discover',
     'understand',
@@ -123,6 +148,7 @@ function toLesson(dto: Dto): CurriculumLesson {
     estimatedMinutes: numberValue(dto, ['estimated_minutes', 'estimatedMinutes']),
     objectives: records(dto, 'objectives').map(toObjective),
     prerequisites: records(dto, 'prerequisites').map(toPrerequisite),
+    progress,
   }
 }
 
