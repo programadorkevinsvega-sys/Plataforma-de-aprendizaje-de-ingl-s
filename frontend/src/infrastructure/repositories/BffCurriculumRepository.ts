@@ -1,5 +1,10 @@
 import type {
   CourseEnrollment,
+  EditorialActionInput,
+  EditorialActionResult,
+  EditorialVersionsFilter,
+  EditorialVersionsPage,
+  EditorialVersionSummary,
   CurriculumCourseDetail,
   CurriculumCourseListFilter,
   CurriculumCoursePage,
@@ -8,6 +13,8 @@ import type {
 import type { BffHttpClient } from '@/infrastructure/api/BffHttpClient'
 import {
   toCourseEnrollment,
+  toEditorialActionResult,
+  toEditorialVersionSummary,
   toCurriculumCourseDetail,
   toCurriculumCourseSummary,
 } from '@/infrastructure/api/curriculumMappers'
@@ -36,6 +43,41 @@ export class BffCurriculumRepository implements ICurriculumRepository {
       pageSize: Number(response.page_size ?? filter.pageSize),
       totalPages: Number(response.total_pages ?? 0),
     }
+  }
+
+  async listEditorialVersions(
+    filter: EditorialVersionsFilter,
+  ): Promise<EditorialVersionsPage> {
+    const response = await this.http.get<Dto>('/api/v1/curriculum/editor/versions', {
+      query: {
+        page: filter.page,
+        page_size: filter.pageSize,
+        status: filter.status,
+        search: filter.search?.trim(),
+      },
+    })
+    const items = Array.isArray(response.items) ? (response.items as Dto[]) : []
+    return {
+      items: items.map(toEditorialVersionSummary),
+      total: Number(response.total ?? 0),
+      page: Number(response.page ?? filter.page),
+      pageSize: Number(response.page_size ?? filter.pageSize),
+      totalPages: Number(response.total_pages ?? 0),
+    }
+  }
+
+  async manageEditorialVersion(
+    input: EditorialActionInput,
+  ): Promise<EditorialActionResult> {
+    const response = await this.http.post<Dto>(
+      `/api/v1/curriculum/editor/versions/${encodeURIComponent(input.courseVersionId)}/actions`,
+      {
+        action: input.action,
+        decision: input.decision,
+        comments: input.comments,
+      },
+    )
+    return toEditorialActionResult(response)
   }
 
   async getCourse(courseVersionId: string): Promise<CurriculumCourseDetail> {
