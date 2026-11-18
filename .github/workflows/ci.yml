@@ -293,6 +293,7 @@ jobs:
           version: 12.21.0
           runtime: node@26.13.1
           cache: true
+          install: false
       - name: Install locked workspace dependencies
         working-directory: .
         run: pnpm install --frozen-lockfile
@@ -348,6 +349,7 @@ jobs:
           version: 12.21.0
           runtime: node@26.13.1
           cache: true
+          install: false
       - name: Install locked workspace dependencies
         run: pnpm install --frozen-lockfile
       - name: Audit workspace dependencies
@@ -390,6 +392,7 @@ jobs:
           version: 12.21.0
           runtime: node@26.13.1
           cache: true
+          install: false
       - name: Lint only changed Markdown files
         env:
           BASE_SHA: ${{ needs.changes.outputs.base_sha }}
