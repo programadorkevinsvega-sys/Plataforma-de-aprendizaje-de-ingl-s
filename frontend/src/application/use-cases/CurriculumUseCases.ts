@@ -1,15 +1,16 @@
 import type {
   CourseEnrollment,
   CurriculumCourseDetail,
-  CurriculumCourseSummary,
+  CurriculumCourseListFilter,
+  CurriculumCoursePage,
   ICurriculumRepository,
 } from '@/domain/repositories/ICurriculumRepository'
 
 export class GetCurriculumCoursesUseCase {
   constructor(private readonly repository: ICurriculumRepository) {}
 
-  execute(): Promise<CurriculumCourseSummary[]> {
-    return this.repository.listCourses()
+  execute(filter: CurriculumCourseListFilter): Promise<CurriculumCoursePage> {
+    return this.repository.listCourses(filter)
   }
 }
 
