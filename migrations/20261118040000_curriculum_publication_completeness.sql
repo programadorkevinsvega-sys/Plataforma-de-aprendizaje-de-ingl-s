@@ -5,7 +5,8 @@
 CREATE OR REPLACE FUNCTION assert_course_version_publishable(p_course_version_id UUID)
 RETURNS VOID
 LANGUAGE plpgsql
-AS $$
+SET search_path = pg_catalog, public, pg_temp
+AS $
 BEGIN
     IF NOT EXISTS (
         SELECT 1
@@ -103,7 +104,8 @@ $$;
 CREATE OR REPLACE FUNCTION guard_course_version_publication_completeness()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-AS $$
+SET search_path = pg_catalog, public, pg_temp
+AS $
 BEGIN
     IF NEW.status = 'published' AND OLD.status IS DISTINCT FROM 'published' THEN
         PERFORM assert_course_version_publishable(NEW.id);
