@@ -4,10 +4,13 @@ set -Eeuo pipefail
 : "${TEST_DATABASE_URL:?TEST_DATABASE_URL is required}"
 curriculum_migration="migrations/20261117000000_curriculum_catalog.sql"
 importer_migration="migrations/20261118000000_curriculum_content_package_imports.sql"
+export_visibility_migration="migrations/20261118010000_curriculum_package_export_visibility.sql"
+editor_registry_migration="migrations/20261118020000_curriculum_content_editors.sql"
+review_order_migration="migrations/20261118030000_curriculum_review_order.sql"
 curriculum_assertions="tests/db/phase1_2_curriculum_assertions.sql"
 importer_assertions="tests/db/phase1_3_importer_assertions.sql"
 
-for required_file in "$curriculum_migration" "$importer_migration" "$curriculum_assertions" "$importer_assertions"; do
+for required_file in "$curriculum_migration" "$importer_migration" "$export_visibility_migration" "$editor_registry_migration" "$review_order_migration" "$curriculum_assertions" "$importer_assertions"; do
   [[ -s "$required_file" ]] || { echo "Missing curriculum migration/assertion: $required_file" >&2; exit 1; }
 done
 
@@ -35,11 +38,14 @@ done
 
 echo "Reconstructing the pre-curriculum schema, then applying Fase 1.2 and Fase 1.3 migrations."
 for file in migrations/*.sql; do
-  [[ "$file" == "$curriculum_migration" || "$file" == "$importer_migration" ]] && continue
+  [[ "$file" == "$curriculum_migration" || "$file" == "$importer_migration" || "$file" == "$export_visibility_migration" || "$file" == "$editor_registry_migration" || "$file" == "$review_order_migration" ]] && continue
   psql "$upgrade_database_url" --set ON_ERROR_STOP=1 --file "$file"
 done
 psql "$upgrade_database_url" --set ON_ERROR_STOP=1 --file "$curriculum_migration"
 psql "$upgrade_database_url" --set ON_ERROR_STOP=1 --file "$importer_migration"
+psql "$upgrade_database_url" --set ON_ERROR_STOP=1 --file "$export_visibility_migration"
+psql "$upgrade_database_url" --set ON_ERROR_STOP=1 --file "$editor_registry_migration"
+psql "$upgrade_database_url" --set ON_ERROR_STOP=1 --file "$review_order_migration"
 
 echo "Checking the fresh database."
 psql "$fresh_database_url" --set ON_ERROR_STOP=1 --file "$curriculum_assertions"

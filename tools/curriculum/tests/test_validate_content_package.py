@@ -43,6 +43,17 @@ class CurriculumContentPackageTests(unittest.TestCase):
         }
         self.assertEqual(canonical_sha256(self.fixture), canonical_sha256(reordered))
 
+    def test_unordered_skill_and_prerequisite_relations_do_not_change_semantic_hash(self):
+        reordered = copy.deepcopy(self.fixture)
+        reordered["objectives"][0]["skills"].reverse()
+        reordered["units"][0]["lessons"][1]["prerequisites"].reverse()
+        self.assertEqual(canonical_sha256(self.fixture), canonical_sha256(reordered))
+
+    def test_explicit_positions_remain_part_of_semantic_hash(self):
+        reordered = copy.deepcopy(self.fixture)
+        reordered["units"][0]["lessons"].reverse()
+        self.assertNotEqual(canonical_sha256(self.fixture), canonical_sha256(reordered))
+
     def test_a0_alias_is_not_accepted_as_canonical_cefr_level(self):
         errors = self.errors(lambda data: data["version"].update(cefr_level="A0"))
         self.assert_error_contains(errors, "$/version/cefr_level")

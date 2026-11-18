@@ -14,11 +14,12 @@ const VALIDATOR = path.join(ROOT, "tools/curriculum/validate_content_package.py"
 function usage() {
   return [
     "Usage:",
-    "  node tools/curriculum/import_content_package.mjs <package.json> [--apply]",
+    "  node tools/curriculum/import_content_package.mjs <package.json> --actor-user-id <uuid> [--apply]",
     "",
     "The default mode is a database-backed dry run: it resolves every external",
     "vocabulary/sentence reference and rolls back all writes.",
     "Pass --apply to persist the package as a new draft course version.",
+    "The actor must be pre-registered in public.content_editors.",
     "DATABASE_URL must point to a trusted PostgreSQL import connection.",
   ].join("\n");
 }
@@ -101,7 +102,7 @@ async function resolveSentenceId(client, reference) {
   );
 }
 
-async function insertPackage(client, data, packageSha256) {
+async function insertPackage(client, data, packageSha256, actorUserId) {
   // Lock at course scope so simultaneous imports of different levels or
   // versions cannot race while creating the stable course identity.
   const lockKey = `course:${data.course.slug}`;
@@ -174,9 +175,9 @@ async function insertPackage(client, data, packageSha256) {
   const versionResult = await client.query(
     `INSERT INTO course_versions (
         course_id, version_number, status, cefr_level, title, description,
-        locale, content_schema_version
+        locale, content_schema_version, created_by
      )
-     VALUES ($1, $2, 'draft', $3, $4, $5, $6, $7)
+     VALUES ($1, $2, 'draft', $3, $4, $5, $6, $7, $8)
      RETURNING id`,
     [
       courseId,
@@ -186,6 +187,7 @@ async function insertPackage(client, data, packageSha256) {
       data.version.description ?? "",
       data.version.locale,
       data.version.content_schema_version ?? data.schema_version,
+      actorUserId,
     ],
   );
   const courseVersionId = versionResult.rows[0].id;
@@ -335,15 +337,17 @@ async function insertPackage(client, data, packageSha256) {
 
   await client.query(
     `INSERT INTO curriculum_content_package_imports (
-        course_version_id, format, schema_version, package_sha256, metadata
+        course_version_id, format, schema_version, package_sha256, metadata,
+        content_schema_version_explicit
      )
-     VALUES ($1, $2, $3, $4, $5::jsonb)`,
+     VALUES ($1, $2, $3, $4, $5::jsonb, $6)`,
     [
       courseVersionId,
       data.format,
       data.schema_version,
       packageSha256,
       JSON.stringify(data.metadata),
+      Object.hasOwn(data.version, "content_schema_version"),
     ],
   );
 
@@ -366,7 +370,10 @@ async function insertPackage(client, data, packageSha256) {
  * executes the same inserts, foreign keys, triggers, RLS policies and reference
  * resolution as a real import, but leaves no curriculum data behind.
  */
-export async function importCurriculumPackage(pool, data, packageSha256, { apply = false } = {}) {
+export async function importCurriculumPackage(pool, data, packageSha256, { apply = false, actorUserId } = {}) {
+  if (typeof actorUserId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actorUserId)) {
+    throw new Error("actorUserId must be a valid UUID belonging to a registered content editor.");
+  }
   if (!/^[0-9a-f]{64}$/.test(packageSha256)) {
     throw new Error("packageSha256 must be a lowercase 64-character SHA-256 hex digest.");
   }
@@ -377,12 +384,15 @@ export async function importCurriculumPackage(pool, data, packageSha256, { apply
     await client.query("BEGIN");
     transactionOpen = true;
 
-    // This flag is a database policy context for this trusted CLI connection,
-    // not an end-user authorization mechanism. The CLI requires a privileged
-    // DATABASE_URL and must never be exposed through an application endpoint.
-    await client.query("SELECT set_config('app.content_editor', 'true', true)");
+    // RLS verifies the transaction-local actor against public.content_editors.
+    // The CLI is administrative and must never be exposed through an application endpoint.
+    await client.query("SELECT set_config('app.current_user_id', $1, true)", [actorUserId]);
+    const authorization = await client.query("SELECT app_is_content_editor() AS allowed");
+    if (authorization.rows[0]?.allowed !== true) {
+      throw new Error("The selected actor is not registered as a curriculum content editor.");
+    }
 
-    const result = await insertPackage(client, data, packageSha256);
+    const result = await insertPackage(client, data, packageSha256, actorUserId);
     if (apply) {
       await client.query("COMMIT");
     } else {
@@ -411,14 +421,31 @@ async function main(argv) {
     return 0;
   }
 
-  const unknownOptions = argv.filter((arg) => arg.startsWith("-") && arg !== "--apply");
-  if (unknownOptions.length > 0) {
-    throw new Error(`Unknown option(s): ${unknownOptions.join(", ")}\n\n${usage()}`);
+  let packagePathArg;
+  let actorUserId;
+  let apply = false;
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === "--apply") {
+      apply = true;
+    } else if (arg === "--actor-user-id") {
+      actorUserId = argv[index + 1];
+      if (!actorUserId || actorUserId.startsWith("--")) {
+        throw new Error("--actor-user-id requires a UUID.");
+      }
+      index += 1;
+    } else if (arg.startsWith("-")) {
+      throw new Error(`Unknown option: ${arg}\n\n${usage()}`);
+    } else if (!packagePathArg) {
+      packagePathArg = arg;
+    } else {
+      throw new Error("Only one package path may be supplied.");
+    }
   }
 
-  const packagePathArg = argv.find((arg) => arg !== "--apply");
-  if (!packagePathArg) {
-    throw new Error(usage());
+  if (!packagePathArg || !actorUserId) throw new Error(usage());
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actorUserId)) {
+    throw new Error("--actor-user-id must be a valid UUID.");
   }
 
   const databaseUrl = process.env.DATABASE_URL;
@@ -428,7 +455,6 @@ async function main(argv) {
 
   const packagePath = path.resolve(process.cwd(), packagePathArg);
   const { data, packageSha256, validation } = await readValidatedPackage(packagePath);
-  const apply = argv.includes("--apply");
   const pool = new Pool({
     connectionString: databaseUrl,
     max: 1,
@@ -437,7 +463,7 @@ async function main(argv) {
   });
 
   try {
-    const result = await importCurriculumPackage(pool, data, packageSha256, { apply });
+    const result = await importCurriculumPackage(pool, data, packageSha256, { apply, actorUserId });
     console.log(JSON.stringify({
       valid: true,
       mode: apply ? "apply" : "dry-run",

@@ -262,7 +262,7 @@ jobs:
       - name: Test transactional curriculum package importer
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/devfluency_test
-        run: node --test tools/curriculum/tests/import_content_package.test.mjs
+        run: node --test tools/curriculum/tests/*.test.mjs
       - name: Install stable Rust
         run: |
           rustup toolchain install stable --profile minimal --component rustfmt --component clippy

@@ -446,9 +446,40 @@ def validate_package(data: Any) -> list[str]:
     return errors
 
 
+def _canonicalize_unordered_arrays(value: Any) -> Any:
+    """Normalize arrays whose order is not part of the curriculum contract.
+
+    Unit/lesson/objective arrays and vocabulary/sentence references remain ordered
+    (they carry explicit positions). Skill declarations and prerequisite edges do
+    not carry positions, so their order must not change package identity.
+    """
+    if isinstance(value, list):
+        return [_canonicalize_unordered_arrays(item) for item in value]
+    if isinstance(value, dict):
+        normalized = {
+            key: _canonicalize_unordered_arrays(item)
+            for key, item in value.items()
+        }
+        skills = normalized.get("skills")
+        if isinstance(skills, list):
+            normalized["skills"] = sorted(
+                skills,
+                key=lambda item: item.get("code", "") if isinstance(item, dict) else "",
+            )
+        prerequisites = normalized.get("prerequisites")
+        if isinstance(prerequisites, list):
+            normalized["prerequisites"] = sorted(
+                prerequisites,
+                key=lambda item: item.get("lesson_code", "") if isinstance(item, dict) else "",
+            )
+        return normalized
+    return value
+
+
 def canonical_sha256(data: Any) -> str:
-    """Hash semantic JSON content, ignoring insignificant object-key/whitespace changes."""
-    canonical = json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    """Hash canonical content; ignore object-key and unordered relation-array order."""
+    canonical_data = _canonicalize_unordered_arrays(data)
+    canonical = json.dumps(canonical_data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
