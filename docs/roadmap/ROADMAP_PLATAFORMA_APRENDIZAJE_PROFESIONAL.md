@@ -413,30 +413,41 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 
 ### Subfase 1.5. APIs y administración
 
-**Avance incremental — integración de catálogo para estudiantes (PR #81):** se incorporan las consultas autenticadas de versiones curriculares publicadas, detalle por `course_version_id` y matrícula, además de las rutas frontend `/courses` y `/courses/{course_version_id}`. Se conserva la ruta existente `/learn`. Las versiones archivadas solo se muestran a usuarios con matrícula sobre esa versión, preservando el versionado inmutable. La descripción técnica está en [Integración del catálogo curricular para estudiantes](../curriculum/phase-1.5-student-catalog-integration.md).
+**Avance incremental — catálogo estudiantil (PR #81) y APIs/administración web (PR en curso):** se conservan las rutas existentes, se expone el catálogo por versión inmutable y se incorporan filtros/paginación PostgreSQL, progreso de lecciones basado en evidencia persistida y una administración web protegida para importar paquetes, tramitar revisión y publicar. La implementación y sus límites están en [Catálogo curricular y administración editorial web](../curriculum/phase-1.5-student-catalog-integration.md).
 
-Este avance **no cierra la subfase 1.5**. Continúan pendientes el estado de desbloqueo calculado desde el progreso del estudiante, paginación/filtros de backend y las APIs e interfaces administrativas protegidas para edición, revisión y publicación.
+**Estado de lo implementado en la rama de trabajo:**
+- [x] Exponer catálogo de cursos, unidades y lecciones para estudiantes.
+- [x] Exponer detalle por versión exacta, objetivos, competencias y prerrequisitos.
+- [x] Exponer estado de desbloqueo calculado con eventos de vocabulario y revisiones SRS persistidas.
+- [x] Exponer catálogo paginado y filtrado en PostgreSQL (ruta, nivel, búsqueda y matrículas).
+- [x] Crear cola editorial web con autorización comprobada contra `content_editors`.
+- [x] Exponer importación web canónica v1 con previsualización transaccional y confirmación explícita como `draft`.
+- [x] Tramitar submit, approved, changes_requested, rejected y publish mediante API; publicación exige la última aprobación del mismo editor y las restricciones de PostgreSQL.
+- [x] Versionar contratos HTTP/gRPC y mantener intacto el recorrido legado `/learn`.
 
-- [ ] Exponer catálogo de cursos, unidades y lecciones.
-- [ ] Exponer detalle de lección y objetivos.
-- [ ] Exponer prerequisitos y estado de desbloqueo.
-- [ ] Exponer contenido paginado y filtrado sin cargar miles de elementos innecesarios.
-- [ ] Crear operaciones administrativas protegidas por rol para contenido.
-- [ ] Versionar contratos HTTP/gRPC y mantener compatibilidad de clientes actuales.
+**Pendientes para completar la subfase 1.5:**
+- [ ] Editor visual campo a campo de una versión `draft` ya importada. Por ahora la edición del paquete se realiza en JSON antes de crear la versión; no se sobrescribe una versión importada.
+- [ ] Pruebas de integración PostgreSQL para paginación, filtros, permisos editoriales, importación web y transiciones de extremo a extremo.
+- [ ] Validación automática del catálogo real completo y evidencia de su cobertura.
+- [ ] Provisionar una cuenta autorizada en `content_editors` y ejecutar el flujo web con esa cuenta.
+
+**Límite de progreso:** el desbloqueo usa eventos de palabras completadas y repetición SM-2 exitosa sobre frases. La cobertura SM-2 es práctica/retención, no una calificación general de competencia. La evaluación de gramática, escritura, listening y speaking con intentos y rúbricas pertenece al motor de actividades de Fase 2.
+
+**Contenido real:** todavía no se ha cargado ni publicado un paquete curricular real de negocio en producción. El fixture de CI no es contenido de producción. Para completar la carga se requiere un paquete aprobado, referencias de vocabulario/frases existentes y únicas, y un editor provisionado; la importación web lo guardará como borrador y la aprobación/publicación se hará por separado.
 
 ### Pruebas y aceptación
 
 - [x] Pruebas de esquema para cada tipo de contenido del paquete canónico v1.
-- [x] Pruebas de importación idempotente.
-- [x] Pruebas de duplicados y referencias inválidas.
-- [x] Pruebas de publicación y versionado.
-- [x] Pruebas de permisos editor/estudiante en PostgreSQL.
-- [x] Pruebas RLS entre usuarios.
-- [ ] Pruebas de paginación, filtros y orden.
-- [ ] Validación automática del catálogo completo.
+- [x] Pruebas de importación idempotente en el CLI existente.
+- [x] Pruebas de duplicados y referencias inválidas en el contrato canónico.
+- [x] Pruebas de publicación y versionado en PostgreSQL/CI existentes.
+- [x] Pruebas de permisos editor/estudiante y RLS del modelo editorial en PostgreSQL.
+- [x] Pruebas unitarias frontend para mapeadores de paginación/progreso/acciones/importación.
+- [ ] Pruebas de integración de las nuevas rutas web/gRPC y transacciones de importación desde PostgreSQL.
+- [ ] Validación automática del catálogo completo y carga editorial de negocio.
 - [x] Ninguna lección publicada carece de objetivo requerido y criterio de finalización; PostgreSQL lo bloquea y CI prueba el rechazo.
 
-**Gate de salida:** catálogo académico navegable, versionado, validado y con cobertura de contenido aprobada para la primera versión de producto.
+**Gate de salida:** catálogo académico navegable, versionado, validado, con progreso trazable, administración editorial protegida, pruebas de integración y contenido real aprobado/publicado para la primera versión de producto.
 
 ---
 

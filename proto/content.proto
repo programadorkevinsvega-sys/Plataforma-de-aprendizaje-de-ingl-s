@@ -9,9 +9,9 @@ service ContentService {
   rpc ListCurriculumCourses (ListCurriculumCoursesRequest) returns (ListCurriculumCoursesResponse);
   rpc GetCurriculumCourse (GetCurriculumCourseRequest) returns (GetCurriculumCourseResponse);
   rpc EnrollInCourse (EnrollInCourseRequest) returns (EnrollInCourseResponse);
-  rpc RecordCurriculumLessonEvidence (RecordCurriculumLessonEvidenceRequest) returns (RecordCurriculumLessonEvidenceResponse);
-  rpc ListEditorialCourseVersions (ListEditorialCourseVersionsRequest) returns (ListEditorialCourseVersionsResponse);
-  rpc ApplyEditorialAction (ApplyEditorialActionRequest) returns (ApplyEditorialActionResponse);
+  rpc ListEditorialVersions (ListEditorialVersionsRequest) returns (ListEditorialVersionsResponse);
+  rpc ManageEditorialVersion (ManageEditorialVersionRequest) returns (ManageEditorialVersionResponse);
+  rpc ImportCurriculumPackage (ImportCurriculumPackageRequest) returns (ImportCurriculumPackageResponse);
 }
 
 message ContextSentence {
@@ -65,18 +65,20 @@ message InterviewQuestionResponse {
 
 message ListCurriculumCoursesRequest {
   string user_id = 1;
-  int32 limit = 2;
-  int32 offset = 3;
+  int32 page = 2;
+  int32 page_size = 3;
   string track_code = 4;
   string cefr_level = 5;
-  string search = 6;
+  string search_query = 6;
+  bool enrolled_only = 7;
 }
 
 message ListCurriculumCoursesResponse {
   repeated CurriculumCourseSummary items = 1;
   int32 total = 2;
-  int32 limit = 3;
-  int32 offset = 4;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
 }
 
 message GetCurriculumCourseRequest {
@@ -124,9 +126,15 @@ message CurriculumLesson {
   int32 estimated_minutes = 7;
   repeated CurriculumObjective objectives = 8;
   repeated CurriculumPrerequisite prerequisites = 9;
-  string progress_state = 10;
-  bool unlocked = 11;
-  double mastery_score = 12;
+  CurriculumLessonProgress progress = 10;
+}
+
+message CurriculumLessonProgress {
+  string state = 1;
+  double mastery_score = 2;
+  int32 required_objectives = 3;
+  int32 completed_objectives = 4;
+  bool prerequisites_satisfied = 5;
 }
 
 message CurriculumObjective {
@@ -157,51 +165,72 @@ message EnrollInCourseResponse {
   string started_at = 4;
 }
 
-message RecordCurriculumLessonEvidenceRequest {
+message ListEditorialVersionsRequest {
   string user_id = 1;
-  string lesson_id = 2;
-  string evidence_event_id = 3;
-  double mastery_score = 4;
+  int32 page = 2;
+  int32 page_size = 3;
+  string status = 4;
+  string search_query = 5;
 }
 
-message RecordCurriculumLessonEvidenceResponse {
-  bool applied = 1;
-  string progress_state = 2;
-  double mastery_score = 3;
+message ListEditorialVersionsResponse {
+  repeated EditorialCourseVersionSummary items = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
 }
 
-message ListEditorialCourseVersionsRequest {
-  string user_id = 1;
-  string status = 2;
-}
-message EditorialCourseVersion {
+message EditorialCourseVersionSummary {
   string course_version_id = 1;
   string slug = 2;
   string track_code = 3;
   string cefr_level = 4;
   int32 version_number = 5;
-  string title = 6;
-  string description = 7;
-  string status = 8;
-  string submitted_at = 9;
-  string published_at = 10;
+  string status = 6;
+  string title = 7;
+  string description = 8;
+  string imported_at = 9;
+  string package_sha256 = 10;
   string latest_decision = 11;
   string latest_comments = 12;
+  string latest_reviewer_id = 13;
+  bool can_publish = 14;
 }
-message ListEditorialCourseVersionsResponse {
-  repeated EditorialCourseVersion items = 1;
-}
-message ApplyEditorialActionRequest {
+
+message ManageEditorialVersionRequest {
   string user_id = 1;
   string course_version_id = 2;
   string action = 3;
   string decision = 4;
   string comments = 5;
 }
-message ApplyEditorialActionResponse {
+
+message ManageEditorialVersionResponse {
   string course_version_id = 1;
   string action = 2;
-  string status = 3;
-  string decision = 4;
-  bool applied = 5;
+  string previous_status = 3;
+  string next_status = 4;
+  string review_id = 5;
+  string reviewed_at = 6;
+}
+
+
+message ImportCurriculumPackageRequest {
+  string user_id = 1;
+  string package_json = 2;
+  bool apply = 3;
+}
+
+message ImportCurriculumPackageResponse {
+  string state = 1;
+  string course_version_id = 2;
+  string package_sha256 = 3;
+  int32 units = 4;
+  int32 lessons = 5;
+  int32 objectives = 6;
+  int32 vocabulary_references = 7;
+  int32 sentence_references = 8;
+  bool applied = 9;
+  bool dry_run = 10;
 }

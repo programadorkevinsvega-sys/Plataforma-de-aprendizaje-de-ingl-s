@@ -1,69 +1,102 @@
-# Integración del catálogo curricular para estudiantes (Fase 1.5)
+# Catálogo curricular y administración editorial web (Fase 1.5)
 
-## Propósito
+## Estado y alcance
 
-Conectar el modelo curricular introducido en las subfases 1.2 y 1.3 con la aplicación web existente, sin reemplazar los recorridos de vocabulario, entrevista ni el Sistema Dual de Pronunciación.
+Esta entrega amplía el catálogo estudiantil integrado en PR #81. Incorpora paginación y filtros en PostgreSQL, estados de lección calculados a partir de evidencia persistida, y una interfaz administrativa para importar paquetes, gestionar revisión y publicar versiones aprobadas.
 
-La integración se limita a la lectura del catálogo publicado y a la matrícula sobre una versión inmutable del curso. No implementa todavía la administración editorial web ni la ejecución de ejercicios.
+No cierra la Fase 1.5 ni la Fase 1 completa. La UI todavía no ofrece edición campo a campo de una versión ya importada; los paquetes se corrigen como nuevos contenidos versionados, sin sobrescribir la misma versión. Tampoco se ha importado ni publicado contenido curricular real de negocio en producción.
 
-## Recorrido de extremo a extremo
+## 1. Catálogo estudiantil: filtros y paginación reales
 
-1. El frontend solicita el catálogo usando la sesión actual.
-2. El BFF valida el JWT y reenvía el contexto de autenticación al servicio de contenido.
-3. El servicio valida que el `user_id` del mensaje coincide con el sujeto autenticado.
-4. Dentro de una transacción PostgreSQL, el servicio define `app.current_user_id` para que las políticas RLS filtren el catálogo y la matrícula.
-5. El servicio devuelve únicamente versiones publicadas y versiones archivadas a las que el usuario conserva acceso por matrícula.
-6. El frontend navega por `course_version_id`, no solo por slug/nivel, para mantener la versión exacta asignada al estudiante.
+**GET /api/v1/curriculum/courses** acepta:
 
-## Endpoints del BFF
+| Query | Significado | Valores |
+|---|---|---|
+| page | Página (base 1) | Entero positivo; default 1 |
+| page_size | Tamaño de página | Default 12; máximo 50 |
+| track_code | Ruta | general o technology |
+| cefr_level | Nivel | PRE_A1, A1, A2, B1, B2, C1, C2 |
+| search | Busca en slug, título y descripción | Hasta 120 caracteres |
+| enrolled_only | Solo matrículas del usuario | true / false |
+
+El servicio ejecuta conteo y consulta paginada en PostgreSQL dentro de una transacción. El resultado incluye total, page, page_size y total_pages. Las versiones publicadas se listan para estudiantes; las archivadas solo cuando el usuario conserva matrícula sobre esa versión. La pantalla /courses usa estos parámetros y no descarga todo el catálogo para filtrar localmente.
+
+## 2. Progreso y desbloqueo de lecciones
+
+El detalle de una versión exacta devuelve un objeto progress por lección:
+
+- not_enrolled: no existe matrícula para esa versión.
+- locked: no se satisfacen uno o más prerrequisitos.
+- available: está matriculado y los prerrequisitos se satisfacen.
+- in_progress: existe evidencia parcial para objetivos requeridos.
+- completed: todos los objetivos requeridos tienen evidencia para todas sus referencias.
+- mastered: los objetivos requeridos están completados y la cobertura de repetición SM-2 alcanza el umbral definido.
+
+### Evidencia que se usa hoy
+
+- Las referencias de vocabulario se contrastan con learning_progress_events para el usuario autenticado.
+- Las referencias de frases se contrastan con user_srs_progress; una revisión exitosa conserva repetitions > 0, y los fallos reinician ese contador.
+- Para los requisitos mastered, la señal disponible es una cobertura de repetición por frase, limitada a tres repeticiones exitosas.
+
+**Límite académico importante:** esa cobertura SM-2 es una señal de práctica/retención de vocabulario y frases, no una calificación lingüística ni una certificación de dominio. Los objetivos de gramática, escritura, pronunciación y expresión oral que requieran evaluar respuestas todavía necesitan intentos evaluados del motor de actividades de Fase 2. Una lección desbloqueada tampoco significa que ya exista una actividad interactiva para ejecutarla.
+
+## 3. Administración curricular y autorización
+
+La ruta frontend es /admin/curriculum. La API valida el JWT en el BFF y vuelve a comprobar el usuario contra content_editors desde PostgreSQL, dentro de una transacción que configura app.current_user_id. El frontend no puede concederse el rol y ocultar botones no es la barrera de seguridad.
+
+Endpoints del BFF:
 
 | Método | Ruta | Uso |
 |---|---|---|
-| GET | `/api/v1/curriculum/courses` | Lista versiones publicadas y versiones archivadas visibles por matrícula |
-| GET | `/api/v1/curriculum/courses/{course_version_id}` | Consulta la versión exacta, unidades, lecciones, objetivos, competencias y prerrequisitos |
-| POST | `/api/v1/curriculum/enrollments` | Crea o recupera la matrícula para una versión publicada |
+| GET | /api/v1/curriculum/editor/versions | Cola editorial paginada y filtrable por estado/búsqueda |
+| POST | /api/v1/curriculum/editor/import | Validación/previsualización o importación explícita de un paquete |
+| POST | /api/v1/curriculum/editor/versions/{course_version_id}/actions | Enviar a revisión, registrar decisión o publicar |
 
-La solicitud de matrícula utiliza `{ "course_version_id": "..." }`. El servicio rechaza identificadores inválidos y no permite crear nuevas matrículas sobre versiones archivadas.
+### Importación desde la web
 
-## Interfaz existente y nueva
+1. El editor selecciona o pega un JSON canónico v1.
+2. **Validar y previsualizar** ejecuta la validación estructural, cálculo SHA-256, resolución exacta de referencias de vocabulario/frases y los mismos INSERTs/transacciones. Al final revierte todo (dry_run=true).
+3. **Confirmar importación como borrador** repite la operación con apply=true y crea una versión nueva en estado draft.
+4. La importación es idempotente para la misma huella y se niega a sobrescribir una versión existente con contenido diferente. Para un contenido corregido se usa una nueva versión del paquete; no se muta una versión ya registrada.
 
-- `/learn` conserva el recorrido legado de vocabulario contextualizado y el Sistema Dual de Pronunciación.
-- `/courses` presenta el catálogo desde el nuevo modelo curricular.
-- `/courses/{course_version_id}` muestra los datos de la versión, sus unidades, lecciones, objetivos, criterios de éxito, competencias y prerrequisitos.
-- El dashboard y la barra lateral enlazan al catálogo.
-- La interfaz no presenta el fixture CI como contenido de producción. Cuando no hay versiones accesibles, informa que aún no existe contenido publicado.
+El paquete admite máximo 1.5 MB. El importador rechaza claves JSON duplicadas, campos fuera del contrato, IDs/códigos duplicados, referencias ausentes o ambiguas, objetivos huérfanos y ciclos de prerrequisitos. Nunca crea una versión directamente en published.
 
-## Versionado, acceso y seguridad
+### Revisión y publicación
 
-- Las consultas requieren una sesión válida.
-- El servicio comprueba la identidad contra el JWT y configura el contexto RLS dentro de la misma transacción de lectura/escritura.
-- Las versiones publicadas son visibles en el catálogo.
-- Las versiones archivadas se incluyen únicamente cuando el usuario conserva una matrícula que le permite acceder a esa versión histórica.
-- La URL usa el ID de versión, porque un slug y nivel pueden tener varias versiones a lo largo del tiempo.
-- La matrícula queda fijada a `course_version_id`; una publicación posterior no cambia la versión ya asociada.
-- Las consultas de detalle no permiten leer versiones draft o review a estudiantes.
-- No se exponen credenciales de base de datos, comandos CLI ni roles editoriales desde el navegador.
+- draft -> review: el editor envía una versión a revisión y PostgreSQL congela su contenido.
+- approved: se agrega una decisión append-only; la versión permanece en review.
+- changes_requested o rejected: requieren comentarios y devuelven la versión a draft.
+- publish: solo el editor que registró la última aprobación puede publicar. PostgreSQL vuelve a comprobar integridad, objetivos requeridos, competencias primarias y congelación del contenido antes de cambiar el estado.
 
-## Alcance pendiente
+La cola muestra el último comentario, decisión, huella del paquete y si el editor autenticado puede publicar.
 
-Esta integración no cierra la subfase 1.5 ni la Fase 1 completa. Permanecen pendientes:
+### Provisionamiento inicial de editores
 
-- Estado de desbloqueo real de cada lección, basado en progreso y dominio del estudiante.
-- Paginación y filtros de catálogo resueltos en el backend para catálogos grandes.
-- APIs y pantallas administrativas para borradores, revisión, decisiones editoriales y publicación.
-- Autorización administrativa web comprobada en PostgreSQL contra `content_editors` en cada operación.
-- Carga controlada de un paquete editorial real, aprobación y publicación de contenido curricular.
+La tabla content_editors requiere que un administrador de plataforma registre explícitamente el UUID de la cuenta editorial mediante el procedimiento seguro de administración de base de datos. No se concede la capacidad desde el navegador ni automáticamente al primer usuario. Hasta ese provisionamiento, la pantalla mostrará acceso denegado (HTTP 403), aunque la ruta sea visible.
 
-El motor genérico de ejercicios, los intentos, la corrección y la finalización de lecciones corresponden a la Fase 2 y no se simulan en estas pantallas.
+## 4. Qué se conserva de la aplicación actual
 
-## Validación automatizada
+- /learn y el Sistema Dual de Pronunciación siguen intactos.
+- /courses es la navegación académica para estudiantes.
+- /courses/{course_version_id} presenta la versión inmutable, prerrequisitos, objetivos y progreso disponible.
+- /admin/curriculum es el área administrativa protegida por la capacidad de base de datos.
+- No se utilizan fixtures de CI como catálogo de producción.
 
-La CI de la PR #81 ejecuta:
+## 5. Pendientes explícitos
 
-- Migraciones curriculares desde esquema vacío y actualizado.
-- Compilación, Clippy, formato y pruebas del workspace Rust.
-- Lint, build de producción y cobertura base del frontend.
-- Pruebas unitarias de los mapeadores de los contratos curriculares.
-- Auditorías de dependencias y validación de scripts.
+1. Editor visual campo a campo para revisar y corregir una versión draft ya importada. Hoy el panel edita el paquete JSON antes de la primera importación y evita sobrescribir versiones existentes.
+2. Intentos y rúbricas del motor de actividades Fase 2 para que gramática, escritura, listening y speaking tengan progreso evaluado real, además de práctica de vocabulario/SRS.
+3. Curación editorial y expansión del catálogo (Subfase 1.4): calidad lingüística de traducciones, ejemplos, guías fonéticas y audios lento/natural.
+4. Cargar un paquete curricular real aprobado, con referencias que existan exactamente una vez en PostgreSQL; revisar y publicar mediante el flujo protegido.
+5. Provisionar al menos una cuenta editorial en content_editors mediante la operación administrativa segura.
+6. Pruebas automatizadas de integración para paginación/filtros, RLS editorial, workflow completo, importación web dry-run/apply y desbloqueo por evidencia en PostgreSQL.
 
-La CI de la PR no demuestra por sí sola que existan versiones publicadas en producción. La disponibilidad de cursos depende de contenido real importado, revisado y publicado mediante el flujo editorial existente.
+El fixture tests/fixtures/curriculum/phase1_3_content_package_v1.json se utiliza únicamente para CI y validación de esquema. No es contenido real y no debe importarse ni publicarse en producción.
+
+## 6. Límites y operación
+
+- El BFF valida el token y el servicio curricular valida la identidad y aplica RLS en la misma transacción.
+- El importador mantiene las transacciones atómicas; un fallo de referencia o de integridad revierte la importación completa.
+- Los endpoints editoriales devuelven 403 a cuentas que no estén en content_editors.
+- La publicación solo se realiza desde una versión review cuya última decisión sea approved por el mismo editor que publica.
+- No se ha ejecutado todavía una importación real en producción ni se declara ningún curso publicado por esta entrega.
