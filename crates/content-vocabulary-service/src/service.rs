@@ -660,6 +660,99 @@ impl ContentService for MyContentService {
                 });
         }
 
+        let evidence_by_objective: HashMap<Uuid, (i64, i64, f64)> = objective_evidence_rows
+            .into_iter()
+            .map(|(objective_id, total, completed, mastery)| {
+                (objective_id, (total, completed, mastery.clamp(0.0, 1.0)))
+            })
+            .collect();
+
+        // (objetivos obligatorios, objetivos completados, suma de dominio)
+        let mut lesson_evidence: HashMap<Uuid, (i32, i32, f64)> = HashMap::new();
+        for (lesson_id, objective_id, _, _, _, _, required, _) in &objective_rows {
+            if !required {
+                continue;
+            }
+            let (evidence_total, evidence_completed, mastery_score) =
+                evidence_by_objective.get(objective_id).copied().unwrap_or((0, 0, 0.0));
+            let entry = lesson_evidence.entry(*lesson_id).or_insert((0, 0, 0.0));
+            entry.0 = entry.0.saturating_add(1);
+            if evidence_total > 0 && evidence_completed == evidence_total {
+                entry.1 = entry.1.saturating_add(1);
+            }
+            entry.2 += mastery_score;
+        }
+
+        // Primero se calcula la finalización/dominio base de todas las lecciones.
+        // La disponibilidad se deriva después, evitando depender del orden visual
+        // de las unidades cuando el grafo de prerrequisitos no es lineal.
+        let mut lesson_base: HashMap<Uuid, (i32, i32, f64, bool, bool)> = HashMap::new();
+        for (lesson_id, _, _, _, _, _, _, _) in &lesson_rows {
+            let (required, completed, mastery_sum) =
+                lesson_evidence.get(lesson_id).copied().unwrap_or((0, 0, 0.0));
+            let mastery_score = if required > 0 {
+                (mastery_sum / f64::from(required)).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            let is_completed = required > 0 && completed == required;
+            let is_mastered = is_completed && mastery_score >= 0.8;
+            lesson_base.insert(
+                *lesson_id,
+                (required, completed, mastery_score, is_completed, is_mastered),
+            );
+        }
+
+        let mut progress_by_lesson: HashMap<Uuid, CurriculumLessonProgress> = HashMap::new();
+        for (lesson_id, _, _, _, _, _, _, _) in &lesson_rows {
+            let (required, completed, mastery_score, is_completed, is_mastered) =
+                lesson_base.get(lesson_id).copied().unwrap_or((0, 0, 0.0, false, false));
+            let prerequisites = prerequisites_by_lesson
+                .get(lesson_id)
+                .map(Vec::as_slice)
+                .unwrap_or(&[]);
+            let prerequisites_satisfied = enrolled
+                && prerequisites.iter().all(|prerequisite| {
+                    let prerequisite_id = Uuid::parse_str(&prerequisite.prerequisite_lesson_id).ok();
+                    let Some((_, _, prerequisite_mastery, prerequisite_completed, _)) =
+                        prerequisite_id.and_then(|id| lesson_base.get(&id).copied())
+                    else {
+                        return false;
+                    };
+                    if prerequisite.required_state == "mastered" {
+                        prerequisite_completed
+                            && prerequisite_mastery >= prerequisite.minimum_mastery_score
+                    } else {
+                        prerequisite_completed
+                    }
+                });
+
+            let state = if !enrolled {
+                "not_enrolled"
+            } else if is_mastered {
+                "mastered"
+            } else if is_completed {
+                "completed"
+            } else if !prerequisites_satisfied {
+                "locked"
+            } else if completed > 0 {
+                "in_progress"
+            } else {
+                "available"
+            };
+
+            progress_by_lesson.insert(
+                *lesson_id,
+                CurriculumLessonProgress {
+                    state: state.to_string(),
+                    mastery_score,
+                    required_objectives: required,
+                    completed_objectives: completed,
+                    prerequisites_satisfied,
+                },
+            );
+        }
+
         let mut lessons_by_unit: HashMap<Uuid, Vec<CurriculumLesson>> = HashMap::new();
         for (id, unit_id, code, position, pattern, lesson_title, lesson_description, minutes) in
             lesson_rows
@@ -677,6 +770,7 @@ impl ContentService for MyContentService {
                     estimated_minutes: minutes.unwrap_or_default(),
                     objectives: objectives_by_lesson.remove(&id).unwrap_or_default(),
                     prerequisites: prerequisites_by_lesson.remove(&id).unwrap_or_default(),
+                    progress: progress_by_lesson.remove(&id),
                 });
         }
 
