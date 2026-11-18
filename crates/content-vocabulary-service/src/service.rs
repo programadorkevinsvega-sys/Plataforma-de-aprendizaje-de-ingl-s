@@ -1,7 +1,9 @@
 use proto::content::content_service_server::ContentService;
 use proto::content::{
     ContextSentence, CurriculumCourseSummary, CurriculumLesson, CurriculumLessonProgress,
-    CurriculumObjective,
+    CurriculumObjective, EditorialCourseVersionSummary, ListEditorialVersionsRequest,
+    ListEditorialVersionsResponse, ManageEditorialVersionRequest,
+    ManageEditorialVersionResponse,
     CurriculumPrerequisite, CurriculumUnit, EnrollInCourseRequest, EnrollInCourseResponse,
     GetCurriculumCourseRequest, GetCurriculumCourseResponse, GetRandomInterviewQuestionRequest,
     GetVocabularyWordRequest, InterviewQuestionResponse, ListCurriculumCoursesRequest,
@@ -866,6 +868,364 @@ impl ContentService for MyContentService {
             course_version_id: version_id.to_string(),
             status,
             started_at,
+        }))
+    }
+
+    async fn list_editorial_versions(
+        &self,
+        request: Request<ListEditorialVersionsRequest>,
+    ) -> Result<Response<ListEditorialVersionsResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let req = request.into_inner();
+        let page = if req.page <= 0 { 1 } else { req.page };
+        let page_size = if req.page_size <= 0 {
+            20
+        } else if req.page_size > 100 {
+            return Err(Status::invalid_argument("page_size no puede superar 100"));
+        } else {
+            req.page_size
+        };
+        if !req.status.is_empty()
+            && !matches!(req.status.as_str(), "draft" | "review" | "published" | "archived")
+        {
+            return Err(Status::invalid_argument("El filtro de estado editorial no es válido"));
+        }
+        let search = req.search_query.trim().to_lowercase();
+        if search.len() > 120 {
+            return Err(Status::invalid_argument("search_query no puede superar 120 caracteres"));
+        }
+        let status = if req.status.is_empty() { None } else { Some(req.status) };
+        let search = if search.is_empty() { None } else { Some(search) };
+
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| Status::internal("No se pudo iniciar la consulta editorial"))?;
+        common::set_current_user_id(&mut tx, user_id)
+            .await
+            .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
+        let is_editor: bool = sqlx::query_scalar("SELECT app_is_content_editor()")
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|_| Status::internal("No se pudo verificar la capacidad editorial"))?;
+        if !is_editor {
+            return Err(Status::permission_denied(
+                "La cuenta no está registrada como editora de contenidos curriculares",
+            ));
+        }
+
+        let total: i64 = sqlx::query_scalar(
+            r#"SELECT COUNT(*)
+                 FROM courses course
+                 JOIN course_versions version ON version.course_id = course.id
+                WHERE ($1::TEXT IS NULL OR version.status = $1)
+                  AND ($2::TEXT IS NULL OR (
+                      course.slug ILIKE '%' || $2 || '%'
+                      OR version.title ILIKE '%' || $2 || '%'
+                      OR version.description ILIKE '%' || $2 || '%'
+                  ))"#,
+        )
+        .bind(status.as_deref())
+        .bind(search.as_deref())
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudo contar la cola editorial"))?;
+
+        let offset = i64::from(page - 1).saturating_mul(i64::from(page_size));
+        let rows: Vec<(
+            String,
+            String,
+            String,
+            String,
+            i32,
+            String,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            bool,
+        )> = sqlx::query_as(
+            r#"SELECT
+                   version.id::TEXT,
+                   course.slug,
+                   course.track_code,
+                   version.cefr_level,
+                   version.version_number,
+                   version.status,
+                   version.title,
+                   version.description,
+                   imported.imported_at::TEXT,
+                   btrim(imported.package_sha256),
+                   latest.decision,
+                   latest.comments,
+                   latest.reviewer_id::TEXT,
+                   (
+                       version.status = 'review'
+                       AND latest.decision = 'approved'
+                       AND latest.reviewer_id = $1
+                   ) AS can_publish
+               FROM courses course
+               JOIN course_versions version ON version.course_id = course.id
+               LEFT JOIN curriculum_content_package_imports imported
+                 ON imported.course_version_id = version.id
+               LEFT JOIN LATERAL (
+                   SELECT review.decision, review.comments, review.reviewer_id
+                     FROM course_version_reviews review
+                    WHERE review.course_version_id = version.id
+                    ORDER BY review.review_order DESC
+                    LIMIT 1
+               ) latest ON TRUE
+              WHERE ($2::TEXT IS NULL OR version.status = $2)
+                AND ($3::TEXT IS NULL OR (
+                    course.slug ILIKE '%' || $3 || '%'
+                    OR version.title ILIKE '%' || $3 || '%'
+                    OR version.description ILIKE '%' || $3 || '%'
+                ))
+              ORDER BY
+                CASE version.status WHEN 'review' THEN 1 WHEN 'draft' THEN 2
+                     WHEN 'published' THEN 3 ELSE 4 END,
+                version.updated_at DESC,
+                course.slug,
+                version.cefr_level,
+                version.version_number DESC
+              LIMIT $4 OFFSET $5"#,
+        )
+        .bind(user_id)
+        .bind(status.as_deref())
+        .bind(search.as_deref())
+        .bind(i64::from(page_size))
+        .bind(offset)
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudo consultar la cola editorial"))?;
+
+        let items = rows
+            .into_iter()
+            .map(
+                |(
+                    version_id,
+                    slug,
+                    track_code,
+                    cefr_level,
+                    version_number,
+                    status,
+                    title,
+                    description,
+                    imported_at,
+                    package_sha256,
+                    latest_decision,
+                    latest_comments,
+                    latest_reviewer_id,
+                    can_publish,
+                )| EditorialCourseVersionSummary {
+                    course_version_id: version_id,
+                    slug,
+                    track_code,
+                    cefr_level,
+                    version_number,
+                    status,
+                    title,
+                    description,
+                    imported_at: imported_at.unwrap_or_default(),
+                    package_sha256: package_sha256.unwrap_or_default(),
+                    latest_decision: latest_decision.unwrap_or_default(),
+                    latest_comments: latest_comments.unwrap_or_default(),
+                    latest_reviewer_id: latest_reviewer_id.unwrap_or_default(),
+                    can_publish,
+                },
+            )
+            .collect();
+
+        tx.commit()
+            .await
+            .map_err(|_| Status::internal("No se pudo cerrar la consulta editorial"))?;
+        let total_pages = if total == 0 {
+            0
+        } else {
+            ((total + i64::from(page_size) - 1) / i64::from(page_size))
+                .min(i64::from(i32::MAX)) as i32
+        };
+
+        Ok(Response::new(ListEditorialVersionsResponse {
+            items,
+            total: total.min(i64::from(i32::MAX)) as i32,
+            page,
+            page_size,
+            total_pages,
+        }))
+    }
+
+    async fn manage_editorial_version(
+        &self,
+        request: Request<ManageEditorialVersionRequest>,
+    ) -> Result<Response<ManageEditorialVersionResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let req = request.into_inner();
+        let course_version_id = Uuid::parse_str(&req.course_version_id)
+            .map_err(|_| Status::invalid_argument("course_version_id inválido"))?;
+        if !matches!(req.action.as_str(), "submit" | "review" | "publish") {
+            return Err(Status::invalid_argument("La acción editorial no es válida"));
+        }
+        if req.action == "review"
+            && !matches!(req.decision.as_str(), "approved" | "rejected" | "changes_requested")
+        {
+            return Err(Status::invalid_argument("La decisión editorial no es válida"));
+        }
+        if req.action == "review"
+            && req.decision != "approved"
+            && req.comments.trim().is_empty()
+        {
+            return Err(Status::invalid_argument(
+                "Rechazar o solicitar cambios requiere comentarios editoriales",
+            ));
+        }
+        if req.action != "review" && (!req.decision.is_empty() || !req.comments.is_empty()) {
+            return Err(Status::invalid_argument(
+                "decision y comments solo son válidos para una acción review",
+            ));
+        }
+        if req.comments.len() > 4000 {
+            return Err(Status::invalid_argument("Los comentarios no pueden superar 4000 caracteres"));
+        }
+
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| Status::internal("No se pudo iniciar la transición editorial"))?;
+        common::set_current_user_id(&mut tx, user_id)
+            .await
+            .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
+        let is_editor: bool = sqlx::query_scalar("SELECT app_is_content_editor()")
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|_| Status::internal("No se pudo verificar la capacidad editorial"))?;
+        if !is_editor {
+            return Err(Status::permission_denied(
+                "La cuenta no está registrada como editora de contenidos curriculares",
+            ));
+        }
+
+        let previous_status: Option<String> = sqlx::query_scalar(
+            "SELECT status FROM course_versions WHERE id = $1 FOR UPDATE",
+        )
+        .bind(course_version_id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudo consultar la versión curricular"))?;
+        let previous_status =
+            previous_status.ok_or_else(|| Status::not_found("Versión curricular no encontrada"))?;
+
+        let (next_status, review_id, reviewed_at) = match req.action.as_str() {
+            "submit" => {
+                if previous_status != "draft" {
+                    return Err(Status::failed_precondition(
+                        "Solo una versión draft puede enviarse a revisión",
+                    ));
+                }
+                sqlx::query(
+                    r#"UPDATE course_versions
+                          SET status = 'review',
+                              submitted_at = CURRENT_TIMESTAMP,
+                              updated_at = CURRENT_TIMESTAMP
+                        WHERE id = $1"#,
+                )
+                .bind(course_version_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|_| Status::failed_precondition("No se pudo enviar la versión a revisión"))?;
+                ("review".to_string(), String::new(), String::new())
+            }
+            "review" => {
+                if previous_status != "review" {
+                    return Err(Status::failed_precondition(
+                        "Las decisiones editoriales requieren una versión en review",
+                    ));
+                }
+                let row: (String, String) = sqlx::query_as(
+                    r#"INSERT INTO course_version_reviews (
+                           course_version_id, reviewer_id, decision, comments
+                       )
+                       VALUES ($1, $2, $3, $4)
+                       RETURNING id::TEXT, reviewed_at::TEXT"#,
+                )
+                .bind(course_version_id)
+                .bind(user_id)
+                .bind(&req.decision)
+                .bind(&req.comments)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(|_| Status::failed_precondition("No se pudo registrar la decisión editorial"))?;
+                let next = if req.decision == "approved" {
+                    "review"
+                } else {
+                    sqlx::query(
+                        "UPDATE course_versions SET status = 'draft', updated_at = CURRENT_TIMESTAMP WHERE id = $1",
+                    )
+                    .bind(course_version_id)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|_| Status::failed_precondition("No se pudo devolver la versión a draft"))?;
+                    "draft"
+                };
+                (next.to_string(), row.0, row.1)
+            }
+            "publish" => {
+                if previous_status != "review" {
+                    return Err(Status::failed_precondition(
+                        "Solo una versión en review puede publicarse",
+                    ));
+                }
+                let latest: Option<(String, Uuid)> = sqlx::query_as(
+                    r#"SELECT decision, reviewer_id
+                         FROM course_version_reviews
+                        WHERE course_version_id = $1
+                        ORDER BY review_order DESC
+                        LIMIT 1"#,
+                )
+                .bind(course_version_id)
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(|_| Status::internal("No se pudo comprobar la aprobación editorial"))?;
+                if !matches!(latest, Some((ref decision, reviewer)) if decision == "approved" && reviewer == user_id) {
+                    return Err(Status::failed_precondition(
+                        "La última aprobación debe pertenecer al mismo editor que publica",
+                    ));
+                }
+                sqlx::query(
+                    r#"UPDATE course_versions
+                          SET status = 'published',
+                              reviewed_by = $2,
+                              published_at = CURRENT_TIMESTAMP,
+                              updated_at = CURRENT_TIMESTAMP
+                        WHERE id = $1"#,
+                )
+                .bind(course_version_id)
+                .bind(user_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|_| Status::failed_precondition(
+                    "La versión no cumple las condiciones de integridad para publicarse",
+                ))?;
+                ("published".to_string(), String::new(), String::new())
+            }
+            _ => unreachable!("editorial action was validated above"),
+        };
+
+        tx.commit()
+            .await
+            .map_err(|_| Status::internal("No se pudo confirmar la transición editorial"))?;
+
+        Ok(Response::new(ManageEditorialVersionResponse {
+            course_version_id: course_version_id.to_string(),
+            action: req.action,
+            previous_status,
+            next_status,
+            review_id,
+            reviewed_at,
         }))
     }
 
