@@ -55,7 +55,7 @@ El validador no necesita dependencias externas y no se conecta a PostgreSQL. Ver
 
 La importación resuelve referencias contra el catálogo existente y crea únicamente una versión curricular nueva en estado `draft`. No crea ni modifica vocabulario/frases, no publica contenido y no altera matrículas, tarjetas SRS ni progreso de estudiantes.
 
-Primero se aplican todas las migraciones, incluida `20261118000000_curriculum_content_package_imports.sql`, `20261118010000_curriculum_package_export_visibility.sql` y `20261118020000_curriculum_content_editors.sql`.
+Primero se aplican todas las migraciones, incluida `20261118000000_curriculum_content_package_imports.sql`, `20261118010000_curriculum_package_export_visibility.sql`, `20261118020000_curriculum_content_editors.sql`, `20261118030000_curriculum_review_order.sql` y `20261118040000_curriculum_publication_completeness.sql`.
 
 Modo predeterminado (**dry-run**, no persiste):
 
@@ -131,7 +131,7 @@ Las pruebas de integración requieren el PostgreSQL aislado preparado por CI y l
 
     DATABASE_URL='postgresql://…' node --test tools/curriculum/tests/*.test.mjs
 
-CI valida las migraciones desde cero y desde el esquema anterior, importación/exportación round-trip, integridad del hash, referencias externas, rollback, dry-run, idempotencia, no sobrescritura, concurrencia, identidad del editor y ciclo editorial.
+CI valida las migraciones desde cero y desde el esquema anterior, importación/exportación round-trip, integridad del hash, referencias externas, rollback, dry-run, idempotencia, no sobrescritura, concurrencia, identidad del editor, ciclo editorial, integridad académica obligatoria al publicar y congelación de las filas hijas durante la revisión.
 
 ## Límites de esta entrega
 
