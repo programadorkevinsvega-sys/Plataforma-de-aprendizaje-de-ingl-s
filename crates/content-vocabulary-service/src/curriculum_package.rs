@@ -657,8 +657,7 @@ pub fn validate_package_json(raw: &str) -> Result<(Value, String, PackageCounts)
     canonicalize(&mut data);
     let bytes = serde_json::to_vec(&data)
         .map_err(|_| "No se pudo normalizar el paquete curricular".to_string())?;
-    let digest = Sha256::digest(bytes);
-    let sha = digest.iter().map(|byte| format!("{byte:02x}")).collect();
+    let sha = canonical_sha256(&data)?;
     Ok((data, sha, counts))
 }
 
@@ -686,6 +685,13 @@ pub async fn import_package(
     if !is_editor {
         return Err("La cuenta no está registrada en content_editors".to_string());
     }
+
+    let units = data["units"]
+        .as_array()
+        .ok_or("units debe ser un arreglo")?;
+    let objectives = data["objectives"]
+        .as_array()
+        .ok_or("objectives debe ser un arreglo")?;
 
     let slug = data["course"]["slug"]
         .as_str()
@@ -805,7 +811,7 @@ pub async fn import_package(
     let mut lesson_ids: HashMap<String, Uuid> = HashMap::new();
     let mut objective_ids: HashMap<String, Uuid> = HashMap::new();
 
-    for unit in data["units"].as_array().ok_or("units debe ser un arreglo")? {
+    for unit in units {
         let code = unit["code"].as_str().unwrap_or("");
         let unit_id: Uuid = sqlx::query_scalar(
             r#"INSERT INTO course_units (
@@ -827,7 +833,7 @@ pub async fn import_package(
         unit_ids.insert(code.to_string(), unit_id);
     }
 
-    for objective in data["objectives"].as_array().ok_or("objectives debe ser un arreglo")? {
+    for objective in objectives {
         let code = objective["code"].as_str().unwrap_or("");
         let objective_id: Uuid = sqlx::query_scalar(
             r#"INSERT INTO learning_objectives (
@@ -865,7 +871,7 @@ pub async fn import_package(
         }
     }
 
-    for unit in data["units"].as_array().unwrap_or(&Vec::new()) {
+    for unit in units {
         let unit_code = unit["code"].as_str().unwrap_or("");
         let unit_id = *unit_ids.get(unit_code).ok_or("No se encontró la unidad importada")?;
         for lesson in unit["lessons"].as_array().ok_or("lessons debe ser un arreglo")? {
@@ -917,7 +923,7 @@ pub async fn import_package(
         }
     }
 
-    for objective in data["objectives"].as_array().unwrap_or(&Vec::new()) {
+    for objective in objectives {
         let objective_code = objective["code"].as_str().unwrap_or("");
         let objective_id = *objective_ids.get(objective_code).ok_or("Objetivo importado no encontrado")?;
 
@@ -996,7 +1002,7 @@ pub async fn import_package(
         }
     }
 
-    for unit in data["units"].as_array().unwrap_or(&Vec::new()) {
+    for unit in units {
         for lesson in unit["lessons"].as_array().unwrap_or(&Vec::new()) {
             let lesson_code = lesson["code"].as_str().unwrap_or("");
             let lesson_id = *lesson_ids.get(lesson_code).ok_or("Lección importada no encontrada")?;
@@ -1063,4 +1069,50 @@ pub async fn import_package(
         applied: apply,
         dry_run: !apply,
     })
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::validate_package_json;
+
+    const VALID_PACKAGE: &str = include_str!("../../../tests/fixtures/curriculum/phase1_3_content_package_v1.json");
+
+    #[test]
+    fn validates_the_versioned_ci_package_and_returns_counts() {
+        let (_, sha, counts) = validate_package_json(VALID_PACKAGE).expect("fixture is canonical v1");
+        assert_eq!(sha.len(), 64);
+        assert!(sha.bytes().all(|byte| byte.is_ascii_hexdigit()));
+        assert!(counts.units > 0);
+        assert!(counts.lessons > 0);
+        assert!(counts.objectives > 0);
+    }
+
+    #[test]
+    fn rejects_duplicate_json_object_keys() {
+        let raw = r#"{"format":"devfluency.curriculum-content","format":"duplicate"}"#;
+        let error = validate_package_json(raw).expect_err("duplicate keys must be rejected");
+        assert!(error.contains("duplicate JSON object key"));
+    }
+
+    #[test]
+    fn rejects_a_cycle_in_prerequisites() {
+        let raw = r#"{
+          "format":"devfluency.curriculum-content",
+          "schema_version":1,
+          "metadata":{"author":"Test","authored_at":"2026-11-18","source":{"name":"Original material","license":"CC BY 4.0"}},
+          "course":{"slug":"cycle-course","track_code":"general"},
+          "version":{"version_number":1,"cefr_level":"A1","title":"Cycle test","description":"","locale":"en"},
+          "units":[{"code":"unit-1","position":1,"title":"Unit","theme":"Theme","description":"","lessons":[
+            {"code":"lesson-1","position":1,"pattern":"discover","title":"One","description":"","objective_codes":["objective-1"],"prerequisites":[{"lesson_code":"lesson-2","required_state":"completed","minimum_mastery_score":0.8}]},
+            {"code":"lesson-2","position":2,"pattern":"practice","title":"Two","description":"","objective_codes":["objective-2"],"prerequisites":[{"lesson_code":"lesson-1","required_state":"completed","minimum_mastery_score":0.8}]}
+          ]}],
+          "objectives":[
+            {"code":"objective-1","position":1,"description":"One","success_criteria":"One","skills":[{"code":"vocabulary","is_primary":true}]},
+            {"code":"objective-2","position":2,"description":"Two","success_criteria":"Two","skills":[{"code":"grammar","is_primary":true}]}
+          ]
+        }"#;
+        let error = validate_package_json(raw).expect_err("cycles must be rejected");
+        assert!(error.contains("ciclo"));
+    }
 }
