@@ -14,6 +14,8 @@ RELEASES_ROOT="$APP_ROOT/releases"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=deploy/lib/health-checks.sh
 source "$SCRIPT_DIR/lib/health-checks.sh"
+# shellcheck source=deploy/lib/frontend-layout.sh
+source "$SCRIPT_DIR/lib/frontend-layout.sh"
 
 [[ -s "$APP_CONFIG" ]] || { echo "Missing $APP_CONFIG" >&2; exit 1; }
 [[ -s "$AUDIO_CONFIG" ]] || { echo "Missing $AUDIO_CONFIG" >&2; exit 1; }
@@ -51,10 +53,10 @@ for binary in bff auth-identity-service content-vocabulary-service ai-evaluator-
 done
 test -x "$stage/bin/sqlx"
 test -x "$stage/bin/tts-smoke-test"
-if [[ ! -f "$stage/frontend/server.js" && ! -f "$stage/frontend/frontend/server.js" ]]; then
+frontend_server="$(frontend_server_path "$stage/frontend")" || {
   echo "Frontend standalone server.js is missing from both supported package layouts." >&2
   exit 1
-fi
+}
 test -d "$stage/migrations"
 migration_count="$(find "$stage/migrations" -maxdepth 1 -type f -name '*.sql' | wc -l)"
 [[ "$migration_count" -gt 0 ]] || { echo "No SQL migrations found in release package." >&2; exit 1; }
@@ -63,7 +65,7 @@ find "$stage" -type d -exec chmod 0750 {} +
 find "$stage/bin" -type f -exec chmod 0750 {} +
 find "$stage/frontend" -type f -exec chmod 0640 {} +
 find "$stage/migrations" -type f -exec chmod 0640 {} +
-chmod 0750 "$stage/frontend/server.js"
+test -r "$frontend_server"
 
 if [[ -e "$release" ]]; then
   echo "Release $sha already exists; reusing immutable release."
