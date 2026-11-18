@@ -137,6 +137,11 @@ El nivel del estudiante debe estimarse mediante evidencias académicas, no por X
 - Las frases incluyen texto en inglés, guía fonética, traducción y campo de pronunciación natural.
 - El contenido actual es una base inicial. No equivale al catálogo completo de 5.000–8.000 términos ni al currículo A0–C2.
 
+- La Subfase 1.3 quedó completada técnicamente el 2026-11-18: contrato JSON canónico v1 y validador offline (PR #75), importador PostgreSQL transaccional/idempotente (PR #77), exportador relacional verificable y CLI editorial (PR #78), y validación de integridad al publicar más congelación del contenido durante revisión (PR #79). Las cuatro PR están fusionadas en `main`.
+- El modelo ya persistido incluye Course/CourseVersion, Unit, Lesson, LearningObjective, Skill y sus relaciones, más ledger de paquetes importados, registro explícito de editores e historial append-only de revisiones. PostgreSQL valida la completitud académica en el límite de publicación.
+- El ciclo técnico pasó las pruebas de integración de CI #308/#309 y las migraciones se desplegaron mediante Deploy Ubuntu/systemd #46. El acta de aceptación registra los comandos reproducibles, commits y límites: [aceptación técnica de la Subfase 1.3](docs/curriculum/phase-1.3-acceptance.md).
+- Esta entrega no equivale al catálogo completo ni incorpora una pantalla/API de administración: la curación lingüística pertenece a la Subfase 1.4, las APIs y UI administrativas a la Subfase 1.5, y las actividades/respuestas a la Fase 2.
+
 ### 3.3. Arquitectura objetivo del contenido
 
 El modelo conceptual debe incluir, según normalización y necesidades reales:
