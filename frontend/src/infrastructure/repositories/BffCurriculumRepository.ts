@@ -1,7 +1,8 @@
 import type {
   CourseEnrollment,
   CurriculumCourseDetail,
-  CurriculumCourseSummary,
+  CurriculumCourseListFilter,
+  CurriculumCoursePage,
   ICurriculumRepository,
 } from '@/domain/repositories/ICurriculumRepository'
 import type { BffHttpClient } from '@/infrastructure/api/BffHttpClient'
@@ -16,10 +17,25 @@ type Dto = Record<string, unknown>
 export class BffCurriculumRepository implements ICurriculumRepository {
   constructor(private readonly http: BffHttpClient) {}
 
-  async listCourses(): Promise<CurriculumCourseSummary[]> {
-    const response = await this.http.get<Dto>('/api/v1/curriculum/courses')
+  async listCourses(filter: CurriculumCourseListFilter): Promise<CurriculumCoursePage> {
+    const response = await this.http.get<Dto>('/api/v1/curriculum/courses', {
+      query: {
+        page: filter.page,
+        page_size: filter.pageSize,
+        track_code: filter.trackCode,
+        cefr_level: filter.cefrLevel,
+        search: filter.search?.trim(),
+        enrolled_only: filter.enrolledOnly,
+      },
+    })
     const items = Array.isArray(response.items) ? (response.items as Dto[]) : []
-    return items.map(toCurriculumCourseSummary)
+    return {
+      items: items.map(toCurriculumCourseSummary),
+      total: Number(response.total ?? 0),
+      page: Number(response.page ?? filter.page),
+      pageSize: Number(response.page_size ?? filter.pageSize),
+      totalPages: Number(response.total_pages ?? 0),
+    }
   }
 
   async getCourse(courseVersionId: string): Promise<CurriculumCourseDetail> {
