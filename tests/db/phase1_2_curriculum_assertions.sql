@@ -21,10 +21,11 @@ INSERT INTO users (id, email, password_hash, full_name, target_role, current_lev
 VALUES
     ('10000000-0000-4000-8000-000000000001', 'phase12-one@example.test', 'test-hash', 'Schema Test One', 'learner', 'A1'),
     ('10000000-0000-4000-8000-000000000002', 'phase12-two@example.test', 'test-hash', 'Schema Test Two', 'learner', 'A1'),
-    ('10000000-0000-4000-8000-000000000003', 'phase12-three@example.test', 'test-hash', 'Schema Test Three', 'learner', 'A1');
+    ('10000000-0000-4000-8000-000000000003', 'phase12-three@example.test', 'test-hash', 'Schema Test Three', 'learner', 'A1'),
+    ('10000000-0000-4000-8000-000000000004', 'phase12-editor@example.test', 'test-hash', 'Schema Test Editor', 'learner', 'A1');
 
 INSERT INTO content_editors (user_id)
-VALUES ('10000000-0000-4000-8000-000000000001')
+VALUES ('10000000-0000-4000-8000-000000000004')
 ON CONFLICT (user_id) DO NOTHING;
 
 INSERT INTO courses (id, slug, track_code)
@@ -330,8 +331,8 @@ WHERE id = '30000000-0000-4000-8000-000000000001';
 -- historical version and its child content. A non-enrolled student does not.
 BEGIN;
 SET LOCAL ROLE devfluency_schema_test;
-SELECT set_config('app.current_user_id', '10000000-0000-4000-8000-000000000001', TRUE);
-DO $$
+SELECT set_config('app.current_user_id', '10000000-0000-4000-8000-000000000004', TRUE);
+DO $
 DECLARE
     visible_versions BIGINT;
     visible_units BIGINT;
