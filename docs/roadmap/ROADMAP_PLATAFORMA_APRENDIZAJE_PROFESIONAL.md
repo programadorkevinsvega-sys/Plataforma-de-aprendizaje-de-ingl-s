@@ -346,24 +346,50 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 
 ### Subfase 1.3. Gestión y validación de contenido
 
-**Avance parcial (PR #75 y siguiente incremento de importación):** ya existe el contrato canónico v1 de paquetes curriculares, JSON Schema, fixture reproducible y validador offline. El siguiente incremento añade un importador PostgreSQL transaccional: resuelve palabras y frases contra el catálogo existente, crea exclusivamente versiones nuevas en estado `draft`, registra SHA-256 y metadatos de procedencia, ofrece dry-run por defecto y aplica idempotencia/no-sobrescritura. La subfase continúa abierta: faltan exportación, flujo de revisión editorial operativo y curación/validación lingüística. La coherencia con actividades y respuestas depende del contrato que se definirá en Fase 2.
+**Estado:** implementación del contrato v1, validador, importador, exportador y flujo editorial operativo preparada en PR #77 y PR de continuación. La subfase cubre el ciclo técnico de un paquete curricular: validación offline, resolución contra el catálogo PostgreSQL, importación transaccional a `draft`, exportación relacional verificable y revisión/publicación con identidad de editor registrada.
 
-**Alcance del importador:** no crea ni modifica vocabulario/frases, no toca tarjetas SRS o progreso, no publica contenido y aborta la transacción ante referencias ausentes o ambiguas. Un paquete diferente no puede reemplazar la misma versión; debe incrementarse `version_number`. La capacidad `app.content_editor` se utiliza únicamente desde un CLI administrativo confiable y no sustituye la autorización de usuarios finales.
+**Contrato y validación**
+- [x] Definir el formato canónico v1 para paquetes de importación/exportación.
+- [x] Validar estructura, campos requeridos, identificadores, tipos, longitudes, referencias internas y duplicados.
+- [x] Validar grafo de prerrequisitos sin ciclos y referencias de objetivos sin elementos huérfanos.
+- [x] Normalizar SHA-256 sin depender de espacios, orden de claves ni orden de relaciones sin posición.
+- [x] Mantener el validador offline, reproducible y sin efectos sobre PostgreSQL.
 
-- [x] Definir el formato canónico v1 para paquetes de importación.
-- [ ] Implementar la exportación relacional al mismo formato canónico.
-- [x] Validar estructura, campos requeridos, identificadores, referencias internas y duplicados en el paquete offline.
-- [x] Resolver referencias externas a vocabulario/frases durante la importación y rechazar ausencias o ambigüedades.
-- [ ] Validar coherencia entre nivel, objetivo, ejercicio y respuesta cuando exista el contrato de actividades de Fase 2.
-- [ ] Validar editorialmente traducciones, ejemplos, explicaciones y metadatos del catálogo.
-- [ ] Crear y operar el flujo de revisión editorial antes de publicar; la base de datos ya protege estados e historial, pero no existe aún una experiencia administrativa completa.
-- [x] Registrar autor, fecha, fuente y licencia del paquete; asociar versión y SHA-256 canónico al registro importado.
-- [ ] Registrar y gestionar la identidad del revisor dentro del flujo editorial operativo.
-- [x] Crear CLI reproducible para importación con dry-run por defecto y opción explícita `--apply`.
-- [x] Hacer la importación transaccional e idempotente; rechazar sobrescritura de una versión existente.
-- [x] Mantener protegido el importador legado destructivo mediante opt-in explícito.
+**Importación**
+- [x] Resolver referencias externas a vocabulario y frases existentes; rechazar referencias ausentes o ambiguas.
+- [x] Crear únicamente versiones nuevas en estado `draft`.
+- [x] Hacer la importación transaccional e idempotente, con serialización de importaciones concurrentes.
+- [x] Rechazar sobrescritura de una versión existente con contenido diferente.
+- [x] Registrar autoría, fecha, fuente, licencia, versión de formato, SHA-256 e información necesaria para exportar el paquete sin pérdida.
+- [x] Mantener el modo dry-run por defecto y requerir `--apply` explícito para persistir.
+- [x] No modificar vocabulario/frases legadas, matrículas, tarjetas SRS ni progreso del estudiante.
 
-**Pruebas agregadas en este incremento:** importación completa de un paquete, referencias faltantes, rollback, dry-run, repetición idempotente, rechazo de contenido distinto para la misma versión y dos importaciones concurrentes. La aceptación requiere que estas pruebas de PostgreSQL pasen en CI tanto con instalación nueva como con actualización de esquema.
+**Exportación**
+- [x] Reconstruir un paquete canónico desde las relaciones de PostgreSQL.
+- [x] Validar el paquete exportado y comprobar que su SHA-256 coincide con el ledger del paquete importado.
+- [x] Ejecutar la lectura bajo una única instantánea consistente de base de datos.
+- [x] Fallar de forma explícita si una relación almacenada no puede representarse en el contrato v1, en lugar de perder datos silenciosamente.
+
+**Revisión y publicación**
+- [x] Registrar editores autorizados en `content_editors`; el GUC `app.content_editor` por sí solo no concede autorización.
+- [x] Enviar versiones draft a revisión mediante CLI administrativo.
+- [x] Registrar decisiones append-only (`approved`, `rejected`, `changes_requested`) con revisor y comentarios.
+- [x] Devolver a draft las versiones que requieren cambios o fueron rechazadas.
+- [x] Publicar solo cuando la última decisión sea approved y corresponda al mismo editor que publica.
+- [x] Mantener todas las acciones editoriales en dry-run salvo que se indique `--apply`.
+- [x] Preservar inmutabilidad y transiciones permitidas mediante triggers de PostgreSQL.
+
+**Pruebas**
+- [x] Pruebas de importación, rollback, dry-run, idempotencia, no sobrescritura, referencias externas y concurrencia.
+- [x] Pruebas de exportación round-trip, preservación de campos opcionales y detección de drift relacional.
+- [x] Pruebas de autorización de editores y del ciclo draft → review → changes_requested/draft → approved → publish (dry-run de publicación).
+- [x] Pruebas de migración desde base vacía y desde el esquema anterior.
+
+**Límites deliberados**
+- La coherencia entre objetivos y ejercicios/respuestas se cerrará cuando exista el contrato de actividades de Fase 2.
+- La curación lingüística de traducciones, ejemplos, explicaciones, fonética y audios pertenece a la Subfase 1.4; el importador valida estructura y referencias, no certifica calidad pedagógica.
+- El CLI editorial aporta operación segura y trazable; la pantalla/API administrativa se realizará como parte de la Subfase 1.5.
+- El registro inicial de editores se provisiona por una acción administrativa de base de datos documentada; no se concede el rol automáticamente a un usuario.
 
 ### Subfase 1.4. Curación y expansión del catálogo
 
