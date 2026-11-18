@@ -44,6 +44,54 @@ VALUES (
     '10000000-0000-4000-8000-000000000001'
 );
 
+-- The A1 fixture is also a complete publishable curriculum version. Publication
+-- now checks content completeness in PostgreSQL, not only in the package importer.
+INSERT INTO course_units (id, course_version_id, unit_code, position, title, theme)
+VALUES (
+    '40000000-0000-4000-8000-000000000002',
+    '30000000-0000-4000-8000-000000000003',
+    'unit-a1-01', 1, 'A1 unit', 'Everyday communication'
+);
+
+INSERT INTO course_lessons (
+    id, course_version_id, unit_id, lesson_code, position, lesson_pattern, title
+)
+VALUES (
+    '50000000-0000-4000-8000-000000000002',
+    '30000000-0000-4000-8000-000000000003',
+    '40000000-0000-4000-8000-000000000002',
+    'lesson-a1-01', 1, 'practice', 'A1 lesson'
+);
+
+INSERT INTO learning_objectives (
+    id, course_version_id, objective_code, description, success_criteria, position
+)
+VALUES (
+    '60000000-0000-4000-8000-000000000002',
+    '30000000-0000-4000-8000-000000000003',
+    'objective-a1-01', 'Understand a familiar exchange',
+    'Identify the main request in at least four of five examples', 1
+);
+
+INSERT INTO learning_objective_skills (
+    course_version_id, learning_objective_id, skill_code, is_primary
+)
+VALUES (
+    '30000000-0000-4000-8000-000000000003',
+    '60000000-0000-4000-8000-000000000002',
+    'listening', TRUE
+);
+
+INSERT INTO lesson_learning_objectives (
+    course_version_id, lesson_id, learning_objective_id, position, is_required
+)
+VALUES (
+    '30000000-0000-4000-8000-000000000003',
+    '50000000-0000-4000-8000-000000000002',
+    '60000000-0000-4000-8000-000000000002',
+    1, TRUE
+);
+
 UPDATE course_versions
 SET status = 'review', submitted_at = NOW()
 WHERE id = '30000000-0000-4000-8000-000000000003';
@@ -191,7 +239,7 @@ BEGIN
     SELECT count(*) INTO visible_enrollments FROM course_enrollments;
 
     IF visible_courses <> 1 OR visible_versions <> 2
-       OR visible_units <> 1 OR visible_lessons <> 1 THEN
+       OR visible_units <> 2 OR visible_lessons <> 2 THEN
         RAISE EXCEPTION 'Published-content RLS failed: courses %, versions %, units %, lessons %',
             visible_courses, visible_versions, visible_units, visible_lessons;
     END IF;

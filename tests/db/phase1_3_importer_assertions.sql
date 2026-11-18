@@ -78,6 +78,22 @@ BEGIN
         RAISE EXCEPTION 'app_is_content_editor must safely verify the registered editor identity';
     END IF;
 
+    IF to_regprocedure('public.assert_course_version_publishable(uuid)') IS NULL
+       OR to_regprocedure('public.guard_course_version_publication_completeness()') IS NULL
+       OR to_regprocedure('public.guard_course_version_content_mutation()') IS NULL THEN
+        RAISE EXCEPTION 'course version publication/editorial integrity functions are missing';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_trigger
+         WHERE tgrelid = 'public.course_versions'::REGCLASS
+           AND tgname = 'trg_course_version_publication_completeness'
+           AND NOT tgisinternal
+    ) THEN
+        RAISE EXCEPTION 'course version publication completeness trigger is missing';
+    END IF;
+
     SELECT qual
       INTO course_policy
       FROM pg_policies
@@ -111,7 +127,17 @@ BEGIN
         IF child_policy IS NULL
            OR position('published' IN lower(child_policy)) = 0
            OR position('app.current_user_id' IN lower(child_policy)) = 0 THEN
-            RAISE EXCEPTION 'Child content table % is not restricted to published/enrolled versions', table_name;
+            RAISE EXCEPTION 'Child content table % is not restricted to published/enrolled versions', v_child_table;
+        END IF;
+
+        IF NOT EXISTS (
+            SELECT 1
+              FROM pg_trigger
+             WHERE tgrelid = to_regclass('public.' || v_child_table)
+               AND tgname = 'trg_guard_course_version_content_mutation'
+               AND NOT tgisinternal
+        ) THEN
+            RAISE EXCEPTION 'Child content table % lacks the review immutability trigger', v_child_table;
         END IF;
     END LOOP;
 END

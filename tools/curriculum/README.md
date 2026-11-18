@@ -55,7 +55,7 @@ El validador no necesita dependencias externas y no se conecta a PostgreSQL. Ver
 
 La importación resuelve referencias contra el catálogo existente y crea únicamente una versión curricular nueva en estado `draft`. No crea ni modifica vocabulario/frases, no publica contenido y no altera matrículas, tarjetas SRS ni progreso de estudiantes.
 
-Primero se aplican todas las migraciones, incluida `20261118000000_curriculum_content_package_imports.sql`, `20261118010000_curriculum_package_export_visibility.sql` y `20261118020000_curriculum_content_editors.sql`.
+Primero se aplican todas las migraciones, incluida `20261118000000_curriculum_content_package_imports.sql`, `20261118010000_curriculum_package_export_visibility.sql`, `20261118020000_curriculum_content_editors.sql`, `20261118030000_curriculum_review_order.sql` y `20261118040000_curriculum_publication_completeness.sql`.
 
 Modo predeterminado (**dry-run**, no persiste):
 
@@ -91,7 +91,7 @@ Sin `--output`, el JSON se escribe en stdout. La operación es de solo lectura. 
 - Preserva metadatos de procedencia y la presencia/ausencia original de `content_schema_version`.
 - Vuelve a ejecutar el validador offline.
 - Compara el hash reconstruido contra el SHA-256 almacenado en el ledger; falla ante modificaciones relacionales posteriores al import.
-- Rechaza exportaciones con relaciones que el contrato v1 no puede representar (por ejemplo, objetivos opcionales), en lugar de perder datos silenciosamente.
+- Rechaza exportaciones con relaciones que el contrato v1 no puede representar (por ejemplo, objetivos opcionales), en lugar de perder datos silenciosamente. La publicación también bloquea esas relaciones para evitar versiones publicadas que no puedan exportarse fielmente.
 
 Las versiones creadas antes del ledger de importación no tienen procedencia canónica y no se exportan mediante esta herramienta.
 
@@ -115,7 +115,11 @@ Publicar requiere que la **última** decisión sea `approved` y pertenezca al mi
 
     DATABASE_URL='postgresql://…' node tools/curriculum/manage_course_version.mjs --action publish --course english-general --level PRE_A1 --version 1 --actor-user-id <REVIEWER_UUID> --apply
 
-La base de datos vuelve a comprobar las transiciones y la aprobación. Los registros de revisión son inmutables; una decisión distinta se agrega al historial. El CLI no sustituye una futura pantalla/API administrativa de Fase 1.5.
+La base de datos vuelve a comprobar las transiciones, la aprobación y la integridad académica antes de publicar. La migración `20261118040000_curriculum_publication_completeness.sql` bloquea versiones sin unidades/lecciones/objetivos, unidades vacías, lecciones sin un objetivo obligatorio con criterio de éxito, objetivos huérfanos u objetivos sin exactamente una competencia principal. Esta comprobación también se ejecuta cuando una publicación se intenta mediante SQL u otro camino administrativo, no solo desde el CLI.
+
+Desde que una versión entra en `review`, todas sus filas hijas (unidades, lecciones, objetivos, competencias, vínculos, prerequisitos y referencias) quedan congeladas en PostgreSQL. Solo vuelven a ser editables si una decisión editorial devuelve la versión a `draft`. Las versiones `published` y `archived` permanecen inmutables. La comprobación bloquea movimientos de contenido entre versiones y serializa la mutación de filas hijas con las transiciones de estado.
+
+Los registros de revisión son inmutables; una decisión distinta se agrega al historial. El CLI no sustituye una futura pantalla/API administrativa de Fase 1.5.
 
 ## Pruebas
 
@@ -127,7 +131,7 @@ Las pruebas de integración requieren el PostgreSQL aislado preparado por CI y l
 
     DATABASE_URL='postgresql://…' node --test tools/curriculum/tests/*.test.mjs
 
-CI valida las migraciones desde cero y desde el esquema anterior, importación/exportación round-trip, integridad del hash, referencias externas, rollback, dry-run, idempotencia, no sobrescritura, concurrencia, identidad del editor y ciclo editorial.
+CI valida las migraciones desde cero y desde el esquema anterior, importación/exportación round-trip, integridad del hash, referencias externas, rollback, dry-run, idempotencia, no sobrescritura, concurrencia, identidad del editor, ciclo editorial, integridad académica obligatoria al publicar y congelación de las filas hijas durante la revisión.
 
 ## Límites de esta entrega
 

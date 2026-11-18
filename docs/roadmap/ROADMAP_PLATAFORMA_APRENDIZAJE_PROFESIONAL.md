@@ -378,12 +378,16 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 - [x] Publicar solo cuando la última decisión sea approved y corresponda al mismo editor que publica.
 - [x] Mantener todas las acciones editoriales en dry-run salvo que se indique `--apply`.
 - [x] Preservar inmutabilidad y transiciones permitidas mediante triggers de PostgreSQL.
+- [x] Congelar todas las filas hijas al entrar en revisión; permitir su edición nuevamente solo después de volver a `draft`.
+- [x] Revalidar en PostgreSQL la integridad académica al publicar, incluso si los cambios se realizaron fuera del importador o del CLI.
 
 **Pruebas**
 - [x] Pruebas de importación, rollback, dry-run, idempotencia, no sobrescritura, referencias externas y concurrencia.
 - [x] Pruebas de exportación round-trip, preservación de campos opcionales y detección de drift relacional.
 - [x] Pruebas de autorización de editores y del ciclo draft → review → changes_requested/draft → approved → publish (dry-run de publicación).
 - [x] Pruebas de migración desde base vacía y desde el esquema anterior.
+- [x] Pruebas de regresión que bloquean la publicación de unidades vacías, lecciones sin objetivo requerido/criterio, objetivos huérfanos, competencias primarias inválidas o relaciones opcionales no representables por el paquete v1.
+- [x] Pruebas de congelación del contenido durante `review` y de reapertura de edición tras `changes_requested`/retorno a `draft`.
 
 **Límites deliberados**
 - La coherencia entre objetivos y ejercicios/respuestas se cerrará cuando exista el contrato de actividades de Fase 2.
@@ -418,15 +422,15 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 
 ### Pruebas y aceptación
 
-- [ ] Pruebas de esquema para cada tipo de contenido.
-- [ ] Pruebas de importación idempotente.
-- [ ] Pruebas de duplicados y referencias inválidas.
-- [ ] Pruebas de publicación y versionado.
-- [ ] Pruebas de permisos de administrador y estudiante.
-- [ ] Pruebas RLS entre usuarios.
+- [x] Pruebas de esquema para cada tipo de contenido del paquete canónico v1.
+- [x] Pruebas de importación idempotente.
+- [x] Pruebas de duplicados y referencias inválidas.
+- [x] Pruebas de publicación y versionado.
+- [x] Pruebas de permisos editor/estudiante en PostgreSQL.
+- [x] Pruebas RLS entre usuarios.
 - [ ] Pruebas de paginación, filtros y orden.
 - [ ] Validación automática del catálogo completo.
-- [ ] Ninguna lección publicada carece de objetivo y criterio de finalización.
+- [x] Ninguna lección publicada carece de objetivo requerido y criterio de finalización; PostgreSQL lo bloquea y CI prueba el rechazo.
 
 **Gate de salida:** catálogo académico navegable, versionado, validado y con cobertura de contenido aprobada para la primera versión de producto.
 

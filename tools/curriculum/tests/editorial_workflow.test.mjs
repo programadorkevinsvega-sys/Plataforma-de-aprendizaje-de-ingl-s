@@ -35,12 +35,50 @@ async function withDraftVersion(run) {
       "INSERT INTO courses (slug, track_code) VALUES ($1, 'general') RETURNING id",
       [slug],
     );
-    await client.query(
+    const version = await client.query(
       `INSERT INTO course_versions (
           course_id, version_number, status, cefr_level, title, description, locale
        )
-       VALUES ($1, 1, 'draft', 'PRE_A1', 'Editorial test', 'Temporary transaction fixture', 'en')`,
+       VALUES ($1, 1, 'draft', 'PRE_A1', 'Editorial test', 'Temporary transaction fixture', 'en')
+       RETURNING id`,
       [course.rows[0].id],
+    );
+    const courseVersionId = version.rows[0].id;
+    const unit = await client.query(
+      `INSERT INTO course_units (course_version_id, unit_code, position, title, theme)
+       VALUES ($1, 'unit-01', 1, 'Test unit', 'Introductions')
+       RETURNING id`,
+      [courseVersionId],
+    );
+    const lesson = await client.query(
+      `INSERT INTO course_lessons (
+          course_version_id, unit_id, lesson_code, position, lesson_pattern, title
+       )
+       VALUES ($1, $2, 'lesson-01', 1, 'practice', 'Test lesson')
+       RETURNING id`,
+      [courseVersionId, unit.rows[0].id],
+    );
+    const objective = await client.query(
+      `INSERT INTO learning_objectives (
+          course_version_id, objective_code, description, success_criteria, position
+       )
+       VALUES ($1, 'objective-01', 'Understand a basic greeting', 'Identify four of five greetings', 1)
+       RETURNING id`,
+      [courseVersionId],
+    );
+    await client.query(
+      `INSERT INTO learning_objective_skills (
+          course_version_id, learning_objective_id, skill_code, is_primary
+       )
+       VALUES ($1, $2, 'vocabulary', TRUE)`,
+      [courseVersionId, objective.rows[0].id],
+    );
+    await client.query(
+      `INSERT INTO lesson_learning_objectives (
+          course_version_id, lesson_id, learning_objective_id, position, is_required
+       )
+       VALUES ($1, $2, $3, 1, TRUE)`,
+      [courseVersionId, lesson.rows[0].id, objective.rows[0].id],
     );
     const selector = { course: slug, level: "PRE_A1", versionNumber: 1 };
     await run(client, selector);
@@ -159,6 +197,287 @@ if (!DATABASE_URL) {
       assert.equal(state.rows[0].status, "published");
       assert.ok(state.rows[0].published_at);
       assert.equal(state.rows[0].reviewed_by, editorId);
+    });
+  });
+
+  test("database refuses publication when a unit has no lesson", async () => {
+    await withDraftVersion(async (client, selector) => {
+      const version = await client.query(
+        `SELECT version.id
+           FROM courses course
+           JOIN course_versions version ON version.course_id = course.id
+          WHERE course.slug = $1`,
+        [selector.course],
+      );
+      await client.query(
+        `INSERT INTO course_units (course_version_id, unit_code, position, title, theme)
+         VALUES ($1, 'empty-unit', 2, 'Empty unit', 'Incomplete fixture')`,
+        [version.rows[0].id],
+      );
+
+      await applyEditorialAction(client, {
+        action: "submit",
+        ...selector,
+        actorUserId: editorId,
+      });
+      await applyEditorialAction(client, {
+        action: "review",
+        decision: "approved",
+        comments: "Approved despite a deliberately empty unit.",
+        ...selector,
+        actorUserId: editorId,
+      });
+
+      await assert.rejects(
+        applyEditorialAction(client, {
+          action: "publish",
+          ...selector,
+          actorUserId: editorId,
+        }),
+        /Every curriculum unit must contain at least one lesson before publication/,
+      );
+    });
+  });
+
+  test("database refuses publication when an objective is orphaned", async () => {
+    await withDraftVersion(async (client, selector) => {
+      const version = await client.query(
+        `SELECT version.id
+           FROM courses course
+           JOIN course_versions version ON version.course_id = course.id
+          WHERE course.slug = $1`,
+        [selector.course],
+      );
+      const orphan = await client.query(
+        `INSERT INTO learning_objectives (
+            course_version_id, objective_code, description, success_criteria, position
+         )
+         VALUES ($1, 'orphan-objective', 'An unlinked outcome', 'Complete the unlinked outcome', 2)
+         RETURNING id`,
+        [version.rows[0].id],
+      );
+      await client.query(
+        `INSERT INTO learning_objective_skills (
+            course_version_id, learning_objective_id, skill_code, is_primary
+         )
+         VALUES ($1, $2, 'reading', TRUE)`,
+        [version.rows[0].id, orphan.rows[0].id],
+      );
+
+      await applyEditorialAction(client, {
+        action: "submit",
+        ...selector,
+        actorUserId: editorId,
+      });
+      await applyEditorialAction(client, {
+        action: "review",
+        decision: "approved",
+        comments: "Approved despite a deliberately orphaned objective.",
+        ...selector,
+        actorUserId: editorId,
+      });
+
+      await assert.rejects(
+        applyEditorialAction(client, {
+          action: "publish",
+          ...selector,
+          actorUserId: editorId,
+        }),
+        /Every learning objective must be linked to at least one lesson before publication/,
+      );
+    });
+  });
+
+  test("database refuses publication when a lesson has no required learning objective", async () => {
+    await withDraftVersion(async (client, selector) => {
+      const version = await client.query(
+        `SELECT version.id
+           FROM courses course
+           JOIN course_versions version ON version.course_id = course.id
+          WHERE course.slug = $1`,
+        [selector.course],
+      );
+      await client.query(
+        "DELETE FROM lesson_learning_objectives WHERE course_version_id = $1",
+        [version.rows[0].id],
+      );
+
+      await applyEditorialAction(client, {
+        action: "submit",
+        ...selector,
+        actorUserId: editorId,
+      });
+      await applyEditorialAction(client, {
+        action: "review",
+        decision: "approved",
+        comments: "Approved despite deliberately incomplete draft content.",
+        ...selector,
+        actorUserId: editorId,
+      });
+
+      await assert.rejects(
+        applyEditorialAction(client, {
+          action: "publish",
+          ...selector,
+          actorUserId: editorId,
+        }),
+        /Every lesson must have at least one required learning objective with non-empty success criteria/,
+      );
+    });
+  });
+
+  test("database refuses publication when optional lesson objectives cannot be represented by package v1", async () => {
+    await withDraftVersion(async (client, selector) => {
+      const version = await client.query(
+        `SELECT version.id
+           FROM courses course
+           JOIN course_versions version ON version.course_id = course.id
+          WHERE course.slug = $1`,
+        [selector.course],
+      );
+      const optionalObjective = await client.query(
+        `INSERT INTO learning_objectives (
+            course_version_id, objective_code, description, success_criteria, position
+         )
+         VALUES ($1, 'objective-optional', 'Apply a greeting in context', 'Use a greeting in one short exchange', 2)
+         RETURNING id`,
+        [version.rows[0].id],
+      );
+      await client.query(
+        `INSERT INTO learning_objective_skills (
+            course_version_id, learning_objective_id, skill_code, is_primary
+         )
+         VALUES ($1, $2, 'vocabulary', TRUE)`,
+        [version.rows[0].id, optionalObjective.rows[0].id],
+      );
+      await client.query(
+        `INSERT INTO lesson_learning_objectives (
+            course_version_id, lesson_id, learning_objective_id, position, is_required
+         )
+         SELECT $1, lesson.id, $2, 2, FALSE
+           FROM course_lessons AS lesson
+          WHERE lesson.course_version_id = $1
+            AND lesson.lesson_code = 'lesson-01'`,
+        [version.rows[0].id, optionalObjective.rows[0].id],
+      );
+
+      await applyEditorialAction(client, {
+        action: "submit",
+        ...selector,
+        actorUserId: editorId,
+      });
+      await applyEditorialAction(client, {
+        action: "review",
+        decision: "approved",
+        comments: "Approved despite an optional objective not representable by v1.",
+        ...selector,
+        actorUserId: editorId,
+      });
+
+      await assert.rejects(
+        applyEditorialAction(client, {
+          action: "publish",
+          ...selector,
+          actorUserId: editorId,
+        }),
+        /Canonical curriculum package v1 cannot represent optional lesson objectives/,
+      );
+    });
+  });
+
+  test("database refuses publication when an objective has no primary skill", async () => {
+    await withDraftVersion(async (client, selector) => {
+      const version = await client.query(
+        `SELECT version.id
+           FROM courses course
+           JOIN course_versions version ON version.course_id = course.id
+          WHERE course.slug = $1`,
+        [selector.course],
+      );
+      await client.query(
+        `DELETE FROM learning_objective_skills
+          WHERE course_version_id = $1`,
+        [version.rows[0].id],
+      );
+
+      await applyEditorialAction(client, {
+        action: "submit",
+        ...selector,
+        actorUserId: editorId,
+      });
+      await applyEditorialAction(client, {
+        action: "review",
+        decision: "approved",
+        comments: "Approved despite deliberately incomplete draft content.",
+        ...selector,
+        actorUserId: editorId,
+      });
+
+      await assert.rejects(
+        applyEditorialAction(client, {
+          action: "publish",
+          ...selector,
+          actorUserId: editorId,
+        }),
+        /Every learning objective must have exactly one primary skill/,
+      );
+    });
+  });
+
+  test("freezes child content while a course version is under review", async () => {
+    await withDraftVersion(async (client, selector) => {
+      await applyEditorialAction(client, {
+        action: "submit",
+        ...selector,
+        actorUserId: editorId,
+      });
+
+      await assert.rejects(
+        client.query(
+          `UPDATE course_lessons
+              SET title = 'Mutated after review submission'
+            WHERE course_version_id = (
+                SELECT version.id
+                  FROM courses course
+                  JOIN course_versions version ON version.course_id = course.id
+                 WHERE course.slug = $1
+            )`,
+          [selector.course],
+        ),
+        /Curriculum child records can only be changed while their version is draft/,
+      );
+    });
+  });
+
+  test("allows child content edits again after a review requests changes", async () => {
+    await withDraftVersion(async (client, selector) => {
+      await applyEditorialAction(client, {
+        action: "submit",
+        ...selector,
+        actorUserId: editorId,
+      });
+      const requested = await applyEditorialAction(client, {
+        action: "review",
+        decision: "changes_requested",
+        comments: "Please make the lesson example clearer.",
+        ...selector,
+        actorUserId: editorId,
+      });
+      assert.equal(requested.nextStatus, "draft");
+
+      const updated = await client.query(
+        `UPDATE course_lessons
+            SET title = 'Revised test lesson'
+          WHERE course_version_id = (
+              SELECT version.id
+                FROM courses course
+                JOIN course_versions version ON version.course_id = course.id
+               WHERE course.slug = $1
+          )
+          RETURNING title`,
+        [selector.course],
+      );
+      assert.equal(updated.rows[0].title, "Revised test lesson");
     });
   });
 
