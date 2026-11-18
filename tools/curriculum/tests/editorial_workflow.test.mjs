@@ -111,7 +111,7 @@ if (!DATABASE_URL) {
                   WHERE review.course_version_id = version.id) AS review_count,
                 (SELECT decision FROM course_version_reviews review
                   WHERE review.course_version_id = version.id
-                  ORDER BY reviewed_at DESC, id DESC LIMIT 1) AS latest_decision
+                  ORDER BY review_order DESC LIMIT 1) AS latest_decision
            FROM courses course
            JOIN course_versions version ON version.course_id = course.id
           WHERE course.slug = $1`,
