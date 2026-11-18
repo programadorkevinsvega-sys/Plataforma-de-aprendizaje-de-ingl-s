@@ -652,11 +652,8 @@ pub fn validate_package_json(raw: &str) -> Result<(Value, String, PackageCounts)
     deserializer
         .end()
         .map_err(|error| format!("JSON curricular inválido: {error}"))?;
-    let mut data = strict.into_json();
+    let data = strict.into_json();
     let counts = validate_package(&data)?;
-    canonicalize(&mut data);
-    let bytes = serde_json::to_vec(&data)
-        .map_err(|_| "No se pudo normalizar el paquete curricular".to_string())?;
     let sha = canonical_sha256(&data)?;
     Ok((data, sha, counts))
 }
@@ -1003,7 +1000,10 @@ pub async fn import_package(
     }
 
     for unit in units {
-        for lesson in unit["lessons"].as_array().unwrap_or(&Vec::new()) {
+        for lesson in unit["lessons"]
+            .as_array()
+            .ok_or("lessons debe ser un arreglo")?
+        {
             let lesson_code = lesson["code"].as_str().unwrap_or("");
             let lesson_id = *lesson_ids.get(lesson_code).ok_or("Lección importada no encontrada")?;
             if let Some(prerequisites) = lesson["prerequisites"].as_array() {
