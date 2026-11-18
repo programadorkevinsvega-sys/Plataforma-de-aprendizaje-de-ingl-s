@@ -274,8 +274,11 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.run_frontend == 'true' }}
     runs-on: ubuntu-latest
+    # CI validates the frontend build with a reserved non-production URL.
+    # The production deploy injects vars.NEXT_PUBLIC_BFF_URL from the
+    # GitHub Environment named "production".
     env:
-      NEXT_PUBLIC_BFF_URL: https://app-ingles.jnmtortas.com
+      NEXT_PUBLIC_BFF_URL: https://bff-ci.invalid
     defaults:
       run:
         working-directory: frontend
