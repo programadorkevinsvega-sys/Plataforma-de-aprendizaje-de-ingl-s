@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://devfluency.vegtrixgroup.com/schemas/curriculum-content-v1.json",
+  "$id": "urn:devfluency:curriculum-content:1",
   "title": "DevFluency curriculum content package",
   "description": "Portable, versioned package for an editable curriculum course version. Importers must create a draft; publishing is a separate editorial action.",
   "type": "object",
