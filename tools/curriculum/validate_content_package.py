@@ -11,6 +11,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 FORMAT_NAME = "devfluency.curriculum-content"
 SCHEMA_VERSION = 1
@@ -28,6 +29,7 @@ CODE_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SLUG_RE = CODE_RE
 CATEGORY_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 LOCALE_RE = re.compile(r"^[a-z]{2}(?:-[A-Z]{2})?$")
+_MISSING = object()
 
 
 class DuplicateJsonKeyError(ValueError):
@@ -55,7 +57,7 @@ def _object(value: Any, path: str, errors: list[str]) -> dict[str, Any] | None:
 
 
 def _array(value: Any, path: str, errors: list[str], *, required: bool = True) -> list[Any]:
-    if value is None and not required:
+    if value is _MISSING and not required:
         return []
     if not isinstance(value, list):
         _error(errors, path, "must be an array")
@@ -166,8 +168,19 @@ def validate_package(data: Any) -> list[str]:
             _string(source, "license", "$/metadata/source", errors, max_length=120)
             source_url = source.get("url")
             if source_url is not None:
-                if not isinstance(source_url, str) or not source_url.startswith(("https://", "http://")):
-                    _error(errors, "$/metadata/source/url", "must be an HTTP(S) URL or null")
+                try:
+                    parsed_url = urlsplit(source_url) if isinstance(source_url, str) else None
+                    valid_url = (
+                        parsed_url is not None
+                        and parsed_url.scheme in {"http", "https"}
+                        and bool(parsed_url.hostname)
+                    )
+                    if valid_url:
+                        _ = parsed_url.port  # Reject malformed ports as well.
+                except ValueError:
+                    valid_url = False
+                if not valid_url:
+                    _error(errors, "$/metadata/source/url", "must be a valid HTTP(S) URL or null")
 
     course = _object(root.get("course"), "$/course", errors)
     if course is not None:
@@ -256,8 +269,8 @@ def validate_package(data: Any) -> list[str]:
                 if lesson_code in lesson_codes:
                     _error(errors, f"{lesson_path}/code", "duplicates another lesson code in this course version")
                 lesson_codes.add(lesson_code)
-                lesson_links[lesson_code] = []
-                prerequisite_edges[lesson_code] = []
+                lesson_links.setdefault(lesson_code, [])
+                prerequisite_edges.setdefault(lesson_code, [])
                 lesson_positions_by_unit.setdefault(code or path, set())
             if lesson_position is not None:
                 position_set = lesson_positions_by_unit.setdefault(code or path, set())
@@ -279,7 +292,7 @@ def validate_package(data: Any) -> list[str]:
                 if lesson_code:
                     lesson_links[lesson_code].append(objective_code)
 
-            prerequisites = _array(lesson.get("prerequisites"), f"{lesson_path}/prerequisites", errors, required=False)
+            prerequisites = _array(lesson.get("prerequisites", _MISSING), f"{lesson_path}/prerequisites", errors, required=False)
             seen_prerequisites: set[str] = set()
             for prerequisite_index, raw_prerequisite in enumerate(prerequisites):
                 prerequisite_path = f"{lesson_path}/prerequisites/{prerequisite_index}"
@@ -352,7 +365,7 @@ def validate_package(data: Any) -> list[str]:
         if skills and primary_count != 1:
             _error(errors, f"{path}/skills", "must define exactly one primary skill")
 
-        vocabulary = _array(objective.get("vocabulary"), f"{path}/vocabulary", errors, required=False)
+        vocabulary = _array(objective.get("vocabulary", _MISSING), f"{path}/vocabulary", errors, required=False)
         vocabulary_seen: set[tuple[str, str]] = set()
         vocabulary_positions: set[int] = set()
         for ref_index, raw_ref in enumerate(vocabulary):
@@ -375,7 +388,7 @@ def validate_package(data: Any) -> list[str]:
                     _error(errors, f"{ref_path}/position", "duplicates another vocabulary position")
                 vocabulary_positions.add(ref_position)
 
-        sentences = _array(objective.get("sentences"), f"{path}/sentences", errors, required=False)
+        sentences = _array(objective.get("sentences", _MISSING), f"{path}/sentences", errors, required=False)
         sentence_seen: set[tuple[str, str]] = set()
         sentence_positions: set[int] = set()
         for ref_index, raw_ref in enumerate(sentences):
