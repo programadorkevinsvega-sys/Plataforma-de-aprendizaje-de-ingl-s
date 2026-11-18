@@ -1356,8 +1356,8 @@ impl ContentService for MyContentService {
 
 #[cfg(test)]
 mod curriculum_progress_tests {
-    use super::evaluate_lesson_progress;
-    use proto::content::CurriculumPrerequisite;
+    use super::{evaluate_lesson_progress, validate_student_catalog_query};
+    use proto::content::{CurriculumPrerequisite, ListCurriculumCoursesRequest};
     use std::collections::HashMap;
     use uuid::Uuid;
 
@@ -1372,8 +1372,50 @@ mod curriculum_progress_tests {
     }
 
     #[test]
+    fn student_catalog_query_uses_safe_defaults_and_normalizes_search() {
+        let request = ListCurriculumCoursesRequest {
+            page: 0,
+            page_size: 0,
+            search_query: "  English GENERAL  ".to_string(),
+            ..Default::default()
+        };
+        let filters = validate_student_catalog_query(&request).expect("defaults are valid");
+        assert_eq!(filters.page, 1);
+        assert_eq!(filters.page_size, 12);
+        assert_eq!(filters.search.as_deref(), Some("english general"));
+        assert!(filters.track.is_none());
+        assert!(filters.level.is_none());
+    }
+
+    #[test]
+    fn student_catalog_query_rejects_oversized_or_unknown_filters() {
+        let oversized_page = ListCurriculumCoursesRequest {
+            page_size: 51,
+            ..Default::default()
+        };
+        assert!(validate_student_catalog_query(&oversized_page).is_err());
+
+        let invalid_track = ListCurriculumCoursesRequest {
+            track_code: "all".to_string(),
+            ..Default::default()
+        };
+        assert!(validate_student_catalog_query(&invalid_track).is_err());
+
+        let invalid_level = ListCurriculumCoursesRequest {
+            cefr_level: "C3".to_string(),
+            ..Default::default()
+        };
+        assert!(validate_student_catalog_query(&invalid_level).is_err());
+
+        let oversized_search = ListCurriculumCoursesRequest {
+            search_query: "a".repeat(121),
+            ..Default::default()
+        };
+        assert!(validate_student_catalog_query(&oversized_search).is_err());
+    }
+
+    #[test]
     fn lesson_is_not_enrolled_without_a_course_enrollment() {
-        let current = Uuid::new_v4();
         let result = evaluate_lesson_progress(
             false,
             (1, 0, 0.0, false, false),
@@ -1383,7 +1425,6 @@ mod curriculum_progress_tests {
 
         assert_eq!(result.state, "not_enrolled");
         assert!(!result.prerequisites_satisfied);
-        let _ = current;
     }
 
     #[test]
