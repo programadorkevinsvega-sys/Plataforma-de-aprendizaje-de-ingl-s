@@ -430,7 +430,7 @@ async function main(argv) {
       }
       index += 1;
     } else if (arg.startsWith("-")) {
-      throw new Error(`Unknown option: ${arg}\\n\\n${usage()}`);
+      throw new Error(`Unknown option: ${arg}\n\n${usage()}`);
     } else if (!packagePathArg) {
       packagePathArg = arg;
     } else {
@@ -450,7 +450,6 @@ async function main(argv) {
 
   const packagePath = path.resolve(process.cwd(), packagePathArg);
   const { data, packageSha256, validation } = await readValidatedPackage(packagePath);
-  const apply = argv.includes("--apply");
   const pool = new Pool({
     connectionString: databaseUrl,
     max: 1,
