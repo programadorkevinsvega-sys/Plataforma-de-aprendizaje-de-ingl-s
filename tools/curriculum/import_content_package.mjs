@@ -386,6 +386,10 @@ export async function importCurriculumPackage(pool, data, packageSha256, { apply
     // RLS verifies the transaction-local actor against public.content_editors.
     // The CLI is administrative and must never be exposed through an application endpoint.
     await client.query("SELECT set_config('app.current_user_id', $1, true)", [actorUserId]);
+    const authorization = await client.query("SELECT app_is_content_editor() AS allowed");
+    if (authorization.rows[0]?.allowed !== true) {
+      throw new Error("The selected actor is not registered as a curriculum content editor.");
+    }
 
     const result = await insertPackage(client, data, packageSha256);
     if (apply) {
