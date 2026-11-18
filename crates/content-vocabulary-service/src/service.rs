@@ -18,6 +18,54 @@ use std::sync::Arc;
 use tonic::{Request, Response, Status};
 use uuid::Uuid;
 
+struct ValidatedStudentCatalogQuery {
+    page: i32,
+    page_size: i32,
+    track: Option<String>,
+    level: Option<String>,
+    search: Option<String>,
+}
+
+fn validate_student_catalog_query(
+    request: &ListCurriculumCoursesRequest,
+) -> Result<ValidatedStudentCatalogQuery, Status> {
+    let page = if request.page <= 0 { 1 } else { request.page };
+    let page_size = if request.page_size <= 0 {
+        12
+    } else if request.page_size > 50 {
+        return Err(Status::invalid_argument("page_size no puede superar 50"));
+    } else {
+        request.page_size
+    };
+    if !request.track_code.is_empty()
+        && !matches!(request.track_code.as_str(), "general" | "technology")
+    {
+        return Err(Status::invalid_argument("track_code no es válido"));
+    }
+    if !request.cefr_level.is_empty()
+        && !matches!(
+            request.cefr_level.as_str(),
+            "PRE_A1" | "A1" | "A2" | "B1" | "B2" | "C1" | "C2"
+        )
+    {
+        return Err(Status::invalid_argument("cefr_level no es válido"));
+    }
+    let search = request.search_query.trim().to_lowercase();
+    if search.len() > 120 {
+        return Err(Status::invalid_argument(
+            "search_query no puede superar 120 caracteres",
+        ));
+    }
+
+    Ok(ValidatedStudentCatalogQuery {
+        page,
+        page_size,
+        track: (!request.track_code.is_empty()).then(|| request.track_code.clone()),
+        level: (!request.cefr_level.is_empty()).then(|| request.cefr_level.clone()),
+        search: (!search.is_empty()).then_some(search),
+    })
+}
+
 type LessonProgressEvidence = (i32, i32, f64, bool, bool);
 
 fn evaluate_lesson_progress(
@@ -305,32 +353,12 @@ impl ContentService for MyContentService {
     ) -> Result<Response<ListCurriculumCoursesResponse>, Status> {
         let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let req = request.into_inner();
-        let page = if req.page <= 0 { 1 } else { req.page };
-        let page_size = if req.page_size <= 0 {
-            12
-        } else if req.page_size > 50 {
-            return Err(Status::invalid_argument("page_size no puede superar 50"));
-        } else {
-            req.page_size
-        };
-        if !req.track_code.is_empty() && !matches!(req.track_code.as_str(), "general" | "technology") {
-            return Err(Status::invalid_argument("track_code no es válido"));
-        }
-        if !req.cefr_level.is_empty()
-            && !matches!(
-                req.cefr_level.as_str(),
-                "PRE_A1" | "A1" | "A2" | "B1" | "B2" | "C1" | "C2"
-            )
-        {
-            return Err(Status::invalid_argument("cefr_level no es válido"));
-        }
-        let search = req.search_query.trim().to_lowercase();
-        if search.len() > 120 {
-            return Err(Status::invalid_argument("search_query no puede superar 120 caracteres"));
-        }
-        let track = if req.track_code.is_empty() { None } else { Some(req.track_code) };
-        let level = if req.cefr_level.is_empty() { None } else { Some(req.cefr_level) };
-        let search = if search.is_empty() { None } else { Some(search) };
+        let filters = validate_student_catalog_query(&req)?;
+        let page = filters.page;
+        let page_size = filters.page_size;
+        let track = filters.track;
+        let level = filters.level;
+        let search = filters.search;
 
         let mut tx = self
             .pool
