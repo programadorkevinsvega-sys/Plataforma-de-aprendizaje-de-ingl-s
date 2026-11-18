@@ -5,6 +5,8 @@ import type {
   EditorialVersionsFilter,
   EditorialVersionsPage,
   EditorialVersionSummary,
+  ImportCurriculumPackageInput,
+  ImportCurriculumPackageResult,
   CurriculumCourseDetail,
   CurriculumCourseListFilter,
   CurriculumCoursePage,
@@ -15,6 +17,7 @@ import {
   toCourseEnrollment,
   toEditorialActionResult,
   toEditorialVersionSummary,
+  toImportCurriculumPackageResult,
   toCurriculumCourseDetail,
   toCurriculumCourseSummary,
 } from '@/infrastructure/api/curriculumMappers'
@@ -78,6 +81,20 @@ export class BffCurriculumRepository implements ICurriculumRepository {
       },
     )
     return toEditorialActionResult(response)
+  }
+
+  async importCurriculumPackage(
+    input: ImportCurriculumPackageInput,
+  ): Promise<ImportCurriculumPackageResult> {
+    const response = await this.http.post<Dto>(
+      '/api/v1/curriculum/editor/import',
+      {
+        package_json: input.packageJson,
+        apply: input.apply,
+      },
+      { timeoutMs: 180_000 },
+    )
+    return toImportCurriculumPackageResult(response)
   }
 
   async getCourse(courseVersionId: string): Promise<CurriculumCourseDetail> {
