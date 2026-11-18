@@ -911,10 +911,13 @@ checksum = "a6ef517f0926dd24a1582492c791b6a4818a4d94e789a334894aa15b0d12f55c"
 name = "content-vocabulary-service"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "common",
  "dotenvy",
  "proto",
  "serde",
+ "serde_json",
+ "sha2 0.10.9",
  "sqlx",
  "tokio",
  "tonic",

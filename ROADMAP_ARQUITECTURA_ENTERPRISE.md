@@ -1,7 +1,7 @@
 # ROADMAP Y ARQUITECTURA ENTERPRISE — DEVFLUENCY
 
 > **Estado:** documento original sincronizado con la planificación vigente.
-> **Última sincronización:** 2026-11-01.
+> **Última sincronización:** 2026-11-18.
 > **Documento rector de ejecución:** [docs/roadmap/ROADMAP_PLATAFORMA_APRENDIZAJE_PROFESIONAL.md](docs/roadmap/ROADMAP_PLATAFORMA_APRENDIZAJE_PROFESIONAL.md).
 > **Documento complementario de arquitectura:** [DOCUMENTO_MAESTRO_ARQUITECTURA_DEVFLUENCY.md](DOCUMENTO_MAESTRO_ARQUITECTURA_DEVFLUENCY.md).
 
@@ -98,7 +98,7 @@ La secuencia de abajo resume el roadmap rector. Los checklists completos, entreg
 | Fase vigente | Resultado que debe producir | Estado observado |
 |---|---|---|
 | 0. Descubrimiento, inventario y diseño técnico | Línea base funcional/técnica, ADR, trazabilidad, calidad y riesgos | Parcial: existe inventario y auditoría inicial; falta completar la matriz integral y las decisiones aprobadas |
-| 1. Currículo, contenido y catálogo académico | Rutas general y tecnológica, niveles Pre-A1/A0–C1 y extensión C2, contenido validado y versionado | En curso: subfase 1.3 completada, integrada y desplegada (contrato v1, import/export transaccional y flujo editorial); 1.4 curación del catálogo y 1.5 APIs/administración siguen pendientes |
+| 1. Currículo, contenido y catálogo académico | Rutas general y tecnológica, niveles Pre-A1/A0–C1 y extensión C2, contenido validado y versionado | En curso: 1.3 completada e integrada; 1.5 tiene catálogo estudiantil, paginación/filtros, progreso por evidencia y flujo editorial web en implementación; curación 1.4, edición de borradores existente y carga/publicación de contenido real siguen pendientes |
 | 2. Motor de lecciones y ejercicios | Contrato reutilizable, familias de ejercicios, feedback y Sistema Dual de Pronunciación integrado | Parcial: hay flujos actuales de vocabulario, audio y entrevista; falta el motor general y completar la validación del Sistema Dual |
 | 3. Diagnóstico, evaluación académica y dominio | Diagnóstico y dominio por competencia, con modalidades escrita y hablada separadas | Parcial con brecha crítica: el evaluador actual puntúa texto con seis métricas; no implementa aún las dos modalidades ni evidencia acústica real |
 | 4. Repetición espaciada y memoria | Repaso vinculado al currículo y retención demostrable | Parcial: SM-2 y revisiones existen; falta integración y medición académica |

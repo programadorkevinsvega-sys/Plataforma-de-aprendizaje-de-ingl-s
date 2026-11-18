@@ -14,8 +14,9 @@ use content_handler::{
     vocabulary_list_handler,
 };
 use curriculum_handler::{
-    apply_editorial_action_handler, enroll_course_handler, get_curriculum_course_handler,
-    list_curriculum_courses_handler, list_editorial_course_versions_handler,
+    enroll_course_handler, get_curriculum_course_handler, import_curriculum_package_handler,
+    list_curriculum_courses_handler, list_curriculum_editorial_versions_handler,
+    manage_curriculum_editorial_version_handler,
 };
 use exam_handler::{
     create_transcribe_ticket_handler, evaluate_answer_handler, get_drill_handler,
@@ -29,6 +30,7 @@ use user_handler::{
 };
 
 use axum::{
+    extract::DefaultBodyLimit,
     http::{
         header::{HeaderName, AUTHORIZATION, CONTENT_TYPE},
         HeaderValue, Method,
@@ -213,12 +215,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             post(enroll_course_handler),
         )
         .route(
-            "/api/v1/admin/curriculum/versions",
-            get(list_editorial_course_versions_handler),
+            "/api/v1/curriculum/editor/import",
+            post(import_curriculum_package_handler),
         )
         .route(
-            "/api/v1/admin/curriculum/actions",
-            post(apply_editorial_action_handler),
+            "/api/v1/curriculum/editor/versions",
+            get(list_curriculum_editorial_versions_handler),
+        )
+        .route(
+            "/api/v1/curriculum/editor/versions/:course_version_id/actions",
+            post(manage_curriculum_editorial_version_handler),
         )
         // Legacy content / vocabulary
         .route("/api/v1/content/vocabulary", get(vocabulary_list_handler))
@@ -244,6 +250,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/v1/exam/transcribe/ws", get(transcribe_ws_handler))
         // Users
         .route("/api/v1/users/me", patch(update_profile_handler))
+        .layer(DefaultBodyLimit::max(4 * 1024 * 1024))
         .layer(cors)
         .with_state(state);
 

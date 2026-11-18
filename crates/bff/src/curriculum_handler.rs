@@ -4,9 +4,10 @@ use axum::{
     Json,
 };
 use proto::content::{
-    ApplyEditorialActionRequest, CurriculumCourseSummary, CurriculumLesson, CurriculumObjective,
-    CurriculumPrerequisite, CurriculumUnit, EnrollInCourseRequest, GetCurriculumCourseRequest,
-    ListCurriculumCoursesRequest, ListEditorialCourseVersionsRequest,
+    CurriculumCourseSummary, CurriculumLesson, CurriculumObjective, CurriculumPrerequisite,
+    CurriculumUnit, EditorialCourseVersionSummary, EnrollInCourseRequest,
+    GetCurriculumCourseRequest, ImportCurriculumPackageRequest, ListCurriculumCoursesRequest,
+    ListEditorialVersionsRequest, ManageEditorialVersionRequest,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -34,8 +35,19 @@ pub struct CurriculumCourseDto {
 pub struct CurriculumCourseListDto {
     pub items: Vec<CurriculumCourseDto>,
     pub total: i32,
-    pub limit: i32,
-    pub offset: i32,
+    pub page: i32,
+    pub page_size: i32,
+    pub total_pages: i32,
+}
+
+#[derive(Deserialize, Default)]
+pub struct CurriculumCourseListQuery {
+    pub page: Option<i32>,
+    pub page_size: Option<i32>,
+    pub track_code: Option<String>,
+    pub cefr_level: Option<String>,
+    pub search: Option<String>,
+    pub enrolled_only: Option<bool>,
 }
 
 #[derive(Serialize)]
@@ -57,6 +69,15 @@ pub struct CurriculumPrerequisiteDto {
 }
 
 #[derive(Serialize)]
+pub struct CurriculumLessonProgressDto {
+    pub state: String,
+    pub mastery_score: f64,
+    pub required_objectives: i32,
+    pub completed_objectives: i32,
+    pub prerequisites_satisfied: bool,
+}
+
+#[derive(Serialize)]
 pub struct CurriculumLessonDto {
     pub id: String,
     pub lesson_code: String,
@@ -67,9 +88,7 @@ pub struct CurriculumLessonDto {
     pub estimated_minutes: i32,
     pub objectives: Vec<CurriculumObjectiveDto>,
     pub prerequisites: Vec<CurriculumPrerequisiteDto>,
-    pub progress_state: String,
-    pub unlocked: bool,
-    pub mastery_score: f64,
+    pub progress: Option<CurriculumLessonProgressDto>,
 }
 
 #[derive(Serialize)]
@@ -92,6 +111,100 @@ pub struct CurriculumCourseDetailDto {
 #[derive(Deserialize)]
 pub struct EnrollCourseBody {
     pub course_version_id: String,
+}
+
+#[derive(Deserialize, Default)]
+pub struct EditorialVersionsQuery {
+    pub page: Option<i32>,
+    pub page_size: Option<i32>,
+    pub status: Option<String>,
+    pub search: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct ImportCurriculumPackageBody {
+    pub package_json: String,
+    #[serde(default)]
+    pub apply: bool,
+}
+
+#[derive(Serialize)]
+pub struct ImportCurriculumPackageDto {
+    pub state: String,
+    pub course_version_id: String,
+    pub package_sha256: String,
+    pub units: i32,
+    pub lessons: i32,
+    pub objectives: i32,
+    pub vocabulary_references: i32,
+    pub sentence_references: i32,
+    pub applied: bool,
+    pub dry_run: bool,
+}
+
+#[derive(Deserialize)]
+pub struct EditorialActionBody {
+    pub action: String,
+    pub decision: Option<String>,
+    pub comments: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct EditorialVersionDto {
+    pub course_version_id: String,
+    pub slug: String,
+    pub track_code: String,
+    pub cefr_level: String,
+    pub version_number: i32,
+    pub status: String,
+    pub title: String,
+    pub description: String,
+    pub imported_at: String,
+    pub package_sha256: String,
+    pub latest_decision: String,
+    pub latest_comments: String,
+    pub latest_reviewer_id: String,
+    pub can_publish: bool,
+}
+
+#[derive(Serialize)]
+pub struct EditorialVersionListDto {
+    pub items: Vec<EditorialVersionDto>,
+    pub total: i32,
+    pub page: i32,
+    pub page_size: i32,
+    pub total_pages: i32,
+}
+
+#[derive(Serialize)]
+pub struct EditorialActionDto {
+    pub course_version_id: String,
+    pub action: String,
+    pub previous_status: String,
+    pub next_status: String,
+    pub review_id: String,
+    pub reviewed_at: String,
+}
+
+impl From<EditorialCourseVersionSummary> for EditorialVersionDto {
+    fn from(version: EditorialCourseVersionSummary) -> Self {
+        Self {
+            course_version_id: version.course_version_id,
+            slug: version.slug,
+            track_code: version.track_code,
+            cefr_level: version.cefr_level,
+            version_number: version.version_number,
+            status: version.status,
+            title: version.title,
+            description: version.description,
+            imported_at: version.imported_at,
+            package_sha256: version.package_sha256,
+            latest_decision: version.latest_decision,
+            latest_comments: version.latest_comments,
+            latest_reviewer_id: version.latest_reviewer_id,
+            can_publish: version.can_publish,
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -157,9 +270,13 @@ impl From<CurriculumLesson> for CurriculumLessonDto {
             estimated_minutes: lesson.estimated_minutes,
             objectives: lesson.objectives.into_iter().map(Into::into).collect(),
             prerequisites: lesson.prerequisites.into_iter().map(Into::into).collect(),
-            progress_state: lesson.progress_state,
-            unlocked: lesson.unlocked,
-            mastery_score: lesson.mastery_score,
+            progress: lesson.progress.map(|progress| CurriculumLessonProgressDto {
+                state: progress.state,
+                mastery_score: progress.mastery_score,
+                required_objectives: progress.required_objectives,
+                completed_objectives: progress.completed_objectives,
+                prerequisites_satisfied: progress.prerequisites_satisfied,
+            }),
         }
     }
 }
@@ -193,7 +310,12 @@ fn curriculum_error(error: tonic::Status, operation: &'static str) -> (StatusCod
         tonic::Code::InvalidArgument => (
             StatusCode::BAD_REQUEST,
             "CURRICULUM_INVALID_REQUEST",
-            "La ruta o los datos de la solicitud no son válidos.",
+            error.message(),
+        ),
+        tonic::Code::FailedPrecondition | tonic::Code::AlreadyExists => (
+            StatusCode::CONFLICT,
+            "CURRICULUM_STATE_CONFLICT",
+            error.message(),
         ),
         tonic::Code::NotFound => (
             StatusCode::NOT_FOUND,
@@ -223,29 +345,21 @@ fn curriculum_error(error: tonic::Status, operation: &'static str) -> (StatusCod
     )
 }
 
-#[derive(Deserialize)]
-pub struct CurriculumCourseQuery {
-    pub limit: Option<i32>,
-    pub offset: Option<i32>,
-    pub track: Option<String>,
-    pub level: Option<String>,
-    pub search: Option<String>,
-}
-
-/// GET /api/v1/curriculum/courses?limit=20&offset=0&track=general&level=A1&search=...
+/// GET /api/v1/curriculum/courses
 pub async fn list_curriculum_courses_handler(
     State(mut state): State<AppState>,
     headers: HeaderMap,
-    Query(query): Query<CurriculumCourseQuery>,
+    Query(query): Query<CurriculumCourseListQuery>,
 ) -> Result<Json<CurriculumCourseListDto>, (StatusCode, Json<Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
     let mut request = tonic::Request::new(ListCurriculumCoursesRequest {
         user_id,
-        limit: query.limit.unwrap_or(20),
-        offset: query.offset.unwrap_or(0),
-        track_code: query.track.unwrap_or_default(),
-        cefr_level: query.level.unwrap_or_default(),
-        search: query.search.unwrap_or_default(),
+        page: query.page.unwrap_or(1),
+        page_size: query.page_size.unwrap_or(12),
+        track_code: query.track_code.unwrap_or_default(),
+        cefr_level: query.cefr_level.unwrap_or_default(),
+        search_query: query.search.unwrap_or_default(),
+        enrolled_only: query.enrolled_only.unwrap_or(false),
     });
     attach_bearer_metadata(&headers, &mut request)?;
 
@@ -259,8 +373,9 @@ pub async fn list_curriculum_courses_handler(
     Ok(Json(CurriculumCourseListDto {
         items: response.items.into_iter().map(Into::into).collect(),
         total: response.total,
-        limit: response.limit,
-        offset: response.offset,
+        page: response.page,
+        page_size: response.page_size,
+        total_pages: response.total_pages,
     }))
 }
 
@@ -299,6 +414,120 @@ pub async fn get_curriculum_course_handler(
     }))
 }
 
+/// GET /api/v1/curriculum/editor/versions
+pub async fn list_curriculum_editorial_versions_handler(
+    State(mut state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<EditorialVersionsQuery>,
+) -> Result<Json<EditorialVersionListDto>, (StatusCode, Json<Value>)> {
+    let user_id = validate_token_from_headers(&headers, &mut state).await?;
+    let mut request = tonic::Request::new(ListEditorialVersionsRequest {
+        user_id,
+        page: query.page.unwrap_or(1),
+        page_size: query.page_size.unwrap_or(20),
+        status: query.status.unwrap_or_default(),
+        search_query: query.search.unwrap_or_default(),
+    });
+    attach_bearer_metadata(&headers, &mut request)?;
+
+    let mut client = state.content_client.clone();
+    let response = client
+        .list_editorial_versions(request)
+        .await
+        .map_err(|error| curriculum_error(error, "list_editorial_versions"))?
+        .into_inner();
+
+    Ok(Json(EditorialVersionListDto {
+        items: response.items.into_iter().map(Into::into).collect(),
+        total: response.total,
+        page: response.page,
+        page_size: response.page_size,
+        total_pages: response.total_pages,
+    }))
+}
+
+/// POST /api/v1/curriculum/editor/import
+///
+/// A preview uses the same transactional importer and rolls back. Persisting a
+/// package requires the explicit apply=true confirmation from the editor.
+pub async fn import_curriculum_package_handler(
+    State(mut state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<ImportCurriculumPackageBody>,
+) -> Result<Json<ImportCurriculumPackageDto>, (StatusCode, Json<Value>)> {
+    if body.package_json.trim().is_empty() || body.package_json.len() > 3_500_000 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "message": "El paquete está vacío o supera el tamaño máximo permitido.",
+                "code": "CURRICULUM_PACKAGE_SIZE_INVALID"
+            })),
+        ));
+    }
+
+    let user_id = validate_token_from_headers(&headers, &mut state).await?;
+    let mut request = tonic::Request::new(ImportCurriculumPackageRequest {
+        user_id,
+        package_json: body.package_json,
+        apply: body.apply,
+    });
+    attach_bearer_metadata(&headers, &mut request)?;
+
+    let mut client = state.content_client.clone();
+    let response = client
+        .import_curriculum_package(request)
+        .await
+        .map_err(|error| curriculum_error(error, "import_curriculum_package"))?
+        .into_inner();
+
+    Ok(Json(ImportCurriculumPackageDto {
+        state: response.state,
+        course_version_id: response.course_version_id,
+        package_sha256: response.package_sha256,
+        units: response.units,
+        lessons: response.lessons,
+        objectives: response.objectives,
+        vocabulary_references: response.vocabulary_references,
+        sentence_references: response.sentence_references,
+        applied: response.applied,
+        dry_run: response.dry_run,
+    }))
+}
+
+/// POST /api/v1/curriculum/editor/versions/:course_version_id/actions
+pub async fn manage_curriculum_editorial_version_handler(
+    State(mut state): State<AppState>,
+    headers: HeaderMap,
+    Path(course_version_id): Path<String>,
+    Json(body): Json<EditorialActionBody>,
+) -> Result<Json<EditorialActionDto>, (StatusCode, Json<Value>)> {
+    let user_id = validate_token_from_headers(&headers, &mut state).await?;
+    let mut request = tonic::Request::new(ManageEditorialVersionRequest {
+        user_id,
+        course_version_id,
+        action: body.action,
+        decision: body.decision.unwrap_or_default(),
+        comments: body.comments.unwrap_or_default(),
+    });
+    attach_bearer_metadata(&headers, &mut request)?;
+
+    let mut client = state.content_client.clone();
+    let response = client
+        .manage_editorial_version(request)
+        .await
+        .map_err(|error| curriculum_error(error, "manage_editorial_version"))?
+        .into_inner();
+
+    Ok(Json(EditorialActionDto {
+        course_version_id: response.course_version_id,
+        action: response.action,
+        previous_status: response.previous_status,
+        next_status: response.next_status,
+        review_id: response.review_id,
+        reviewed_at: response.reviewed_at,
+    }))
+}
+
 /// POST /api/v1/curriculum/enrollments
 pub async fn enroll_course_handler(
     State(mut state): State<AppState>,
@@ -324,118 +553,5 @@ pub async fn enroll_course_handler(
         course_version_id: response.course_version_id,
         status: response.status,
         started_at: response.started_at,
-    }))
-}
-
-#[derive(Serialize)]
-pub struct EditorialCourseVersionDto {
-    pub course_version_id: String,
-    pub slug: String,
-    pub track_code: String,
-    pub cefr_level: String,
-    pub version_number: i32,
-    pub title: String,
-    pub description: String,
-    pub status: String,
-    pub submitted_at: String,
-    pub published_at: String,
-    pub latest_decision: String,
-    pub latest_comments: String,
-}
-
-#[derive(Serialize)]
-pub struct EditorialCourseVersionsDto {
-    pub items: Vec<EditorialCourseVersionDto>,
-}
-
-#[derive(Deserialize)]
-pub struct EditorialCourseVersionsQuery {
-    pub status: Option<String>,
-}
-
-#[derive(Deserialize)]
-pub struct EditorialActionBody {
-    pub course_version_id: String,
-    pub action: String,
-    pub decision: Option<String>,
-    pub comments: Option<String>,
-}
-
-#[derive(Serialize)]
-pub struct EditorialActionDto {
-    pub course_version_id: String,
-    pub action: String,
-    pub status: String,
-    pub decision: String,
-    pub applied: bool,
-}
-
-/// GET /api/v1/admin/curriculum/versions
-pub async fn list_editorial_course_versions_handler(
-    State(mut state): State<AppState>,
-    headers: HeaderMap,
-    Query(query): Query<EditorialCourseVersionsQuery>,
-) -> Result<Json<EditorialCourseVersionsDto>, (StatusCode, Json<Value>)> {
-    let user_id = validate_token_from_headers(&headers, &mut state).await?;
-    let mut request = tonic::Request::new(ListEditorialCourseVersionsRequest {
-        user_id,
-        status: query.status.unwrap_or_default(),
-    });
-    attach_bearer_metadata(&headers, &mut request)?;
-    let mut client = state.content_client.clone();
-    let response = client
-        .list_editorial_course_versions(request)
-        .await
-        .map_err(|error| curriculum_error(error, "list_editorial_versions"))?
-        .into_inner();
-    Ok(Json(EditorialCourseVersionsDto {
-        items: response
-            .items
-            .into_iter()
-            .map(|item| EditorialCourseVersionDto {
-                course_version_id: item.course_version_id,
-                slug: item.slug,
-                track_code: item.track_code,
-                cefr_level: item.cefr_level,
-                version_number: item.version_number,
-                title: item.title,
-                description: item.description,
-                status: item.status,
-                submitted_at: item.submitted_at,
-                published_at: item.published_at,
-                latest_decision: item.latest_decision,
-                latest_comments: item.latest_comments,
-            })
-            .collect(),
-    }))
-}
-
-/// POST /api/v1/admin/curriculum/actions
-pub async fn apply_editorial_action_handler(
-    State(mut state): State<AppState>,
-    headers: HeaderMap,
-    Json(body): Json<EditorialActionBody>,
-) -> Result<Json<EditorialActionDto>, (StatusCode, Json<Value>)> {
-    let user_id = validate_token_from_headers(&headers, &mut state).await?;
-    let mut request = tonic::Request::new(ApplyEditorialActionRequest {
-        user_id,
-        course_version_id: body.course_version_id,
-        action: body.action,
-        decision: body.decision.unwrap_or_default(),
-        comments: body.comments.unwrap_or_default(),
-    });
-    attach_bearer_metadata(&headers, &mut request)?;
-    let mut client = state.content_client.clone();
-    let response = client
-        .apply_editorial_action(request)
-        .await
-        .map_err(|error| curriculum_error(error, "apply_editorial_action"))?
-        .into_inner();
-    Ok(Json(EditorialActionDto {
-        course_version_id: response.course_version_id,
-        action: response.action,
-        status: response.status,
-        decision: response.decision,
-        applied: response.applied,
     }))
 }

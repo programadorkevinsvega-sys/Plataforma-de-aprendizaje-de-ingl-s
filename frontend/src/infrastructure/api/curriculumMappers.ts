@@ -1,9 +1,16 @@
 import type {
   CourseEnrollment,
+  EditorialActionResult,
+  EditorialDecision,
+  EditorialVersionStatus,
+  ImportCurriculumPackageResult,
+  EditorialVersionSummary,
   CurriculumCourseDetail,
   CurriculumCourseSummary,
   CurriculumLevel,
   CurriculumLesson,
+  CurriculumLessonProgress,
+  CurriculumLessonProgressState,
   CurriculumObjective,
   CurriculumPrerequisite,
   CurriculumTrackCode,
@@ -104,6 +111,29 @@ function toPrerequisite(dto: Dto): CurriculumPrerequisite {
 
 function toLesson(dto: Dto): CurriculumLesson {
   const pattern = stringValue(dto, ['lesson_pattern', 'lessonPattern'])
+  const rawProgress = value(dto, 'progress')
+  let progress: CurriculumLessonProgress | null = null
+  if (typeof rawProgress === 'object' && rawProgress !== null) {
+    const progressDto = rawProgress as Dto
+    const rawState = stringValue(progressDto, ['state'])
+    const allowedStates: CurriculumLessonProgressState[] = [
+      'not_enrolled',
+      'locked',
+      'available',
+      'in_progress',
+      'completed',
+      'mastered',
+    ]
+    progress = {
+      state: allowedStates.includes(rawState as CurriculumLessonProgressState)
+        ? (rawState as CurriculumLessonProgressState)
+        : 'locked',
+      masteryScore: Math.min(1, Math.max(0, numberValue(progressDto, ['mastery_score', 'masteryScore']))),
+      requiredObjectives: numberValue(progressDto, ['required_objectives', 'requiredObjectives']),
+      completedObjectives: numberValue(progressDto, ['completed_objectives', 'completedObjectives']),
+      prerequisitesSatisfied: booleanValue(progressDto, ['prerequisites_satisfied', 'prerequisitesSatisfied']),
+    }
+  }
   const allowed: CurriculumLesson['lessonPattern'][] = [
     'discover',
     'understand',
@@ -123,9 +153,7 @@ function toLesson(dto: Dto): CurriculumLesson {
     estimatedMinutes: numberValue(dto, ['estimated_minutes', 'estimatedMinutes']),
     objectives: records(dto, 'objectives').map(toObjective),
     prerequisites: records(dto, 'prerequisites').map(toPrerequisite),
-    progressState: (['not_started', 'in_progress', 'completed', 'mastered'].includes(stringValue(dto, ['progress_state', 'progressState'])) ? stringValue(dto, ['progress_state', 'progressState']) : 'not_started') as CurriculumLesson['progressState'],
-    unlocked: booleanValue(dto, ['unlocked']),
-    masteryScore: numberValue(dto, ['mastery_score', 'masteryScore']),
+    progress,
   }
 }
 
@@ -149,6 +177,70 @@ export function toCurriculumCourseDetail(dto: Dto): CurriculumCourseDetail {
   return {
     course: toCurriculumCourseSummary(course as Dto),
     units: records(dto, 'units').map(toUnit),
+  }
+}
+
+export function toEditorialVersionSummary(dto: Dto): EditorialVersionSummary {
+  const status = stringValue(dto, ['status'])
+  const decision = stringValue(dto, ['latest_decision', 'latestDecision'])
+  const statuses: EditorialVersionStatus[] = ['draft', 'review', 'published', 'archived']
+  const decisions: EditorialDecision[] = ['approved', 'rejected', 'changes_requested']
+  return {
+    courseVersionId: stringValue(dto, ['course_version_id', 'courseVersionId']),
+    slug: stringValue(dto, ['slug']),
+    trackCode: mapTrack(stringValue(dto, ['track_code', 'trackCode'])),
+    cefrLevel: mapLevel(stringValue(dto, ['cefr_level', 'cefrLevel'], 'PRE_A1')),
+    versionNumber: numberValue(dto, ['version_number', 'versionNumber']),
+    status: statuses.includes(status as EditorialVersionStatus)
+      ? (status as EditorialVersionStatus)
+      : 'draft',
+    title: stringValue(dto, ['title']),
+    description: stringValue(dto, ['description']),
+    importedAt: stringValue(dto, ['imported_at', 'importedAt']),
+    packageSha256: stringValue(dto, ['package_sha256', 'packageSha256']),
+    latestDecision: decisions.includes(decision as EditorialDecision)
+      ? (decision as EditorialDecision)
+      : '',
+    latestComments: stringValue(dto, ['latest_comments', 'latestComments']),
+    latestReviewerId: stringValue(dto, ['latest_reviewer_id', 'latestReviewerId']),
+    canPublish: booleanValue(dto, ['can_publish', 'canPublish']),
+  }
+}
+
+export function toEditorialActionResult(dto: Dto): EditorialActionResult {
+  const action = stringValue(dto, ['action'])
+  const previousStatus = stringValue(dto, ['previous_status', 'previousStatus'])
+  const nextStatus = stringValue(dto, ['next_status', 'nextStatus'])
+  const statuses: EditorialVersionStatus[] = ['draft', 'review', 'published', 'archived']
+  return {
+    courseVersionId: stringValue(dto, ['course_version_id', 'courseVersionId']),
+    action: action === 'review' || action === 'publish' ? action : 'submit',
+    previousStatus: statuses.includes(previousStatus as EditorialVersionStatus)
+      ? (previousStatus as EditorialVersionStatus)
+      : 'draft',
+    nextStatus: statuses.includes(nextStatus as EditorialVersionStatus)
+      ? (nextStatus as EditorialVersionStatus)
+      : 'draft',
+    reviewId: stringValue(dto, ['review_id', 'reviewId']),
+    reviewedAt: stringValue(dto, ['reviewed_at', 'reviewedAt']),
+  }
+}
+
+export function toImportCurriculumPackageResult(dto: Dto): ImportCurriculumPackageResult {
+  const state = stringValue(dto, ['state'])
+  return {
+    state: state === 'already_imported' ? 'already_imported' : 'imported',
+    courseVersionId: stringValue(dto, ['course_version_id', 'courseVersionId']),
+    packageSha256: stringValue(dto, ['package_sha256', 'packageSha256']),
+    counts: {
+      units: numberValue(dto, ['units']),
+      lessons: numberValue(dto, ['lessons']),
+      objectives: numberValue(dto, ['objectives']),
+      vocabularyReferences: numberValue(dto, ['vocabulary_references', 'vocabularyReferences']),
+      sentenceReferences: numberValue(dto, ['sentence_references', 'sentenceReferences']),
+    },
+    applied: booleanValue(dto, ['applied']),
+    dryRun: booleanValue(dto, ['dry_run', 'dryRun']),
   }
 }
 

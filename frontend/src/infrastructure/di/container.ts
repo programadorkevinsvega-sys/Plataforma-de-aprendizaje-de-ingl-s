@@ -14,10 +14,11 @@ import {
 import { GetAchievementsUseCase } from '@/application/use-cases/GetAchievementsUseCase'
 import {
   EnrollInCurriculumCourseUseCase,
-  GetEditorialCourseVersionsUseCase,
-  ApplyEditorialActionUseCase,
   GetCurriculumCourseUseCase,
   GetCurriculumCoursesUseCase,
+  GetCurriculumEditorialVersionsUseCase,
+  ImportCurriculumContentPackageUseCase,
+  ManageCurriculumEditorialVersionUseCase,
 } from '@/application/use-cases/CurriculumUseCases'
 import { GetDashboardSummaryUseCase } from '@/application/use-cases/GetDashboardSummaryUseCase'
 import { GetLeaderboardUseCase } from '@/application/use-cases/GetLeaderboardUseCase'
@@ -75,8 +76,9 @@ export interface Container {
     getCurriculumCourses: GetCurriculumCoursesUseCase
     getCurriculumCourse: GetCurriculumCourseUseCase
     enrollInCurriculumCourse: EnrollInCurriculumCourseUseCase
-    getEditorialCourseVersions: GetEditorialCourseVersionsUseCase
-    applyEditorialAction: ApplyEditorialActionUseCase
+    getCurriculumEditorialVersions: GetCurriculumEditorialVersionsUseCase
+    manageCurriculumEditorialVersion: ManageCurriculumEditorialVersionUseCase
+    importCurriculumContentPackage: ImportCurriculumContentPackageUseCase
     getTodayLesson: GetTodayLessonUseCase
     synthesizeSpeech: SynthesizeSpeechUseCase
     markWordCompleted: MarkWordCompletedUseCase
@@ -124,8 +126,9 @@ function build(): Container {
       getCurriculumCourses: new GetCurriculumCoursesUseCase(curriculum),
       getCurriculumCourse: new GetCurriculumCourseUseCase(curriculum),
       enrollInCurriculumCourse: new EnrollInCurriculumCourseUseCase(curriculum),
-      getEditorialCourseVersions: new GetEditorialCourseVersionsUseCase(curriculum),
-      applyEditorialAction: new ApplyEditorialActionUseCase(curriculum),
+      getCurriculumEditorialVersions: new GetCurriculumEditorialVersionsUseCase(curriculum),
+      manageCurriculumEditorialVersion: new ManageCurriculumEditorialVersionUseCase(curriculum),
+      importCurriculumContentPackage: new ImportCurriculumContentPackageUseCase(curriculum),
       getTodayLesson: new GetTodayLessonUseCase(content),
       synthesizeSpeech: new SynthesizeSpeechUseCase(content),
       markWordCompleted: new MarkWordCompletedUseCase(content),

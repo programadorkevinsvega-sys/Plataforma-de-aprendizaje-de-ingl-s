@@ -1,6 +1,23 @@
 export type CurriculumTrackCode = 'general' | 'technology'
 export type CurriculumLevel = 'PRE_A1' | 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
 
+export interface CurriculumCourseListFilter {
+  page: number
+  pageSize: number
+  trackCode?: CurriculumTrackCode
+  cefrLevel?: CurriculumLevel
+  search?: string
+  enrolledOnly?: boolean
+}
+
+export interface CurriculumCoursePage {
+  items: CurriculumCourseSummary[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
 export interface CurriculumCourseSummary {
   courseVersionId: string
   slug: string
@@ -14,21 +31,6 @@ export interface CurriculumCourseSummary {
   estimatedMinutes: number
   enrolled: boolean
   status: 'published' | 'archived'
-}
-
-export interface CurriculumCourseQuery {
-  limit: number
-  offset: number
-  track?: CurriculumTrackCode
-  level?: CurriculumLevel
-  search?: string
-}
-
-export interface CurriculumCoursePage {
-  items: CurriculumCourseSummary[]
-  total: number
-  limit: number
-  offset: number
 }
 
 export interface CurriculumObjective {
@@ -47,6 +49,22 @@ export interface CurriculumPrerequisite {
   minimumMasteryScore: number
 }
 
+export type CurriculumLessonProgressState =
+  | 'not_enrolled'
+  | 'locked'
+  | 'available'
+  | 'in_progress'
+  | 'completed'
+  | 'mastered'
+
+export interface CurriculumLessonProgress {
+  state: CurriculumLessonProgressState
+  masteryScore: number
+  requiredObjectives: number
+  completedObjectives: number
+  prerequisitesSatisfied: boolean
+}
+
 export interface CurriculumLesson {
   id: string
   lessonCode: string
@@ -57,9 +75,7 @@ export interface CurriculumLesson {
   estimatedMinutes: number
   objectives: CurriculumObjective[]
   prerequisites: CurriculumPrerequisite[]
-  progressState: 'not_started' | 'in_progress' | 'completed' | 'mastered'
-  unlocked: boolean
-  masteryScore: number
+  progress: CurriculumLessonProgress | null
 }
 
 export interface CurriculumUnit {
@@ -77,6 +93,80 @@ export interface CurriculumCourseDetail {
   units: CurriculumUnit[]
 }
 
+export type EditorialVersionStatus = 'draft' | 'review' | 'published' | 'archived'
+export type EditorialDecision = 'approved' | 'rejected' | 'changes_requested'
+export type EditorialAction = 'submit' | 'review' | 'publish'
+
+export interface EditorialVersionSummary {
+  courseVersionId: string
+  slug: string
+  trackCode: CurriculumTrackCode
+  cefrLevel: CurriculumLevel
+  versionNumber: number
+  status: EditorialVersionStatus
+  title: string
+  description: string
+  importedAt: string
+  packageSha256: string
+  latestDecision: EditorialDecision | ''
+  latestComments: string
+  latestReviewerId: string
+  canPublish: boolean
+}
+
+export interface EditorialVersionsFilter {
+  page: number
+  pageSize: number
+  status?: EditorialVersionStatus
+  search?: string
+}
+
+export interface EditorialVersionsPage {
+  items: EditorialVersionSummary[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+export interface EditorialActionInput {
+  courseVersionId: string
+  action: EditorialAction
+  decision?: EditorialDecision
+  comments?: string
+}
+
+export interface EditorialActionResult {
+  courseVersionId: string
+  action: EditorialAction
+  previousStatus: EditorialVersionStatus
+  nextStatus: EditorialVersionStatus
+  reviewId: string
+  reviewedAt: string
+}
+
+export interface ImportCurriculumPackageInput {
+  packageJson: string
+  apply: boolean
+}
+
+export interface ImportCurriculumPackageCounts {
+  units: number
+  lessons: number
+  objectives: number
+  vocabularyReferences: number
+  sentenceReferences: number
+}
+
+export interface ImportCurriculumPackageResult {
+  state: 'imported' | 'already_imported'
+  courseVersionId: string
+  packageSha256: string
+  counts: ImportCurriculumPackageCounts
+  applied: boolean
+  dryRun: boolean
+}
+
 export interface CourseEnrollment {
   enrollmentId: string
   courseVersionId: string
@@ -85,31 +175,10 @@ export interface CourseEnrollment {
 }
 
 export interface ICurriculumRepository {
-  listCourses(query: CurriculumCourseQuery): Promise<CurriculumCoursePage>
+  listCourses(filter: CurriculumCourseListFilter): Promise<CurriculumCoursePage>
   getCourse(courseVersionId: string): Promise<CurriculumCourseDetail>
   enroll(courseVersionId: string): Promise<CourseEnrollment>
-  listEditorialVersions(status?: string): Promise<EditorialCourseVersion[]>
-  applyEditorialAction(action: EditorialAction): Promise<void>
-}
-
-export interface EditorialCourseVersion {
-  courseVersionId: string
-  slug: string
-  trackCode: CurriculumTrackCode
-  cefrLevel: CurriculumLevel
-  versionNumber: number
-  title: string
-  description: string
-  status: 'draft' | 'review' | 'published' | 'archived'
-  submittedAt: string
-  publishedAt: string
-  latestDecision: '' | 'approved' | 'rejected' | 'changes_requested'
-  latestComments: string
-}
-
-export interface EditorialAction {
-  courseVersionId: string
-  action: 'submit' | 'review' | 'publish'
-  decision?: 'approved' | 'rejected' | 'changes_requested'
-  comments?: string
+  listEditorialVersions(filter: EditorialVersionsFilter): Promise<EditorialVersionsPage>
+  manageEditorialVersion(input: EditorialActionInput): Promise<EditorialActionResult>
+  importCurriculumPackage(input: ImportCurriculumPackageInput): Promise<ImportCurriculumPackageResult>
 }
