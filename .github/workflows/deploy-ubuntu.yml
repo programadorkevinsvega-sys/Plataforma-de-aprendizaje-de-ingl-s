@@ -219,9 +219,28 @@ jobs:
           install -m 0755 "$(command -v sqlx)" dist/bin/sqlx
           install -m 0755 target/release/tts-smoke-test dist/bin/tts-smoke-test
           cp -a frontend/.next/standalone/. dist/frontend/
-          mkdir -p dist/frontend/.next
-          cp -a frontend/.next/static dist/frontend/.next/static
-          if [ -d frontend/public ]; then cp -a frontend/public dist/frontend/public; fi
+
+          # Next.js 16 in this pnpm workspace emits server.js beneath the
+          # workspace-relative frontend/ directory. Keep that layout intact:
+          # its node_modules/next symlink is relative to the standalone root.
+          if [[ -f dist/frontend/frontend/server.js ]]; then
+            app_bundle_root="dist/frontend/frontend"
+          elif [[ -f dist/frontend/server.js ]]; then
+            app_bundle_root="dist/frontend"
+          else
+            echo "::error::Next.js standalone server.js was not found in the generated bundle."
+            find dist/frontend -maxdepth 4 -name server.js -print
+            exit 1
+          fi
+
+          mkdir -p "$app_bundle_root/.next/static"
+          cp -a frontend/.next/static/. "$app_bundle_root/.next/static/"
+          if [ -d frontend/public ]; then
+            mkdir -p "$app_bundle_root/public"
+            cp -a frontend/public/. "$app_bundle_root/public/"
+          fi
+          test -f "$app_bundle_root/server.js"
+          echo "Next.js standalone application root: $app_bundle_root"
           cp -a deploy/. dist/deploy/
           cp -a migrations dist/migrations
           tar -czf devfluency-deploy-package.tar.gz -C dist bin frontend deploy migrations

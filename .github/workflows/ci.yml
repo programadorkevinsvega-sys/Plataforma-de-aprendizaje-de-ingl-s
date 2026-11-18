@@ -374,6 +374,7 @@ jobs:
             find . -maxdepth 1 -type f -name '*.sh' -print0
           )
           bash deploy/tests/test-health-checks.sh
+          bash deploy/tests/test-frontend-start.sh
           python3 -m unittest discover -s tools/phase0/tests -p 'test_*.py' -v
 
   markdown:
