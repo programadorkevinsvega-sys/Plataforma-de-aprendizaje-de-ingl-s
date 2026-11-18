@@ -5,6 +5,7 @@ use serde_json::{Map, Number, Value};
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::net::Ipv6Addr;
 use uuid::Uuid;
 
 const FORMAT_NAME: &str = "devfluency.curriculum-content";
@@ -253,6 +254,63 @@ fn valid_code(value: &str) -> bool {
         })
 }
 
+fn valid_slug(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 120
+        && value.split('-').all(|part| {
+            !part.is_empty()
+                && part
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+        })
+}
+
+fn valid_http_url(value: &str) -> bool {
+    let Some((scheme, remainder)) = value.split_once("://") else {
+        return false;
+    };
+    if !scheme.eq_ignore_ascii_case("http") && !scheme.eq_ignore_ascii_case("https") {
+        return false;
+    }
+
+    let authority = remainder
+        .split(|character| matches!(character, '/' | '?' | '#'))
+        .next()
+        .unwrap_or("");
+    let host_port = authority.rsplit('@').next().unwrap_or("");
+    if host_port.is_empty() || host_port.chars().any(char::is_whitespace) {
+        return false;
+    }
+
+    if let Some(bracketed) = host_port.strip_prefix('[') {
+        let Some(close) = bracketed.find(']') else {
+            return false;
+        };
+        let host = &bracketed[..close];
+        if host.parse::<Ipv6Addr>().is_err() {
+            return false;
+        }
+        let suffix = &bracketed[close + 1..];
+        return suffix.is_empty()
+            || suffix == ":"
+            || suffix
+                .strip_prefix(':')
+                .is_some_and(|port| port.parse::<u16>().is_ok());
+    }
+
+    let (host, port) = match host_port.rsplit_once(':') {
+        Some((host, port)) => (host, Some(port)),
+        None => (host_port, None),
+    };
+    if host.is_empty() || host.contains(':') || host.starts_with('.') || host.ends_with('.') {
+        return false;
+    }
+    match port {
+        None | Some("") => true,
+        Some(port) => port.parse::<u16>().is_ok(),
+    }
+}
+
 fn enum_value(value: &str, allowed: &[&str], path: &str) -> Result<(), String> {
     if allowed.contains(&value) {
         Ok(())
@@ -329,9 +387,7 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
     if let Some(url) = source.get("url") {
         if !url.is_null() {
             let url = url.as_str().ok_or("$/metadata/source/url: debe ser texto o null")?;
-            if !(url.starts_with("https://") || url.starts_with("http://"))
-                || url.split("://").nth(1).unwrap_or("").trim().is_empty()
-            {
+            if !valid_http_url(url) {
                 return Err("$/metadata/source/url: debe ser una URL HTTP(S) válida o null".to_string());
             }
         }
@@ -340,7 +396,7 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
     let course = object(root.get("course").ok_or("$/course: es obligatorio")?, "$/course")?;
     check_keys(course, "$/course", &["slug", "track_code"], &["slug", "track_code"])?;
     let slug = required_string(course, "slug", "$/course", 120, false)?;
-    if !valid_code(slug) {
+    if !valid_slug(slug) {
         return Err("$/course/slug: formato slug no válido".to_string());
     }
     let track = required_string(course, "track_code", "$/course", 20, false)?;
