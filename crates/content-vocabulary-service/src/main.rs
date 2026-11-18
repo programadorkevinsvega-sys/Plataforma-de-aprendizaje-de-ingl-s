@@ -1,3 +1,4 @@
+mod curriculum_package;
 mod service;
 
 use proto::content::content_service_server::ContentServiceServer;
