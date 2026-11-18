@@ -1,5 +1,6 @@
 mod auth_handler;
 mod content_handler;
+mod curriculum_handler;
 mod exam_handler;
 mod grpc_deadlines;
 mod progress_handler;
@@ -11,6 +12,9 @@ use auth_handler::{login_handler, me_handler, refresh_handler, register_handler}
 use content_handler::{
     mark_word_complete_handler, synthesize_speech_handler, today_lesson_handler,
     vocabulary_list_handler,
+};
+use curriculum_handler::{
+    enroll_course_handler, get_curriculum_course_handler, list_curriculum_courses_handler,
 };
 use exam_handler::{
     create_transcribe_ticket_handler, evaluate_answer_handler, get_drill_handler,
@@ -194,7 +198,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .route("/api/v1/progress/leaderboard", get(leaderboard_handler))
         .route("/api/v1/progress/achievements", get(achievements_handler))
-        // Content / Vocabulary
+        // Curriculum catalog for authenticated students
+        .route(
+            "/api/v1/curriculum/courses",
+            get(list_curriculum_courses_handler),
+        )
+        .route(
+            "/api/v1/curriculum/courses/:course_version_id",
+            get(get_curriculum_course_handler),
+        )
+        .route(
+            "/api/v1/curriculum/enrollments",
+            post(enroll_course_handler),
+        )
+        // Legacy content / vocabulary
         .route("/api/v1/content/vocabulary", get(vocabulary_list_handler))
         .route("/api/v1/content/lessons/today", get(today_lesson_handler))
         .route("/api/v1/content/speech", post(synthesize_speech_handler))

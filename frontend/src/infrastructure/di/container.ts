@@ -12,6 +12,11 @@ import {
   TranscribeAnswerUseCase,
 } from '@/application/use-cases/EvaluateExamAnswerUseCase'
 import { GetAchievementsUseCase } from '@/application/use-cases/GetAchievementsUseCase'
+import {
+  EnrollInCurriculumCourseUseCase,
+  GetCurriculumCourseUseCase,
+  GetCurriculumCoursesUseCase,
+} from '@/application/use-cases/CurriculumUseCases'
 import { GetDashboardSummaryUseCase } from '@/application/use-cases/GetDashboardSummaryUseCase'
 import { GetLeaderboardUseCase } from '@/application/use-cases/GetLeaderboardUseCase'
 import { RecordLearningProgressUseCase } from '@/application/use-cases/RecordLearningProgressUseCase'
@@ -35,12 +40,14 @@ import {
 import type { IAIEvaluatorRepository } from '@/domain/repositories/IAIEvaluatorRepository'
 import type { IAuthRepository } from '@/domain/repositories/IAuthRepository'
 import type { IContentRepository } from '@/domain/repositories/IContentRepository'
+import type { ICurriculumRepository } from '@/domain/repositories/ICurriculumRepository'
 import type { IProgressRepository } from '@/domain/repositories/IProgressRepository'
 import type { ISrsRepository } from '@/domain/repositories/ISrsRepository'
 import { BFF_BASE_URL, BffHttpClient } from '../api/BffHttpClient'
 import { BffAIEvaluatorRepository } from '../repositories/BffAIEvaluatorRepository'
 import { BffAuthRepository } from '../repositories/BffAuthRepository'
 import { BffContentRepository } from '../repositories/BffContentRepository'
+import { BffCurriculumRepository } from '../repositories/BffCurriculumRepository'
 import { BffProgressRepository } from '../repositories/BffProgressRepository'
 import { BffSrsRepository } from '../repositories/BffSrsRepository'
 import { sessionStorageAdapter } from '../storage/SessionStorage'
@@ -51,6 +58,7 @@ export interface Container {
   repositories: {
     auth: IAuthRepository
     content: IContentRepository
+    curriculum: ICurriculumRepository
     evaluator: IAIEvaluatorRepository
     srs: ISrsRepository
     progress: IProgressRepository
@@ -62,6 +70,9 @@ export interface Container {
     getCurrentUser: GetCurrentUserUseCase
     updateProfile: UpdateProfileUseCase
     getVocabulary: GetVocabularyListUseCase
+    getCurriculumCourses: GetCurriculumCoursesUseCase
+    getCurriculumCourse: GetCurriculumCourseUseCase
+    enrollInCurriculumCourse: EnrollInCurriculumCourseUseCase
     getTodayLesson: GetTodayLessonUseCase
     synthesizeSpeech: SynthesizeSpeechUseCase
     markWordCompleted: MarkWordCompletedUseCase
@@ -90,6 +101,7 @@ function build(): Container {
 
   const auth = new BffAuthRepository(http, sessionStorageAdapter)
   const content = new BffContentRepository(http)
+  const curriculum = new BffCurriculumRepository(http)
   const evaluator = new BffAIEvaluatorRepository(http)
   const srs = new BffSrsRepository(http)
   const progress = new BffProgressRepository(http)
@@ -97,7 +109,7 @@ function build(): Container {
   return {
     bffBaseUrl: http.baseUrlValue,
     session: sessionStorageAdapter,
-    repositories: { auth, content, evaluator, srs, progress },
+    repositories: { auth, content, curriculum, evaluator, srs, progress },
     useCases: {
       register: new RegisterUserUseCase(auth),
       login: new LoginUserUseCase(auth),
@@ -105,6 +117,9 @@ function build(): Container {
       getCurrentUser: new GetCurrentUserUseCase(auth),
       updateProfile: new UpdateProfileUseCase(auth),
       getVocabulary: new GetVocabularyListUseCase(content),
+      getCurriculumCourses: new GetCurriculumCoursesUseCase(curriculum),
+      getCurriculumCourse: new GetCurriculumCourseUseCase(curriculum),
+      enrollInCurriculumCourse: new EnrollInCurriculumCourseUseCase(curriculum),
       getTodayLesson: new GetTodayLessonUseCase(content),
       synthesizeSpeech: new SynthesizeSpeechUseCase(content),
       markWordCompleted: new MarkWordCompletedUseCase(content),

@@ -114,6 +114,13 @@ export default function DashboardPage() {
 
           {/* Module Grid Links */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Link href="/courses" className="glass-panel p-6 rounded-2xl border border-cyan-500/20 hover:border-cyan-500/50 transition-all group">
+              <div className="text-3xl mb-3 group-hover:scale-110 transition-transform">🧭</div>
+              <h3 className="text-lg font-extrabold text-white mb-1 group-hover:text-cyan-400">Catálogo curricular</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Explora cursos publicados, unidades, lecciones y objetivos de aprendizaje por nivel.
+              </p>
+            </Link>
             <Link href="/learn" className="glass-panel p-6 rounded-2xl border border-white/10 hover:border-cyan-500/50 transition-all group">
               <div className="text-3xl mb-3 group-hover:scale-110 transition-transform">📚</div>
               <h3 className="text-lg font-extrabold text-white mb-1 group-hover:text-cyan-400">Lecciones Fonéticas</h3>
