@@ -156,6 +156,8 @@ ReadWritePaths=/var/lib/devfluency-phonetic
 UNIT
 chmod 0644 /etc/systemd/system/devfluency@phonetic-audio-service.service.d/identity.conf
 install -m 0644 "$(dirname "$0")/systemd/devfluency-frontend.service" /etc/systemd/system/devfluency-frontend.service
+install -d -m 0755 /usr/local/libexec/devfluency
+install -m 0755 "$(dirname "$0")/start-frontend.sh" /usr/local/libexec/devfluency/start-frontend.sh
 systemctl daemon-reload
 systemctl enable devfluency.target devfluency-frontend.service
 
