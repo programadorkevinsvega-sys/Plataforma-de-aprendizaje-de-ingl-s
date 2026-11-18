@@ -2,7 +2,6 @@ import type {
   CourseEnrollment,
   CurriculumCourseDetail,
   CurriculumCourseSummary,
-  CurriculumLevel,
   ICurriculumRepository,
 } from '@/domain/repositories/ICurriculumRepository'
 import type { BffHttpClient } from '@/infrastructure/api/BffHttpClient'
@@ -23,12 +22,9 @@ export class BffCurriculumRepository implements ICurriculumRepository {
     return items.map(toCurriculumCourseSummary)
   }
 
-  async getCourse(
-    slug: string,
-    level: CurriculumLevel,
-  ): Promise<CurriculumCourseDetail> {
+  async getCourse(courseVersionId: string): Promise<CurriculumCourseDetail> {
     const response = await this.http.get<Dto>(
-      `/api/v1/curriculum/courses/${encodeURIComponent(slug)}/${encodeURIComponent(level)}`,
+      `/api/v1/curriculum/courses/${encodeURIComponent(courseVersionId)}`,
     )
     return toCurriculumCourseDetail(response)
   }
