@@ -184,7 +184,7 @@ if (!DATABASE_URL) {
       assert.equal(result.sentenceReferences, 1);
 
       const version = await pool.query(
-        `SELECT version.id, version.status, imported.package_sha256, imported.metadata
+        `SELECT version.id, version.status, version.created_by, imported.package_sha256, imported.metadata
            FROM courses AS course
            JOIN course_versions AS version ON version.course_id = course.id
            JOIN curriculum_content_package_imports AS imported
@@ -194,6 +194,7 @@ if (!DATABASE_URL) {
       );
       assert.equal(version.rowCount, 1);
       assert.equal(version.rows[0].status, "draft");
+      assert.equal(version.rows[0].created_by, editorId);
       assert.equal(version.rows[0].package_sha256, seeded.packageSha256);
       assert.equal(version.rows[0].metadata.author, seeded.data.metadata.author);
     } finally {
