@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
+import useSWR from 'swr'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Navbar } from '@/presentation/components/Navbar'
@@ -23,39 +24,23 @@ function trackLabel(track: CurriculumTrackCode): string {
 
 export default function CoursesPage() {
   const router = useRouter()
-  const [courses, setCourses] = useState<CurriculumCourseSummary[]>([])
   const [track, setTrack] = useState<TrackFilter>('all')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const loadCourses = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const container = getContainer()
-      const user = await container.useCases.getCurrentUser.execute()
-      if (!user) {
-        router.replace('/login')
-        return
-      }
-      const result = await container.useCases.getCurriculumCourses.execute()
-      setCourses(result)
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : 'No se pudo cargar el catálogo curricular.',
-      )
-    } finally {
-      setLoading(false)
+  const loadCourses = useCallback(async (): Promise<CurriculumCourseSummary[]> => {
+    const container = getContainer()
+    const user = await container.useCases.getCurrentUser.execute()
+    if (!user) {
+      router.replace('/login')
+      return []
     }
-  }
+    return container.useCases.getCurriculumCourses.execute()
+  }, [router])
 
-  useEffect(() => {
-    void loadCourses()
-    // The initial fetch is intentionally tied to the page lifecycle.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const {
+    data: courses = [],
+    error,
+    isLoading: loading,
+    mutate,
+  } = useSWR<CurriculumCourseSummary[]>('curriculum-published-courses', loadCourses)
 
   const visibleCourses = useMemo(
     () => (track === 'all' ? courses : courses.filter((course) => course.trackCode === track)),
@@ -124,7 +109,7 @@ export default function CoursesPage() {
               <p className="mt-2 text-sm text-rose-100/70">{error}</p>
               <button
                 type="button"
-                onClick={() => void loadCourses()}
+                onClick={() => void mutate()}
                 className="mt-4 rounded-lg border border-rose-300/30 px-4 py-2 text-xs font-bold text-rose-100 hover:bg-rose-400/10"
               >
                 Reintentar
