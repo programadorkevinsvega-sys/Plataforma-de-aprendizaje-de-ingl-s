@@ -47,21 +47,25 @@ echo ""
 echo "✅ Binarios de Rust compilados exitosamente en ./target/release/:"
 ls -lh target/release/bff target/release/auth-identity-service target/release/content-vocabulary-service target/release/phonetic-audio-service target/release/ai-evaluator-service target/release/srs-engine-service target/release/gamification-progress-service 2>/dev/null || true
 
-# 3. Compilar el Frontend Next.js para Producción (Usando Bun si está disponible)
+# 3. Compilar el Frontend Next.js con el gestor oficial del workspace (pnpm)
 echo ""
 echo "🎨 [2/2] Compilando Frontend Next.js para Producción..."
-cd frontend
-
-if command -v bun &> /dev/null; then
-  echo "⚡ Ejecutando 'bun run build'..."
-  bun run build
-else
-  echo "🌐 Ejecutando 'npm run build'..."
-  if [ ! -d "node_modules" ]; then
-    npm install --no-audit
-  fi
-  ./node_modules/.bin/next build
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "❌ pnpm 12.21.0 no está instalado. Instálalo según packageManager en package.json."
+  exit 1
 fi
+if [[ "$(node -p 'Number(process.versions.node.split(".")[0])')" -lt 26 ]]; then
+  echo "❌ Se requiere Node.js 26 LTS o superior."
+  exit 1
+fi
+
+if [[ ! -f pnpm-lock.yaml ]]; then
+  echo "❌ Falta pnpm-lock.yaml; no se permite compilar con dependencias no bloqueadas."
+  exit 1
+fi
+
+pnpm install --frozen-lockfile
+pnpm --filter devfluency-frontend build
 
 cd "$SCRIPT_DIR"
 
