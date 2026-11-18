@@ -4,6 +4,9 @@ DECLARE
     rls_enabled BOOLEAN;
     rls_forced BOOLEAN;
     editor_policy_count INTEGER;
+    course_policy TEXT;
+    child_policy TEXT;
+    table_name TEXT;
 BEGIN
     table_oid := to_regclass('public.curriculum_content_package_imports');
     IF table_oid IS NULL THEN
@@ -39,5 +42,53 @@ BEGIN
     ) THEN
         RAISE EXCEPTION 'curriculum package import ledger must be unique per course version';
     END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM information_schema.columns
+         WHERE table_schema = 'public'
+           AND table_name = 'curriculum_content_package_imports'
+           AND column_name = 'content_schema_version_explicit'
+           AND is_nullable = 'NO'
+    ) THEN
+        RAISE EXCEPTION 'package import ledger must preserve explicit content schema version presence';
+    END IF;
+
+    SELECT qual
+      INTO course_policy
+      FROM pg_policies
+     WHERE schemaname = 'public'
+       AND tablename = 'courses'
+       AND policyname = 'courses_published_read';
+
+    IF course_policy IS NULL
+       OR position('published' IN lower(course_policy)) = 0
+       OR position('app.current_user_id' IN lower(course_policy)) = 0 THEN
+        RAISE EXCEPTION 'course read policy must restrict visibility to published/enrolled versions';
+    END IF;
+
+    FOREACH table_name IN ARRAY ARRAY[
+        'course_units',
+        'course_lessons',
+        'learning_objectives',
+        'learning_objective_skills',
+        'lesson_learning_objectives',
+        'lesson_prerequisites',
+        'learning_objective_vocabulary',
+        'learning_objective_sentences'
+    ] LOOP
+        SELECT qual
+          INTO child_policy
+          FROM pg_policies
+         WHERE schemaname = 'public'
+           AND tablename = table_name
+           AND policyname = table_name || '_published_or_enrolled_read';
+
+        IF child_policy IS NULL
+           OR position('published' IN lower(child_policy)) = 0
+           OR position('app.current_user_id' IN lower(child_policy)) = 0 THEN
+            RAISE EXCEPTION 'Child content table % is not restricted to published/enrolled versions', table_name;
+        END IF;
+    END LOOP;
 END
 $$;
