@@ -2,6 +2,8 @@ import type {
   CourseEnrollment,
   EditorialActionInput,
   EditorialActionResult,
+  ImportCurriculumPackageInput,
+  ImportCurriculumPackageResult,
   EditorialVersionsFilter,
   EditorialVersionsPage,
   CurriculumCourseDetail,
@@ -59,5 +61,19 @@ export class ManageCurriculumEditorialVersionUseCase {
       }
     }
     return this.repository.manageEditorialVersion(input)
+  }
+}
+
+export class ImportCurriculumContentPackageUseCase {
+  constructor(private readonly repository: ICurriculumRepository) {}
+
+  execute(input: ImportCurriculumPackageInput): Promise<ImportCurriculumPackageResult> {
+    if (!input.packageJson.trim()) {
+      throw new Error('El paquete curricular está vacío')
+    }
+    if (new TextEncoder().encode(input.packageJson).byteLength > 1_500_000) {
+      throw new Error('El paquete curricular supera el límite de 1.5 MB')
+    }
+    return this.repository.importCurriculumPackage(input)
   }
 }
