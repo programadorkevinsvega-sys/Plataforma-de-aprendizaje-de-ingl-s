@@ -14,6 +14,13 @@ El workflow `.github/workflows/deploy-ubuntu.yml` construye y despliega **única
 
 El script remoto solo administra esas rutas y unidades. No instala, reinicia ni modifica PostgreSQL, Redis, NATS ni otras aplicaciones alojadas en la VM. Las conexiones de datos se configuran mediante endpoints privados en el archivo de entorno de esta aplicación.
 
+## Toolchain del frontend
+
+- Node.js **26.13.1 LTS** para compilar Next.js en el runner y ejecutar el frontend standalone en Ubuntu.
+- pnpm **12.21.0**, fijado en el `packageManager` del workspace raíz.
+- Las dependencias se instalan desde la raíz con `pnpm install --frozen-lockfile`; el artefacto se compila desde el lockfile versionado.
+- La VM recibe el artefacto standalone y Node.js 26; no necesita instalar pnpm ni resolver dependencias durante la activación de una release.
+
 ## Qué hace el pipeline
 
 1. Espera que CI finalice correctamente en `main`.
