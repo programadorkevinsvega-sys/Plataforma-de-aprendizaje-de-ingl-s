@@ -245,8 +245,8 @@ COMMIT;
 
 BEGIN;
 SET LOCAL ROLE devfluency_schema_test;
-SELECT set_config('app.current_user_id', '10000000-0000-4000-8000-000000000001', TRUE);
-DO $
+SELECT set_config('app.current_user_id', '10000000-0000-4000-8000-000000000004', TRUE);
+DO $$
 DECLARE
     visible_versions BIGINT;
 BEGIN
@@ -332,7 +332,7 @@ WHERE id = '30000000-0000-4000-8000-000000000001';
 BEGIN;
 SET LOCAL ROLE devfluency_schema_test;
 SELECT set_config('app.current_user_id', '10000000-0000-4000-8000-000000000004', TRUE);
-DO $
+DO $$
 DECLARE
     visible_versions BIGINT;
     visible_units BIGINT;
