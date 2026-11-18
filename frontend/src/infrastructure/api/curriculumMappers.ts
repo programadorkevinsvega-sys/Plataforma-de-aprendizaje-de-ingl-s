@@ -3,6 +3,7 @@ import type {
   EditorialActionResult,
   EditorialDecision,
   EditorialVersionStatus,
+  ImportCurriculumPackageResult,
   EditorialVersionSummary,
   CurriculumCourseDetail,
   CurriculumCourseSummary,
@@ -222,6 +223,24 @@ export function toEditorialActionResult(dto: Dto): EditorialActionResult {
       : 'draft',
     reviewId: stringValue(dto, ['review_id', 'reviewId']),
     reviewedAt: stringValue(dto, ['reviewed_at', 'reviewedAt']),
+  }
+}
+
+export function toImportCurriculumPackageResult(dto: Dto): ImportCurriculumPackageResult {
+  const state = stringValue(dto, ['state'])
+  return {
+    state: state === 'already_imported' ? 'already_imported' : 'imported',
+    courseVersionId: stringValue(dto, ['course_version_id', 'courseVersionId']),
+    packageSha256: stringValue(dto, ['package_sha256', 'packageSha256']),
+    counts: {
+      units: numberValue(dto, ['units']),
+      lessons: numberValue(dto, ['lessons']),
+      objectives: numberValue(dto, ['objectives']),
+      vocabularyReferences: numberValue(dto, ['vocabulary_references', 'vocabularyReferences']),
+      sentenceReferences: numberValue(dto, ['sentence_references', 'sentenceReferences']),
+    },
+    applied: booleanValue(dto, ['applied']),
+    dryRun: booleanValue(dto, ['dry_run', 'dryRun']),
   }
 }
 
