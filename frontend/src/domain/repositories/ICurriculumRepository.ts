@@ -1,5 +1,4 @@
 export type CurriculumTrackCode = 'general' | 'technology'
-export type CurriculumLevel = 'PRE_A1' | 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
 
 export interface CurriculumCourseSummary {
   courseVersionId: string
@@ -13,6 +12,7 @@ export interface CurriculumCourseSummary {
   lessonCount: number
   estimatedMinutes: number
   enrolled: boolean
+  status: 'published' | 'archived'
 }
 
 export interface CurriculumObjective {
@@ -67,6 +67,6 @@ export interface CourseEnrollment {
 
 export interface ICurriculumRepository {
   listCourses(): Promise<CurriculumCourseSummary[]>
-  getCourse(slug: string, level: CurriculumLevel): Promise<CurriculumCourseDetail>
+  getCourse(courseVersionId: string): Promise<CurriculumCourseDetail>
   enroll(courseVersionId: string): Promise<CourseEnrollment>
 }
