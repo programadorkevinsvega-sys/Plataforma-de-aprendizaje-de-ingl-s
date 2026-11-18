@@ -250,8 +250,7 @@ impl ContentService for MyContentService {
         &self,
         request: Request<ListCurriculumCoursesRequest>,
     ) -> Result<Response<ListCurriculumCoursesResponse>, Status> {
-        let user_id =
-            common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let mut tx = self
             .pool
             .begin()
@@ -300,7 +299,19 @@ impl ContentService for MyContentService {
         let items = rows
             .into_iter()
             .map(
-                |(slug, track, version_id, version_number, level, title, description, unit_count, lesson_count, minutes, enrolled)| {
+                |(
+                    slug,
+                    track,
+                    version_id,
+                    version_number,
+                    level,
+                    title,
+                    description,
+                    unit_count,
+                    lesson_count,
+                    minutes,
+                    enrolled,
+                )| {
                     CurriculumCourseSummary {
                         course_version_id: version_id,
                         slug,
@@ -322,7 +333,10 @@ impl ContentService for MyContentService {
             .await
             .map_err(|_| Status::internal("No se pudo cerrar la consulta curricular"))?;
 
-        Ok(Response::new(ListCurriculumCoursesResponse { items, total }))
+        Ok(Response::new(ListCurriculumCoursesResponse {
+            items,
+            total,
+        }))
     }
 
     async fn get_curriculum_course(
@@ -334,10 +348,18 @@ impl ContentService for MyContentService {
         let req = request.into_inner();
         if req.slug.is_empty()
             || req.slug.len() > 120
-            || !req.slug.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
-            || !matches!(req.cefr_level.as_str(), "PRE_A1" | "A1" | "A2" | "B1" | "B2" | "C1" | "C2")
+            || !req
+                .slug
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+            || !matches!(
+                req.cefr_level.as_str(),
+                "PRE_A1" | "A1" | "A2" | "B1" | "B2" | "C1" | "C2"
+            )
         {
-            return Err(Status::invalid_argument("La ruta o el nivel CEFR no son válidos"));
+            return Err(Status::invalid_argument(
+                "La ruta o el nivel CEFR no son válidos",
+            ));
         }
 
         let mut tx = self
@@ -387,19 +409,20 @@ impl ContentService for MyContentService {
             .map_err(|_| Status::internal("No se pudo consultar la versión del curso"))?;
 
         let (version_id, slug, track, version_number, level, title, description, enrolled) =
-            course_row.ok_or_else(|| Status::not_found("No existe un curso publicado en esa ruta y nivel"))?;
+            course_row.ok_or_else(|| {
+                Status::not_found("No existe un curso publicado en esa ruta y nivel")
+            })?;
 
-        let unit_rows: Vec<(Uuid, i32, String, String, String, Option<i32>)> =
-            sqlx::query_as(
-                r#"SELECT id, position, title, theme, description, estimated_minutes
-                     FROM course_units
-                    WHERE course_version_id = $1
-                    ORDER BY position, id"#,
-            )
-            .bind(version_id)
-            .fetch_all(&mut *tx)
-            .await
-            .map_err(|_| Status::internal("No se pudieron consultar las unidades del curso"))?;
+        let unit_rows: Vec<(Uuid, i32, String, String, String, Option<i32>)> = sqlx::query_as(
+            r#"SELECT id, position, title, theme, description, estimated_minutes
+                 FROM course_units
+                WHERE course_version_id = $1
+                ORDER BY position, id"#,
+        )
+        .bind(version_id)
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudieron consultar las unidades del curso"))?;
 
         let lesson_rows: Vec<(Uuid, Uuid, String, i32, String, String, String, Option<i32>)> =
             sqlx::query_as(
@@ -459,7 +482,8 @@ impl ContentService for MyContentService {
         .map_err(|_| Status::internal("No se pudieron consultar los requisitos previos"))?;
 
         let mut objectives_by_lesson: HashMap<Uuid, Vec<CurriculumObjective>> = HashMap::new();
-        for (lesson_id, id, code, objective, criteria, position, required, skills) in objective_rows {
+        for (lesson_id, id, code, objective, criteria, position, required, skills) in objective_rows
+        {
             objectives_by_lesson
                 .entry(lesson_id)
                 .or_default()
@@ -476,7 +500,8 @@ impl ContentService for MyContentService {
 
         let mut prerequisites_by_lesson: HashMap<Uuid, Vec<CurriculumPrerequisite>> =
             HashMap::new();
-        for (lesson_id, prerequisite_id, required_state, minimum_mastery_score) in prerequisite_rows {
+        for (lesson_id, prerequisite_id, required_state, minimum_mastery_score) in prerequisite_rows
+        {
             prerequisites_by_lesson
                 .entry(lesson_id)
                 .or_default()
@@ -488,18 +513,23 @@ impl ContentService for MyContentService {
         }
 
         let mut lessons_by_unit: HashMap<Uuid, Vec<CurriculumLesson>> = HashMap::new();
-        for (id, unit_id, code, position, pattern, lesson_title, lesson_description, minutes) in lesson_rows {
-            lessons_by_unit.entry(unit_id).or_default().push(CurriculumLesson {
-                id: id.to_string(),
-                lesson_code: code,
-                position,
-                lesson_pattern: pattern,
-                title: lesson_title,
-                description: lesson_description,
-                estimated_minutes: minutes.unwrap_or_default(),
-                objectives: objectives_by_lesson.remove(&id).unwrap_or_default(),
-                prerequisites: prerequisites_by_lesson.remove(&id).unwrap_or_default(),
-            });
+        for (id, unit_id, code, position, pattern, lesson_title, lesson_description, minutes) in
+            lesson_rows
+        {
+            lessons_by_unit
+                .entry(unit_id)
+                .or_default()
+                .push(CurriculumLesson {
+                    id: id.to_string(),
+                    lesson_code: code,
+                    position,
+                    lesson_pattern: pattern,
+                    title: lesson_title,
+                    description: lesson_description,
+                    estimated_minutes: minutes.unwrap_or_default(),
+                    objectives: objectives_by_lesson.remove(&id).unwrap_or_default(),
+                    prerequisites: prerequisites_by_lesson.remove(&id).unwrap_or_default(),
+                });
         }
 
         let mut units = Vec::with_capacity(unit_rows.len());
@@ -508,9 +538,10 @@ impl ContentService for MyContentService {
         for (id, position, unit_title, theme, unit_description, minutes) in unit_rows {
             let lessons = lessons_by_unit.remove(&id).unwrap_or_default();
             lesson_count = lesson_count.saturating_add(lessons.len().min(i32::MAX as usize) as i32);
-            estimated_minutes = estimated_minutes.saturating_add(
-                lessons.iter().fold(0_i32, |total, lesson| total.saturating_add(lesson.estimated_minutes)),
-            );
+            estimated_minutes =
+                estimated_minutes.saturating_add(lessons.iter().fold(0_i32, |total, lesson| {
+                    total.saturating_add(lesson.estimated_minutes)
+                }));
             units.push(CurriculumUnit {
                 id: id.to_string(),
                 position,
@@ -540,7 +571,10 @@ impl ContentService for MyContentService {
             .await
             .map_err(|_| Status::internal("No se pudo cerrar la consulta curricular"))?;
 
-        Ok(Response::new(GetCurriculumCourseResponse { course: Some(course), units }))
+        Ok(Response::new(GetCurriculumCourseResponse {
+            course: Some(course),
+            units,
+        }))
     }
 
     async fn enroll_in_course(
@@ -577,8 +611,9 @@ impl ContentService for MyContentService {
         .await
         .map_err(|_| Status::internal("No se pudo crear la matrícula del curso"))?;
 
-        let (enrollment_id, version_id, status, started_at) = enrollment
-            .ok_or_else(|| Status::not_found("El curso no está publicado o ya no admite matrículas"))?;
+        let (enrollment_id, version_id, status, started_at) = enrollment.ok_or_else(|| {
+            Status::not_found("El curso no está publicado o ya no admite matrículas")
+        })?;
 
         tx.commit()
             .await
