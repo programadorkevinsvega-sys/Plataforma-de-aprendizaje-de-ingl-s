@@ -287,12 +287,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Set up Node.js LTS
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - name: Set up Node.js 26 and pnpm 12
+        uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
-          node-version: 26.13.1
-      - name: Install pinned pnpm
-        run: npm install --global pnpm@12.21.0
+          version: 12.21.0
+          runtime: node@26.13.1
+          cache: true
       - name: Install locked workspace dependencies
         working-directory: .
         run: pnpm install --frozen-lockfile
@@ -342,12 +342,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Set up Node.js LTS
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - name: Set up Node.js 26 and pnpm 12
+        uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
-          node-version: 26.13.1
-      - name: Install pinned pnpm
-        run: npm install --global pnpm@12.21.0
+          version: 12.21.0
+          runtime: node@26.13.1
+          cache: true
       - name: Install locked workspace dependencies
         run: pnpm install --frozen-lockfile
       - name: Audit workspace dependencies
@@ -384,12 +384,12 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - name: Set up Node.js 26 and pnpm 12
+        uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
-          node-version: 26.13.1
-      - name: Install pinned pnpm
-        run: npm install --global pnpm@12.21.0
+          version: 12.21.0
+          runtime: node@26.13.1
+          cache: true
       - name: Lint only changed Markdown files
         env:
           BASE_SHA: ${{ needs.changes.outputs.base_sha }}
