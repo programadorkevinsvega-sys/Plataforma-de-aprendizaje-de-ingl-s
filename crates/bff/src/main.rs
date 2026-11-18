@@ -204,7 +204,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             get(list_curriculum_courses_handler),
         )
         .route(
-            "/api/v1/curriculum/courses/:slug/:level",
+            "/api/v1/curriculum/courses/:course_version_id",
             get(get_curriculum_course_handler),
         )
         .route(
