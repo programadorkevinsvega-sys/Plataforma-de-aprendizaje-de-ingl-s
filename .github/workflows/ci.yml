@@ -161,6 +161,14 @@ jobs:
                 esac
 
                 case "$file" in
+                  tools/curriculum/*|tests/db/*)
+                    # Curriculum package importer changes require the PostgreSQL
+                    # integration suite, not only the offline Python validator.
+                    run_rust=true
+                    ;;
+                esac
+
+                case "$file" in
                   deploy/*)
                     run_shell=true
                     run_deploy=true
