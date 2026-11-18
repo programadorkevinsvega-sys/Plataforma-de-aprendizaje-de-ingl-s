@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -67,10 +68,10 @@ function addOptional(target, key, value) {
 }
 
 function validateExportedPackage(data, expectedSha256) {
-  const directory = require("node:fs").mkdtempSync(path.join(os.tmpdir(), "devfluency-curriculum-export-"));
+  const directory = mkdtempSync(path.join(os.tmpdir(), "devfluency-curriculum-export-"));
   const packagePath = path.join(directory, "package.json");
   try {
-    require("node:fs").writeFileSync(packagePath, JSON.stringify(data), "utf8");
+    writeFileSync(packagePath, JSON.stringify(data), "utf8");
     const validation = spawnSync(process.env.PYTHON ?? "python3", [VALIDATOR, packagePath, "--json"], {
       cwd: ROOT,
       encoding: "utf8",
@@ -96,7 +97,7 @@ function validateExportedPackage(data, expectedSha256) {
     }
     return result;
   } finally {
-    require("node:fs").rmSync(directory, { recursive: true, force: true });
+    rmSync(directory, { recursive: true, force: true });
   }
 }
 
@@ -319,11 +320,13 @@ async function loadRelationalContent(client, version) {
   // Skills and prerequisites have no position column in the relational model.
   // Their order is therefore canonicalized by code/name, not by insertion order.
   for (const objective of objectives) {
-    objective.skills.sort((left, right) => left.code.localeCompare(right.code));
+    objective.skills.sort((left, right) => (left.code < right.code ? -1 : left.code > right.code ? 1 : 0));
   }
   for (const unit of units) {
     for (const lesson of unit.lessons) {
-      lesson.prerequisites.sort((left, right) => left.lesson_code.localeCompare(right.lesson_code));
+      lesson.prerequisites.sort((left, right) => (
+        left.lesson_code < right.lesson_code ? -1 : left.lesson_code > right.lesson_code ? 1 : 0
+      ));
     }
   }
 
