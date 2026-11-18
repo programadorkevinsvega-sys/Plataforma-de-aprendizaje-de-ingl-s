@@ -199,7 +199,7 @@ jobs:
             exit 1
           fi
 
-          printf '%s\\n' "NEXT_PUBLIC_BFF_URL=$BFF_ORIGIN" > .env.production
+          printf '%s' "NEXT_PUBLIC_BFF_URL=$BFF_ORIGIN" > .env.production
           npm ci
           npm run build
           if grep -R -n -F 'http://localhost:8080' .next/static .next/server; then
