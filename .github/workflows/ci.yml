@@ -306,98 +306,6 @@ jobs:
         working-directory: .
         run: pnpm --filter devfluency-frontend build
 
-  node-stack-refresh:
-    name: Resolve latest Node workspace with pnpm
-    needs: changes
-    if: ${{ needs.changes.outputs.run_frontend == 'true' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      actions: write
-    env:
-      NEXT_PUBLIC_BFF_URL: https://bff-ci.invalid
-    steps:
-      - name: Checkout PR branch for dependency lockfile update
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ github.head_ref || github.ref_name }}
-      - name: Set up Node.js LTS
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
-        with:
-          node-version: 26.13.1
-      - name: Install pinned pnpm release
-        run: |
-          npm install --global pnpm@12.21.0
-          node --version
-          pnpm --version
-      - name: Resolve latest stable workspace dependencies
-        run: |
-          set -euo pipefail
-          pnpm install --no-frozen-lockfile
-          pnpm --recursive update --latest
-          # typescript-eslint 8.73 currently supports TypeScript <6.1;
-          # use the latest compatible stable TypeScript while TS 7 support lands.
-          pnpm --filter devfluency-frontend add --save-dev --save-exact typescript@6.0.3
-          # shadcn is a component-generation CLI, not a runtime dependency.
-          pnpm --filter devfluency-frontend add --save-dev --save-exact shadcn@4.23.0
-          pnpm install --no-frozen-lockfile
-      - name: Validate updated frontend
-        run: |
-          set -euo pipefail
-          pnpm --filter devfluency-frontend lint
-          pnpm --filter devfluency-frontend build
-          pnpm --filter devfluency-node-workspace test:frontend:phase0
-      - name: Upload pnpm manifests and lockfile for review
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pnpm-node-stack
-          path: |
-            package.json
-            frontend/package.json
-            pnpm-lock.yaml
-          if-no-files-found: warn
-          retention-days: 7
-      - name: Commit refreshed pnpm manifests and lockfile to this branch
-        id: commit-dependencies
-        env:
-          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
-        run: |
-          set -euo pipefail
-          git add package.json frontend/package.json pnpm-lock.yaml
-          if git diff --cached --quiet; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "pnpm manifests and lockfile already match the branch."
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "chore(node): refresh Node dependencies and pnpm lockfile"
-          git push origin "HEAD:$BRANCH_NAME"
-          echo "changed=true" >> "$GITHUB_OUTPUT"
-
-      - name: Dispatch CI for the committed pnpm lockfile
-        if: steps.commit-dependencies.outputs.changed == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_API_URL: ${{ github.api_url }}
-          REPOSITORY: ${{ github.repository }}
-          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
-        run: |
-          set -euo pipefail
-          payload="$(jq -n --arg ref "$BRANCH_NAME" '{ref: $ref}')"
-          curl --fail --silent --show-error --retry 3 \
-            -X POST \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "$GH_API_URL/repos/$REPOSITORY/actions/workflows/ci.yml/dispatches" \
-            -d "$payload"
-          echo "Dispatched a complete CI run for the dependency update."
-
-      - name: Audit refreshed Node workspace dependencies
-        run: pnpm audit --audit-level=high
-
   rust-dependency-audit:
     name: Rust dependency vulnerability audit
     needs: changes
@@ -510,7 +418,6 @@ jobs:
     if: always()
     needs:
       - changes
-      - node-stack-refresh
       - rust
       - frontend
       - rust-dependency-audit
@@ -522,8 +429,6 @@ jobs:
       - name: Fail if any selected validation failed
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
-          NODE_STACK_RESULT: ${{ needs.node-stack-refresh.result }}
-          RUN_NODE_STACK: ${{ needs.changes.outputs.run_frontend }}
           RUST_RESULT: ${{ needs.rust.result }}
           FRONTEND_RESULT: ${{ needs.frontend.result }}
           RUST_AUDIT_RESULT: ${{ needs.rust-dependency-audit.result }}
@@ -565,7 +470,6 @@ jobs:
             fi
           }
 
-          assert_selected_job "Node workspace refresh" "$RUN_NODE_STACK" "$NODE_STACK_RESULT"
           assert_selected_job "Rust" "$RUN_RUST" "$RUST_RESULT"
           assert_selected_job "Frontend" "$RUN_FRONTEND" "$FRONTEND_RESULT"
           assert_selected_job "Rust dependency audit" "$RUN_RUST_AUDIT" "$RUST_AUDIT_RESULT"
