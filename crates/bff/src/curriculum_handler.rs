@@ -27,6 +27,7 @@ pub struct CurriculumCourseDto {
     pub lesson_count: i32,
     pub estimated_minutes: i32,
     pub enrolled: bool,
+    pub status: String,
 }
 
 #[derive(Serialize)]
@@ -110,6 +111,7 @@ impl From<CurriculumCourseSummary> for CurriculumCourseDto {
             lesson_count: course.lesson_count,
             estimated_minutes: course.estimated_minutes,
             enrolled: course.enrolled,
+            status: course.status,
         }
     }
 }
@@ -235,17 +237,16 @@ pub async fn list_curriculum_courses_handler(
     }))
 }
 
-/// GET /api/v1/curriculum/courses/:slug/:level
+/// GET /api/v1/curriculum/courses/:course_version_id
 pub async fn get_curriculum_course_handler(
     State(mut state): State<AppState>,
     headers: HeaderMap,
-    Path((slug, cefr_level)): Path<(String, String)>,
+    Path(course_version_id): Path<String>,
 ) -> Result<Json<CurriculumCourseDetailDto>, (StatusCode, Json<Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
     let mut request = tonic::Request::new(GetCurriculumCourseRequest {
         user_id,
-        slug,
-        cefr_level,
+        course_version_id,
     });
     attach_bearer_metadata(&headers, &mut request)?;
 
