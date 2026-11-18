@@ -239,7 +239,7 @@ BEGIN
     SELECT count(*) INTO visible_enrollments FROM course_enrollments;
 
     IF visible_courses <> 1 OR visible_versions <> 2
-       OR visible_units <> 1 OR visible_lessons <> 1 THEN
+       OR visible_units <> 2 OR visible_lessons <> 2 THEN
         RAISE EXCEPTION 'Published-content RLS failed: courses %, versions %, units %, lessons %',
             visible_courses, visible_versions, visible_units, visible_lessons;
     END IF;
