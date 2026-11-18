@@ -98,6 +98,22 @@ class CurriculumContentPackageTests(unittest.TestCase):
         errors = self.errors(lambda data: data["objectives"][0]["skills"][0].update(code="pronunciation_score"))
         self.assert_error_contains(errors, "must be one of")
 
+    def test_vocabulary_and_sentence_reference_lengths_match_database_limits(self):
+        def mutate(data):
+            data["objectives"][0]["vocabulary"][0]["word"] = "w" * 101
+        errors = self.errors(mutate)
+        self.assert_error_contains(errors, "$/objectives/0/vocabulary/0/word")
+
+        def mutate_category(data):
+            data["objectives"][0]["vocabulary"][0]["category"] = "c" * 51
+        errors = self.errors(mutate_category)
+        self.assert_error_contains(errors, "$/objectives/0/vocabulary/0/category")
+
+        def mutate_sentence(data):
+            data["objectives"][0]["sentences"][0]["word"] = "w" * 101
+        errors = self.errors(mutate_sentence)
+        self.assert_error_contains(errors, "$/objectives/0/sentences/0/word")
+
     def test_duplicate_vocabulary_references_are_rejected(self):
         def mutate(data):
             data["objectives"][0]["vocabulary"].append(copy.deepcopy(data["objectives"][0]["vocabulary"][0]))
