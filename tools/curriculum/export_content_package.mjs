@@ -349,6 +349,10 @@ export async function exportCurriculumPackage(pool, selector, { actorUserId } = 
     await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     transactionOpen = true;
     await client.query("SELECT set_config('app.current_user_id', $1, true)", [actorUserId]);
+    const authorization = await client.query("SELECT app_is_content_editor() AS allowed");
+    if (authorization.rows[0]?.allowed !== true) {
+      throw new Error("The selected actor is not registered as a curriculum content editor.");
+    }
 
     const version = await selectVersion(client, selector);
     const relational = await loadRelationalContent(client, version);
