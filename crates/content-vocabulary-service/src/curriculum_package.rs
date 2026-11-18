@@ -277,10 +277,7 @@ fn valid_http_url(value: &str) -> bool {
         return false;
     }
 
-    let authority = remainder
-        .split(['/', '?', '#'])
-        .next()
-        .unwrap_or("");
+    let authority = remainder.split(['/', '?', '#']).next().unwrap_or("");
     let host_port = authority.rsplit('@').next().unwrap_or("");
     if host_port.is_empty() || host_port.chars().any(char::is_whitespace) {
         return false;
