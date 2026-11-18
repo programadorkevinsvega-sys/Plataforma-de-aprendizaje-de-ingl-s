@@ -331,7 +331,7 @@ WHERE id = '30000000-0000-4000-8000-000000000001';
 -- historical version and its child content. A non-enrolled student does not.
 BEGIN;
 SET LOCAL ROLE devfluency_schema_test;
-SELECT set_config('app.current_user_id', '10000000-0000-4000-8000-000000000004', TRUE);
+SELECT set_config('app.current_user_id', '10000000-0000-4000-8000-000000000001', TRUE);
 DO $$
 DECLARE
     visible_versions BIGINT;
