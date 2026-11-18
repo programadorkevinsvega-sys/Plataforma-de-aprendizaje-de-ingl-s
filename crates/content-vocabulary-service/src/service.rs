@@ -1,3 +1,4 @@
+use crate::curriculum_package::{import_package, validate_package_json};
 use proto::content::content_service_server::ContentService;
 use proto::content::{
     ContextSentence, CurriculumCourseSummary, CurriculumLesson, CurriculumLessonProgress,
@@ -1233,6 +1234,54 @@ impl ContentService for MyContentService {
             next_status,
             review_id,
             reviewed_at,
+        }))
+    }
+
+    async fn import_curriculum_package(
+        &self,
+        request: Request<ImportCurriculumPackageRequest>,
+    ) -> Result<Response<ImportCurriculumPackageResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let req = request.into_inner();
+        let (data, package_sha256, counts) = validate_package_json(&req.package_json)
+            .map_err(Status::invalid_argument)?;
+
+        let result = import_package(
+            self.pool.as_ref(),
+            user_id,
+            &data,
+            &package_sha256,
+            counts,
+            req.apply,
+        )
+        .await
+        .map_err(|error| {
+            if error.contains("content_editors") {
+                Status::permission_denied(error)
+            } else if error.contains("ya existe") || error.contains("no se sobrescribirá") {
+                Status::already_exists(error)
+            } else if error.contains("no encontrada")
+                || error.contains("ambigua")
+                || error.contains("no existe")
+                || error.contains("no está asociado")
+            {
+                Status::failed_precondition(error)
+            } else {
+                Status::internal(error)
+            }
+        })?;
+
+        Ok(Response::new(ImportCurriculumPackageResponse {
+            state: result.state,
+            course_version_id: result.course_version_id,
+            package_sha256: result.package_sha256,
+            units: result.counts.units,
+            lessons: result.counts.lessons,
+            objectives: result.counts.objectives,
+            vocabulary_references: result.counts.vocabulary_references,
+            sentence_references: result.counts.sentence_references,
+            applied: result.applied,
+            dry_run: result.dry_run,
         }))
     }
 
