@@ -145,6 +145,28 @@ export interface EditorialActionResult {
   reviewedAt: string
 }
 
+export interface ImportCurriculumPackageInput {
+  packageJson: string
+  apply: boolean
+}
+
+export interface ImportCurriculumPackageCounts {
+  units: number
+  lessons: number
+  objectives: number
+  vocabularyReferences: number
+  sentenceReferences: number
+}
+
+export interface ImportCurriculumPackageResult {
+  state: 'imported' | 'already_imported'
+  courseVersionId: string
+  packageSha256: string
+  counts: ImportCurriculumPackageCounts
+  applied: boolean
+  dryRun: boolean
+}
+
 export interface CourseEnrollment {
   enrollmentId: string
   courseVersionId: string
@@ -158,4 +180,5 @@ export interface ICurriculumRepository {
   enroll(courseVersionId: string): Promise<CourseEnrollment>
   listEditorialVersions(filter: EditorialVersionsFilter): Promise<EditorialVersionsPage>
   manageEditorialVersion(input: EditorialActionInput): Promise<EditorialActionResult>
+  importCurriculumPackage(input: ImportCurriculumPackageInput): Promise<ImportCurriculumPackageResult>
 }
