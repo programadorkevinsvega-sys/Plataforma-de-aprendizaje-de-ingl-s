@@ -1036,17 +1036,15 @@ pub async fn import_package(
         .map_err(|_| "No se pudo serializar metadata curricular".to_string())?;
     sqlx::query(
         r#"INSERT INTO curriculum_content_package_imports (
-               course_version_id, format, schema_version, package_sha256, metadata,
-               content_schema_version_explicit
+               course_version_id, format, schema_version, package_sha256, metadata
            )
-           VALUES ($1, $2, $3, $4, $5::JSONB, $6)"#,
+           VALUES ($1, $2, $3, $4, $5::JSONB)"#,
     )
     .bind(course_version_id)
     .bind(FORMAT_NAME)
     .bind(SCHEMA_VERSION)
     .bind(package_sha256)
     .bind(metadata)
-    .bind(data["version"].get("content_schema_version").is_some())
     .execute(&mut *tx)
     .await
     .map_err(|_| "No se pudo registrar la procedencia del paquete curricular".to_string())?;
