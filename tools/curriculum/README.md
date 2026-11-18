@@ -117,6 +117,8 @@ Publicar requiere que la **última** decisión sea `approved` y pertenezca al mi
 
 La base de datos vuelve a comprobar las transiciones, la aprobación y la integridad académica antes de publicar. La migración `20261118040000_curriculum_publication_completeness.sql` bloquea versiones sin unidades/lecciones/objetivos, unidades vacías, lecciones sin un objetivo obligatorio con criterio de éxito, objetivos huérfanos u objetivos sin exactamente una competencia principal. Esta comprobación también se ejecuta cuando una publicación se intenta mediante SQL u otro camino administrativo, no solo desde el CLI.
 
+Desde que una versión entra en `review`, todas sus filas hijas (unidades, lecciones, objetivos, competencias, vínculos, prerequisitos y referencias) quedan congeladas en PostgreSQL. Solo vuelven a ser editables si una decisión editorial devuelve la versión a `draft`. Las versiones `published` y `archived` permanecen inmutables. La comprobación bloquea movimientos de contenido entre versiones y serializa la mutación de filas hijas con las transiciones de estado.
+
 Los registros de revisión son inmutables; una decisión distinta se agrega al historial. El CLI no sustituye una futura pantalla/API administrativa de Fase 1.5.
 
 ## Pruebas
