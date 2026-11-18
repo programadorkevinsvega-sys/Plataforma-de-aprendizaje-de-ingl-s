@@ -252,9 +252,15 @@ impl ContentService for MyContentService {
     ) -> Result<Response<ListCurriculumCoursesResponse>, Status> {
         let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let req = request.into_inner();
-        let limit = if req.limit <= 0 { 20 } else { req.limit.min(50) };
+        let limit = if req.limit <= 0 {
+            20
+        } else {
+            req.limit.min(50)
+        };
         if req.offset < 0 || req.offset > 1_000_000 {
-            return Err(Status::invalid_argument("offset debe estar entre 0 y 1000000"));
+            return Err(Status::invalid_argument(
+                "offset debe estar entre 0 y 1000000",
+            ));
         }
         let offset = req.offset;
         let track_code = req.track_code.trim().to_ascii_lowercase();
@@ -263,18 +269,27 @@ impl ContentService for MyContentService {
         }
         let cefr_level = req.cefr_level.trim().to_ascii_uppercase();
         if !cefr_level.is_empty()
-            && !matches!(cefr_level.as_str(), "PRE_A1" | "A1" | "A2" | "B1" | "B2" | "C1" | "C2")
+            && !matches!(
+                cefr_level.as_str(),
+                "PRE_A1" | "A1" | "A2" | "B1" | "B2" | "C1" | "C2"
+            )
         {
             return Err(Status::invalid_argument("cefr_level no es válido"));
         }
         let search = req.search.trim();
         if search.chars().count() > 100 {
-            return Err(Status::invalid_argument("search no puede superar 100 caracteres"));
+            return Err(Status::invalid_argument(
+                "search no puede superar 100 caracteres",
+            ));
         }
 
-        let mut tx = self.pool.begin().await
+        let mut tx = self
+            .pool
+            .begin()
+            .await
             .map_err(|_| Status::internal("No se pudo iniciar la consulta curricular"))?;
-        common::set_current_user_id(&mut tx, user_id).await
+        common::set_current_user_id(&mut tx, user_id)
+            .await
             .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
 
         let total: i64 = sqlx::query_scalar(
@@ -292,8 +307,12 @@ impl ContentService for MyContentService {
                   AND ($4 = '' OR version.title ILIKE '%' || $4 || '%'
                                   OR course.slug ILIKE '%' || $4 || '%')"#,
         )
-        .bind(user_id).bind(&track_code).bind(&cefr_level).bind(search)
-        .fetch_one(&mut *tx).await
+        .bind(user_id)
+        .bind(&track_code)
+        .bind(&cefr_level)
+        .bind(search)
+        .fetch_one(&mut *tx)
+        .await
         .map_err(|_| Status::internal("No se pudo contar el catálogo curricular"))?;
 
         let rows: Vec<(String, String, String, i32, String, String, String, i64, i64, i64, bool, String)> =
@@ -338,14 +357,33 @@ impl ContentService for MyContentService {
                     version.version_number DESC
                   LIMIT $5 OFFSET $6"#,
             )
-            .bind(user_id).bind(&track_code).bind(&cefr_level).bind(search)
-            .bind(limit as i64).bind(offset as i64)
-            .fetch_all(&mut *tx).await
+            .bind(user_id)
+            .bind(&track_code)
+            .bind(&cefr_level)
+            .bind(search)
+            .bind(limit as i64)
+            .bind(offset as i64)
+            .fetch_all(&mut *tx)
+            .await
             .map_err(|_| Status::internal("No se pudo consultar el catálogo curricular"))?;
 
-        let items = rows.into_iter().map(
-            |(slug, track, version_id, version_number, level, title, description,
-              unit_count, lesson_count, minutes, enrolled, status)| CurriculumCourseSummary {
+        let items = rows
+            .into_iter()
+            .map(
+                |(
+                    slug,
+                    track,
+                    version_id,
+                    version_number,
+                    level,
+                    title,
+                    description,
+                    unit_count,
+                    lesson_count,
+                    minutes,
+                    enrolled,
+                    status,
+                )| CurriculumCourseSummary {
                 course_version_id: version_id,
                 slug,
                 track_code: track,
@@ -358,10 +396,12 @@ impl ContentService for MyContentService {
                 estimated_minutes: minutes.min(i32::MAX as i64) as i32,
                 enrolled,
                 status,
-            }
-        ).collect();
+                },
+            )
+            .collect();
 
-        tx.commit().await
+        tx.commit()
+            .await
             .map_err(|_| Status::internal("No se pudo cerrar la consulta curricular"))?;
 
         Ok(Response::new(ListCurriculumCoursesResponse {
