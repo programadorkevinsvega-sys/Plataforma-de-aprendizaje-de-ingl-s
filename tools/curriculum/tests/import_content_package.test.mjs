@@ -6,7 +6,9 @@ import os from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
 import { fileURLToPath } from "node:url";
-import { Pool } from "pg";
+import pg from "pg";
+
+const { Pool } = pg;
 import { importCurriculumPackage } from "../import_content_package.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
