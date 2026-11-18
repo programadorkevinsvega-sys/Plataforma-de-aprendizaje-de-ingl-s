@@ -6,7 +6,7 @@ DECLARE
     editor_policy_count INTEGER;
     course_policy TEXT;
     child_policy TEXT;
-    table_name TEXT;
+    v_child_table TEXT;
 BEGIN
     table_oid := to_regclass('public.curriculum_content_package_imports');
     IF table_oid IS NULL THEN
@@ -91,7 +91,7 @@ BEGIN
         RAISE EXCEPTION 'course read policy must restrict visibility to published/enrolled versions';
     END IF;
 
-    FOREACH table_name IN ARRAY ARRAY[
+    FOREACH v_child_table IN ARRAY ARRAY[
         'course_units',
         'course_lessons',
         'learning_objectives',
@@ -105,8 +105,8 @@ BEGIN
           INTO child_policy
           FROM pg_policies
          WHERE schemaname = 'public'
-           AND pg_policies.tablename = table_name
-           AND policyname = table_name || '_published_or_enrolled_read';
+           AND pg_policies.tablename = v_child_table
+           AND policyname = v_child_table || '_published_or_enrolled_read';
 
         IF child_policy IS NULL
            OR position('published' IN lower(child_policy)) = 0
