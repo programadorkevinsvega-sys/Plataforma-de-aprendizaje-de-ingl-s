@@ -2,7 +2,6 @@ import type {
   CourseEnrollment,
   CurriculumCourseDetail,
   CurriculumCourseSummary,
-  CurriculumLevel,
   ICurriculumRepository,
 } from '@/domain/repositories/ICurriculumRepository'
 
@@ -17,8 +16,8 @@ export class GetCurriculumCoursesUseCase {
 export class GetCurriculumCourseUseCase {
   constructor(private readonly repository: ICurriculumRepository) {}
 
-  execute(slug: string, level: CurriculumLevel): Promise<CurriculumCourseDetail> {
-    return this.repository.getCourse(slug, level)
+  execute(courseVersionId: string): Promise<CurriculumCourseDetail> {
+    return this.repository.getCourse(courseVersionId)
   }
 }
 
