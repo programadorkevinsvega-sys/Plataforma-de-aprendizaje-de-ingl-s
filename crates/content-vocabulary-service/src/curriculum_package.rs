@@ -340,12 +340,7 @@ fn canonicalize(value: &mut Value) {
                         left.get(item_key)
                             .and_then(Value::as_str)
                             .unwrap_or("")
-                            .cmp(
-                                right
-                                    .get(item_key)
-                                    .and_then(Value::as_str)
-                                    .unwrap_or(""),
-                            )
+                            .cmp(right.get(item_key).and_then(Value::as_str).unwrap_or(""))
                     });
                 }
             }
@@ -368,8 +363,24 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
     check_keys(
         root,
         "$",
-        &["format", "schema_version", "metadata", "course", "version", "units", "objectives"],
-        &["format", "schema_version", "metadata", "course", "version", "units", "objectives"],
+        &[
+            "format",
+            "schema_version",
+            "metadata",
+            "course",
+            "version",
+            "units",
+            "objectives",
+        ],
+        &[
+            "format",
+            "schema_version",
+            "metadata",
+            "course",
+            "version",
+            "units",
+            "objectives",
+        ],
     )?;
     if root.get("format").and_then(Value::as_str) != Some(FORMAT_NAME) {
         return Err("$/format: formato curricular no soportado".to_string());
@@ -378,8 +389,16 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
         return Err("$/schema_version: solo se admite la versión 1".to_string());
     }
 
-    let metadata = object(root.get("metadata").ok_or("$/metadata: es obligatorio")?, "$/metadata")?;
-    check_keys(metadata, "$/metadata", &["author", "authored_at", "source"], &["author", "authored_at", "source"])?;
+    let metadata = object(
+        root.get("metadata").ok_or("$/metadata: es obligatorio")?,
+        "$/metadata",
+    )?;
+    check_keys(
+        metadata,
+        "$/metadata",
+        &["author", "authored_at", "source"],
+        &["author", "authored_at", "source"],
+    )?;
     required_string(metadata, "author", "$/metadata", 160, false)?;
     let authored_at = required_string(metadata, "authored_at", "$/metadata", 10, false)?;
     let authored_date = NaiveDate::parse_from_str(authored_at, "%Y-%m-%d")
@@ -387,21 +406,43 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
     if authored_date.format("%Y-%m-%d").to_string() != authored_at {
         return Err("$/metadata/authored_at: debe usar el formato YYYY-MM-DD".to_string());
     }
-    let source = object(metadata.get("source").ok_or("$/metadata/source: es obligatorio")?, "$/metadata/source")?;
-    check_keys(source, "$/metadata/source", &["name", "license"], &["name", "license", "url"])?;
+    let source = object(
+        metadata
+            .get("source")
+            .ok_or("$/metadata/source: es obligatorio")?,
+        "$/metadata/source",
+    )?;
+    check_keys(
+        source,
+        "$/metadata/source",
+        &["name", "license"],
+        &["name", "license", "url"],
+    )?;
     required_string(source, "name", "$/metadata/source", 200, false)?;
     required_string(source, "license", "$/metadata/source", 120, false)?;
     if let Some(url) = source.get("url") {
         if !url.is_null() {
-            let url = url.as_str().ok_or("$/metadata/source/url: debe ser texto o null")?;
+            let url = url
+                .as_str()
+                .ok_or("$/metadata/source/url: debe ser texto o null")?;
             if !valid_http_url(url) {
-                return Err("$/metadata/source/url: debe ser una URL HTTP(S) válida o null".to_string());
+                return Err(
+                    "$/metadata/source/url: debe ser una URL HTTP(S) válida o null".to_string(),
+                );
             }
         }
     }
 
-    let course = object(root.get("course").ok_or("$/course: es obligatorio")?, "$/course")?;
-    check_keys(course, "$/course", &["slug", "track_code"], &["slug", "track_code"])?;
+    let course = object(
+        root.get("course").ok_or("$/course: es obligatorio")?,
+        "$/course",
+    )?;
+    check_keys(
+        course,
+        "$/course",
+        &["slug", "track_code"],
+        &["slug", "track_code"],
+    )?;
     let slug = required_string(course, "slug", "$/course", 120, false)?;
     if !valid_slug(slug) {
         return Err("$/course/slug: formato slug no válido".to_string());
@@ -409,16 +450,36 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
     let track = required_string(course, "track_code", "$/course", 20, false)?;
     enum_value(track, &["general", "technology"], "$/course/track_code")?;
 
-    let version = object(root.get("version").ok_or("$/version: es obligatorio")?, "$/version")?;
+    let version = object(
+        root.get("version").ok_or("$/version: es obligatorio")?,
+        "$/version",
+    )?;
     check_keys(
         version,
         "$/version",
-        &["version_number", "cefr_level", "title", "description", "locale"],
-        &["version_number", "cefr_level", "title", "description", "locale", "content_schema_version"],
+        &[
+            "version_number",
+            "cefr_level",
+            "title",
+            "description",
+            "locale",
+        ],
+        &[
+            "version_number",
+            "cefr_level",
+            "title",
+            "description",
+            "locale",
+            "content_schema_version",
+        ],
     )?;
     positive_integer(version, "version_number", "$/version")?;
     let level = required_string(version, "cefr_level", "$/version", 10, false)?;
-    enum_value(level, &["PRE_A1", "A1", "A2", "B1", "B2", "C1", "C2"], "$/version/cefr_level")?;
+    enum_value(
+        level,
+        &["PRE_A1", "A1", "A2", "B1", "B2", "C1", "C2"],
+        "$/version/cefr_level",
+    )?;
     required_string(version, "title", "$/version", 200, false)?;
     required_string(version, "description", "$/version", 100_000, true)?;
     let locale = required_string(version, "locale", "$/version", 12, false)?;
@@ -426,7 +487,8 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
     let language = locale_parts.next().unwrap_or("");
     let region = locale_parts.next();
     if !(language.len() == 2 && language.bytes().all(|b| b.is_ascii_lowercase()))
-        || region.is_some_and(|part| part.len() != 2 || !part.bytes().all(|b| b.is_ascii_uppercase()))
+        || region
+            .is_some_and(|part| part.len() != 2 || !part.bytes().all(|b| b.is_ascii_uppercase()))
         || locale_parts.next().is_some()
     {
         return Err("$/version/locale: formato de idioma no válido".to_string());
@@ -435,8 +497,15 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
         positive_integer(version, "content_schema_version", "$/version")?;
     }
 
-    let units = array(root.get("units").ok_or("$/units: es obligatorio")?, "$/units")?;
-    let objectives = array(root.get("objectives").ok_or("$/objectives: es obligatorio")?, "$/objectives")?;
+    let units = array(
+        root.get("units").ok_or("$/units: es obligatorio")?,
+        "$/units",
+    )?;
+    let objectives = array(
+        root.get("objectives")
+            .ok_or("$/objectives: es obligatorio")?,
+        "$/objectives",
+    )?;
     if units.is_empty() {
         return Err("$/units: debe contener al menos una unidad".to_string());
     }
@@ -457,8 +526,23 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
         check_keys(
             unit,
             &path,
-            &["code", "position", "title", "theme", "description", "lessons"],
-            &["code", "position", "title", "theme", "description", "estimated_minutes", "lessons"],
+            &[
+                "code",
+                "position",
+                "title",
+                "theme",
+                "description",
+                "lessons",
+            ],
+            &[
+                "code",
+                "position",
+                "title",
+                "theme",
+                "description",
+                "estimated_minutes",
+                "lessons",
+            ],
         )?;
         let unit_code = required_string(unit, "code", &path, 80, false)?;
         if !valid_code(unit_code) || !unit_codes.insert(unit_code.to_string()) {
@@ -472,9 +556,15 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
         required_string(unit, "theme", &path, 120, false)?;
         required_string(unit, "description", &path, 100_000, true)?;
         optional_positive_integer(unit, "estimated_minutes", &path)?;
-        let lessons = array(unit.get("lessons").ok_or_else(|| format!("{path}/lessons: es obligatorio"))?, &format!("{path}/lessons"))?;
+        let lessons = array(
+            unit.get("lessons")
+                .ok_or_else(|| format!("{path}/lessons: es obligatorio"))?,
+            &format!("{path}/lessons"),
+        )?;
         if lessons.is_empty() {
-            return Err(format!("{path}/lessons: una unidad debe contener al menos una lección"));
+            return Err(format!(
+                "{path}/lessons: una unidad debe contener al menos una lección"
+            ));
         }
         let mut lesson_positions = HashSet::new();
         for (lesson_index, raw_lesson) in lessons.iter().enumerate() {
@@ -483,8 +573,24 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
             check_keys(
                 lesson,
                 &lesson_path,
-                &["code", "position", "pattern", "title", "description", "objective_codes"],
-                &["code", "position", "pattern", "title", "description", "estimated_minutes", "objective_codes", "prerequisites"],
+                &[
+                    "code",
+                    "position",
+                    "pattern",
+                    "title",
+                    "description",
+                    "objective_codes",
+                ],
+                &[
+                    "code",
+                    "position",
+                    "pattern",
+                    "title",
+                    "description",
+                    "estimated_minutes",
+                    "objective_codes",
+                    "prerequisites",
+                ],
             )?;
             let lesson_code = required_string(lesson, "code", &lesson_path, 80, false)?;
             if !valid_code(lesson_code) || !lesson_codes.insert(lesson_code.to_string()) {
@@ -492,47 +598,92 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
             }
             let lesson_position = positive_integer(lesson, "position", &lesson_path)?;
             if !lesson_positions.insert(lesson_position) {
-                return Err(format!("{lesson_path}/position: posición duplicada dentro de la unidad"));
+                return Err(format!(
+                    "{lesson_path}/position: posición duplicada dentro de la unidad"
+                ));
             }
             let pattern = required_string(lesson, "pattern", &lesson_path, 16, false)?;
-            enum_value(pattern, &["discover", "understand", "practice", "integrate", "custom"], &format!("{lesson_path}/pattern"))?;
+            enum_value(
+                pattern,
+                &["discover", "understand", "practice", "integrate", "custom"],
+                &format!("{lesson_path}/pattern"),
+            )?;
             required_string(lesson, "title", &lesson_path, 200, false)?;
             required_string(lesson, "description", &lesson_path, 100_000, true)?;
             optional_positive_integer(lesson, "estimated_minutes", &lesson_path)?;
-            let objective_codes = array(lesson.get("objective_codes").ok_or_else(|| format!("{lesson_path}/objective_codes: es obligatorio"))?, &format!("{lesson_path}/objective_codes"))?;
+            let objective_codes = array(
+                lesson
+                    .get("objective_codes")
+                    .ok_or_else(|| format!("{lesson_path}/objective_codes: es obligatorio"))?,
+                &format!("{lesson_path}/objective_codes"),
+            )?;
             if objective_codes.is_empty() {
-                return Err(format!("{lesson_path}/objective_codes: debe incluir al menos un objetivo"));
+                return Err(format!(
+                    "{lesson_path}/objective_codes: debe incluir al menos un objetivo"
+                ));
             }
             let mut seen_objectives = HashSet::new();
             let mut linked = Vec::new();
             for (index, raw_code) in objective_codes.iter().enumerate() {
-                let code = raw_code.as_str().ok_or_else(|| format!("{lesson_path}/objective_codes/{index}: debe ser texto"))?;
+                let code = raw_code.as_str().ok_or_else(|| {
+                    format!("{lesson_path}/objective_codes/{index}: debe ser texto")
+                })?;
                 if !valid_code(code) || !seen_objectives.insert(code.to_string()) {
-                    return Err(format!("{lesson_path}/objective_codes/{index}: código inválido o duplicado"));
+                    return Err(format!(
+                        "{lesson_path}/objective_codes/{index}: código inválido o duplicado"
+                    ));
                 }
                 linked.push(code.to_string());
             }
             lesson_links.insert(lesson_code.to_string(), linked);
             let mut prereqs = Vec::new();
             if let Some(raw_prerequisites) = lesson.get("prerequisites") {
-                let prerequisites = array(raw_prerequisites, &format!("{lesson_path}/prerequisites"))?;
+                let prerequisites =
+                    array(raw_prerequisites, &format!("{lesson_path}/prerequisites"))?;
                 let mut seen = HashSet::new();
                 for (index, raw) in prerequisites.iter().enumerate() {
                     let prerequisite_path = format!("{lesson_path}/prerequisites/{index}");
                     let prerequisite = object(raw, &prerequisite_path)?;
-                    check_keys(prerequisite, &prerequisite_path, &["lesson_code", "required_state", "minimum_mastery_score"], &["lesson_code", "required_state", "minimum_mastery_score"])?;
-                    let prerequisite_code = required_string(prerequisite, "lesson_code", &prerequisite_path, 80, false)?;
+                    check_keys(
+                        prerequisite,
+                        &prerequisite_path,
+                        &["lesson_code", "required_state", "minimum_mastery_score"],
+                        &["lesson_code", "required_state", "minimum_mastery_score"],
+                    )?;
+                    let prerequisite_code = required_string(
+                        prerequisite,
+                        "lesson_code",
+                        &prerequisite_path,
+                        80,
+                        false,
+                    )?;
                     if !valid_code(prerequisite_code)
                         || prerequisite_code == lesson_code
                         || !seen.insert(prerequisite_code.to_string())
                     {
                         return Err(format!("{prerequisite_path}/lesson_code: prerrequisito inválido, duplicado o autorreferenciado"));
                     }
-                    let state = required_string(prerequisite, "required_state", &prerequisite_path, 12, false)?;
-                    enum_value(state, &["completed", "mastered"], &format!("{prerequisite_path}/required_state"))?;
-                    let score = prerequisite.get("minimum_mastery_score").and_then(Value::as_f64)
+                    let state = required_string(
+                        prerequisite,
+                        "required_state",
+                        &prerequisite_path,
+                        12,
+                        false,
+                    )?;
+                    enum_value(
+                        state,
+                        &["completed", "mastered"],
+                        &format!("{prerequisite_path}/required_state"),
+                    )?;
+                    let score = prerequisite
+                        .get("minimum_mastery_score")
+                        .and_then(Value::as_f64)
                         .filter(|score| (0.0..=1.0).contains(score))
-                        .ok_or_else(|| format!("{prerequisite_path}/minimum_mastery_score: debe estar entre 0 y 1"))?;
+                        .ok_or_else(|| {
+                            format!(
+                                "{prerequisite_path}/minimum_mastery_score: debe estar entre 0 y 1"
+                            )
+                        })?;
                     let _ = score;
                     prereqs.push(prerequisite_code.to_string());
                 }
@@ -552,8 +703,22 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
         check_keys(
             objective,
             &path,
-            &["code", "position", "description", "success_criteria", "skills"],
-            &["code", "position", "description", "success_criteria", "skills", "vocabulary", "sentences"],
+            &[
+                "code",
+                "position",
+                "description",
+                "success_criteria",
+                "skills",
+            ],
+            &[
+                "code",
+                "position",
+                "description",
+                "success_criteria",
+                "skills",
+                "vocabulary",
+                "sentences",
+            ],
         )?;
         let code = required_string(objective, "code", &path, 80, false)?;
         if !valid_code(code) || !objective_codes.insert(code.to_string()) {
@@ -565,18 +730,44 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
         }
         required_string(objective, "description", &path, 1000, false)?;
         required_string(objective, "success_criteria", &path, 1000, false)?;
-        let skills = array(objective.get("skills").ok_or_else(|| format!("{path}/skills: es obligatorio"))?, &format!("{path}/skills"))?;
+        let skills = array(
+            objective
+                .get("skills")
+                .ok_or_else(|| format!("{path}/skills: es obligatorio"))?,
+            &format!("{path}/skills"),
+        )?;
         if skills.is_empty() {
-            return Err(format!("{path}/skills: debe contener al menos una competencia"));
+            return Err(format!(
+                "{path}/skills: debe contener al menos una competencia"
+            ));
         }
         let mut skill_codes = HashSet::new();
         let mut primary_count = 0;
         for (index, raw_skill) in skills.iter().enumerate() {
             let skill_path = format!("{path}/skills/{index}");
             let skill = object(raw_skill, &skill_path)?;
-            check_keys(skill, &skill_path, &["code", "is_primary"], &["code", "is_primary"])?;
+            check_keys(
+                skill,
+                &skill_path,
+                &["code", "is_primary"],
+                &["code", "is_primary"],
+            )?;
             let skill_code = required_string(skill, "code", &skill_path, 24, false)?;
-            enum_value(skill_code, &["vocabulary", "grammar", "listening", "reading", "writing", "speaking", "interaction", "mediation", "phonology"], &format!("{skill_path}/code"))?;
+            enum_value(
+                skill_code,
+                &[
+                    "vocabulary",
+                    "grammar",
+                    "listening",
+                    "reading",
+                    "writing",
+                    "speaking",
+                    "interaction",
+                    "mediation",
+                    "phonology",
+                ],
+                &format!("{skill_path}/code"),
+            )?;
             if !skill_codes.insert(skill_code.to_string()) {
                 return Err(format!("{skill_path}/code: competencia duplicada"));
             }
@@ -587,7 +778,9 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
             }
         }
         if primary_count != 1 {
-            return Err(format!("{path}/skills: debe definir exactamente una competencia primaria"));
+            return Err(format!(
+                "{path}/skills: debe definir exactamente una competencia primaria"
+            ));
         }
 
         if let Some(raw_vocabulary) = objective.get("vocabulary") {
@@ -597,17 +790,33 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
             for (index, raw_ref) in vocabulary.iter().enumerate() {
                 let ref_path = format!("{path}/vocabulary/{index}");
                 let reference = object(raw_ref, &ref_path)?;
-                check_keys(reference, &ref_path, &["word", "category", "usage_mode", "position"], &["word", "category", "usage_mode", "position"])?;
+                check_keys(
+                    reference,
+                    &ref_path,
+                    &["word", "category", "usage_mode", "position"],
+                    &["word", "category", "usage_mode", "position"],
+                )?;
                 let word = required_string(reference, "word", &ref_path, 100, false)?;
                 let category = required_string(reference, "category", &ref_path, 50, false)?;
-                if !category.bytes().next().is_some_and(|b| b.is_ascii_lowercase())
-                    || !category.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+                if !category
+                    .bytes()
+                    .next()
+                    .is_some_and(|b| b.is_ascii_lowercase())
+                    || !category
+                        .bytes()
+                        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
                     || !seen.insert((word.to_lowercase(), category.to_string()))
                 {
-                    return Err(format!("{ref_path}: referencia de vocabulario inválida o duplicada"));
+                    return Err(format!(
+                        "{ref_path}: referencia de vocabulario inválida o duplicada"
+                    ));
                 }
                 let mode = required_string(reference, "usage_mode", &ref_path, 12, false)?;
-                enum_value(mode, &["receptive", "productive", "both"], &format!("{ref_path}/usage_mode"))?;
+                enum_value(
+                    mode,
+                    &["receptive", "productive", "both"],
+                    &format!("{ref_path}/usage_mode"),
+                )?;
                 let position = positive_integer(reference, "position", &ref_path)?;
                 if !positions.insert(position) {
                     return Err(format!("{ref_path}/position: posición duplicada"));
@@ -623,14 +832,24 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
             for (index, raw_ref) in sentences.iter().enumerate() {
                 let ref_path = format!("{path}/sentences/{index}");
                 let reference = object(raw_ref, &ref_path)?;
-                check_keys(reference, &ref_path, &["word", "english_text", "usage_mode", "position"], &["word", "english_text", "usage_mode", "position"])?;
+                check_keys(
+                    reference,
+                    &ref_path,
+                    &["word", "english_text", "usage_mode", "position"],
+                    &["word", "english_text", "usage_mode", "position"],
+                )?;
                 let word = required_string(reference, "word", &ref_path, 100, false)?;
-                let english_text = required_string(reference, "english_text", &ref_path, 500, false)?;
+                let english_text =
+                    required_string(reference, "english_text", &ref_path, 500, false)?;
                 if !seen.insert((word.to_lowercase(), english_text.to_lowercase())) {
                     return Err(format!("{ref_path}: referencia de frase duplicada"));
                 }
                 let mode = required_string(reference, "usage_mode", &ref_path, 12, false)?;
-                enum_value(mode, &["listening", "reading", "speaking", "writing", "example"], &format!("{ref_path}/usage_mode"))?;
+                enum_value(
+                    mode,
+                    &["listening", "reading", "speaking", "writing", "example"],
+                    &format!("{ref_path}/usage_mode"),
+                )?;
                 let position = positive_integer(reference, "position", &ref_path)?;
                 if !positions.insert(position) {
                     return Err(format!("{ref_path}/position: posición duplicada"));
@@ -643,20 +862,28 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
     for (lesson_code, linked) in &lesson_links {
         for objective_code in linked {
             if !objective_codes.contains(objective_code) {
-                return Err(format!("Lección {lesson_code} referencia un objetivo desconocido: {objective_code}"));
+                return Err(format!(
+                    "Lección {lesson_code} referencia un objetivo desconocido: {objective_code}"
+                ));
             }
         }
     }
-    let linked_objectives: HashSet<String> =
-        lesson_links.values().flat_map(|codes| codes.iter().cloned()).collect();
+    let linked_objectives: HashSet<String> = lesson_links
+        .values()
+        .flat_map(|codes| codes.iter().cloned())
+        .collect();
     if let Some(orphan) = objective_codes.difference(&linked_objectives).next() {
-        return Err(format!("El objetivo {orphan} no está asociado a ninguna lección"));
+        return Err(format!(
+            "El objetivo {orphan} no está asociado a ninguna lección"
+        ));
     }
 
     for (lesson_code, prerequisites) in &lesson_prerequisites {
         for prerequisite in prerequisites {
             if !lesson_codes.contains(prerequisite) {
-                return Err(format!("Lección {lesson_code} referencia un prerrequisito desconocido: {prerequisite}"));
+                return Err(format!(
+                    "Lección {lesson_code} referencia un prerrequisito desconocido: {prerequisite}"
+                ));
             }
         }
     }
@@ -671,7 +898,9 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
             return Ok(());
         }
         if !visiting.insert(code.to_string()) {
-            return Err(format!("El grafo de prerrequisitos contiene un ciclo en {code}"));
+            return Err(format!(
+                "El grafo de prerrequisitos contiene un ciclo en {code}"
+            ));
         }
         if let Some(prerequisites) = edges.get(code) {
             for prerequisite in prerequisites {
@@ -700,8 +929,12 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
 fn resolve_single_reference(ids: Vec<Uuid>, description: &str) -> Result<Uuid, String> {
     match ids.as_slice() {
         [id] => Ok(*id),
-        [] => Err(format!("Referencia curricular externa no encontrada: {description}")),
-        _ => Err(format!("Referencia curricular externa ambigua: {description}")),
+        [] => Err(format!(
+            "Referencia curricular externa no encontrada: {description}"
+        )),
+        _ => Err(format!(
+            "Referencia curricular externa ambigua: {description}"
+        )),
     }
 }
 
@@ -937,8 +1170,13 @@ pub async fn import_package(
 
     for unit in units {
         let unit_code = unit["code"].as_str().unwrap_or("");
-        let unit_id = *unit_ids.get(unit_code).ok_or("No se encontró la unidad importada")?;
-        for lesson in unit["lessons"].as_array().ok_or("lessons debe ser un arreglo")? {
+        let unit_id = *unit_ids
+            .get(unit_code)
+            .ok_or("No se encontró la unidad importada")?;
+        for lesson in unit["lessons"]
+            .as_array()
+            .ok_or("lessons debe ser un arreglo")?
+        {
             let code = lesson["code"].as_str().unwrap_or("");
             let lesson_id: Uuid = sqlx::query_scalar(
                 r#"INSERT INTO course_lessons (
@@ -955,7 +1193,11 @@ pub async fn import_package(
             .bind(lesson["pattern"].as_str().unwrap_or("custom"))
             .bind(lesson["title"].as_str().unwrap_or(""))
             .bind(lesson["description"].as_str().unwrap_or(""))
-            .bind(lesson["estimated_minutes"].as_i64().map(|value| value as i32))
+            .bind(
+                lesson["estimated_minutes"]
+                    .as_i64()
+                    .map(|value| value as i32),
+            )
             .fetch_one(&mut *tx)
             .await
             .map_err(|_| format!("No se pudo insertar la lección {code}"))?;
@@ -989,7 +1231,9 @@ pub async fn import_package(
 
     for objective in objectives {
         let objective_code = objective["code"].as_str().unwrap_or("");
-        let objective_id = *objective_ids.get(objective_code).ok_or("Objetivo importado no encontrado")?;
+        let objective_id = *objective_ids
+            .get(objective_code)
+            .ok_or("Objetivo importado no encontrado")?;
 
         if let Some(references) = objective["vocabulary"].as_array() {
             for reference in references {
@@ -1044,10 +1288,8 @@ pub async fn import_package(
                 .fetch_all(&mut *tx)
                 .await
                 .map_err(|_| format!("No se pudo resolver la frase {english}"))?;
-                let sentence_id = resolve_single_reference(
-                    ids,
-                    &format!("frase de {word}: {english}"),
-                )?;
+                let sentence_id =
+                    resolve_single_reference(ids, &format!("frase de {word}: {english}"))?;
                 sqlx::query(
                     r#"INSERT INTO learning_objective_sentences (
                            course_version_id, learning_objective_id, context_sentence_id, usage_mode, position
@@ -1072,7 +1314,9 @@ pub async fn import_package(
             .ok_or("lessons debe ser un arreglo")?
         {
             let lesson_code = lesson["code"].as_str().unwrap_or("");
-            let lesson_id = *lesson_ids.get(lesson_code).ok_or("Lección importada no encontrada")?;
+            let lesson_id = *lesson_ids
+                .get(lesson_code)
+                .ok_or("Lección importada no encontrada")?;
             if let Some(prerequisites) = lesson["prerequisites"].as_array() {
                 for prerequisite in prerequisites {
                     let prerequisite_code = prerequisite["lesson_code"].as_str().unwrap_or("");
@@ -1089,8 +1333,16 @@ pub async fn import_package(
                     .bind(course_version_id)
                     .bind(lesson_id)
                     .bind(prerequisite_id)
-                    .bind(prerequisite["required_state"].as_str().unwrap_or("completed"))
-                    .bind(prerequisite["minimum_mastery_score"].as_f64().unwrap_or(0.8))
+                    .bind(
+                        prerequisite["required_state"]
+                            .as_str()
+                            .unwrap_or("completed"),
+                    )
+                    .bind(
+                        prerequisite["minimum_mastery_score"]
+                            .as_f64()
+                            .unwrap_or(0.8),
+                    )
                     .execute(&mut *tx)
                     .await
                     .map_err(|_| format!("No se pudo guardar el prerrequisito de {lesson_code}"))?;
@@ -1138,16 +1390,17 @@ pub async fn import_package(
     })
 }
 
-
 #[cfg(test)]
 mod tests {
-    use super::{validate_package_json, valid_http_url};
+    use super::{valid_http_url, validate_package_json};
 
-    const VALID_PACKAGE: &str = include_str!("../../../tests/fixtures/curriculum/phase1_3_content_package_v1.json");
+    const VALID_PACKAGE: &str =
+        include_str!("../../../tests/fixtures/curriculum/phase1_3_content_package_v1.json");
 
     #[test]
     fn validates_the_versioned_ci_package_and_returns_counts() {
-        let (_, sha, counts) = validate_package_json(VALID_PACKAGE).expect("fixture is canonical v1");
+        let (_, sha, counts) =
+            validate_package_json(VALID_PACKAGE).expect("fixture is canonical v1");
         assert_eq!(sha.len(), 64);
         assert!(sha.bytes().all(|byte| byte.is_ascii_hexdigit()));
         assert!(counts.units > 0);
@@ -1196,7 +1449,8 @@ mod tests {
             serde_json::from_str(VALID_PACKAGE).expect("fixture should be valid JSON");
         data["version"]["version_number"] = Value::from(i64::from(i32::MAX) + 1);
         let raw = serde_json::to_string(&data).expect("serialize mutated package");
-        let error = validate_package_json(&raw).expect_err("PostgreSQL INTEGER overflow must be rejected");
+        let error =
+            validate_package_json(&raw).expect_err("PostgreSQL INTEGER overflow must be rejected");
         assert!(error.contains("rango INTEGER"));
     }
 

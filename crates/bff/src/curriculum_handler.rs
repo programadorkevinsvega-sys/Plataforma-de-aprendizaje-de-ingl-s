@@ -6,9 +6,8 @@ use axum::{
 use proto::content::{
     CurriculumCourseSummary, CurriculumLesson, CurriculumObjective, CurriculumPrerequisite,
     CurriculumUnit, EditorialCourseVersionSummary, EnrollInCourseRequest,
-    GetCurriculumCourseRequest, ImportCurriculumPackageRequest,
-    ListCurriculumCoursesRequest, ListEditorialVersionsRequest,
-    ManageEditorialVersionRequest,
+    GetCurriculumCourseRequest, ImportCurriculumPackageRequest, ListCurriculumCoursesRequest,
+    ListEditorialVersionsRequest, ManageEditorialVersionRequest,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

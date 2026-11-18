@@ -14,9 +14,9 @@ use content_handler::{
     vocabulary_list_handler,
 };
 use curriculum_handler::{
-    enroll_course_handler, get_curriculum_course_handler,
-    import_curriculum_package_handler, list_curriculum_courses_handler,
-    list_curriculum_editorial_versions_handler, manage_curriculum_editorial_version_handler,
+    enroll_course_handler, get_curriculum_course_handler, import_curriculum_package_handler,
+    list_curriculum_courses_handler, list_curriculum_editorial_versions_handler,
+    manage_curriculum_editorial_version_handler,
 };
 use exam_handler::{
     create_transcribe_ticket_handler, evaluate_answer_handler, get_drill_handler,

@@ -2,15 +2,13 @@ use crate::curriculum_package::{import_package, validate_package_json};
 use proto::content::content_service_server::ContentService;
 use proto::content::{
     ContextSentence, CurriculumCourseSummary, CurriculumLesson, CurriculumLessonProgress,
-    CurriculumObjective, EditorialCourseVersionSummary, ListEditorialVersionsRequest,
-    ListEditorialVersionsResponse, ManageEditorialVersionRequest,
-    ManageEditorialVersionResponse, ImportCurriculumPackageRequest,
-    ImportCurriculumPackageResponse, CurriculumPrerequisite, CurriculumUnit,
-    EnrollInCourseRequest, EnrollInCourseResponse,
-    GetCurriculumCourseRequest, GetCurriculumCourseResponse, GetRandomInterviewQuestionRequest,
-    GetVocabularyWordRequest, InterviewQuestionResponse, ListCurriculumCoursesRequest,
-    ListCurriculumCoursesResponse, ListVocabularyWordsRequest, ListVocabularyWordsResponse,
-    VocabularyWordResponse,
+    CurriculumObjective, CurriculumPrerequisite, CurriculumUnit, EditorialCourseVersionSummary,
+    EnrollInCourseRequest, EnrollInCourseResponse, GetCurriculumCourseRequest,
+    GetCurriculumCourseResponse, GetRandomInterviewQuestionRequest, GetVocabularyWordRequest,
+    ImportCurriculumPackageRequest, ImportCurriculumPackageResponse, InterviewQuestionResponse,
+    ListCurriculumCoursesRequest, ListCurriculumCoursesResponse, ListEditorialVersionsRequest,
+    ListEditorialVersionsResponse, ListVocabularyWordsRequest, ListVocabularyWordsResponse,
+    ManageEditorialVersionRequest, ManageEditorialVersionResponse, VocabularyWordResponse,
 };
 use sqlx::PgPool;
 use std::collections::HashMap;
@@ -84,8 +82,7 @@ fn evaluate_lesson_progress(
                 return false;
             };
             if prerequisite.required_state == "mastered" {
-                prerequisite_completed
-                    && prerequisite_mastery >= prerequisite.minimum_mastery_score
+                prerequisite_completed && prerequisite_mastery >= prerequisite.minimum_mastery_score
             } else {
                 prerequisite_completed
             }
@@ -503,8 +500,8 @@ impl ContentService for MyContentService {
         let total_pages = if total == 0 {
             0
         } else {
-            ((total + i64::from(page_size) - 1) / i64::from(page_size))
-                .min(i64::from(i32::MAX)) as i32
+            ((total + i64::from(page_size) - 1) / i64::from(page_size)).min(i64::from(i32::MAX))
+                as i32
         };
         Ok(Response::new(ListCurriculumCoursesResponse {
             items,
@@ -716,7 +713,8 @@ impl ContentService for MyContentService {
         .map_err(|_| Status::internal("No se pudo calcular la evidencia curricular del usuario"))?;
 
         let mut objectives_by_lesson: HashMap<Uuid, Vec<CurriculumObjective>> = HashMap::new();
-        for (lesson_id, id, code, objective, criteria, position, required, skills) in &objective_rows
+        for (lesson_id, id, code, objective, criteria, position, required, skills) in
+            &objective_rows
         {
             objectives_by_lesson
                 .entry(*lesson_id)
@@ -760,8 +758,10 @@ impl ContentService for MyContentService {
             if !*required {
                 continue;
             }
-            let (evidence_total, evidence_completed, mastery_score) =
-                evidence_by_objective.get(objective_id).copied().unwrap_or((0, 0, 0.0));
+            let (evidence_total, evidence_completed, mastery_score) = evidence_by_objective
+                .get(objective_id)
+                .copied()
+                .unwrap_or((0, 0, 0.0));
             let entry = lesson_evidence.entry(*lesson_id).or_insert((0, 0, 0.0));
             entry.0 = entry.0.saturating_add(1);
             if evidence_total > 0 && evidence_completed == evidence_total {
@@ -775,8 +775,10 @@ impl ContentService for MyContentService {
         // de las unidades cuando el grafo de prerrequisitos no es lineal.
         let mut lesson_base: HashMap<Uuid, (i32, i32, f64, bool, bool)> = HashMap::new();
         for (lesson_id, _, _, _, _, _, _, _) in &lesson_rows {
-            let (required, completed, mastery_sum) =
-                lesson_evidence.get(lesson_id).copied().unwrap_or((0, 0, 0.0));
+            let (required, completed, mastery_sum) = lesson_evidence
+                .get(lesson_id)
+                .copied()
+                .unwrap_or((0, 0, 0.0));
             let mastery_score = if required > 0 {
                 (mastery_sum / f64::from(required)).clamp(0.0, 1.0)
             } else {
@@ -786,7 +788,13 @@ impl ContentService for MyContentService {
             let is_mastered = is_completed && mastery_score >= 0.8;
             lesson_base.insert(
                 *lesson_id,
-                (required, completed, mastery_score, is_completed, is_mastered),
+                (
+                    required,
+                    completed,
+                    mastery_score,
+                    is_completed,
+                    is_mastered,
+                ),
             );
         }
 
@@ -937,16 +945,31 @@ impl ContentService for MyContentService {
             req.page_size
         };
         if !req.status.is_empty()
-            && !matches!(req.status.as_str(), "draft" | "review" | "published" | "archived")
+            && !matches!(
+                req.status.as_str(),
+                "draft" | "review" | "published" | "archived"
+            )
         {
-            return Err(Status::invalid_argument("El filtro de estado editorial no es válido"));
+            return Err(Status::invalid_argument(
+                "El filtro de estado editorial no es válido",
+            ));
         }
         let search = req.search_query.trim().to_lowercase();
         if search.len() > 120 {
-            return Err(Status::invalid_argument("search_query no puede superar 120 caracteres"));
+            return Err(Status::invalid_argument(
+                "search_query no puede superar 120 caracteres",
+            ));
         }
-        let status = if req.status.is_empty() { None } else { Some(req.status) };
-        let search = if search.is_empty() { None } else { Some(search) };
+        let status = if req.status.is_empty() {
+            None
+        } else {
+            Some(req.status)
+        };
+        let search = if search.is_empty() {
+            None
+        } else {
+            Some(search)
+        };
 
         let mut tx = self
             .pool
@@ -1097,8 +1120,8 @@ impl ContentService for MyContentService {
         let total_pages = if total == 0 {
             0
         } else {
-            ((total + i64::from(page_size) - 1) / i64::from(page_size))
-                .min(i64::from(i32::MAX)) as i32
+            ((total + i64::from(page_size) - 1) / i64::from(page_size)).min(i64::from(i32::MAX))
+                as i32
         };
 
         Ok(Response::new(ListEditorialVersionsResponse {
@@ -1122,14 +1145,16 @@ impl ContentService for MyContentService {
             return Err(Status::invalid_argument("La acción editorial no es válida"));
         }
         if req.action == "review"
-            && !matches!(req.decision.as_str(), "approved" | "rejected" | "changes_requested")
+            && !matches!(
+                req.decision.as_str(),
+                "approved" | "rejected" | "changes_requested"
+            )
         {
-            return Err(Status::invalid_argument("La decisión editorial no es válida"));
+            return Err(Status::invalid_argument(
+                "La decisión editorial no es válida",
+            ));
         }
-        if req.action == "review"
-            && req.decision != "approved"
-            && req.comments.trim().is_empty()
-        {
+        if req.action == "review" && req.decision != "approved" && req.comments.trim().is_empty() {
             return Err(Status::invalid_argument(
                 "Rechazar o solicitar cambios requiere comentarios editoriales",
             ));
@@ -1140,7 +1165,9 @@ impl ContentService for MyContentService {
             ));
         }
         if req.comments.len() > 4000 {
-            return Err(Status::invalid_argument("Los comentarios no pueden superar 4000 caracteres"));
+            return Err(Status::invalid_argument(
+                "Los comentarios no pueden superar 4000 caracteres",
+            ));
         }
 
         let mut tx = self
@@ -1161,13 +1188,12 @@ impl ContentService for MyContentService {
             ));
         }
 
-        let previous_status: Option<String> = sqlx::query_scalar(
-            "SELECT status FROM course_versions WHERE id = $1 FOR UPDATE",
-        )
-        .bind(course_version_id)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|_| Status::internal("No se pudo consultar la versión curricular"))?;
+        let previous_status: Option<String> =
+            sqlx::query_scalar("SELECT status FROM course_versions WHERE id = $1 FOR UPDATE")
+                .bind(course_version_id)
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(|_| Status::internal("No se pudo consultar la versión curricular"))?;
         let previous_status =
             previous_status.ok_or_else(|| Status::not_found("Versión curricular no encontrada"))?;
 
@@ -1188,7 +1214,9 @@ impl ContentService for MyContentService {
                 .bind(course_version_id)
                 .execute(&mut *tx)
                 .await
-                .map_err(|_| Status::failed_precondition("No se pudo enviar la versión a revisión"))?;
+                .map_err(|_| {
+                    Status::failed_precondition("No se pudo enviar la versión a revisión")
+                })?;
                 ("review".to_string(), String::new(), String::new())
             }
             "review" => {
@@ -1210,7 +1238,9 @@ impl ContentService for MyContentService {
                 .bind(&req.comments)
                 .fetch_one(&mut *tx)
                 .await
-                .map_err(|_| Status::failed_precondition("No se pudo registrar la decisión editorial"))?;
+                .map_err(|_| {
+                    Status::failed_precondition("No se pudo registrar la decisión editorial")
+                })?;
                 let next = if req.decision == "approved" {
                     "review"
                 } else {
@@ -1242,7 +1272,8 @@ impl ContentService for MyContentService {
                 .fetch_optional(&mut *tx)
                 .await
                 .map_err(|_| Status::internal("No se pudo comprobar la aprobación editorial"))?;
-                if !matches!(latest, Some((ref decision, reviewer)) if decision == "approved" && reviewer == user_id) {
+                if !matches!(latest, Some((ref decision, reviewer)) if decision == "approved" && reviewer == user_id)
+                {
                     return Err(Status::failed_precondition(
                         "La última aprobación debe pertenecer al mismo editor que publica",
                     ));
@@ -1259,9 +1290,11 @@ impl ContentService for MyContentService {
                 .bind(user_id)
                 .execute(&mut *tx)
                 .await
-                .map_err(|_| Status::failed_precondition(
-                    "La versión no cumple las condiciones de integridad para publicarse",
-                ))?;
+                .map_err(|_| {
+                    Status::failed_precondition(
+                        "La versión no cumple las condiciones de integridad para publicarse",
+                    )
+                })?;
                 ("published".to_string(), String::new(), String::new())
             }
             _ => unreachable!("editorial action was validated above"),
@@ -1287,8 +1320,8 @@ impl ContentService for MyContentService {
     ) -> Result<Response<ImportCurriculumPackageResponse>, Status> {
         let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let req = request.into_inner();
-        let (data, package_sha256, counts) = validate_package_json(&req.package_json)
-            .map_err(Status::invalid_argument)?;
+        let (data, package_sha256, counts) =
+            validate_package_json(&req.package_json).map_err(Status::invalid_argument)?;
 
         let result = import_package(
             self.pool.as_ref(),
@@ -1352,7 +1385,6 @@ impl ContentService for MyContentService {
         }))
     }
 }
-
 
 #[cfg(test)]
 mod curriculum_progress_tests {
@@ -1439,12 +1471,8 @@ mod curriculum_progress_tests {
 
     #[test]
     fn lesson_is_not_enrolled_without_a_course_enrollment() {
-        let result = evaluate_lesson_progress(
-            false,
-            (1, 0, 0.0, false, false),
-            &[],
-            &HashMap::new(),
-        );
+        let result =
+            evaluate_lesson_progress(false, (1, 0, 0.0, false, false), &[], &HashMap::new());
 
         assert_eq!(result.state, "not_enrolled");
         assert!(!result.prerequisites_satisfied);
@@ -1487,21 +1515,13 @@ mod curriculum_progress_tests {
 
     #[test]
     fn lesson_is_completed_or_mastered_only_when_required_evidence_says_so() {
-        let completed = evaluate_lesson_progress(
-            true,
-            (2, 2, 0.6, true, false),
-            &[],
-            &HashMap::new(),
-        );
+        let completed =
+            evaluate_lesson_progress(true, (2, 2, 0.6, true, false), &[], &HashMap::new());
         assert_eq!(completed.state, "completed");
         assert_eq!(completed.completed_objectives, 2);
 
-        let mastered = evaluate_lesson_progress(
-            true,
-            (2, 2, 0.9, true, true),
-            &[],
-            &HashMap::new(),
-        );
+        let mastered =
+            evaluate_lesson_progress(true, (2, 2, 0.9, true, true), &[], &HashMap::new());
         assert_eq!(mastered.state, "mastered");
         assert_eq!(mastered.mastery_score, 0.9);
     }
