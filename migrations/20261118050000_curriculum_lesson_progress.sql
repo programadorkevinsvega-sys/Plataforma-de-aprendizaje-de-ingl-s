@@ -10,9 +10,7 @@ CREATE TABLE IF NOT EXISTS course_lesson_progress_events (
     outcome_status VARCHAR(12) NOT NULL CHECK (outcome_status IN ('in_progress', 'completed', 'mastered')),
     mastery_score NUMERIC(5,4) NOT NULL CHECK (mastery_score BETWEEN 0 AND 1),
     recorded_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_lesson_progress_evidence UNIQUE (user_id, evidence_event_id),
-    CONSTRAINT fk_lesson_progress_lesson FOREIGN KEY (lesson_id, course_version_id)
-        REFERENCES course_lessons(id, course_version_id) ON DELETE RESTRICT
+    CONSTRAINT uq_lesson_progress_evidence UNIQUE (user_id, evidence_event_id)
 );
 CREATE INDEX IF NOT EXISTS idx_lesson_progress_latest
     ON course_lesson_progress_events(user_id, course_version_id, lesson_id, recorded_at DESC, id DESC);
