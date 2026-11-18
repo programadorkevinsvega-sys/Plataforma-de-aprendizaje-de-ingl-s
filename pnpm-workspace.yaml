@@ -5,6 +5,13 @@ autoDedupe: true
 lockfile:
   includeResolutionSettings: true
 
+# Temporary, narrowly scoped exception: shadcn's development-only toolchain
+# currently pulls picomatch <=4.0.7. Upstream has not published a patched
+# version for GHSA-fc5q-39xc-vjpf yet; remove this entry when one is available.
+audit:
+  ignore:
+    - GHSA-fc5q-39xc-vjpf
+
 onlyBuiltDependencies:
   - "@swc/core"
   - "@tailwindcss/oxide"

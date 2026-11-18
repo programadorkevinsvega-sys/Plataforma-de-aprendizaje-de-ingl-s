@@ -338,6 +338,8 @@ jobs:
           # typescript-eslint 8.73 currently supports TypeScript <6.1;
           # use the latest compatible stable TypeScript while TS 7 support lands.
           pnpm --filter devfluency-frontend add --save-dev --save-exact typescript@6.0.3
+          # shadcn is a component-generation CLI, not a runtime dependency.
+          pnpm --filter devfluency-frontend add --save-dev --save-exact shadcn@4.23.0
           pnpm install --no-frozen-lockfile
       - name: Validate updated frontend
         run: |
