@@ -5,8 +5,9 @@ use axum::{
 };
 use proto::content::{
     CurriculumCourseSummary, CurriculumLesson, CurriculumObjective, CurriculumPrerequisite,
-    CurriculumUnit, EnrollInCourseRequest, GetCurriculumCourseRequest,
-    ListCurriculumCoursesRequest,
+    CurriculumUnit, EditorialCourseVersionSummary, EnrollInCourseRequest,
+    GetCurriculumCourseRequest, ListCurriculumCoursesRequest,
+    ListEditorialVersionsRequest, ManageEditorialVersionRequest,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -110,6 +111,79 @@ pub struct CurriculumCourseDetailDto {
 #[derive(Deserialize)]
 pub struct EnrollCourseBody {
     pub course_version_id: String,
+}
+
+#[derive(Deserialize, Default)]
+pub struct EditorialVersionsQuery {
+    pub page: Option<i32>,
+    pub page_size: Option<i32>,
+    pub status: Option<String>,
+    pub search: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct EditorialActionBody {
+    pub action: String,
+    pub decision: Option<String>,
+    pub comments: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct EditorialVersionDto {
+    pub course_version_id: String,
+    pub slug: String,
+    pub track_code: String,
+    pub cefr_level: String,
+    pub version_number: i32,
+    pub status: String,
+    pub title: String,
+    pub description: String,
+    pub imported_at: String,
+    pub package_sha256: String,
+    pub latest_decision: String,
+    pub latest_comments: String,
+    pub latest_reviewer_id: String,
+    pub can_publish: bool,
+}
+
+#[derive(Serialize)]
+pub struct EditorialVersionListDto {
+    pub items: Vec<EditorialVersionDto>,
+    pub total: i32,
+    pub page: i32,
+    pub page_size: i32,
+    pub total_pages: i32,
+}
+
+#[derive(Serialize)]
+pub struct EditorialActionDto {
+    pub course_version_id: String,
+    pub action: String,
+    pub previous_status: String,
+    pub next_status: String,
+    pub review_id: String,
+    pub reviewed_at: String,
+}
+
+impl From<EditorialCourseVersionSummary> for EditorialVersionDto {
+    fn from(version: EditorialCourseVersionSummary) -> Self {
+        Self {
+            course_version_id: version.course_version_id,
+            slug: version.slug,
+            track_code: version.track_code,
+            cefr_level: version.cefr_level,
+            version_number: version.version_number,
+            status: version.status,
+            title: version.title,
+            description: version.description,
+            imported_at: version.imported_at,
+            package_sha256: version.package_sha256,
+            latest_decision: version.latest_decision,
+            latest_comments: version.latest_comments,
+            latest_reviewer_id: version.latest_reviewer_id,
+            can_publish: version.can_publish,
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -217,6 +291,11 @@ fn curriculum_error(error: tonic::Status, operation: &'static str) -> (StatusCod
             "CURRICULUM_INVALID_REQUEST",
             "La ruta o los datos de la solicitud no son válidos.",
         ),
+        tonic::Code::FailedPrecondition | tonic::Code::AlreadyExists => (
+            StatusCode::CONFLICT,
+            "CURRICULUM_STATE_CONFLICT",
+            "La operación no es válida para el estado actual del contenido.",
+        ),
         tonic::Code::NotFound => (
             StatusCode::NOT_FOUND,
             "CURRICULUM_NOT_FOUND",
@@ -311,6 +390,72 @@ pub async fn get_curriculum_course_handler(
     Ok(Json(CurriculumCourseDetailDto {
         course: course.into(),
         units: response.units.into_iter().map(Into::into).collect(),
+    }))
+}
+
+/// GET /api/v1/curriculum/editor/versions
+pub async fn list_curriculum_editorial_versions_handler(
+    State(mut state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<EditorialVersionsQuery>,
+) -> Result<Json<EditorialVersionListDto>, (StatusCode, Json<Value>)> {
+    let user_id = validate_token_from_headers(&headers, &mut state).await?;
+    let mut request = tonic::Request::new(ListEditorialVersionsRequest {
+        user_id,
+        page: query.page.unwrap_or(1),
+        page_size: query.page_size.unwrap_or(20),
+        status: query.status.unwrap_or_default(),
+        search_query: query.search.unwrap_or_default(),
+    });
+    attach_bearer_metadata(&headers, &mut request)?;
+
+    let mut client = state.content_client.clone();
+    let response = client
+        .list_editorial_versions(request)
+        .await
+        .map_err(|error| curriculum_error(error, "list_editorial_versions"))?
+        .into_inner();
+
+    Ok(Json(EditorialVersionListDto {
+        items: response.items.into_iter().map(Into::into).collect(),
+        total: response.total,
+        page: response.page,
+        page_size: response.page_size,
+        total_pages: response.total_pages,
+    }))
+}
+
+/// POST /api/v1/curriculum/editor/versions/:course_version_id/actions
+pub async fn manage_curriculum_editorial_version_handler(
+    State(mut state): State<AppState>,
+    headers: HeaderMap,
+    Path(course_version_id): Path<String>,
+    Json(body): Json<EditorialActionBody>,
+) -> Result<Json<EditorialActionDto>, (StatusCode, Json<Value>)> {
+    let user_id = validate_token_from_headers(&headers, &mut state).await?;
+    let mut request = tonic::Request::new(ManageEditorialVersionRequest {
+        user_id,
+        course_version_id,
+        action: body.action,
+        decision: body.decision.unwrap_or_default(),
+        comments: body.comments.unwrap_or_default(),
+    });
+    attach_bearer_metadata(&headers, &mut request)?;
+
+    let mut client = state.content_client.clone();
+    let response = client
+        .manage_editorial_version(request)
+        .await
+        .map_err(|error| curriculum_error(error, "manage_editorial_version"))?
+        .into_inner();
+
+    Ok(Json(EditorialActionDto {
+        course_version_id: response.course_version_id,
+        action: response.action,
+        previous_status: response.previous_status,
+        next_status: response.next_status,
+        review_id: response.review_id,
+        reviewed_at: response.reviewed_at,
     }))
 }
 
