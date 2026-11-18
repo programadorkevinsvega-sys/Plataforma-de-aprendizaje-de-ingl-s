@@ -1,5 +1,9 @@
 import type {
   CourseEnrollment,
+  EditorialActionResult,
+  EditorialDecision,
+  EditorialVersionStatus,
+  EditorialVersionSummary,
   CurriculumCourseDetail,
   CurriculumCourseSummary,
   CurriculumLevel,
@@ -172,6 +176,52 @@ export function toCurriculumCourseDetail(dto: Dto): CurriculumCourseDetail {
   return {
     course: toCurriculumCourseSummary(course as Dto),
     units: records(dto, 'units').map(toUnit),
+  }
+}
+
+export function toEditorialVersionSummary(dto: Dto): EditorialVersionSummary {
+  const status = stringValue(dto, ['status'])
+  const decision = stringValue(dto, ['latest_decision', 'latestDecision'])
+  const statuses: EditorialVersionStatus[] = ['draft', 'review', 'published', 'archived']
+  const decisions: EditorialDecision[] = ['approved', 'rejected', 'changes_requested']
+  return {
+    courseVersionId: stringValue(dto, ['course_version_id', 'courseVersionId']),
+    slug: stringValue(dto, ['slug']),
+    trackCode: mapTrack(stringValue(dto, ['track_code', 'trackCode'])),
+    cefrLevel: mapLevel(stringValue(dto, ['cefr_level', 'cefrLevel'], 'PRE_A1')),
+    versionNumber: numberValue(dto, ['version_number', 'versionNumber']),
+    status: statuses.includes(status as EditorialVersionStatus)
+      ? (status as EditorialVersionStatus)
+      : 'draft',
+    title: stringValue(dto, ['title']),
+    description: stringValue(dto, ['description']),
+    importedAt: stringValue(dto, ['imported_at', 'importedAt']),
+    packageSha256: stringValue(dto, ['package_sha256', 'packageSha256']),
+    latestDecision: decisions.includes(decision as EditorialDecision)
+      ? (decision as EditorialDecision)
+      : '',
+    latestComments: stringValue(dto, ['latest_comments', 'latestComments']),
+    latestReviewerId: stringValue(dto, ['latest_reviewer_id', 'latestReviewerId']),
+    canPublish: booleanValue(dto, ['can_publish', 'canPublish']),
+  }
+}
+
+export function toEditorialActionResult(dto: Dto): EditorialActionResult {
+  const action = stringValue(dto, ['action'])
+  const previousStatus = stringValue(dto, ['previous_status', 'previousStatus'])
+  const nextStatus = stringValue(dto, ['next_status', 'nextStatus'])
+  const statuses: EditorialVersionStatus[] = ['draft', 'review', 'published', 'archived']
+  return {
+    courseVersionId: stringValue(dto, ['course_version_id', 'courseVersionId']),
+    action: action === 'review' || action === 'publish' ? action : 'submit',
+    previousStatus: statuses.includes(previousStatus as EditorialVersionStatus)
+      ? (previousStatus as EditorialVersionStatus)
+      : 'draft',
+    nextStatus: statuses.includes(nextStatus as EditorialVersionStatus)
+      ? (nextStatus as EditorialVersionStatus)
+      : 'draft',
+    reviewId: stringValue(dto, ['review_id', 'reviewId']),
+    reviewedAt: stringValue(dto, ['reviewed_at', 'reviewedAt']),
   }
 }
 
