@@ -202,19 +202,6 @@ if (!DATABASE_URL) {
 
   test("database refuses publication when a lesson has no required learning objective", async () => {
     await withDraftVersion(async (client, selector) => {
-      await applyEditorialAction(client, {
-        action: "submit",
-        ...selector,
-        actorUserId: editorId,
-      });
-      await applyEditorialAction(client, {
-        action: "review",
-        decision: "approved",
-        comments: "Approved before a direct relational integrity mutation.",
-        ...selector,
-        actorUserId: editorId,
-      });
-
       const version = await client.query(
         `SELECT version.id
            FROM courses course
@@ -226,6 +213,19 @@ if (!DATABASE_URL) {
         "DELETE FROM lesson_learning_objectives WHERE course_version_id = $1",
         [version.rows[0].id],
       );
+
+      await applyEditorialAction(client, {
+        action: "submit",
+        ...selector,
+        actorUserId: editorId,
+      });
+      await applyEditorialAction(client, {
+        action: "review",
+        decision: "approved",
+        comments: "Approved despite deliberately incomplete draft content.",
+        ...selector,
+        actorUserId: editorId,
+      });
 
       await assert.rejects(
         applyEditorialAction(client, {
@@ -240,19 +240,6 @@ if (!DATABASE_URL) {
 
   test("database refuses publication when an objective has no primary skill", async () => {
     await withDraftVersion(async (client, selector) => {
-      await applyEditorialAction(client, {
-        action: "submit",
-        ...selector,
-        actorUserId: editorId,
-      });
-      await applyEditorialAction(client, {
-        action: "review",
-        decision: "approved",
-        comments: "Approved before a direct relational integrity mutation.",
-        ...selector,
-        actorUserId: editorId,
-      });
-
       const version = await client.query(
         `SELECT version.id
            FROM courses course
@@ -266,6 +253,19 @@ if (!DATABASE_URL) {
         [version.rows[0].id],
       );
 
+      await applyEditorialAction(client, {
+        action: "submit",
+        ...selector,
+        actorUserId: editorId,
+      });
+      await applyEditorialAction(client, {
+        action: "review",
+        decision: "approved",
+        comments: "Approved despite deliberately incomplete draft content.",
+        ...selector,
+        actorUserId: editorId,
+      });
+
       await assert.rejects(
         applyEditorialAction(client, {
           action: "publish",
@@ -274,6 +274,63 @@ if (!DATABASE_URL) {
         }),
         /Every learning objective must have exactly one primary skill/,
       );
+    });
+  });
+
+  test("freezes child content while a course version is under review", async () => {
+    await withDraftVersion(async (client, selector) => {
+      await applyEditorialAction(client, {
+        action: "submit",
+        ...selector,
+        actorUserId: editorId,
+      });
+
+      await assert.rejects(
+        client.query(
+          `UPDATE course_lessons
+              SET title = 'Mutated after review submission'
+            WHERE course_version_id = (
+                SELECT version.id
+                  FROM courses course
+                  JOIN course_versions version ON version.course_id = course.id
+                 WHERE course.slug = $1
+            )`,
+          [selector.course],
+        ),
+        /Curriculum content is frozen while its course version is under review or published/,
+      );
+    });
+  });
+
+  test("allows child content edits again after a review requests changes", async () => {
+    await withDraftVersion(async (client, selector) => {
+      await applyEditorialAction(client, {
+        action: "submit",
+        ...selector,
+        actorUserId: editorId,
+      });
+      const requested = await applyEditorialAction(client, {
+        action: "review",
+        decision: "changes_requested",
+        comments: "Please make the lesson example clearer.",
+        ...selector,
+        actorUserId: editorId,
+      });
+      assert.equal(requested.nextStatus, "draft");
+
+      const updated = await client.query(
+        `UPDATE course_lessons
+            SET title = 'Revised test lesson'
+          WHERE course_version_id = (
+              SELECT version.id
+                FROM courses course
+                JOIN course_versions version ON version.course_id = course.id
+               WHERE course.slug = $1
+          )
+          RETURNING title`,
+        [selector.course],
+      );
+      assert.equal(updated.rows[0].title, "Revised test lesson");
     });
   });
 
