@@ -4,9 +4,9 @@ use axum::{
     Json,
 };
 use proto::content::{
-    CurriculumCourseSummary, CurriculumLesson, CurriculumObjective, CurriculumPrerequisite,
-    CurriculumUnit, EnrollInCourseRequest, GetCurriculumCourseRequest,
-    ListCurriculumCoursesRequest, ListEditorialCourseVersionsRequest, ApplyEditorialActionRequest,
+    ApplyEditorialActionRequest, CurriculumCourseSummary, CurriculumLesson, CurriculumObjective,
+    CurriculumPrerequisite, CurriculumUnit, EnrollInCourseRequest, GetCurriculumCourseRequest,
+    ListCurriculumCoursesRequest, ListEditorialCourseVersionsRequest,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -383,23 +383,30 @@ pub async fn list_editorial_course_versions_handler(
     });
     attach_bearer_metadata(&headers, &mut request)?;
     let mut client = state.content_client.clone();
-    let response = client.list_editorial_course_versions(request).await
-        .map_err(|error| curriculum_error(error, "list_editorial_versions"))?.into_inner();
+    let response = client
+        .list_editorial_course_versions(request)
+        .await
+        .map_err(|error| curriculum_error(error, "list_editorial_versions"))?
+        .into_inner();
     Ok(Json(EditorialCourseVersionsDto {
-        items: response.items.into_iter().map(|item| EditorialCourseVersionDto {
-            course_version_id: item.course_version_id,
-            slug: item.slug,
-            track_code: item.track_code,
-            cefr_level: item.cefr_level,
-            version_number: item.version_number,
-            title: item.title,
-            description: item.description,
-            status: item.status,
-            submitted_at: item.submitted_at,
-            published_at: item.published_at,
-            latest_decision: item.latest_decision,
-            latest_comments: item.latest_comments,
-        }).collect(),
+        items: response
+            .items
+            .into_iter()
+            .map(|item| EditorialCourseVersionDto {
+                course_version_id: item.course_version_id,
+                slug: item.slug,
+                track_code: item.track_code,
+                cefr_level: item.cefr_level,
+                version_number: item.version_number,
+                title: item.title,
+                description: item.description,
+                status: item.status,
+                submitted_at: item.submitted_at,
+                published_at: item.published_at,
+                latest_decision: item.latest_decision,
+                latest_comments: item.latest_comments,
+            })
+            .collect(),
     }))
 }
 
@@ -419,8 +426,11 @@ pub async fn apply_editorial_action_handler(
     });
     attach_bearer_metadata(&headers, &mut request)?;
     let mut client = state.content_client.clone();
-    let response = client.apply_editorial_action(request).await
-        .map_err(|error| curriculum_error(error, "apply_editorial_action"))?.into_inner();
+    let response = client
+        .apply_editorial_action(request)
+        .await
+        .map_err(|error| curriculum_error(error, "apply_editorial_action"))?
+        .into_inner();
     Ok(Json(EditorialActionDto {
         course_version_id: response.course_version_id,
         action: response.action,

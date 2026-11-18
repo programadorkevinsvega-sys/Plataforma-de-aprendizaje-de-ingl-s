@@ -1,13 +1,13 @@
 use proto::content::content_service_server::ContentService;
 use proto::content::{
-    ContextSentence, CurriculumCourseSummary, CurriculumLesson, CurriculumObjective,
-    CurriculumPrerequisite, CurriculumUnit, EnrollInCourseRequest, EnrollInCourseResponse,
+    ApplyEditorialActionRequest, ApplyEditorialActionResponse, ContextSentence,
+    CurriculumCourseSummary, CurriculumLesson, CurriculumObjective, CurriculumPrerequisite,
+    CurriculumUnit, EditorialCourseVersion, EnrollInCourseRequest, EnrollInCourseResponse,
     GetCurriculumCourseRequest, GetCurriculumCourseResponse, GetRandomInterviewQuestionRequest,
     GetVocabularyWordRequest, InterviewQuestionResponse, ListCurriculumCoursesRequest,
-    ListCurriculumCoursesResponse, ListVocabularyWordsRequest, ListVocabularyWordsResponse,
+    ListCurriculumCoursesResponse, ListEditorialCourseVersionsRequest,
+    ListEditorialCourseVersionsResponse, ListVocabularyWordsRequest, ListVocabularyWordsResponse,
     RecordCurriculumLessonEvidenceRequest, RecordCurriculumLessonEvidenceResponse,
-    ListEditorialCourseVersionsRequest, ListEditorialCourseVersionsResponse,
-    EditorialCourseVersion, ApplyEditorialActionRequest, ApplyEditorialActionResponse,
     VocabularyWordResponse,
 };
 use sqlx::PgPool;
@@ -604,19 +604,20 @@ impl ContentService for MyContentService {
         {
             let lesson_prerequisites = prerequisites_by_lesson.remove(&id).unwrap_or_default();
             let lesson_progress = progress_by_lesson.get(&id);
-            let unlocked = enrolled && lesson_prerequisites.iter().all(|prerequisite| {
-                Uuid::parse_str(&prerequisite.prerequisite_lesson_id)
-                    .ok()
-                    .and_then(|prerequisite_id| progress_by_lesson.get(&prerequisite_id))
-                    .map(|(status, score)| {
-                        if prerequisite.required_state == "mastered" {
-                            status == "mastered" && *score >= prerequisite.minimum_mastery_score
-                        } else {
-                            status == "completed" || status == "mastered"
-                        }
-                    })
-                    .unwrap_or(false)
-            });
+            let unlocked = enrolled
+                && lesson_prerequisites.iter().all(|prerequisite| {
+                    Uuid::parse_str(&prerequisite.prerequisite_lesson_id)
+                        .ok()
+                        .and_then(|prerequisite_id| progress_by_lesson.get(&prerequisite_id))
+                        .map(|(status, score)| {
+                            if prerequisite.required_state == "mastered" {
+                                status == "mastered" && *score >= prerequisite.minimum_mastery_score
+                            } else {
+                                status == "completed" || status == "mastered"
+                            }
+                        })
+                        .unwrap_or(false)
+                });
             lessons_by_unit
                 .entry(unit_id)
                 .or_default()
@@ -630,7 +631,9 @@ impl ContentService for MyContentService {
                     estimated_minutes: minutes.unwrap_or_default(),
                     objectives: objectives_by_lesson.remove(&id).unwrap_or_default(),
                     prerequisites: lesson_prerequisites,
-                    progress_state: lesson_progress.map(|(status, _)| status.clone()).unwrap_or_else(|| "not_started".to_string()),
+                    progress_state: lesson_progress
+                        .map(|(status, _)| status.clone())
+                        .unwrap_or_else(|| "not_started".to_string()),
                     unlocked,
                     mastery_score: lesson_progress.map(|(_, score)| *score).unwrap_or(0.0),
                 });
@@ -742,12 +745,18 @@ impl ContentService for MyContentService {
         let evidence_event_id = Uuid::parse_str(&req.evidence_event_id)
             .map_err(|_| Status::invalid_argument("evidence_event_id inválido"))?;
         if !req.mastery_score.is_finite() || !(0.0..=1.0).contains(&req.mastery_score) {
-            return Err(Status::invalid_argument("mastery_score debe estar entre 0 y 1"));
+            return Err(Status::invalid_argument(
+                "mastery_score debe estar entre 0 y 1",
+            ));
         }
 
-        let mut tx = self.pool.begin().await
+        let mut tx = self
+            .pool
+            .begin()
+            .await
             .map_err(|_| Status::internal("No se pudo iniciar el registro de evidencia"))?;
-        common::set_current_user_id(&mut tx, user_id).await
+        common::set_current_user_id(&mut tx, user_id)
+            .await
             .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
 
         let enrollment: Option<(Uuid, Uuid)> = sqlx::query_as(
@@ -795,7 +804,9 @@ impl ContentService for MyContentService {
         .await
         .map_err(|_| Status::internal("No se pudieron validar los prerrequisitos"))?;
         if blocked {
-            return Err(Status::failed_precondition("La lección tiene prerrequisitos pendientes"));
+            return Err(Status::failed_precondition(
+                "La lección tiene prerrequisitos pendientes",
+            ));
         }
 
         let outcome_status = if req.mastery_score >= 0.90 {
@@ -840,12 +851,15 @@ impl ContentService for MyContentService {
             let (prior_lesson, state, score) = prior
                 .ok_or_else(|| Status::internal("La evidencia repetida no está disponible"))?;
             if prior_lesson != lesson_id || (score - req.mastery_score).abs() > f64::EPSILON {
-                return Err(Status::already_exists("El identificador de evidencia ya pertenece a otro resultado"));
+                return Err(Status::already_exists(
+                    "El identificador de evidencia ya pertenece a otro resultado",
+                ));
             }
             (state, score, false)
         };
 
-        tx.commit().await
+        tx.commit()
+            .await
             .map_err(|_| Status::internal("No se pudo confirmar la evidencia curricular"))?;
         Ok(Response::new(RecordCurriculumLessonEvidenceResponse {
             applied,
@@ -861,23 +875,45 @@ impl ContentService for MyContentService {
         let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let status_filter = request.get_ref().status.trim().to_ascii_lowercase();
         if !status_filter.is_empty()
-            && !matches!(status_filter.as_str(), "draft" | "review" | "published" | "archived")
+            && !matches!(
+                status_filter.as_str(),
+                "draft" | "review" | "published" | "archived"
+            )
         {
             return Err(Status::invalid_argument("Filtro editorial inválido"));
         }
-        let mut tx = self.pool.begin().await
+        let mut tx = self
+            .pool
+            .begin()
+            .await
             .map_err(|_| Status::internal("No se pudo iniciar la consulta editorial"))?;
-        common::set_current_user_id(&mut tx, user_id).await
+        common::set_current_user_id(&mut tx, user_id)
+            .await
             .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
         let is_editor: bool = sqlx::query_scalar("SELECT app_is_content_editor()")
-            .fetch_one(&mut *tx).await
+            .fetch_one(&mut *tx)
+            .await
             .map_err(|_| Status::internal("No se pudo verificar el permiso editorial"))?;
         if !is_editor {
-            return Err(Status::permission_denied("La cuenta no está registrada como editor curricular"));
+            return Err(Status::permission_denied(
+                "La cuenta no está registrada como editor curricular",
+            ));
         }
-        let rows: Vec<(String, String, String, i32, String, String, String, String, String, String, String, String)> =
-            sqlx::query_as(
-                r#"SELECT version.id::TEXT, course.slug, course.track_code,
+        let rows: Vec<(
+            String,
+            String,
+            String,
+            i32,
+            String,
+            String,
+            String,
+            String,
+            String,
+            String,
+            String,
+            String,
+        )> = sqlx::query_as(
+            r#"SELECT version.id::TEXT, course.slug, course.track_code,
                           version.version_number, version.cefr_level, version.title,
                           version.description, version.status,
                           COALESCE(version.submitted_at::TEXT, ''),
@@ -894,21 +930,48 @@ impl ContentService for MyContentService {
                     WHERE ($1 = '' OR version.status = $1)
                     ORDER BY version.updated_at DESC, course.slug, version.version_number DESC
                     LIMIT 100"#,
-            )
-            .bind(&status_filter)
-            .fetch_all(&mut *tx).await
-            .map_err(|_| Status::internal("No se pudieron consultar las versiones editoriales"))?;
-        tx.commit().await
+        )
+        .bind(&status_filter)
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudieron consultar las versiones editoriales"))?;
+        tx.commit()
+            .await
             .map_err(|_| Status::internal("No se pudo cerrar la consulta editorial"))?;
-        let items = rows.into_iter().map(
-            |(course_version_id, slug, track_code, version_number, cefr_level, title,
-              description, status, submitted_at, published_at, latest_decision, latest_comments)| {
-                EditorialCourseVersion {
-                    course_version_id, slug, track_code, version_number, cefr_level, title,
-                    description, status, submitted_at, published_at, latest_decision, latest_comments,
-                }
-            }
-        ).collect();
+        let items = rows
+            .into_iter()
+            .map(
+                |(
+                    course_version_id,
+                    slug,
+                    track_code,
+                    version_number,
+                    cefr_level,
+                    title,
+                    description,
+                    status,
+                    submitted_at,
+                    published_at,
+                    latest_decision,
+                    latest_comments,
+                )| {
+                    EditorialCourseVersion {
+                        course_version_id,
+                        slug,
+                        track_code,
+                        version_number,
+                        cefr_level,
+                        title,
+                        description,
+                        status,
+                        submitted_at,
+                        published_at,
+                        latest_decision,
+                        latest_comments,
+                    }
+                },
+            )
+            .collect();
         Ok(Response::new(ListEditorialCourseVersionsResponse { items }))
     }
 
@@ -925,37 +988,56 @@ impl ContentService for MyContentService {
         if !matches!(action.as_str(), "submit" | "review" | "publish") {
             return Err(Status::invalid_argument("Acción editorial inválida"));
         }
-        if action == "review" && !matches!(decision.as_str(), "approved" | "rejected" | "changes_requested") {
+        if action == "review"
+            && !matches!(
+                decision.as_str(),
+                "approved" | "rejected" | "changes_requested"
+            )
+        {
             return Err(Status::invalid_argument("Decisión editorial inválida"));
         }
         if action == "review" && decision != "approved" && req.comments.trim().is_empty() {
-            return Err(Status::invalid_argument("Los rechazos y solicitudes de cambios requieren comentarios"));
+            return Err(Status::invalid_argument(
+                "Los rechazos y solicitudes de cambios requieren comentarios",
+            ));
         }
         if action != "review" && (!decision.is_empty() || !req.comments.trim().is_empty()) {
-            return Err(Status::invalid_argument("decision y comments solo aplican a review"));
+            return Err(Status::invalid_argument(
+                "decision y comments solo aplican a review",
+            ));
         }
 
-        let mut tx = self.pool.begin().await
+        let mut tx = self
+            .pool
+            .begin()
+            .await
             .map_err(|_| Status::internal("No se pudo iniciar la acción editorial"))?;
-        common::set_current_user_id(&mut tx, user_id).await
+        common::set_current_user_id(&mut tx, user_id)
+            .await
             .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
         let is_editor: bool = sqlx::query_scalar("SELECT app_is_content_editor()")
-            .fetch_one(&mut *tx).await
+            .fetch_one(&mut *tx)
+            .await
             .map_err(|_| Status::internal("No se pudo verificar el permiso editorial"))?;
         if !is_editor {
-            return Err(Status::permission_denied("La cuenta no está registrada como editor curricular"));
+            return Err(Status::permission_denied(
+                "La cuenta no está registrada como editor curricular",
+            ));
         }
-        let status: Option<String> = sqlx::query_scalar(
-            "SELECT status FROM course_versions WHERE id = $1 FOR UPDATE"
-        )
-        .bind(course_version_id)
-        .fetch_optional(&mut *tx).await
-        .map_err(|_| Status::internal("No se pudo bloquear la versión curricular"))?;
-        let current = status.ok_or_else(|| Status::not_found("Versión curricular no encontrada"))?;
+        let status: Option<String> =
+            sqlx::query_scalar("SELECT status FROM course_versions WHERE id = $1 FOR UPDATE")
+                .bind(course_version_id)
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(|_| Status::internal("No se pudo bloquear la versión curricular"))?;
+        let current =
+            status.ok_or_else(|| Status::not_found("Versión curricular no encontrada"))?;
         let next = match action.as_str() {
             "submit" => {
                 if current != "draft" {
-                    return Err(Status::failed_precondition("Solo un borrador puede enviarse a revisión"));
+                    return Err(Status::failed_precondition(
+                        "Solo un borrador puede enviarse a revisión",
+                    ));
                 }
                 sqlx::query("UPDATE course_versions SET status = 'review', submitted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1")
                     .bind(course_version_id).execute(&mut *tx).await
@@ -964,7 +1046,9 @@ impl ContentService for MyContentService {
             }
             "review" => {
                 if current != "review" {
-                    return Err(Status::failed_precondition("La versión no está en revisión"));
+                    return Err(Status::failed_precondition(
+                        "La versión no está en revisión",
+                    ));
                 }
                 sqlx::query("INSERT INTO course_version_reviews (course_version_id, reviewer_id, decision, comments) VALUES ($1, $2, $3, $4)")
                     .bind(course_version_id).bind(user_id).bind(&decision).bind(req.comments.trim())
@@ -981,7 +1065,9 @@ impl ContentService for MyContentService {
             }
             "publish" => {
                 if current != "review" {
-                    return Err(Status::failed_precondition("Solo una versión en revisión puede publicarse"));
+                    return Err(Status::failed_precondition(
+                        "Solo una versión en revisión puede publicarse",
+                    ));
                 }
                 let approved_by_same_editor: bool = sqlx::query_scalar(
                     "SELECT EXISTS (SELECT 1 FROM course_version_reviews WHERE course_version_id = $1 AND reviewer_id = $2 AND decision = 'approved' AND review_order = (SELECT MAX(review_order) FROM course_version_reviews WHERE course_version_id = $1))"
@@ -989,7 +1075,9 @@ impl ContentService for MyContentService {
                 .bind(course_version_id).bind(user_id).fetch_one(&mut *tx).await
                 .map_err(|_| Status::internal("No se pudo verificar la aprobación"))?;
                 if !approved_by_same_editor {
-                    return Err(Status::failed_precondition("La última revisión debe estar aprobada por el mismo editor"));
+                    return Err(Status::failed_precondition(
+                        "La última revisión debe estar aprobada por el mismo editor",
+                    ));
                 }
                 sqlx::query("UPDATE course_versions SET status = 'published', reviewed_by = $2, published_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1")
                     .bind(course_version_id).bind(user_id).execute(&mut *tx).await
@@ -998,7 +1086,8 @@ impl ContentService for MyContentService {
             }
             _ => unreachable!(),
         };
-        tx.commit().await
+        tx.commit()
+            .await
             .map_err(|_| Status::internal("No se pudo confirmar la acción editorial"))?;
         Ok(Response::new(ApplyEditorialActionResponse {
             course_version_id: course_version_id.to_string(),
