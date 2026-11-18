@@ -102,7 +102,7 @@ async function resolveSentenceId(client, reference) {
   );
 }
 
-async function insertPackage(client, data, packageSha256) {
+async function insertPackage(client, data, packageSha256, actorUserId) {
   // Lock at course scope so simultaneous imports of different levels or
   // versions cannot race while creating the stable course identity.
   const lockKey = `course:${data.course.slug}`;
@@ -392,7 +392,7 @@ export async function importCurriculumPackage(pool, data, packageSha256, { apply
       throw new Error("The selected actor is not registered as a curriculum content editor.");
     }
 
-    const result = await insertPackage(client, data, packageSha256);
+    const result = await insertPackage(client, data, packageSha256, actorUserId);
     if (apply) {
       await client.query("COMMIT");
     } else {
