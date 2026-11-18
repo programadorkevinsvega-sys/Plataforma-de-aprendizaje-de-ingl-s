@@ -62,11 +62,20 @@ message InterviewQuestionResponse {
 
 message ListCurriculumCoursesRequest {
   string user_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+  string track_code = 4;
+  string cefr_level = 5;
+  string search_query = 6;
+  bool enrolled_only = 7;
 }
 
 message ListCurriculumCoursesResponse {
   repeated CurriculumCourseSummary items = 1;
   int32 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
 }
 
 message GetCurriculumCourseRequest {
@@ -114,6 +123,15 @@ message CurriculumLesson {
   int32 estimated_minutes = 7;
   repeated CurriculumObjective objectives = 8;
   repeated CurriculumPrerequisite prerequisites = 9;
+  CurriculumLessonProgress progress = 10;
+}
+
+message CurriculumLessonProgress {
+  string state = 1;
+  double mastery_score = 2;
+  int32 required_objectives = 3;
+  int32 completed_objectives = 4;
+  bool prerequisites_satisfied = 5;
 }
 
 message CurriculumObjective {
