@@ -245,6 +245,11 @@ export default function CurriculumCoursePage() {
                             )}
                           </div>
                           <h4 className="mt-2 text-base font-bold text-white">{lesson.title}</h4>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-bold text-slate-300">{lesson.progressState === "mastered" ? "Dominada" : lesson.progressState === "completed" ? "Completada" : lesson.progressState === "in_progress" ? "En progreso" : lesson.unlocked ? "Disponible" : "Bloqueada"}</span>
+                            {(lesson.progressState === "completed" || lesson.progressState === "mastered") && <span className="text-[10px] text-emerald-200">Evidencia {Math.round(lesson.masteryScore * 100)}%</span>}
+                          </div>
+                          {!lesson.unlocked && <p className="mt-2 text-xs text-amber-200/80">Completa los prerrequisitos para desbloquear esta lección.</p>}
                           {lesson.description && (
                             <p className="mt-2 text-sm leading-6 text-slate-400">{lesson.description}</p>
                           )}
