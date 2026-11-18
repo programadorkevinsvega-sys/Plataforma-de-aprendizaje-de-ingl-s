@@ -73,4 +73,28 @@ export interface ICurriculumRepository {
   listCourses(): Promise<CurriculumCourseSummary[]>
   getCourse(courseVersionId: string): Promise<CurriculumCourseDetail>
   enroll(courseVersionId: string): Promise<CourseEnrollment>
+  listEditorialVersions(status?: string): Promise<EditorialCourseVersion[]>
+  applyEditorialAction(action: EditorialAction): Promise<void>
+}
+
+export interface EditorialCourseVersion {
+  courseVersionId: string
+  slug: string
+  trackCode: CurriculumTrackCode
+  cefrLevel: CurriculumLevel
+  versionNumber: number
+  title: string
+  description: string
+  status: 'draft' | 'review' | 'published' | 'archived'
+  submittedAt: string
+  publishedAt: string
+  latestDecision: '' | 'approved' | 'rejected' | 'changes_requested'
+  latestComments: string
+}
+
+export interface EditorialAction {
+  courseVersionId: string
+  action: 'submit' | 'review' | 'publish'
+  decision?: 'approved' | 'rejected' | 'changes_requested'
+  comments?: string
 }
