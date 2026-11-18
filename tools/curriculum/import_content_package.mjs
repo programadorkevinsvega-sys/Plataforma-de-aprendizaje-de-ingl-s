@@ -335,15 +335,17 @@ async function insertPackage(client, data, packageSha256) {
 
   await client.query(
     `INSERT INTO curriculum_content_package_imports (
-        course_version_id, format, schema_version, package_sha256, metadata
+        course_version_id, format, schema_version, package_sha256, metadata,
+        content_schema_version_explicit
      )
-     VALUES ($1, $2, $3, $4, $5::jsonb)`,
+     VALUES ($1, $2, $3, $4, $5::jsonb, $6)`,
     [
       courseVersionId,
       data.format,
       data.schema_version,
       packageSha256,
       JSON.stringify(data.metadata),
+      Object.hasOwn(data.version, "content_schema_version"),
     ],
   );
 
