@@ -40,3 +40,24 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
+.fl-feature-panel {
+  background: #1d2430 !important;
+  color: #ffffff !important;
+}
+.fl-feature-panel h2,
+.fl-feature-panel .text-white {
+  color: #ffffff !important;
+}
+.fl-feature-panel .text-emerald-200 {
+  color: #b9e5c9 !important;
+}
+.fl-feature-panel .text-slate-200 {
+  color: #d5ddd8 !important;
+}
+[class*="bg-slate-800"][class*="text-white"] {
+  background: #1d2430 !important;
+}
+[class*="bg-slate-800"][class*="text-white"] .text-white {
+  color: #ffffff !important;
+}

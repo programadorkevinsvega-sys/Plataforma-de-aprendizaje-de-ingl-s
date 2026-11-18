@@ -4,161 +4,162 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Navbar } from '@/presentation/components/Navbar'
-import { Sidebar } from '@/presentation/components/Sidebar'
 import { getContainer } from '@/infrastructure/di/container'
-import type { SrsCard } from '@/domain/entities/SrsCard'
-import type { SrsGrade } from '@/domain/entities/SrsCard'
+import type { SrsCard, SrsGrade } from '@/domain/entities/SrsCard'
 
 export default function SrsPage() {
   const router = useRouter()
   const [cards, setCards] = useState<SrsCard[]>([])
-  const [currentIndex, setCurrentIndex] = useState(0)
   const [showAnswer, setShowAnswer] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [reviewError, setReviewError] = useState('')
 
   useEffect(() => {
+    let active = true
     const container = getContainer()
-    container.useCases.getCurrentUser.execute().then((u) => {
-      if (!u) { router.push('/login'); return }
-      container.useCases.getDueCards.execute(30).then((list) => {
-        setCards(list)
-        setLoading(false)
-      }).catch(() => setLoading(false))
+    container.useCases.getCurrentUser.execute().then((user) => {
+      if (!user) {
+        router.replace('/login')
+        return
+      }
+      return container.useCases.getDueCards.execute(30)
+    }).then((list) => {
+      if (active && list) setCards(list)
+    }).catch(() => undefined).finally(() => {
+      if (active) setLoading(false)
     })
+    return () => { active = false }
   }, [router])
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0b0d13] flex items-center justify-center text-cyan-400 font-mono text-sm">
-        🧠 Cargando Tarjetas Anki SM-2...
-      </div>
-    )
-  }
-
-  const currentCard = cards[currentIndex]
-
   const handleReview = async (grade: SrsGrade) => {
-    if (!currentCard) return
-    const container = getContainer()
-    await container.useCases.reviewCard.execute(currentCard.id, grade)
-    setShowAnswer(false)
-    if (currentIndex + 1 < cards.length) {
-      setCurrentIndex((prev) => prev + 1)
-    } else {
-      setCards([])
+    const card = cards[0]
+    if (!card || saving) return
+    setSaving(true)
+    setReviewError('')
+    try {
+      await getContainer().useCases.reviewCard.execute(card.id, grade)
+      setShowAnswer(false)
+      setCards((items) => items.filter((item) => item.id !== card.id))
+      window.dispatchEvent(new Event('devfluency:xp-updated'))
+    } catch {
+      setReviewError('No se pudo guardar el repaso. Inténtalo de nuevo.')
+    } finally {
+      setSaving(false)
     }
   }
 
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">Cargando tus repasos…</div>
+  }
+
+  const currentCard = cards[0]
+  const newCards = cards.filter((card) => card.isNew).length
+
   return (
-    <div className="min-h-screen bg-[#0b0d13] text-slate-100 flex flex-col">
+    <div className="min-h-screen flex flex-col">
       <Navbar />
-
-      <div className="flex flex-1">
-        <Sidebar />
-
-        <main className="flex-1 p-6 max-w-4xl space-y-6">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <h1 className="text-2xl font-black text-white">Repetición Espaciada (Anki SM-2)</h1>
-              <p className="text-xs text-slate-400">Repasa justo antes de olvidar — {cards.length} tarjetas pendientes hoy</p>
-            </div>
-            <Link
-              href="/srs/session"
-              className="btn-primary text-xs px-5 py-2.5"
-            >
-              ⚡ Iniciar Sesión Completa →
-            </Link>
+      <main className="space-y-5">
+        <header className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-extrabold">Repetición espaciada</h1>
+            <p className="mt-1 text-sm">Retén lo aprendido con repasos en el momento justo.</p>
           </div>
+          <Link href="/srs/session" className="btn-primary">Iniciar sesión de repaso</Link>
+        </header>
 
-          {/* Stats rápidas */}
-          <div className="grid grid-cols-3 gap-4">
-            {[
-              { label: 'Pendientes hoy', value: cards.length, color: 'text-cyan-400', emoji: '📋' },
-              { label: 'Tarjeta actual', value: cards.length > 0 ? `${currentIndex + 1}/${cards.length}` : '0/0', color: 'text-purple-400', emoji: '🎯' },
-              { label: 'Nuevas', value: cards.filter(c => c.isNew).length, color: 'text-emerald-400', emoji: '✨' },
-            ].map((s) => (
-              <div key={s.label} className="glass-panel p-4 rounded-2xl border border-white/10 text-center">
-                <div className="text-lg">{s.emoji}</div>
-                <div className={`text-xl font-black ${s.color}`}>{s.value}</div>
-                <div className="text-[10px] text-slate-400">{s.label}</div>
-              </div>
-            ))}
-          </div>
+        <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          {[
+            { label: 'Pendientes', value: cards.length },
+            { label: 'Nuevas', value: newCards },
+            { label: 'Aprendidas', value: '—' },
+            { label: 'Retención', value: 'Sin medir' },
+          ].map((item) => (
+            <article key={item.label} className="glass-panel rounded-2xl p-5">
+              <p className="text-xs font-semibold">{item.label}</p>
+              <p className="mt-2 text-2xl font-extrabold">{item.value}</p>
+            </article>
+          ))}
+        </section>
 
-          {!currentCard || cards.length === 0 ? (
-            <div className="glass-panel p-12 text-center rounded-3xl border border-emerald-500/30 space-y-4">
-              <div className="text-4xl">🎉</div>
-              <h2 className="text-2xl font-extrabold text-emerald-400">¡Todas las tarjetas repasadas por hoy!</h2>
-              <p className="text-xs text-slate-400 max-w-md mx-auto">
-                El algoritmo SM-2 ha programado tu próxima revisión según tu curva del olvido.
-              </p>
-              <Link href="/dashboard" className="btn-primary inline-block">← Volver al Dashboard</Link>
+        <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <article className="glass-panel rounded-2xl p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-bold">Sesión de repaso{currentCard ? ' · 1 de ' + cards.length : ''}</h2>
+              {currentCard?.isNew && <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-bold text-emerald-800">Nueva</span>}
             </div>
-          ) : (
-            <div className="glass-panel rounded-3xl p-8 border border-white/10 text-center space-y-6">
-              <div className="flex items-center justify-center gap-3">
-                <div className="text-xs font-bold text-cyan-400 uppercase tracking-wider">
-                  Tarjeta SM-2 · Factor EF: {currentCard.easeFactor.toFixed(2)}
+
+            {currentCard ? (
+              <>
+                <div className="mt-4 rounded-xl bg-[#f4f1e7] px-5 py-10 text-center">
+                  <p className="text-xs text-stone-500">¿Cómo se dice?</p>
+                  <h3 className="mt-2 text-2xl font-extrabold">{currentCard.exampleEnglish || currentCard.term}</h3>
+                  {currentCard.exampleEnglish && <p className="mt-2 text-xs">Término: {currentCard.term}</p>}
+                  {showAnswer ? (
+                    <div className="mt-5 border-t border-stone-200 pt-4">
+                      <p className="text-lg font-semibold text-emerald-800">{currentCard.examplePhonetics || currentCard.spanishPhonetics}</p>
+                      <p className="mt-2 text-sm">{currentCard.exampleTranslation || currentCard.spanishTranslation}</p>
+                    </div>
+                  ) : (
+                    <button onClick={() => setShowAnswer(true)} className="mt-5 rounded-xl border border-emerald-700/20 bg-white px-5 py-2.5 text-xs font-bold text-emerald-800">Mostrar respuesta</button>
+                  )}
                 </div>
-                {currentCard.isNew && (
-                  <span className="text-[10px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full">
-                    ✨ Nueva
-                  </span>
-                )}
-              </div>
-
-              <div className="py-8 bg-slate-950/80 rounded-2xl border border-slate-800 px-6">
-                {/* Ejemplo o término */}
-                <h3 className="text-2xl font-black text-white mb-1 leading-relaxed">
-                  {currentCard.exampleEnglish || currentCard.term}
-                </h3>
-                {currentCard.exampleEnglish && (
-                  <p className="text-xs text-slate-500 mb-4">Término: <span className="text-slate-300 font-bold">{currentCard.term}</span></p>
-                )}
-
-                {showAnswer ? (
-                  <div className="space-y-3 pt-4 border-t border-slate-800">
-                    <p className="text-xl font-extrabold text-amber-300 font-mono">
-                      🔊 {currentCard.examplePhonetics || currentCard.spanishPhonetics}
-                    </p>
-                    <p className="text-base text-emerald-400 font-semibold">
-                      🇪🇸 {currentCard.exampleTranslation || currentCard.spanishTranslation}
-                    </p>
+                {reviewError && <p role="alert" className="mt-3 text-sm font-semibold text-rose-700">{reviewError}</p>}
+                {showAnswer && (
+                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {([
+                      { grade: 0 as SrsGrade, label: 'Otra vez', interval: '1 min' },
+                      { grade: 3 as SrsGrade, label: 'Difícil', interval: currentCard.projectInterval(3) + ' d' },
+                      { grade: 4 as SrsGrade, label: 'Bien', interval: currentCard.projectInterval(4) + ' d' },
+                      { grade: 5 as SrsGrade, label: 'Fácil', interval: currentCard.projectInterval(5) + ' d' },
+                    ]).map((option) => (
+                      <button key={option.grade} onClick={() => void handleReview(option.grade)} disabled={saving} className="rounded-xl border border-stone-200 bg-white p-3 text-xs font-bold hover:border-emerald-700/40 disabled:opacity-50">
+                        {option.label}<span className="mt-1 block text-[10px] font-normal text-stone-500">{option.interval}</span>
+                      </button>
+                    ))}
                   </div>
-                ) : (
-                  <button
-                    onClick={() => setShowAnswer(true)}
-                    className="mt-4 px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold text-xs rounded-xl transition-all border border-cyan-500/30"
-                  >
-                    👁️ Revelar Fonética y Traducción
-                  </button>
                 )}
+              </>
+            ) : (
+              <div className="mt-4 rounded-xl bg-stone-50 p-8 text-center">
+                <h3 className="text-xl font-bold">No tienes tarjetas pendientes</h3>
+                <p className="mt-2 text-sm">Las próximas revisiones aparecerán aquí según tu programación.</p>
+                <Link href="/learn" className="btn-primary mt-5">Ir a practicar</Link>
               </div>
+            )}
+          </article>
 
-              {/* SM-2 Rating Buttons */}
-              {showAnswer && (
-                <div className="grid grid-cols-4 gap-3 pt-4 border-t border-white/10">
-                  {([
-                    { grade: 0 as SrsGrade, label: 'Otra vez', sub: `→ 1d`, color: 'bg-rose-500/20 hover:bg-rose-500/30 border-rose-500/40 text-rose-300' },
-                    { grade: 3 as SrsGrade, label: 'Difícil', sub: `→ ${currentCard.projectInterval(3)}d`, color: 'bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/40 text-amber-300' },
-                    { grade: 4 as SrsGrade, label: 'Bueno', sub: `→ ${currentCard.projectInterval(4)}d`, color: 'bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/40 text-emerald-300' },
-                    { grade: 5 as SrsGrade, label: 'Fácil', sub: `→ ${currentCard.projectInterval(5)}d`, color: 'bg-cyan-500/20 hover:bg-cyan-500/30 border-cyan-500/40 text-cyan-300' },
-                  ] as const).map(({ grade, label, sub, color }) => (
-                    <button
-                      key={grade}
-                      onClick={() => handleReview(grade)}
-                      className={`p-3 border rounded-xl font-bold text-xs transition-all ${color}`}
-                    >
-                      {label}
-                      <span className="block text-[10px] opacity-70 font-normal mt-0.5">{sub}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+          <article className="glass-panel rounded-2xl p-5 sm:p-6">
+            <h2 className="text-lg font-bold">Mazos</h2>
+            <div className="mt-4 rounded-xl border border-dashed border-stone-200 p-6">
+              <h3 className="text-sm font-bold">Tarjetas vinculadas a tu contenido</h3>
+              <p className="mt-2 text-xs">El planificador actual entrega tarjetas pendientes, pero todavía no expone gestión independiente de mazos.</p>
+              <p className="mt-3 text-sm font-semibold">{cards.length} tarjetas disponibles en esta consulta</p>
             </div>
-          )}
-        </main>
-      </div>
+            <div className="mt-4 flex items-center justify-between rounded-xl bg-stone-50 p-4">
+              <span className="text-sm font-semibold">Próxima acción</span>
+              <Link href="/learn" className="text-xs font-bold text-emerald-800">Añadir vocabulario desde práctica →</Link>
+            </div>
+          </article>
+        </section>
+
+        <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <article className="glass-panel rounded-2xl p-5">
+            <h2 className="text-lg font-bold">Estadísticas de retención</h2>
+            <div className="mt-4 rounded-xl bg-stone-50 p-6">
+              <p className="text-sm font-semibold">Aún no hay una serie histórica de retención disponible.</p>
+              <p className="mt-1 text-xs">Se mostrará cuando el sistema registre y consolide resultados de recuperación a lo largo del tiempo.</p>
+            </div>
+          </article>
+          <article className="glass-panel rounded-2xl p-5">
+            <h2 className="text-lg font-bold">Historial de repasos</h2>
+            <div className="mt-4 rounded-xl bg-stone-50 p-6">
+              <p className="text-sm font-semibold">No hay historial agregado para mostrar en esta pantalla.</p>
+              <p className="mt-1 text-xs">Puedes continuar con las tarjetas pendientes de hoy.</p>
+            </div>
+          </article>
+        </section>
+      </main>
     </div>
   )
 }
