@@ -98,7 +98,7 @@ La secuencia de abajo resume el roadmap rector. Los checklists completos, entreg
 | Fase vigente | Resultado que debe producir | Estado observado |
 |---|---|---|
 | 0. Descubrimiento, inventario y diseño técnico | Línea base funcional/técnica, ADR, trazabilidad, calidad y riesgos | Parcial: existe inventario y auditoría inicial; falta completar la matriz integral y las decisiones aprobadas |
-| 1. Currículo, contenido y catálogo académico | Rutas general y tecnológica, niveles Pre-A1/A0–C1 y extensión C2, contenido validado y versionado | Parcial: hay semillas A0/A1 y servicio de contenido; falta el currículo completo, catálogo ampliado, revisión y versionado |
+| 1. Currículo, contenido y catálogo académico | Rutas general y tecnológica, niveles Pre-A1/A0–C1 y extensión C2, contenido validado y versionado | En curso: subfase 1.3 completada, integrada y desplegada (contrato v1, import/export transaccional y flujo editorial); 1.4 curación del catálogo y 1.5 APIs/administración siguen pendientes |
 | 2. Motor de lecciones y ejercicios | Contrato reutilizable, familias de ejercicios, feedback y Sistema Dual de Pronunciación integrado | Parcial: hay flujos actuales de vocabulario, audio y entrevista; falta el motor general y completar la validación del Sistema Dual |
 | 3. Diagnóstico, evaluación académica y dominio | Diagnóstico y dominio por competencia, con modalidades escrita y hablada separadas | Parcial con brecha crítica: el evaluador actual puntúa texto con seis métricas; no implementa aún las dos modalidades ni evidencia acústica real |
 | 4. Repetición espaciada y memoria | Repaso vinculado al currículo y retención demostrable | Parcial: SM-2 y revisiones existen; falta integración y medición académica |
@@ -108,6 +108,8 @@ La secuencia de abajo resume el roadmap rector. Los checklists completos, entreg
 | 8. Experiencia de usuario, interfaz y móvil | Flujos coherentes, responsive, accesibles y sin estados ficticios | Parcial: existen rutas principales; la aceptación visual/accesible y E2E queda pendiente |
 | 9. Observabilidad, seguridad y operación | Seguridad, telemetría, resiliencia, backups, restauración, rendimiento, despliegue y rollback | Parcial/no verificado: CI y despliegue systemd existen; no se ha acreditado la operación completa |
 | 10. Validación integral y lanzamiento | Piloto, recorridos E2E, regresión, gates y salida | Pendiente: no marcar como listo sin evidencias integrales |
+
+El cierre técnico de la subfase 1.3 tiene evidencia reproducible en [el acta de aceptación](docs/curriculum/phase-1.3-acceptance.md). La fuente única para el avance detallado y los gates sigue siendo el [roadmap maestro](docs/roadmap/ROADMAP_PLATAFORMA_APRENDIZAJE_PROFESIONAL.md).
 
 ## 6. Decisiones de producto y arquitectura que no deben volver a contradecirse
 
