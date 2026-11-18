@@ -386,7 +386,7 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 - [x] Pruebas de exportación round-trip, preservación de campos opcionales y detección de drift relacional.
 - [x] Pruebas de autorización de editores y del ciclo draft → review → changes_requested/draft → approved → publish (dry-run de publicación).
 - [x] Pruebas de migración desde base vacía y desde el esquema anterior.
-- [x] Pruebas de regresión que bloquean la publicación de unidades vacías, lecciones sin objetivo requerido/criterio, objetivos huérfanos o competencias primarias inválidas.
+- [x] Pruebas de regresión que bloquean la publicación de unidades vacías, lecciones sin objetivo requerido/criterio, objetivos huérfanos, competencias primarias inválidas o relaciones opcionales no representables por el paquete v1.
 - [x] Pruebas de congelación del contenido durante `review` y de reapertura de edición tras `changes_requested`/retorno a `draft`.
 
 **Límites deliberados**
