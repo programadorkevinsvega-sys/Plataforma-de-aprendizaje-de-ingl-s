@@ -200,6 +200,94 @@ if (!DATABASE_URL) {
     });
   });
 
+  test("database refuses publication when a unit has no lesson", async () => {
+    await withDraftVersion(async (client, selector) => {
+      const version = await client.query(
+        `SELECT version.id
+           FROM courses course
+           JOIN course_versions version ON version.course_id = course.id
+          WHERE course.slug = $1`,
+        [selector.course],
+      );
+      await client.query(
+        `INSERT INTO course_units (course_version_id, unit_code, position, title, theme)
+         VALUES ($1, 'empty-unit', 2, 'Empty unit', 'Incomplete fixture')`,
+        [version.rows[0].id],
+      );
+
+      await applyEditorialAction(client, {
+        action: "submit",
+        ...selector,
+        actorUserId: editorId,
+      });
+      await applyEditorialAction(client, {
+        action: "review",
+        decision: "approved",
+        comments: "Approved despite a deliberately empty unit.",
+        ...selector,
+        actorUserId: editorId,
+      });
+
+      await assert.rejects(
+        applyEditorialAction(client, {
+          action: "publish",
+          ...selector,
+          actorUserId: editorId,
+        }),
+        /Every curriculum unit must contain at least one lesson before publication/,
+      );
+    });
+  });
+
+  test("database refuses publication when an objective is orphaned", async () => {
+    await withDraftVersion(async (client, selector) => {
+      const version = await client.query(
+        `SELECT version.id
+           FROM courses course
+           JOIN course_versions version ON version.course_id = course.id
+          WHERE course.slug = $1`,
+        [selector.course],
+      );
+      const orphan = await client.query(
+        `INSERT INTO learning_objectives (
+            course_version_id, objective_code, description, success_criteria, position
+         )
+         VALUES ($1, 'orphan-objective', 'An unlinked outcome', 'Complete the unlinked outcome', 2)
+         RETURNING id`,
+        [version.rows[0].id],
+      );
+      await client.query(
+        `INSERT INTO learning_objective_skills (
+            course_version_id, learning_objective_id, skill_code, is_primary
+         )
+         VALUES ($1, $2, 'reading', TRUE)`,
+        [version.rows[0].id, orphan.rows[0].id],
+      );
+
+      await applyEditorialAction(client, {
+        action: "submit",
+        ...selector,
+        actorUserId: editorId,
+      });
+      await applyEditorialAction(client, {
+        action: "review",
+        decision: "approved",
+        comments: "Approved despite a deliberately orphaned objective.",
+        ...selector,
+        actorUserId: editorId,
+      });
+
+      await assert.rejects(
+        applyEditorialAction(client, {
+          action: "publish",
+          ...selector,
+          actorUserId: editorId,
+        }),
+        /Every learning objective must be linked to at least one lesson before publication/,
+      );
+    });
+  });
+
   test("database refuses publication when a lesson has no required learning objective", async () => {
     await withDraftVersion(async (client, selector) => {
       const version = await client.query(
