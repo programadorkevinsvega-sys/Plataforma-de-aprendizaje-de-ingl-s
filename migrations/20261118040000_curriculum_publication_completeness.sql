@@ -6,7 +6,7 @@ CREATE OR REPLACE FUNCTION assert_course_version_publishable(p_course_version_id
 RETURNS VOID
 LANGUAGE plpgsql
 SET search_path = pg_catalog, public, pg_temp
-AS $
+AS $function$
 BEGIN
     IF NOT EXISTS (
         SELECT 1
@@ -99,20 +99,20 @@ BEGIN
             USING ERRCODE = '23514';
     END IF;
 END
-$$;
+$function$;
 
 CREATE OR REPLACE FUNCTION guard_course_version_publication_completeness()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SET search_path = pg_catalog, public, pg_temp
-AS $
+AS $function$
 BEGIN
     IF NEW.status = 'published' AND OLD.status IS DISTINCT FROM 'published' THEN
         PERFORM assert_course_version_publishable(NEW.id);
     END IF;
     RETURN NEW;
 END
-$$;
+$function$;
 
 DROP TRIGGER IF EXISTS trg_course_version_publication_completeness ON course_versions;
 CREATE TRIGGER trg_course_version_publication_completeness
