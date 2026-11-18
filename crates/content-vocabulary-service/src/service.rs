@@ -366,9 +366,18 @@ impl ContentService for MyContentService {
             .await
             .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
 
-        let course_row: Option<(Uuid, String, String, i32, String, String, String, String, bool)> =
-            sqlx::query_as(
-                r#"SELECT
+        let course_row: Option<(
+            Uuid,
+            String,
+            String,
+            i32,
+            String,
+            String,
+            String,
+            String,
+            bool,
+        )> = sqlx::query_as(
+            r#"SELECT
                        version.id,
                        course.slug,
                        course.track_code,
@@ -394,12 +403,12 @@ impl ContentService for MyContentService {
                         )
                     )
                   LIMIT 1"#,
-            )
-            .bind(course_version_id)
-            .bind(user_id)
-            .fetch_optional(&mut *tx)
-            .await
-            .map_err(|_| Status::internal("No se pudo consultar la versión del curso"))?;
+        )
+        .bind(course_version_id)
+        .bind(user_id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudo consultar la versión del curso"))?;
 
         let (version_id, slug, track, version_number, level, title, description, status, enrolled) =
             course_row.ok_or_else(|| {
