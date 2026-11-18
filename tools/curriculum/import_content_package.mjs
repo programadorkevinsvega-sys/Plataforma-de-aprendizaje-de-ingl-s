@@ -175,9 +175,9 @@ async function insertPackage(client, data, packageSha256) {
   const versionResult = await client.query(
     `INSERT INTO course_versions (
         course_id, version_number, status, cefr_level, title, description,
-        locale, content_schema_version
+        locale, content_schema_version, created_by
      )
-     VALUES ($1, $2, 'draft', $3, $4, $5, $6, $7)
+     VALUES ($1, $2, 'draft', $3, $4, $5, $6, $7, $8)
      RETURNING id`,
     [
       courseId,
@@ -187,6 +187,7 @@ async function insertPackage(client, data, packageSha256) {
       data.version.description ?? "",
       data.version.locale,
       data.version.content_schema_version ?? data.schema_version,
+      actorUserId,
     ],
   );
   const courseVersionId = versionResult.rows[0].id;
