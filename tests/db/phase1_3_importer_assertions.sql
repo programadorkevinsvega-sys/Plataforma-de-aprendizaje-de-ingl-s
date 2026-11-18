@@ -60,6 +60,17 @@ BEGIN
 
     IF NOT EXISTS (
         SELECT 1
+          FROM information_schema.columns
+         WHERE table_schema = 'public'
+           AND table_name = 'course_version_reviews'
+           AND column_name = 'review_order'
+           AND is_identity = 'YES'
+    ) THEN
+        RAISE EXCEPTION 'course_version_reviews must have a monotonic identity order';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
           FROM pg_proc
          WHERE oid = 'public.app_is_content_editor()'::REGPROCEDURE
            AND prosecdef = TRUE
