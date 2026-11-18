@@ -378,6 +378,7 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 - [x] Publicar solo cuando la última decisión sea approved y corresponda al mismo editor que publica.
 - [x] Mantener todas las acciones editoriales en dry-run salvo que se indique `--apply`.
 - [x] Preservar inmutabilidad y transiciones permitidas mediante triggers de PostgreSQL.
+- [x] Congelar todas las filas hijas al entrar en revisión; permitir su edición nuevamente solo después de volver a `draft`.
 - [x] Revalidar en PostgreSQL la integridad académica al publicar, incluso si los cambios se realizaron fuera del importador o del CLI.
 
 **Pruebas**
@@ -386,6 +387,7 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 - [x] Pruebas de autorización de editores y del ciclo draft → review → changes_requested/draft → approved → publish (dry-run de publicación).
 - [x] Pruebas de migración desde base vacía y desde el esquema anterior.
 - [x] Pruebas de regresión que bloquean la publicación de unidades vacías, lecciones sin objetivo requerido/criterio, objetivos huérfanos o competencias primarias inválidas.
+- [x] Pruebas de congelación del contenido durante `review` y de reapertura de edición tras `changes_requested`/retorno a `draft`.
 
 **Límites deliberados**
 - La coherencia entre objetivos y ejercicios/respuestas se cerrará cuando exista el contrato de actividades de Fase 2.
