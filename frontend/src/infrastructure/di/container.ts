@@ -16,6 +16,8 @@ import {
   EnrollInCurriculumCourseUseCase,
   GetCurriculumCourseUseCase,
   GetCurriculumCoursesUseCase,
+  GetCurriculumEditorialVersionsUseCase,
+  ManageCurriculumEditorialVersionUseCase,
 } from '@/application/use-cases/CurriculumUseCases'
 import { GetDashboardSummaryUseCase } from '@/application/use-cases/GetDashboardSummaryUseCase'
 import { GetLeaderboardUseCase } from '@/application/use-cases/GetLeaderboardUseCase'
@@ -73,6 +75,8 @@ export interface Container {
     getCurriculumCourses: GetCurriculumCoursesUseCase
     getCurriculumCourse: GetCurriculumCourseUseCase
     enrollInCurriculumCourse: EnrollInCurriculumCourseUseCase
+    getCurriculumEditorialVersions: GetCurriculumEditorialVersionsUseCase
+    manageCurriculumEditorialVersion: ManageCurriculumEditorialVersionUseCase
     getTodayLesson: GetTodayLessonUseCase
     synthesizeSpeech: SynthesizeSpeechUseCase
     markWordCompleted: MarkWordCompletedUseCase
@@ -120,6 +124,8 @@ function build(): Container {
       getCurriculumCourses: new GetCurriculumCoursesUseCase(curriculum),
       getCurriculumCourse: new GetCurriculumCourseUseCase(curriculum),
       enrollInCurriculumCourse: new EnrollInCurriculumCourseUseCase(curriculum),
+      getCurriculumEditorialVersions: new GetCurriculumEditorialVersionsUseCase(curriculum),
+      manageCurriculumEditorialVersion: new ManageCurriculumEditorialVersionUseCase(curriculum),
       getTodayLesson: new GetTodayLessonUseCase(content),
       synthesizeSpeech: new SynthesizeSpeechUseCase(content),
       markWordCompleted: new MarkWordCompletedUseCase(content),
