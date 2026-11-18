@@ -1,5 +1,9 @@
 import type {
   CourseEnrollment,
+  EditorialActionInput,
+  EditorialActionResult,
+  EditorialVersionsFilter,
+  EditorialVersionsPage,
   CurriculumCourseDetail,
   CurriculumCourseListFilter,
   CurriculumCoursePage,
@@ -30,5 +34,30 @@ export class EnrollInCurriculumCourseUseCase {
       throw new Error('courseVersionId es obligatorio')
     }
     return this.repository.enroll(courseVersionId)
+  }
+}
+
+export class GetCurriculumEditorialVersionsUseCase {
+  constructor(private readonly repository: ICurriculumRepository) {}
+
+  execute(filter: EditorialVersionsFilter): Promise<EditorialVersionsPage> {
+    return this.repository.listEditorialVersions(filter)
+  }
+}
+
+export class ManageCurriculumEditorialVersionUseCase {
+  constructor(private readonly repository: ICurriculumRepository) {}
+
+  execute(input: EditorialActionInput): Promise<EditorialActionResult> {
+    if (!input.courseVersionId.trim()) {
+      throw new Error('courseVersionId es obligatorio')
+    }
+    if (input.action === 'review') {
+      if (!input.decision) throw new Error('La decisión editorial es obligatoria')
+      if (input.decision !== 'approved' && !input.comments?.trim()) {
+        throw new Error('Rechazar o solicitar cambios requiere comentarios')
+      }
+    }
+    return this.repository.manageEditorialVersion(input)
   }
 }
