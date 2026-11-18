@@ -42,6 +42,7 @@ export default function CurriculumCoursePage() {
   const [enrolling, setEnrolling] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [enrollmentMessage, setEnrollmentMessage] = useState<string | null>(null)
+  const [enrollmentError, setEnrollmentError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -90,7 +91,7 @@ export default function CurriculumCoursePage() {
     if (!detail || enrolling || detail.course.enrolled) return
     setEnrolling(true)
     setEnrollmentMessage(null)
-    setError(null)
+    setEnrollmentError(null)
     try {
       const container = getContainer()
       await container.useCases.enrollInCurriculumCourse.execute(
@@ -103,7 +104,7 @@ export default function CurriculumCoursePage() {
       )
       setEnrollmentMessage('Tu matrícula quedó registrada correctamente.')
     } catch (cause) {
-      setError(
+      setEnrollmentError(
         cause instanceof Error ? cause.message : 'No se pudo registrar la matrícula.',
       )
     } finally {
@@ -190,6 +191,11 @@ export default function CurriculumCoursePage() {
                   {enrollmentMessage && (
                     <p className="mt-3 text-xs font-semibold text-emerald-300" role="status">
                       {enrollmentMessage}
+                    </p>
+                  )}
+                  {enrollmentError && (
+                    <p className="mt-3 text-xs font-semibold text-rose-300" role="alert">
+                      {enrollmentError}
                     </p>
                   )}
                 </div>
