@@ -78,6 +78,21 @@ BEGIN
         RAISE EXCEPTION 'app_is_content_editor must safely verify the registered editor identity';
     END IF;
 
+    IF to_regprocedure('public.assert_course_version_publishable(uuid)') IS NULL
+       OR to_regprocedure('public.guard_course_version_publication_completeness()') IS NULL THEN
+        RAISE EXCEPTION 'course version publication completeness functions are missing';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_trigger
+         WHERE tgrelid = 'public.course_versions'::REGCLASS
+           AND tgname = 'trg_course_version_publication_completeness'
+           AND NOT tgisinternal
+    ) THEN
+        RAISE EXCEPTION 'course version publication completeness trigger is missing';
+    END IF;
+
     SELECT qual
       INTO course_policy
       FROM pg_policies
