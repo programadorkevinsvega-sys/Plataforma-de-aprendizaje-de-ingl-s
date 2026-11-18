@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     Json,
 };
@@ -34,6 +34,19 @@ pub struct CurriculumCourseDto {
 pub struct CurriculumCourseListDto {
     pub items: Vec<CurriculumCourseDto>,
     pub total: i32,
+    pub page: i32,
+    pub page_size: i32,
+    pub total_pages: i32,
+}
+
+#[derive(Deserialize, Default)]
+pub struct CurriculumCourseListQuery {
+    pub page: Option<i32>,
+    pub page_size: Option<i32>,
+    pub track_code: Option<String>,
+    pub cefr_level: Option<String>,
+    pub search: Option<String>,
+    pub enrolled_only: Option<bool>,
 }
 
 #[derive(Serialize)]
@@ -55,6 +68,15 @@ pub struct CurriculumPrerequisiteDto {
 }
 
 #[derive(Serialize)]
+pub struct CurriculumLessonProgressDto {
+    pub state: String,
+    pub mastery_score: f64,
+    pub required_objectives: i32,
+    pub completed_objectives: i32,
+    pub prerequisites_satisfied: bool,
+}
+
+#[derive(Serialize)]
 pub struct CurriculumLessonDto {
     pub id: String,
     pub lesson_code: String,
@@ -65,6 +87,7 @@ pub struct CurriculumLessonDto {
     pub estimated_minutes: i32,
     pub objectives: Vec<CurriculumObjectiveDto>,
     pub prerequisites: Vec<CurriculumPrerequisiteDto>,
+    pub progress: Option<CurriculumLessonProgressDto>,
 }
 
 #[derive(Serialize)]
@@ -152,6 +175,13 @@ impl From<CurriculumLesson> for CurriculumLessonDto {
             estimated_minutes: lesson.estimated_minutes,
             objectives: lesson.objectives.into_iter().map(Into::into).collect(),
             prerequisites: lesson.prerequisites.into_iter().map(Into::into).collect(),
+            progress: lesson.progress.map(|progress| CurriculumLessonProgressDto {
+                state: progress.state,
+                mastery_score: progress.mastery_score,
+                required_objectives: progress.required_objectives,
+                completed_objectives: progress.completed_objectives,
+                prerequisites_satisfied: progress.prerequisites_satisfied,
+            }),
         }
     }
 }
@@ -219,9 +249,18 @@ fn curriculum_error(error: tonic::Status, operation: &'static str) -> (StatusCod
 pub async fn list_curriculum_courses_handler(
     State(mut state): State<AppState>,
     headers: HeaderMap,
+    Query(query): Query<CurriculumCourseListQuery>,
 ) -> Result<Json<CurriculumCourseListDto>, (StatusCode, Json<Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
-    let mut request = tonic::Request::new(ListCurriculumCoursesRequest { user_id });
+    let mut request = tonic::Request::new(ListCurriculumCoursesRequest {
+        user_id,
+        page: query.page.unwrap_or(1),
+        page_size: query.page_size.unwrap_or(12),
+        track_code: query.track_code.unwrap_or_default(),
+        cefr_level: query.cefr_level.unwrap_or_default(),
+        search_query: query.search.unwrap_or_default(),
+        enrolled_only: query.enrolled_only.unwrap_or(false),
+    });
     attach_bearer_metadata(&headers, &mut request)?;
 
     let mut client = state.content_client.clone();
@@ -234,6 +273,9 @@ pub async fn list_curriculum_courses_handler(
     Ok(Json(CurriculumCourseListDto {
         items: response.items.into_iter().map(Into::into).collect(),
         total: response.total,
+        page: response.page,
+        page_size: response.page_size,
+        total_pages: response.total_pages,
     }))
 }
 
