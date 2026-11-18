@@ -349,7 +349,7 @@ impl ContentService for MyContentService {
             .await
             .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
 
-        let course_row: Option<(Uuid, String, String, i32, String, String, bool)> =
+        let course_row: Option<(Uuid, String, String, i32, String, String, String, bool)> =
             sqlx::query_as(
                 r#"SELECT
                        version.id,
@@ -424,7 +424,7 @@ impl ContentService for MyContentService {
                        link.position,
                        link.is_required,
                        COALESCE(
-                           ARRAY_AGG(skill.skill_code ORDER BY skill.skill_code)
+                           ARRAY_AGG(skill.skill_code::TEXT ORDER BY skill.skill_code)
                                FILTER (WHERE skill.skill_code IS NOT NULL),
                            ARRAY[]::TEXT[]
                        )
@@ -481,7 +481,7 @@ impl ContentService for MyContentService {
                 .entry(lesson_id)
                 .or_default()
                 .push(CurriculumPrerequisite {
-                    lesson_id: prerequisite_id.to_string(),
+                    prerequisite_lesson_id: prerequisite_id.to_string(),
                     required_state,
                     minimum_mastery_score,
                 });
