@@ -23,6 +23,10 @@ VALUES
     ('10000000-0000-4000-8000-000000000002', 'phase12-two@example.test', 'test-hash', 'Schema Test Two', 'learner', 'A1'),
     ('10000000-0000-4000-8000-000000000003', 'phase12-three@example.test', 'test-hash', 'Schema Test Three', 'learner', 'A1');
 
+INSERT INTO content_editors (user_id)
+VALUES ('10000000-0000-4000-8000-000000000001')
+ON CONFLICT (user_id) DO NOTHING;
+
 INSERT INTO courses (id, slug, track_code)
 VALUES
     ('20000000-0000-4000-8000-000000000001', 'phase12-general-test', 'general'),
@@ -240,8 +244,8 @@ COMMIT;
 
 BEGIN;
 SET LOCAL ROLE devfluency_schema_test;
-SELECT set_config('app.content_editor', 'true', TRUE);
-DO $$
+SELECT set_config('app.current_user_id', '10000000-0000-4000-8000-000000000001', TRUE);
+DO $
 DECLARE
     visible_versions BIGINT;
 BEGIN
