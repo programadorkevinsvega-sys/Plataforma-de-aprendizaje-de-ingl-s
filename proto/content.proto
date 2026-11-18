@@ -10,6 +10,8 @@ service ContentService {
   rpc GetCurriculumCourse (GetCurriculumCourseRequest) returns (GetCurriculumCourseResponse);
   rpc EnrollInCourse (EnrollInCourseRequest) returns (EnrollInCourseResponse);
   rpc RecordCurriculumLessonEvidence (RecordCurriculumLessonEvidenceRequest) returns (RecordCurriculumLessonEvidenceResponse);
+  rpc ListEditorialCourseVersions (ListEditorialCourseVersionsRequest) returns (ListEditorialCourseVersionsResponse);
+  rpc ApplyEditorialAction (ApplyEditorialActionRequest) returns (ApplyEditorialActionResponse);
 }
 
 message ContextSentence {
@@ -166,4 +168,40 @@ message RecordCurriculumLessonEvidenceResponse {
   bool applied = 1;
   string progress_state = 2;
   double mastery_score = 3;
+}
+
+message ListEditorialCourseVersionsRequest {
+  string user_id = 1;
+  string status = 2;
+}
+message EditorialCourseVersion {
+  string course_version_id = 1;
+  string slug = 2;
+  string track_code = 3;
+  string cefr_level = 4;
+  int32 version_number = 5;
+  string title = 6;
+  string description = 7;
+  string status = 8;
+  string submitted_at = 9;
+  string published_at = 10;
+  string latest_decision = 11;
+  string latest_comments = 12;
+}
+message ListEditorialCourseVersionsResponse {
+  repeated EditorialCourseVersion items = 1;
+}
+message ApplyEditorialActionRequest {
+  string user_id = 1;
+  string course_version_id = 2;
+  string action = 3;
+  string decision = 4;
+  string comments = 5;
+}
+message ApplyEditorialActionResponse {
+  string course_version_id = 1;
+  string action = 2;
+  string status = 3;
+  string decision = 4;
+  bool applied = 5;
 }

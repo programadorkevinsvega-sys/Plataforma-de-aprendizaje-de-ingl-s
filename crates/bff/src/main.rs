@@ -14,7 +14,8 @@ use content_handler::{
     vocabulary_list_handler,
 };
 use curriculum_handler::{
-    enroll_course_handler, get_curriculum_course_handler, list_curriculum_courses_handler,
+    apply_editorial_action_handler, enroll_course_handler, get_curriculum_course_handler,
+    list_curriculum_courses_handler, list_editorial_course_versions_handler,
 };
 use exam_handler::{
     create_transcribe_ticket_handler, evaluate_answer_handler, get_drill_handler,
@@ -210,6 +211,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route(
             "/api/v1/curriculum/enrollments",
             post(enroll_course_handler),
+        )
+        .route(
+            "/api/v1/admin/curriculum/versions",
+            get(list_editorial_course_versions_handler),
+        )
+        .route(
+            "/api/v1/admin/curriculum/actions",
+            post(apply_editorial_action_handler),
         )
         // Legacy content / vocabulary
         .route("/api/v1/content/vocabulary", get(vocabulary_list_handler))

@@ -6,6 +6,8 @@ use proto::content::{
     GetVocabularyWordRequest, InterviewQuestionResponse, ListCurriculumCoursesRequest,
     ListCurriculumCoursesResponse, ListVocabularyWordsRequest, ListVocabularyWordsResponse,
     RecordCurriculumLessonEvidenceRequest, RecordCurriculumLessonEvidenceResponse,
+    ListEditorialCourseVersionsRequest, ListEditorialCourseVersionsResponse,
+    EditorialCourseVersion, ApplyEditorialActionRequest, ApplyEditorialActionResponse,
     VocabularyWordResponse,
 };
 use sqlx::PgPool;
@@ -849,6 +851,161 @@ impl ContentService for MyContentService {
             applied,
             progress_state: state,
             mastery_score: score,
+        }))
+    }
+
+    async fn list_editorial_course_versions(
+        &self,
+        request: Request<ListEditorialCourseVersionsRequest>,
+    ) -> Result<Response<ListEditorialCourseVersionsResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let status_filter = request.get_ref().status.trim().to_ascii_lowercase();
+        if !status_filter.is_empty()
+            && !matches!(status_filter.as_str(), "draft" | "review" | "published" | "archived")
+        {
+            return Err(Status::invalid_argument("Filtro editorial inválido"));
+        }
+        let mut tx = self.pool.begin().await
+            .map_err(|_| Status::internal("No se pudo iniciar la consulta editorial"))?;
+        common::set_current_user_id(&mut tx, user_id).await
+            .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
+        let is_editor: bool = sqlx::query_scalar("SELECT app_is_content_editor()")
+            .fetch_one(&mut *tx).await
+            .map_err(|_| Status::internal("No se pudo verificar el permiso editorial"))?;
+        if !is_editor {
+            return Err(Status::permission_denied("La cuenta no está registrada como editor curricular"));
+        }
+        let rows: Vec<(String, String, String, i32, String, String, String, String, String, String, String, String)> =
+            sqlx::query_as(
+                r#"SELECT version.id::TEXT, course.slug, course.track_code,
+                          version.version_number, version.cefr_level, version.title,
+                          version.description, version.status,
+                          COALESCE(version.submitted_at::TEXT, ''),
+                          COALESCE(version.published_at::TEXT, ''),
+                          COALESCE(latest.decision, ''),
+                          COALESCE(latest.comments, '')
+                     FROM course_versions version
+                     JOIN courses course ON course.id = version.course_id
+                     LEFT JOIN LATERAL (
+                         SELECT decision, comments FROM course_version_reviews
+                          WHERE course_version_id = version.id
+                          ORDER BY review_order DESC LIMIT 1
+                     ) latest ON TRUE
+                    WHERE ($1 = '' OR version.status = $1)
+                    ORDER BY version.updated_at DESC, course.slug, version.version_number DESC
+                    LIMIT 100"#,
+            )
+            .bind(&status_filter)
+            .fetch_all(&mut *tx).await
+            .map_err(|_| Status::internal("No se pudieron consultar las versiones editoriales"))?;
+        tx.commit().await
+            .map_err(|_| Status::internal("No se pudo cerrar la consulta editorial"))?;
+        let items = rows.into_iter().map(
+            |(course_version_id, slug, track_code, version_number, cefr_level, title,
+              description, status, submitted_at, published_at, latest_decision, latest_comments)| {
+                EditorialCourseVersion {
+                    course_version_id, slug, track_code, version_number, cefr_level, title,
+                    description, status, submitted_at, published_at, latest_decision, latest_comments,
+                }
+            }
+        ).collect();
+        Ok(Response::new(ListEditorialCourseVersionsResponse { items }))
+    }
+
+    async fn apply_editorial_action(
+        &self,
+        request: Request<ApplyEditorialActionRequest>,
+    ) -> Result<Response<ApplyEditorialActionResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let req = request.into_inner();
+        let course_version_id = Uuid::parse_str(&req.course_version_id)
+            .map_err(|_| Status::invalid_argument("course_version_id inválido"))?;
+        let action = req.action.trim().to_ascii_lowercase();
+        let decision = req.decision.trim().to_ascii_lowercase();
+        if !matches!(action.as_str(), "submit" | "review" | "publish") {
+            return Err(Status::invalid_argument("Acción editorial inválida"));
+        }
+        if action == "review" && !matches!(decision.as_str(), "approved" | "rejected" | "changes_requested") {
+            return Err(Status::invalid_argument("Decisión editorial inválida"));
+        }
+        if action == "review" && decision != "approved" && req.comments.trim().is_empty() {
+            return Err(Status::invalid_argument("Los rechazos y solicitudes de cambios requieren comentarios"));
+        }
+        if action != "review" && (!decision.is_empty() || !req.comments.trim().is_empty()) {
+            return Err(Status::invalid_argument("decision y comments solo aplican a review"));
+        }
+
+        let mut tx = self.pool.begin().await
+            .map_err(|_| Status::internal("No se pudo iniciar la acción editorial"))?;
+        common::set_current_user_id(&mut tx, user_id).await
+            .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
+        let is_editor: bool = sqlx::query_scalar("SELECT app_is_content_editor()")
+            .fetch_one(&mut *tx).await
+            .map_err(|_| Status::internal("No se pudo verificar el permiso editorial"))?;
+        if !is_editor {
+            return Err(Status::permission_denied("La cuenta no está registrada como editor curricular"));
+        }
+        let status: Option<String> = sqlx::query_scalar(
+            "SELECT status FROM course_versions WHERE id = $1 FOR UPDATE"
+        )
+        .bind(course_version_id)
+        .fetch_optional(&mut *tx).await
+        .map_err(|_| Status::internal("No se pudo bloquear la versión curricular"))?;
+        let current = status.ok_or_else(|| Status::not_found("Versión curricular no encontrada"))?;
+        let next = match action.as_str() {
+            "submit" => {
+                if current != "draft" {
+                    return Err(Status::failed_precondition("Solo un borrador puede enviarse a revisión"));
+                }
+                sqlx::query("UPDATE course_versions SET status = 'review', submitted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1")
+                    .bind(course_version_id).execute(&mut *tx).await
+                    .map_err(|_| Status::internal("No se pudo enviar el borrador a revisión"))?;
+                "review".to_string()
+            }
+            "review" => {
+                if current != "review" {
+                    return Err(Status::failed_precondition("La versión no está en revisión"));
+                }
+                sqlx::query("INSERT INTO course_version_reviews (course_version_id, reviewer_id, decision, comments) VALUES ($1, $2, $3, $4)")
+                    .bind(course_version_id).bind(user_id).bind(&decision).bind(req.comments.trim())
+                    .execute(&mut *tx).await
+                    .map_err(|_| Status::failed_precondition("No se pudo registrar la decisión editorial"))?;
+                if decision == "approved" {
+                    "review".to_string()
+                } else {
+                    sqlx::query("UPDATE course_versions SET status = 'draft', updated_at = CURRENT_TIMESTAMP WHERE id = $1")
+                        .bind(course_version_id).execute(&mut *tx).await
+                        .map_err(|_| Status::internal("No se pudo devolver la versión a borrador"))?;
+                    "draft".to_string()
+                }
+            }
+            "publish" => {
+                if current != "review" {
+                    return Err(Status::failed_precondition("Solo una versión en revisión puede publicarse"));
+                }
+                let approved_by_same_editor: bool = sqlx::query_scalar(
+                    "SELECT EXISTS (SELECT 1 FROM course_version_reviews WHERE course_version_id = $1 AND reviewer_id = $2 AND decision = 'approved' AND review_order = (SELECT MAX(review_order) FROM course_version_reviews WHERE course_version_id = $1))"
+                )
+                .bind(course_version_id).bind(user_id).fetch_one(&mut *tx).await
+                .map_err(|_| Status::internal("No se pudo verificar la aprobación"))?;
+                if !approved_by_same_editor {
+                    return Err(Status::failed_precondition("La última revisión debe estar aprobada por el mismo editor"));
+                }
+                sqlx::query("UPDATE course_versions SET status = 'published', reviewed_by = $2, published_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1")
+                    .bind(course_version_id).bind(user_id).execute(&mut *tx).await
+                    .map_err(|_| Status::failed_precondition("La integridad curricular impide publicar esta versión"))?;
+                "published".to_string()
+            }
+            _ => unreachable!(),
+        };
+        tx.commit().await
+            .map_err(|_| Status::internal("No se pudo confirmar la acción editorial"))?;
+        Ok(Response::new(ApplyEditorialActionResponse {
+            course_version_id: course_version_id.to_string(),
+            action,
+            status: next,
+            decision,
+            applied: true,
         }))
     }
 

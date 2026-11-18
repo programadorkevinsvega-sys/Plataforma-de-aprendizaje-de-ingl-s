@@ -6,7 +6,7 @@ use axum::{
 use proto::content::{
     CurriculumCourseSummary, CurriculumLesson, CurriculumObjective, CurriculumPrerequisite,
     CurriculumUnit, EnrollInCourseRequest, GetCurriculumCourseRequest,
-    ListCurriculumCoursesRequest,
+    ListCurriculumCoursesRequest, ListEditorialCourseVersionsRequest, ApplyEditorialActionRequest,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -324,5 +324,108 @@ pub async fn enroll_course_handler(
         course_version_id: response.course_version_id,
         status: response.status,
         started_at: response.started_at,
+    }))
+}
+
+#[derive(Serialize)]
+pub struct EditorialCourseVersionDto {
+    pub course_version_id: String,
+    pub slug: String,
+    pub track_code: String,
+    pub cefr_level: String,
+    pub version_number: i32,
+    pub title: String,
+    pub description: String,
+    pub status: String,
+    pub submitted_at: String,
+    pub published_at: String,
+    pub latest_decision: String,
+    pub latest_comments: String,
+}
+
+#[derive(Serialize)]
+pub struct EditorialCourseVersionsDto {
+    pub items: Vec<EditorialCourseVersionDto>,
+}
+
+#[derive(Deserialize)]
+pub struct EditorialCourseVersionsQuery {
+    pub status: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct EditorialActionBody {
+    pub course_version_id: String,
+    pub action: String,
+    pub decision: Option<String>,
+    pub comments: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct EditorialActionDto {
+    pub course_version_id: String,
+    pub action: String,
+    pub status: String,
+    pub decision: String,
+    pub applied: bool,
+}
+
+/// GET /api/v1/admin/curriculum/versions
+pub async fn list_editorial_course_versions_handler(
+    State(mut state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<EditorialCourseVersionsQuery>,
+) -> Result<Json<EditorialCourseVersionsDto>, (StatusCode, Json<Value>)> {
+    let user_id = validate_token_from_headers(&headers, &mut state).await?;
+    let mut request = tonic::Request::new(ListEditorialCourseVersionsRequest {
+        user_id,
+        status: query.status.unwrap_or_default(),
+    });
+    attach_bearer_metadata(&headers, &mut request)?;
+    let mut client = state.content_client.clone();
+    let response = client.list_editorial_course_versions(request).await
+        .map_err(|error| curriculum_error(error, "list_editorial_versions"))?.into_inner();
+    Ok(Json(EditorialCourseVersionsDto {
+        items: response.items.into_iter().map(|item| EditorialCourseVersionDto {
+            course_version_id: item.course_version_id,
+            slug: item.slug,
+            track_code: item.track_code,
+            cefr_level: item.cefr_level,
+            version_number: item.version_number,
+            title: item.title,
+            description: item.description,
+            status: item.status,
+            submitted_at: item.submitted_at,
+            published_at: item.published_at,
+            latest_decision: item.latest_decision,
+            latest_comments: item.latest_comments,
+        }).collect(),
+    }))
+}
+
+/// POST /api/v1/admin/curriculum/actions
+pub async fn apply_editorial_action_handler(
+    State(mut state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<EditorialActionBody>,
+) -> Result<Json<EditorialActionDto>, (StatusCode, Json<Value>)> {
+    let user_id = validate_token_from_headers(&headers, &mut state).await?;
+    let mut request = tonic::Request::new(ApplyEditorialActionRequest {
+        user_id,
+        course_version_id: body.course_version_id,
+        action: body.action,
+        decision: body.decision.unwrap_or_default(),
+        comments: body.comments.unwrap_or_default(),
+    });
+    attach_bearer_metadata(&headers, &mut request)?;
+    let mut client = state.content_client.clone();
+    let response = client.apply_editorial_action(request).await
+        .map_err(|error| curriculum_error(error, "apply_editorial_action"))?.into_inner();
+    Ok(Json(EditorialActionDto {
+        course_version_id: response.course_version_id,
+        action: response.action,
+        status: response.status,
+        decision: response.decision,
+        applied: response.applied,
     }))
 }
