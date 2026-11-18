@@ -139,6 +139,32 @@ class CurriculumContentPackageTests(unittest.TestCase):
         self.assertEqual(result["lessons"], 2)
         self.assertIn("sha256", result)
 
+    def test_optional_arrays_reject_explicit_null(self):
+        def mutate(data):
+            data["objectives"][0]["vocabulary"] = None
+            data["units"][0]["lessons"][0]["prerequisites"] = None
+        errors = self.errors(mutate)
+        self.assert_error_contains(errors, "$/objectives/0/vocabulary: must be an array")
+        self.assert_error_contains(errors, "$/units/0/lessons/0/prerequisites: must be an array")
+
+    def test_source_url_requires_a_host_and_valid_port(self):
+        def mutate(data):
+            data["metadata"]["source"]["url"] = "https://"
+        errors = self.errors(mutate)
+        self.assert_error_contains(errors, "must be a valid HTTP(S) URL or null")
+
+    def test_duplicate_lesson_codes_are_rejected(self):
+        def mutate(data):
+            data["units"][0]["lessons"][1]["code"] = data["units"][0]["lessons"][0]["code"]
+        errors = self.errors(mutate)
+        self.assert_error_contains(errors, "duplicates another lesson code")
+
+    def test_json_schema_and_fixture_are_valid_json(self):
+        schema_path = ROOT / "tools/curriculum/content-package.schema.json"
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        self.assertEqual(schema["$id"], "urn:devfluency:curriculum-content:1")
+        self.assertEqual(schema["properties"]["schema_version"]["const"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
