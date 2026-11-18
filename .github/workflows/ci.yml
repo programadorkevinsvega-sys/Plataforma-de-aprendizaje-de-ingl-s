@@ -324,6 +324,9 @@ jobs:
       - name: Measure frontend logic coverage
         working-directory: .
         run: pnpm --filter devfluency-node-workspace test:frontend:phase0
+      - name: Test curriculum API mappers
+        working-directory: .
+        run: pnpm --filter devfluency-node-workspace test:frontend:phase1
       - name: Build production bundle
         working-directory: .
         run: pnpm --filter devfluency-frontend build
