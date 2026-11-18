@@ -11,8 +11,6 @@ CREATE TABLE IF NOT EXISTS course_lesson_progress_events (
     mastery_score NUMERIC(5,4) NOT NULL CHECK (mastery_score BETWEEN 0 AND 1),
     recorded_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_lesson_progress_evidence UNIQUE (user_id, evidence_event_id),
-    CONSTRAINT fk_lesson_progress_enrollment FOREIGN KEY (enrollment_id, user_id)
-        REFERENCES course_enrollments(id, user_id) ON DELETE CASCADE,
     CONSTRAINT fk_lesson_progress_lesson FOREIGN KEY (lesson_id, course_version_id)
         REFERENCES course_lessons(id, course_version_id) ON DELETE RESTRICT
 );
