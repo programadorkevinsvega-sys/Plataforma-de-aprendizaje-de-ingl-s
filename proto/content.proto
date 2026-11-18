@@ -127,7 +127,7 @@ message CurriculumObjective {
 }
 
 message CurriculumPrerequisite {
-  string lesson_id = 1;
+  string prerequisite_lesson_id = 1;
   string required_state = 2;
   double minimum_mastery_score = 3;
 }
