@@ -278,7 +278,7 @@ fn valid_http_url(value: &str) -> bool {
     }
 
     let authority = remainder
-        .split(|character| matches!(character, '/' | '?' | '#'))
+        .split(['/', '?', '#'])
         .next()
         .unwrap_or("");
     let host_port = authority.rsplit('@').next().unwrap_or("");

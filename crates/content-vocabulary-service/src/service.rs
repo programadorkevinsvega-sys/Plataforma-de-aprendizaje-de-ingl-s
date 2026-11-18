@@ -26,19 +26,19 @@ struct ValidatedStudentCatalogQuery {
 
 fn validate_student_catalog_query(
     request: &ListCurriculumCoursesRequest,
-) -> Result<ValidatedStudentCatalogQuery, Status> {
+) -> Result<ValidatedStudentCatalogQuery, &'static str> {
     let page = if request.page <= 0 { 1 } else { request.page };
     let page_size = if request.page_size <= 0 {
         12
     } else if request.page_size > 50 {
-        return Err(Status::invalid_argument("page_size no puede superar 50"));
+        return Err("page_size no puede superar 50");
     } else {
         request.page_size
     };
     if !request.track_code.is_empty()
         && !matches!(request.track_code.as_str(), "general" | "technology")
     {
-        return Err(Status::invalid_argument("track_code no es válido"));
+        return Err("track_code no es válido");
     }
     if !request.cefr_level.is_empty()
         && !matches!(
@@ -46,13 +46,11 @@ fn validate_student_catalog_query(
             "PRE_A1" | "A1" | "A2" | "B1" | "B2" | "C1" | "C2"
         )
     {
-        return Err(Status::invalid_argument("cefr_level no es válido"));
+        return Err("cefr_level no es válido");
     }
     let search = request.search_query.trim().to_lowercase();
     if search.len() > 120 {
-        return Err(Status::invalid_argument(
-            "search_query no puede superar 120 caracteres",
-        ));
+        return Err("search_query no puede superar 120 caracteres");
     }
 
     Ok(ValidatedStudentCatalogQuery {
@@ -350,7 +348,7 @@ impl ContentService for MyContentService {
     ) -> Result<Response<ListCurriculumCoursesResponse>, Status> {
         let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let req = request.into_inner();
-        let filters = validate_student_catalog_query(&req)?;
+        let filters = validate_student_catalog_query(&req).map_err(Status::invalid_argument)?;
         let page = filters.page;
         let page_size = filters.page_size;
         let track = filters.track;
