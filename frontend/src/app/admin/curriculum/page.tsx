@@ -57,6 +57,7 @@ export default function CurriculumAdminPage() {
   const [importError, setImportError] = useState<string | null>(null)
   const [importMessage, setImportMessage] = useState<string | null>(null)
   const [activeVersionId, setActiveVersionId] = useState<string | null>(null)
+  const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null)
   const [reviewComments, setReviewComments] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
@@ -181,7 +182,9 @@ export default function CurriculumAdminPage() {
     decision?: EditorialDecision,
   ) => {
     if (activeVersionId) return
-    const comments = reviewComments.trim()
+    const comments = selectedReviewId === version.courseVersionId
+      ? reviewComments.trim()
+      : ''
     if (action === 'review' && decision !== 'approved' && !comments) {
       setActionError('Para rechazar o solicitar cambios debes dejar comentarios.')
       return
@@ -201,6 +204,7 @@ export default function CurriculumAdminPage() {
         `${version.title}: ${statusLabel(result.previousStatus)} → ${statusLabel(result.nextStatus)}.`,
       )
       setReviewComments('')
+      setSelectedReviewId(null)
       await mutate()
     } catch (cause) {
       setActionError(
@@ -529,9 +533,15 @@ export default function CurriculumAdminPage() {
                               </span>
                               <textarea
                                 rows={2}
-                                value={activeVersionId === version.courseVersionId ? reviewComments : ''}
+                                value={selectedReviewId === version.courseVersionId ? reviewComments : ''}
+                                onFocus={() => {
+                                  if (selectedReviewId !== version.courseVersionId) {
+                                    setReviewComments('')
+                                    setSelectedReviewId(version.courseVersionId)
+                                  }
+                                }}
                                 onChange={(event) => {
-                                  setActiveVersionId(version.courseVersionId)
+                                  setSelectedReviewId(version.courseVersionId)
                                   setReviewComments(event.target.value)
                                 }}
                                 placeholder="Registra observaciones concretas sobre la calidad y cobertura del curso…"
