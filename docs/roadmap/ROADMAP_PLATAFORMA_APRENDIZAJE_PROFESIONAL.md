@@ -413,6 +413,10 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 
 ### Subfase 1.5. APIs y administración
 
+**Avance incremental — integración de catálogo para estudiantes (PR #81):** se incorporan las consultas autenticadas de versiones curriculares publicadas, detalle por `course_version_id` y matrícula, además de las rutas frontend `/courses` y `/courses/{course_version_id}`. Se conserva la ruta existente `/learn`. Las versiones archivadas solo se muestran a usuarios con matrícula sobre esa versión, preservando el versionado inmutable. La descripción técnica está en [Integración del catálogo curricular para estudiantes](../curriculum/phase-1.5-student-catalog-integration.md).
+
+Este avance **no cierra la subfase 1.5**. Continúan pendientes el estado de desbloqueo calculado desde el progreso del estudiante, paginación/filtros de backend y las APIs e interfaces administrativas protegidas para edición, revisión y publicación.
+
 - [ ] Exponer catálogo de cursos, unidades y lecciones.
 - [ ] Exponer detalle de lección y objetivos.
 - [ ] Exponer prerequisitos y estado de desbloqueo.
