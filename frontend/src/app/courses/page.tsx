@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useState } from 'react'
 import useSWR from 'swr'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -9,11 +9,15 @@ import { Sidebar } from '@/presentation/components/Sidebar'
 import { getContainer } from '@/infrastructure/di/container'
 import { sessionStorageAdapter } from '@/infrastructure/storage/SessionStorage'
 import type {
-  CurriculumCourseSummary,
+  CurriculumCoursePage,
+  CurriculumLevel,
   CurriculumTrackCode,
 } from '@/domain/repositories/ICurriculumRepository'
 
 type TrackFilter = 'all' | CurriculumTrackCode
+type LevelFilter = 'all' | CurriculumLevel
+
+const PAGE_SIZE = 9
 
 function levelLabel(level: string): string {
   return level === 'PRE_A1' ? 'Pre-A1' : level
@@ -26,34 +30,73 @@ function trackLabel(track: CurriculumTrackCode): string {
 export default function CoursesPage() {
   const router = useRouter()
   const [track, setTrack] = useState<TrackFilter>('all')
-  const loadCourses = useCallback(async (): Promise<CurriculumCourseSummary[]> => {
+  const [level, setLevel] = useState<LevelFilter>('all')
+  const [search, setSearch] = useState('')
+  const [enrolledOnly, setEnrolledOnly] = useState(false)
+  const [page, setPage] = useState(1)
+
+  const loadCourses = useCallback(async (): Promise<CurriculumCoursePage> => {
     const container = getContainer()
     const user = await container.useCases.getCurrentUser.execute()
     if (!user) {
       router.replace('/login')
-      return []
+      return { items: [], total: 0, page: 1, pageSize: PAGE_SIZE, totalPages: 0 }
     }
-    return container.useCases.getCurriculumCourses.execute()
-  }, [router])
+    return container.useCases.getCurriculumCourses.execute({
+      page,
+      pageSize: PAGE_SIZE,
+      trackCode: track === 'all' ? undefined : track,
+      cefrLevel: level === 'all' ? undefined : level,
+      search,
+      enrolledOnly,
+    })
+  }, [enrolledOnly, level, page, router, search, track])
 
   const sessionUserId =
     typeof window === 'undefined'
       ? 'ssr'
       : (sessionStorageAdapter.read()?.user.id ?? 'anonymous')
+  const cacheKey = [
+    'curriculum-published-courses',
+    sessionUserId,
+    page,
+    PAGE_SIZE,
+    track,
+    level,
+    search.trim(),
+    enrolledOnly,
+  ].join(':')
+
   const {
-    data: courses = [],
+    data,
     error,
     isLoading: loading,
     mutate,
-  } = useSWR<CurriculumCourseSummary[]>(
-    `curriculum-published-courses:${sessionUserId}`,
-    loadCourses,
-  )
+  } = useSWR<CurriculumCoursePage>(cacheKey, loadCourses)
 
-  const visibleCourses = useMemo(
-    () => (track === 'all' ? courses : courses.filter((course) => course.trackCode === track)),
-    [courses, track],
-  )
+  const courses = data?.items ?? []
+  const total = data?.total ?? 0
+  const totalPages = data?.totalPages ?? 0
+
+  const changeTrack = (value: TrackFilter) => {
+    setTrack(value)
+    setPage(1)
+  }
+
+  const changeLevel = (value: LevelFilter) => {
+    setLevel(value)
+    setPage(1)
+  }
+
+  const changeSearch = (value: string) => {
+    setSearch(value)
+    setPage(1)
+  }
+
+  const changeEnrolledOnly = (value: boolean) => {
+    setEnrolledOnly(value)
+    setPage(1)
+  }
 
   return (
     <div className="min-h-screen bg-[#0b0d13] text-slate-100 flex flex-col">
@@ -72,49 +115,93 @@ export default function CoursesPage() {
                   Catálogo de cursos
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-                  Explora las rutas de inglés general y tecnológico. Cada curso muestra su
-                  nivel, unidades, lecciones y objetivos antes de comenzar.
+                  Explora las rutas de inglés general y tecnológico. Filtra por nivel,
+                  busca por nombre y continúa las versiones en las que estás matriculado.
                 </p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3 text-sm text-slate-300">
-                <span className="text-2xl font-black text-white">{courses.length}</span>
-                <span className="ml-2 text-slate-400">versiones publicadas</span>
+                <span className="text-2xl font-black text-white">{total}</span>
+                <span className="ml-2 text-slate-400">versiones encontradas</span>
               </div>
             </div>
           </header>
 
-          <section className="flex flex-wrap items-center gap-2" aria-label="Filtrar cursos">
-            {([
-              ['all', 'Todos los cursos'],
-              ['general', 'Inglés general'],
-              ['technology', 'Inglés tecnológico'],
-            ] as const).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setTrack(value)}
-                aria-pressed={track === value}
-                className={`rounded-xl border px-4 py-2 text-xs font-bold transition-colors ${
-                  track === value
-                    ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-200'
-                    : 'border-white/10 bg-slate-900/60 text-slate-400 hover:border-white/20 hover:text-white'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          <section className="space-y-4 rounded-2xl border border-white/10 bg-slate-900/40 p-4 sm:p-5" aria-label="Filtros del catálogo">
+            <div className="flex flex-wrap items-center gap-2" aria-label="Filtrar por ruta">
+              {([
+                ['all', 'Todos los cursos'],
+                ['general', 'Inglés general'],
+                ['technology', 'Inglés tecnológico'],
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => changeTrack(value)}
+                  aria-pressed={track === value}
+                  className={`rounded-xl border px-4 py-2 text-xs font-bold transition-colors ${
+                    track === value
+                      ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-200'
+                      : 'border-white/10 bg-slate-950/60 text-slate-400 hover:border-white/20 hover:text-white'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_180px_auto] md:items-end">
+              <label className="block">
+                <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Buscar curso
+                </span>
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(event) => changeSearch(event.target.value)}
+                  maxLength={120}
+                  placeholder="Nombre, descripción o ruta…"
+                  className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none transition-colors placeholder:text-slate-600 focus:border-cyan-400/50"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Nivel CEFR
+                </span>
+                <select
+                  value={level}
+                  onChange={(event) => changeLevel(event.target.value as LevelFilter)}
+                  className="w-full rounded-xl border border-white/10 bg-slate-950/70 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400/50"
+                >
+                  <option value="all">Todos los niveles</option>
+                  {(['PRE_A1', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const).map((value) => (
+                    <option key={value} value={value}>{levelLabel(value)}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-slate-950/70 px-3 py-3 text-xs font-semibold text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={enrolledOnly}
+                  onChange={(event) => changeEnrolledOnly(event.target.checked)}
+                  className="h-4 w-4 accent-cyan-400"
+                />
+                Mis matrículas
+              </label>
+            </div>
           </section>
 
           {loading && (
             <div className="rounded-2xl border border-white/10 bg-slate-900/50 p-10 text-center text-sm text-cyan-300" aria-live="polite">
-              Cargando los cursos publicados…
+              Consultando el catálogo…
             </div>
           )}
 
           {!loading && error && (
             <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-6" role="alert">
               <h2 className="font-bold text-rose-200">No pudimos cargar el catálogo</h2>
-              <p className="mt-2 text-sm text-rose-100/70">{error}</p>
+              <p className="mt-2 text-sm text-rose-100/70">{error.message}</p>
               <button
                 type="button"
                 onClick={() => void mutate()}
@@ -125,36 +212,42 @@ export default function CoursesPage() {
             </div>
           )}
 
-          {!loading && !error && courses.length === 0 && (
+          {!loading && !error && total === 0 && (
             <div className="glass-panel rounded-3xl border border-white/10 p-8 text-center sm:p-12">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/10 text-3xl">
                 📚
               </div>
               <h2 className="mt-5 text-xl font-extrabold text-white">
-                El catálogo curricular todavía no tiene cursos publicados
+                {search || level !== 'all' || track !== 'all' || enrolledOnly
+                  ? 'No hay cursos que coincidan con estos filtros'
+                  : 'El catálogo curricular todavía no tiene cursos publicados'}
               </h2>
               <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-slate-400">
-                La estructura académica y el flujo de publicación ya existen en el backend.
-                Los cursos aparecerán aquí cuando un paquete de contenido real haya sido
-                importado, revisado y publicado. No mostramos datos de demostración como si
-                fueran cursos disponibles.
+                {search || level !== 'all' || track !== 'all' || enrolledOnly
+                  ? 'Prueba otra búsqueda o limpia los filtros para ver las versiones disponibles.'
+                  : 'Los cursos aparecerán aquí cuando un paquete curricular real haya sido importado, revisado y publicado. No mostramos fixtures como contenido.'}
               </p>
-              <div className="mt-6 inline-flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-400/5 px-4 py-2 text-xs font-semibold text-amber-200">
-                <span>⏳</span>
-                Contenido editorial pendiente de publicación
-              </div>
+              {(search || level !== 'all' || track !== 'all' || enrolledOnly) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTrack('all')
+                    setLevel('all')
+                    setSearch('')
+                    setEnrolledOnly(false)
+                    setPage(1)
+                  }}
+                  className="mt-5 rounded-xl border border-cyan-400/30 px-4 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-400/10"
+                >
+                  Limpiar filtros
+                </button>
+              )}
             </div>
           )}
 
-          {!loading && !error && courses.length > 0 && visibleCourses.length === 0 && (
-            <div className="rounded-2xl border border-white/10 bg-slate-900/50 p-8 text-center text-sm text-slate-400">
-              No hay cursos publicados para este tipo de ruta.
-            </div>
-          )}
-
-          {!loading && !error && visibleCourses.length > 0 && (
+          {!loading && !error && courses.length > 0 && (
             <section className="grid grid-cols-1 gap-5 xl:grid-cols-2" aria-label="Cursos disponibles">
-              {visibleCourses.map((course) => (
+              {courses.map((course) => (
                 <article
                   key={course.courseVersionId}
                   className="glass-panel group flex flex-col rounded-3xl border border-white/10 p-6 transition-all hover:-translate-y-0.5 hover:border-cyan-400/30 sm:p-7"
@@ -217,6 +310,32 @@ export default function CoursesPage() {
                 </article>
               ))}
             </section>
+          )}
+
+          {!loading && !error && totalPages > 1 && (
+            <nav className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-5" aria-label="Paginación del catálogo">
+              <span className="text-xs text-slate-500">
+                Página {data?.page ?? page} de {totalPages} · {total} versiones
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  className="rounded-xl border border-white/10 px-4 py-2 text-xs font-bold text-slate-300 hover:border-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Anterior
+                </button>
+                <button
+                  type="button"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+                  className="rounded-xl border border-white/10 px-4 py-2 text-xs font-bold text-slate-300 hover:border-cyan-400/40 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </nav>
           )}
         </main>
       </div>
