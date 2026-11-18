@@ -346,7 +346,7 @@ export async function exportCurriculumPackage(pool, selector, { actorUserId } = 
   const client = await pool.connect();
   let transactionOpen = false;
   try {
-    await client.query("BEGIN READ ONLY");
+    await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
     transactionOpen = true;
     await client.query("SELECT set_config('app.current_user_id', $1, true)", [actorUserId]);
 
