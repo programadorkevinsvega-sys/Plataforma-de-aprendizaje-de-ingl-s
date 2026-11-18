@@ -18,6 +18,54 @@ use std::sync::Arc;
 use tonic::{Request, Response, Status};
 use uuid::Uuid;
 
+type LessonProgressEvidence = (i32, i32, f64, bool, bool);
+
+fn evaluate_lesson_progress(
+    enrolled: bool,
+    evidence: LessonProgressEvidence,
+    prerequisites: &[CurriculumPrerequisite],
+    lesson_evidence: &HashMap<Uuid, LessonProgressEvidence>,
+) -> CurriculumLessonProgress {
+    let (required, completed, mastery_score, is_completed, is_mastered) = evidence;
+    let prerequisites_satisfied = enrolled
+        && prerequisites.iter().all(|prerequisite| {
+            let prerequisite_id = Uuid::parse_str(&prerequisite.prerequisite_lesson_id).ok();
+            let Some((_, _, prerequisite_mastery, prerequisite_completed, _)) =
+                prerequisite_id.and_then(|id| lesson_evidence.get(&id).copied())
+            else {
+                return false;
+            };
+            if prerequisite.required_state == "mastered" {
+                prerequisite_completed
+                    && prerequisite_mastery >= prerequisite.minimum_mastery_score
+            } else {
+                prerequisite_completed
+            }
+        });
+
+    let state = if !enrolled {
+        "not_enrolled"
+    } else if is_mastered {
+        "mastered"
+    } else if is_completed {
+        "completed"
+    } else if !prerequisites_satisfied {
+        "locked"
+    } else if completed > 0 {
+        "in_progress"
+    } else {
+        "available"
+    };
+
+    CurriculumLessonProgress {
+        state: state.to_string(),
+        mastery_score: mastery_score.clamp(0.0, 1.0),
+        required_objectives: required,
+        completed_objectives: completed,
+        prerequisites_satisfied,
+    }
+}
+
 pub struct MyContentService {
     pub pool: Arc<PgPool>,
 }
@@ -716,51 +764,17 @@ impl ContentService for MyContentService {
 
         let mut progress_by_lesson: HashMap<Uuid, CurriculumLessonProgress> = HashMap::new();
         for (lesson_id, _, _, _, _, _, _, _) in &lesson_rows {
-            let (required, completed, mastery_score, is_completed, is_mastered) =
-                lesson_base.get(lesson_id).copied().unwrap_or((0, 0, 0.0, false, false));
+            let evidence = lesson_base
+                .get(lesson_id)
+                .copied()
+                .unwrap_or((0, 0, 0.0, false, false));
             let prerequisites = prerequisites_by_lesson
                 .get(lesson_id)
                 .map(Vec::as_slice)
                 .unwrap_or(&[]);
-            let prerequisites_satisfied = enrolled
-                && prerequisites.iter().all(|prerequisite| {
-                    let prerequisite_id = Uuid::parse_str(&prerequisite.prerequisite_lesson_id).ok();
-                    let Some((_, _, prerequisite_mastery, prerequisite_completed, _)) =
-                        prerequisite_id.and_then(|id| lesson_base.get(&id).copied())
-                    else {
-                        return false;
-                    };
-                    if prerequisite.required_state == "mastered" {
-                        prerequisite_completed
-                            && prerequisite_mastery >= prerequisite.minimum_mastery_score
-                    } else {
-                        prerequisite_completed
-                    }
-                });
-
-            let state = if !enrolled {
-                "not_enrolled"
-            } else if is_mastered {
-                "mastered"
-            } else if is_completed {
-                "completed"
-            } else if !prerequisites_satisfied {
-                "locked"
-            } else if completed > 0 {
-                "in_progress"
-            } else {
-                "available"
-            };
-
             progress_by_lesson.insert(
                 *lesson_id,
-                CurriculumLessonProgress {
-                    state: state.to_string(),
-                    mastery_score,
-                    required_objectives: required,
-                    completed_objectives: completed,
-                    prerequisites_satisfied,
-                },
+                evaluate_lesson_progress(enrolled, evidence, prerequisites, &lesson_base),
             );
         }
 
@@ -1308,5 +1322,119 @@ impl ContentService for MyContentService {
             category,
             difficulty,
         }))
+    }
+}
+
+
+#[cfg(test)]
+mod curriculum_progress_tests {
+    use super::evaluate_lesson_progress;
+    use proto::content::CurriculumPrerequisite;
+    use std::collections::HashMap;
+    use uuid::Uuid;
+
+    type Evidence = (i32, i32, f64, bool, bool);
+
+    fn prerequisite(id: Uuid, state: &str, score: f64) -> CurriculumPrerequisite {
+        CurriculumPrerequisite {
+            prerequisite_lesson_id: id.to_string(),
+            required_state: state.to_string(),
+            minimum_mastery_score: score,
+        }
+    }
+
+    #[test]
+    fn lesson_is_not_enrolled_without_a_course_enrollment() {
+        let current = Uuid::new_v4();
+        let result = evaluate_lesson_progress(
+            false,
+            (1, 0, 0.0, false, false),
+            &[],
+            &HashMap::new(),
+        );
+
+        assert_eq!(result.state, "not_enrolled");
+        assert!(!result.prerequisites_satisfied);
+        let _ = current;
+    }
+
+    #[test]
+    fn lesson_is_available_when_all_completed_prerequisites_are_met() {
+        let prerequisite_id = Uuid::new_v4();
+        let current_evidence: Evidence = (1, 0, 0.0, false, false);
+        let mut evidence = HashMap::new();
+        evidence.insert(prerequisite_id, (1, 1, 0.4, true, false));
+
+        let result = evaluate_lesson_progress(
+            true,
+            current_evidence,
+            &[prerequisite(prerequisite_id, "completed", 0.0)],
+            &evidence,
+        );
+
+        assert_eq!(result.state, "available");
+        assert!(result.prerequisites_satisfied);
+    }
+
+    #[test]
+    fn lesson_stays_locked_when_mastery_prerequisite_is_below_threshold() {
+        let prerequisite_id = Uuid::new_v4();
+        let mut evidence = HashMap::new();
+        evidence.insert(prerequisite_id, (1, 1, 0.79, true, false));
+
+        let result = evaluate_lesson_progress(
+            true,
+            (1, 0, 0.0, false, false),
+            &[prerequisite(prerequisite_id, "mastered", 0.8)],
+            &evidence,
+        );
+
+        assert_eq!(result.state, "locked");
+        assert!(!result.prerequisites_satisfied);
+    }
+
+    #[test]
+    fn lesson_is_completed_or_mastered_only_when_required_evidence_says_so() {
+        let completed = evaluate_lesson_progress(
+            true,
+            (2, 2, 0.6, true, false),
+            &[],
+            &HashMap::new(),
+        );
+        assert_eq!(completed.state, "completed");
+        assert_eq!(completed.completed_objectives, 2);
+
+        let mastered = evaluate_lesson_progress(
+            true,
+            (2, 2, 0.9, true, true),
+            &[],
+            &HashMap::new(),
+        );
+        assert_eq!(mastered.state, "mastered");
+        assert_eq!(mastered.mastery_score, 0.9);
+    }
+
+    #[test]
+    fn malformed_or_missing_prerequisite_evidence_fails_closed() {
+        let result = evaluate_lesson_progress(
+            true,
+            (1, 0, 0.0, false, false),
+            &[prerequisite(Uuid::new_v4(), "completed", 0.0)],
+            &HashMap::new(),
+        );
+        assert_eq!(result.state, "locked");
+
+        let malformed = CurriculumPrerequisite {
+            prerequisite_lesson_id: "not-a-uuid".to_string(),
+            required_state: "completed".to_string(),
+            minimum_mastery_score: 0.0,
+        };
+        let result = evaluate_lesson_progress(
+            true,
+            (1, 0, 0.0, false, false),
+            &[malformed],
+            &HashMap::new(),
+        );
+        assert_eq!(result.state, "locked");
     }
 }
