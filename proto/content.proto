@@ -71,8 +71,7 @@ message ListCurriculumCoursesResponse {
 
 message GetCurriculumCourseRequest {
   string user_id = 1;
-  string slug = 2;
-  string cefr_level = 3;
+  string course_version_id = 2;
 }
 
 message GetCurriculumCourseResponse {
@@ -92,6 +91,7 @@ message CurriculumCourseSummary {
   int32 lesson_count = 9;
   int32 estimated_minutes = 10;
   bool enrolled = 11;
+  string status = 12;
 }
 
 message CurriculumUnit {
