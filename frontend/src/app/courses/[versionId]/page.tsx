@@ -12,6 +12,30 @@ function levelLabel(level: string): string {
   return level === 'PRE_A1' ? 'Pre-A1' : level
 }
 
+function progressLabel(state: string): string {
+  const labels: Record<string, string> = {
+    not_enrolled: 'Matricúlate para desbloquear',
+    locked: 'Bloqueada · requisitos pendientes',
+    available: 'Desbloqueada · disponible',
+    in_progress: 'En progreso',
+    completed: 'Completada',
+    mastered: 'Dominada',
+  }
+  return labels[state] ?? 'Progreso no disponible'
+}
+
+function progressTone(state: string): string {
+  const tones: Record<string, string> = {
+    not_enrolled: 'border-slate-500/20 bg-slate-500/10 text-slate-400',
+    locked: 'border-amber-400/20 bg-amber-400/5 text-amber-200',
+    available: 'border-cyan-400/20 bg-cyan-400/10 text-cyan-200',
+    in_progress: 'border-sky-400/20 bg-sky-400/10 text-sky-200',
+    completed: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200',
+    mastered: 'border-violet-400/20 bg-violet-400/10 text-violet-200',
+  }
+  return tones[state] ?? tones.locked
+}
+
 function skillLabel(skill: string): string {
   const labels: Record<string, string> = {
     vocabulary: 'Vocabulario',
@@ -238,13 +262,48 @@ export default function CurriculumCoursePage() {
                             <span className="text-[10px] font-bold uppercase tracking-wider text-violet-300">
                               Lección {lesson.position} · {lesson.lessonPattern}
                             </span>
-                            {lesson.estimatedMinutes > 0 && (
-                              <span className="text-[10px] text-slate-500">
-                                ~{lesson.estimatedMinutes} min
-                              </span>
-                            )}
+                            <div className="flex flex-wrap items-center gap-2">
+                              {lesson.estimatedMinutes > 0 && (
+                                <span className="text-[10px] text-slate-500">
+                                  ~{lesson.estimatedMinutes} min
+                                </span>
+                              )}
+                              {lesson.progress && (
+                                <span className={`rounded-full border px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider ${progressTone(lesson.progress.state)}`}>
+                                  {progressLabel(lesson.progress.state)}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <h4 className="mt-2 text-base font-bold text-white">{lesson.title}</h4>
+                          {lesson.progress && detail.course.enrolled && (
+                            <div className="mt-3 rounded-xl border border-white/10 bg-slate-900/50 p-3">
+                              <div className="flex flex-wrap items-center justify-between gap-2 text-[10px]">
+                                <span className="font-semibold text-slate-300">
+                                  Objetivos requeridos: {lesson.progress.completedObjectives}/{lesson.progress.requiredObjectives}
+                                </span>
+                                <span className="text-slate-500">
+                                  Dominio con evidencia SRS: {Math.round(lesson.progress.masteryScore * 100)}%
+                                </span>
+                              </div>
+                              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800">
+                                <div
+                                  className="h-full rounded-full bg-cyan-400 transition-all"
+                                  style={{ width: `${Math.round(lesson.progress.requiredObjectives > 0 ? (lesson.progress.completedObjectives / lesson.progress.requiredObjectives) * 100 : 0)}%` }}
+                                />
+                              </div>
+                              {lesson.progress.state === 'locked' && (
+                                <p className="mt-2 text-[10px] leading-5 text-amber-200/70">
+                                  Completa las lecciones previas para desbloquear esta ruta.
+                                </p>
+                              )}
+                              {lesson.progress.state === 'available' && (
+                                <p className="mt-2 text-[10px] leading-5 text-cyan-100/70">
+                                  Los prerrequisitos están satisfechos. Las actividades interactivas se habilitarán con el motor de ejercicios de Fase 2.
+                                </p>
+                              )}
+                            </div>
+                          )}
                           {lesson.description && (
                             <p className="mt-2 text-sm leading-6 text-slate-400">{lesson.description}</p>
                           )}
@@ -315,9 +374,12 @@ export default function CurriculumCoursePage() {
               </section>
 
               <div className="rounded-2xl border border-cyan-400/15 bg-cyan-400/5 p-4 text-xs leading-6 text-cyan-100/70">
-                Esta vista presenta el currículo y sus objetivos publicados. La ejecución
-                interactiva de ejercicios, el registro de intentos y la finalización de
-                lecciones se integrarán con el motor de actividades de la Fase 2.
+                El desbloqueo se calcula con evidencia persistida: palabras registradas como
+                aprendidas y revisiones SM-2 exitosas de las frases asociadas. El dominio solo
+                se puntúa cuando existen revisiones repetidas; los objetivos de gramática,
+                escritura y expresión oral todavía requieren intentos evaluados del motor de
+                actividades de Fase 2. Una lección desbloqueada aún no implica que sus
+                ejercicios estén disponibles.
               </div>
             </>
           )}
