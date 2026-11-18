@@ -19,7 +19,7 @@ function progressLabel(state: string): string {
     available: 'Desbloqueada · disponible',
     in_progress: 'En progreso',
     completed: 'Completada',
-    mastered: 'Dominada',
+    mastered: 'Consolidada · repaso SM-2',
   }
   return labels[state] ?? 'Progreso no disponible'
 }
@@ -283,7 +283,7 @@ export default function CurriculumCoursePage() {
                                   Objetivos requeridos: {lesson.progress.completedObjectives}/{lesson.progress.requiredObjectives}
                                 </span>
                                 <span className="text-slate-500">
-                                  Dominio con evidencia SRS: {Math.round(lesson.progress.masteryScore * 100)}%
+                                  Cobertura de repaso SM-2: {Math.round(lesson.progress.masteryScore * 100)}%
                                 </span>
                               </div>
                               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800">
@@ -375,11 +375,11 @@ export default function CurriculumCoursePage() {
 
               <div className="rounded-2xl border border-cyan-400/15 bg-cyan-400/5 p-4 text-xs leading-6 text-cyan-100/70">
                 El desbloqueo se calcula con evidencia persistida: palabras registradas como
-                aprendidas y revisiones SM-2 exitosas de las frases asociadas. El dominio solo
-                se puntúa cuando existen revisiones repetidas; los objetivos de gramática,
-                escritura y expresión oral todavía requieren intentos evaluados del motor de
-                actividades de Fase 2. Una lección desbloqueada aún no implica que sus
-                ejercicios estén disponibles.
+                aprendidas y revisiones SM-2 exitosas de las frases asociadas. El porcentaje
+                es una señal de práctica repetida (hasta tres revisiones exitosas por frase),
+                no una calificación lingüística. Los objetivos de gramática, escritura y
+                expresión oral necesitan intentos evaluados del motor de actividades de Fase 2.
+                Una lección desbloqueada aún no implica que sus ejercicios estén disponibles.
               </div>
             </>
           )}
