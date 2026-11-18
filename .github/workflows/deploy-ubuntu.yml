@@ -166,14 +166,40 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "${NEXT_PUBLIC_BFF_URL:-}" ]]; then
-            echo "::error::Configure the repository variable NEXT_PUBLIC_BFF_URL=https://app-ingles.jnmtortas.com before building the production frontend."
+            echo "::error::Set NEXT_PUBLIC_BFF_URL in Settings > Environments > production > Environment variables."
             exit 1
           fi
-          if [[ "$NEXT_PUBLIC_BFF_URL" != "https://app-ingles.jnmtortas.com" ]]; then
-            echo "::error::NEXT_PUBLIC_BFF_URL must match the production application origin."
+
+          # Validate the configured production host without pinning an obsolete domain.
+          if ! BFF_ORIGIN="$(
+            node - "$NEXT_PUBLIC_BFF_URL" <<'NODE'
+          const raw = process.argv[2];
+          let url;
+          try {
+            url = new URL(raw);
+          } catch {
+            console.error("NEXT_PUBLIC_BFF_URL must be a valid HTTPS origin.");
+            process.exit(1);
+          }
+          if (
+            url.protocol !== "https:" ||
+            !url.hostname ||
+            url.username ||
+            url.password ||
+            (url.pathname !== "/" && url.pathname !== "") ||
+            url.search ||
+            url.hash
+          ) {
+            console.error("NEXT_PUBLIC_BFF_URL must be an HTTPS origin without credentials, path, query, or fragment.");
+            process.exit(1);
+          }
+          process.stdout.write(url.origin);
+          NODE
+          )"; then
             exit 1
           fi
-          printf 'NEXT_PUBLIC_BFF_URL=%s\n' "$NEXT_PUBLIC_BFF_URL" > .env.production
+
+          printf 'NEXT_PUBLIC_BFF_URL=%s\\n' "$BFF_ORIGIN" > .env.production
           npm ci
           npm run build
           if grep -R -n -F 'http://localhost:8080' .next/static .next/server; then
