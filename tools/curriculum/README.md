@@ -91,7 +91,7 @@ Sin `--output`, el JSON se escribe en stdout. La operación es de solo lectura. 
 - Preserva metadatos de procedencia y la presencia/ausencia original de `content_schema_version`.
 - Vuelve a ejecutar el validador offline.
 - Compara el hash reconstruido contra el SHA-256 almacenado en el ledger; falla ante modificaciones relacionales posteriores al import.
-- Rechaza exportaciones con relaciones que el contrato v1 no puede representar (por ejemplo, objetivos opcionales), en lugar de perder datos silenciosamente.
+- Rechaza exportaciones con relaciones que el contrato v1 no puede representar (por ejemplo, objetivos opcionales), en lugar de perder datos silenciosamente. La publicación también bloquea esas relaciones para evitar versiones publicadas que no puedan exportarse fielmente.
 
 Las versiones creadas antes del ledger de importación no tienen procedencia canónica y no se exportan mediante esta herramienta.
 
