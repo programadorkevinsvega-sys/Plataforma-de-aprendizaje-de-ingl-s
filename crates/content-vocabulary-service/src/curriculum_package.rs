@@ -217,7 +217,7 @@ fn optional_positive_integer(
     path: &str,
 ) -> Result<Option<i32>, String> {
     match value.get(key) {
-        None | Some(Value::Null) => Ok(None),
+        None => Ok(None),
         Some(raw) => raw
             .as_i64()
             .filter(|number| *number > 0 && *number <= i64::from(i32::MAX))
@@ -1181,6 +1181,23 @@ mod tests {
         }"#;
         let error = validate_package_json(raw).expect_err("cycles must be rejected");
         assert!(error.contains("ciclo"));
+    }
+
+    #[test]
+    fn rejects_explicit_null_and_out_of_range_integer_fields() {
+        let mut data: Value =
+            serde_json::from_str(VALID_PACKAGE).expect("fixture should be valid JSON");
+        data["units"][0]["estimated_minutes"] = Value::Null;
+        let raw = serde_json::to_string(&data).expect("serialize mutated package");
+        let error = validate_package_json(&raw).expect_err("explicit null must be rejected");
+        assert!(error.contains("entero positivo"));
+
+        let mut data: Value =
+            serde_json::from_str(VALID_PACKAGE).expect("fixture should be valid JSON");
+        data["version"]["version_number"] = Value::from(i64::from(i32::MAX) + 1);
+        let raw = serde_json::to_string(&data).expect("serialize mutated package");
+        let error = validate_package_json(&raw).expect_err("PostgreSQL INTEGER overflow must be rejected");
+        assert!(error.contains("rango INTEGER"));
     }
 
     #[test]
