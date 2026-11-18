@@ -1058,7 +1058,7 @@ pub async fn import_package(
                 .bind(objective_id)
                 .bind(sentence_id)
                 .bind(reference["usage_mode"].as_str().unwrap_or(""))
-                .bind(reference["position"].as_i64().unwrap_or(1))
+                .bind(reference["position"].as_i64().unwrap_or(1) as i32)
                 .execute(&mut *tx)
                 .await
                 .map_err(|_| format!("No se pudo asociar la frase {english}"))?;
@@ -1110,7 +1110,7 @@ pub async fn import_package(
     )
     .bind(course_version_id)
     .bind(FORMAT_NAME)
-    .bind(SCHEMA_VERSION)
+    .bind(SCHEMA_VERSION as i32)
     .bind(package_sha256)
     .bind(metadata)
     .bind(data["version"].get("content_schema_version").is_some())
