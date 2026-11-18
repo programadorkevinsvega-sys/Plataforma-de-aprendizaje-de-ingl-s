@@ -198,29 +198,33 @@ fn required_string<'a>(
     Ok(field)
 }
 
-fn positive_integer(value: &Map<String, Value>, key: &str, path: &str) -> Result<i64, String> {
+fn positive_integer(value: &Map<String, Value>, key: &str, path: &str) -> Result<i32, String> {
     let raw = value
         .get(key)
         .ok_or_else(|| format!("{path}/{key}: es obligatorio"))?;
     let number = raw
         .as_i64()
-        .filter(|number| *number > 0)
-        .ok_or_else(|| format!("{path}/{key}: debe ser un entero positivo"))?;
-    Ok(number)
+        .filter(|number| *number > 0 && *number <= i64::from(i32::MAX))
+        .ok_or_else(|| {
+            format!("{path}/{key}: debe ser un entero positivo dentro del rango INTEGER")
+        })?;
+    Ok(number as i32)
 }
 
 fn optional_positive_integer(
     value: &Map<String, Value>,
     key: &str,
     path: &str,
-) -> Result<Option<i64>, String> {
+) -> Result<Option<i32>, String> {
     match value.get(key) {
         None | Some(Value::Null) => Ok(None),
         Some(raw) => raw
             .as_i64()
-            .filter(|number| *number > 0)
-            .map(Some)
-            .ok_or_else(|| format!("{path}/{key}: debe ser un entero positivo")),
+            .filter(|number| *number > 0 && *number <= i64::from(i32::MAX))
+            .map(|number| Some(number as i32))
+            .ok_or_else(|| {
+                format!("{path}/{key}: debe ser un entero positivo dentro del rango INTEGER")
+            }),
     }
 }
 
@@ -758,9 +762,12 @@ pub async fn import_package(
     let cefr_level = data["version"]["cefr_level"]
         .as_str()
         .ok_or("El paquete no incluye version.cefr_level")?;
-    let version_number = data["version"]["version_number"]
-        .as_i64()
-        .ok_or("El paquete no incluye version.version_number")?;
+    let version_number = positive_integer(
+        object(&data["version"], "$/version")?,
+        "version_number",
+        "$/version",
+    )
+    .map_err(|error| error.to_string())?;
     let lock_key = format!("course:{slug}");
     sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
         .bind(&lock_key)
@@ -841,7 +848,8 @@ pub async fn import_package(
     let content_schema_version = version
         .get("content_schema_version")
         .and_then(Value::as_i64)
-        .unwrap_or(SCHEMA_VERSION);
+        .map(|value| value as i32)
+        .unwrap_or(SCHEMA_VERSION as i32);
     let created_by = actor_user_id;
     let course_version_id: Uuid = sqlx::query_scalar(
         r#"INSERT INTO course_versions (
@@ -878,11 +886,11 @@ pub async fn import_package(
         )
         .bind(course_version_id)
         .bind(code)
-        .bind(unit["position"].as_i64().unwrap_or(1))
+        .bind(unit["position"].as_i64().unwrap_or(1) as i32)
         .bind(unit["title"].as_str().unwrap_or(""))
         .bind(unit["theme"].as_str().unwrap_or(""))
         .bind(unit["description"].as_str().unwrap_or(""))
-        .bind(unit["estimated_minutes"].as_i64())
+        .bind(unit["estimated_minutes"].as_i64().map(|value| value as i32))
         .fetch_one(&mut *tx)
         .await
         .map_err(|_| format!("No se pudo insertar la unidad {code}"))?;
@@ -902,7 +910,7 @@ pub async fn import_package(
         .bind(code)
         .bind(objective["description"].as_str().unwrap_or(""))
         .bind(objective["success_criteria"].as_str().unwrap_or(""))
-        .bind(objective["position"].as_i64().unwrap_or(1))
+        .bind(objective["position"].as_i64().unwrap_or(1) as i32)
         .fetch_one(&mut *tx)
         .await
         .map_err(|_| format!("No se pudo insertar el objetivo {code}"))?;
@@ -943,11 +951,11 @@ pub async fn import_package(
             .bind(course_version_id)
             .bind(unit_id)
             .bind(code)
-            .bind(lesson["position"].as_i64().unwrap_or(1))
+            .bind(lesson["position"].as_i64().unwrap_or(1) as i32)
             .bind(lesson["pattern"].as_str().unwrap_or("custom"))
             .bind(lesson["title"].as_str().unwrap_or(""))
             .bind(lesson["description"].as_str().unwrap_or(""))
-            .bind(lesson["estimated_minutes"].as_i64())
+            .bind(lesson["estimated_minutes"].as_i64().map(|value| value as i32))
             .fetch_one(&mut *tx)
             .await
             .map_err(|_| format!("No se pudo insertar la lección {code}"))?;
@@ -1012,7 +1020,7 @@ pub async fn import_package(
                 .bind(objective_id)
                 .bind(vocabulary_id)
                 .bind(reference["usage_mode"].as_str().unwrap_or(""))
-                .bind(reference["position"].as_i64().unwrap_or(1))
+                .bind(reference["position"].as_i64().unwrap_or(1) as i32)
                 .execute(&mut *tx)
                 .await
                 .map_err(|_| format!("No se pudo asociar la palabra {word}"))?;
