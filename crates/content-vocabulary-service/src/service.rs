@@ -681,7 +681,7 @@ impl ContentService for MyContentService {
         // (objetivos obligatorios, objetivos completados, suma de dominio)
         let mut lesson_evidence: HashMap<Uuid, (i32, i32, f64)> = HashMap::new();
         for (lesson_id, objective_id, _, _, _, _, required, _) in &objective_rows {
-            if !required {
+            if !*required {
                 continue;
             }
             let (evidence_total, evidence_completed, mastery_score) =
