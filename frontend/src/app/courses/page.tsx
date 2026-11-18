@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { Navbar } from '@/presentation/components/Navbar'
 import { Sidebar } from '@/presentation/components/Sidebar'
 import { getContainer } from '@/infrastructure/di/container'
+import { sessionStorageAdapter } from '@/infrastructure/storage/SessionStorage'
 import type {
   CurriculumCourseSummary,
   CurriculumTrackCode,
@@ -35,12 +36,19 @@ export default function CoursesPage() {
     return container.useCases.getCurriculumCourses.execute()
   }, [router])
 
+  const sessionUserId =
+    typeof window === 'undefined'
+      ? 'ssr'
+      : (sessionStorageAdapter.read()?.user.id ?? 'anonymous')
   const {
     data: courses = [],
     error,
     isLoading: loading,
     mutate,
-  } = useSWR<CurriculumCourseSummary[]>('curriculum-published-courses', loadCourses)
+  } = useSWR<CurriculumCourseSummary[]>(
+    `curriculum-published-courses:${sessionUserId}`,
+    loadCourses,
+  )
 
   const visibleCourses = useMemo(
     () => (track === 'all' ? courses : courses.filter((course) => course.trackCode === track)),
