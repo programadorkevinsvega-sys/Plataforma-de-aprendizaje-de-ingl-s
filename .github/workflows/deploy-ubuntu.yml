@@ -199,7 +199,7 @@ jobs:
             exit 1
           fi
 
-          printf 'NEXT_PUBLIC_BFF_URL=%s\\n' "$BFF_ORIGIN" > .env.production
+          printf '%s\\n' "NEXT_PUBLIC_BFF_URL=$BFF_ORIGIN" > .env.production
           npm ci
           npm run build
           if grep -R -n -F 'http://localhost:8080' .next/static .next/server; then
@@ -256,14 +256,21 @@ jobs:
           [[ "$expected" =~ ^[0-9a-f]{64}$ ]]
           printf '%s  %s\n' "$expected" "devfluency-deploy-package.tar.gz" | sha256sum --check
 
-      - name: Validate Tailscale credential is configured
+      - name: Validate production deployment credentials
         env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
           TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
         run: |
-          if [[ -z "$TAILSCALE_AUTHKEY" ]]; then
-            echo "::error::TAILSCALE_AUTHKEY is empty or unavailable to the production environment. Configure it under Settings > Environments > production > Environment secrets."
-            exit 1
-          fi
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS TAILSCALE_AUTHKEY; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::$name is unavailable. It may be a Repository secret or a production Environment secret; check that an empty Environment secret is not overriding it."
+              exit 1
+            fi
+          done
 
       - name: Connect runner to private tailnet
         uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c
