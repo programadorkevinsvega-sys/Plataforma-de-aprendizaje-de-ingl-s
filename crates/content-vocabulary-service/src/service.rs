@@ -260,7 +260,7 @@ impl ContentService for MyContentService {
             .await
             .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
 
-        let rows: Vec<(String, String, String, i32, String, String, String, i64, i64, i64, bool)> =
+        let rows: Vec<(String, String, String, i32, String, String, String, i64, i64, i64, bool, String)> =
             sqlx::query_as(
                 r#"SELECT
                        course.slug,
@@ -278,10 +278,16 @@ impl ContentService for MyContentService {
                            SELECT 1 FROM course_enrollments enrollment
                             WHERE enrollment.course_version_id = version.id
                               AND enrollment.user_id = $1
-                       )
+                       ),
+                       version.status
                    FROM courses course
                    JOIN course_versions version ON version.course_id = course.id
                   WHERE version.status = 'published'
+                     OR EXISTS (
+                         SELECT 1 FROM course_enrollments enrollment
+                          WHERE enrollment.course_version_id = version.id
+                            AND enrollment.user_id = $1
+                     )
                   ORDER BY
                     CASE course.track_code WHEN 'general' THEN 1 ELSE 2 END,
                     CASE version.cefr_level
@@ -311,6 +317,7 @@ impl ContentService for MyContentService {
                     lesson_count,
                     minutes,
                     enrolled,
+                    status,
                 )| {
                     CurriculumCourseSummary {
                         course_version_id: version_id,
@@ -324,6 +331,7 @@ impl ContentService for MyContentService {
                         lesson_count: lesson_count.min(i32::MAX as i64) as i32,
                         estimated_minutes: minutes.min(i32::MAX as i64) as i32,
                         enrolled,
+                        status,
                     }
                 },
             )
@@ -345,21 +353,8 @@ impl ContentService for MyContentService {
     ) -> Result<Response<GetCurriculumCourseResponse>, Status> {
         let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let req = request.into_inner();
-        if req.slug.is_empty()
-            || req.slug.len() > 120
-            || !req
-                .slug
-                .chars()
-                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
-            || !matches!(
-                req.cefr_level.as_str(),
-                "PRE_A1" | "A1" | "A2" | "B1" | "B2" | "C1" | "C2"
-            )
-        {
-            return Err(Status::invalid_argument(
-                "La ruta o el nivel CEFR no son válidos",
-            ));
-        }
+        let course_version_id = Uuid::parse_str(&req.course_version_id)
+            .map_err(|_| Status::invalid_argument("course_version_id inválido"))?;
 
         let mut tx = self
             .pool
@@ -370,7 +365,7 @@ impl ContentService for MyContentService {
             .await
             .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
 
-        let course_row: Option<(Uuid, String, String, i32, String, String, String, bool)> =
+        let course_row: Option<(Uuid, String, String, i32, String, String, String, String, bool)> =
             sqlx::query_as(
                 r#"SELECT
                        version.id,
@@ -380,34 +375,32 @@ impl ContentService for MyContentService {
                        version.cefr_level,
                        version.title,
                        version.description,
+                       version.status,
                        EXISTS (
                            SELECT 1 FROM course_enrollments enrollment
                             WHERE enrollment.course_version_id = version.id
-                              AND enrollment.user_id = $3
+                              AND enrollment.user_id = $2
                        )
                    FROM courses course
                    JOIN course_versions version ON version.course_id = course.id
-                  WHERE course.slug = $1
-                    AND version.cefr_level = $2
+                  WHERE version.id = $1
                     AND (
                         version.status = 'published'
                         OR EXISTS (
                             SELECT 1 FROM course_enrollments enrollment
                              WHERE enrollment.course_version_id = version.id
-                               AND enrollment.user_id = $3
+                               AND enrollment.user_id = $2
                         )
                     )
-                  ORDER BY version.version_number DESC
                   LIMIT 1"#,
             )
-            .bind(&req.slug)
-            .bind(&req.cefr_level)
+            .bind(course_version_id)
             .bind(user_id)
             .fetch_optional(&mut *tx)
             .await
             .map_err(|_| Status::internal("No se pudo consultar la versión del curso"))?;
 
-        let (version_id, slug, track, version_number, level, title, description, enrolled) =
+        let (version_id, slug, track, version_number, level, title, description, status, enrolled) =
             course_row.ok_or_else(|| {
                 Status::not_found("No existe un curso publicado en esa ruta y nivel")
             })?;
@@ -564,6 +557,7 @@ impl ContentService for MyContentService {
             lesson_count,
             estimated_minutes,
             enrolled,
+            status,
         };
 
         tx.commit()
