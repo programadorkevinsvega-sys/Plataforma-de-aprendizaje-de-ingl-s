@@ -100,11 +100,9 @@ async function resolveSentenceId(client, reference) {
 }
 
 async function insertPackage(client, data, packageSha256) {
-  const lockKey = [
-    data.course.slug,
-    data.version.cefr_level,
-    data.version.version_number,
-  ].join(":");
+  // Lock at course scope so simultaneous imports of different levels or
+  // versions cannot race while creating the stable course identity.
+  const lockKey = `course:${data.course.slug}`;
 
   // Serialize two imports of the same logical version. A second importer sees
   // the committed package ledger and becomes a deterministic no-op.
