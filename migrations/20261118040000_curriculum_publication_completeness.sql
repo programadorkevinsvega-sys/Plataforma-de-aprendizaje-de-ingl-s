@@ -120,3 +120,79 @@ CREATE TRIGGER trg_course_version_publication_completeness
 
 COMMENT ON FUNCTION assert_course_version_publishable(UUID) IS
     'Rejects publication unless every unit has a lesson, every lesson has a required objective with success criteria, every objective is linked and has exactly one primary skill.';
+
+
+-- A review decision must describe the exact child content that will be published.
+-- Lock the parent version while checking its state so child mutations cannot race
+-- a transition into review/publication.
+CREATE OR REPLACE FUNCTION guard_course_version_content_mutation()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = pg_catalog, public, pg_temp
+AS $$
+DECLARE
+    v_course_version_id UUID;
+    v_version_status VARCHAR(12);
+BEGIN
+    IF TG_OP = 'UPDATE' AND NEW.course_version_id IS DISTINCT FROM OLD.course_version_id THEN
+        RAISE EXCEPTION 'Curriculum content cannot be moved between course versions'
+            USING ERRCODE = '55000';
+    END IF;
+
+    IF TG_OP = 'DELETE' THEN
+        v_course_version_id := OLD.course_version_id;
+    ELSE
+        v_course_version_id := NEW.course_version_id;
+    END IF;
+
+    SELECT version.status
+      INTO v_version_status
+      FROM public.course_versions AS version
+     WHERE version.id = v_course_version_id
+     FOR UPDATE;
+
+    IF v_version_status IN ('review', 'published', 'archived') THEN
+        RAISE EXCEPTION 'Curriculum content is frozen while its course version is under review or published; return it to draft before editing'
+            USING ERRCODE = '55000';
+    END IF;
+
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+    RETURN NEW;
+END
+$$;
+
+DO $$
+DECLARE
+    child_table TEXT;
+BEGIN
+    FOREACH child_table IN ARRAY ARRAY[
+        'course_units',
+        'course_lessons',
+        'learning_objectives',
+        'learning_objective_skills',
+        'lesson_learning_objectives',
+        'lesson_prerequisites',
+        'learning_objective_vocabulary',
+        'learning_objective_sentences'
+    ] LOOP
+        EXECUTE format(
+            'DROP TRIGGER IF EXISTS %I ON public.%I',
+            'trg_guard_course_version_content_mutation',
+            child_table
+        );
+        EXECUTE format(
+            'CREATE TRIGGER %I
+             BEFORE INSERT OR UPDATE OR DELETE ON public.%I
+             FOR EACH ROW
+             EXECUTE FUNCTION public.guard_course_version_content_mutation()',
+            'trg_guard_course_version_content_mutation',
+            child_table
+        );
+    END LOOP;
+END
+$$;
+
+COMMENT ON FUNCTION guard_course_version_content_mutation() IS
+    'Allows child content changes only while the parent course version is draft; review, published and archived versions are frozen.';
