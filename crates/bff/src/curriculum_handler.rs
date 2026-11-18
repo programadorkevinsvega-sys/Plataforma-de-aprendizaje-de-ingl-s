@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     Json,
 };
@@ -34,6 +34,8 @@ pub struct CurriculumCourseDto {
 pub struct CurriculumCourseListDto {
     pub items: Vec<CurriculumCourseDto>,
     pub total: i32,
+    pub limit: i32,
+    pub offset: i32,
 }
 
 #[derive(Serialize)]
@@ -215,13 +217,30 @@ fn curriculum_error(error: tonic::Status, operation: &'static str) -> (StatusCod
     )
 }
 
-/// GET /api/v1/curriculum/courses
+#[derive(Deserialize)]
+pub struct CurriculumCourseQuery {
+    pub limit: Option<i32>,
+    pub offset: Option<i32>,
+    pub track: Option<String>,
+    pub level: Option<String>,
+    pub search: Option<String>,
+}
+
+/// GET /api/v1/curriculum/courses?limit=20&offset=0&track=general&level=A1&search=...
 pub async fn list_curriculum_courses_handler(
     State(mut state): State<AppState>,
     headers: HeaderMap,
+    Query(query): Query<CurriculumCourseQuery>,
 ) -> Result<Json<CurriculumCourseListDto>, (StatusCode, Json<Value>)> {
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
-    let mut request = tonic::Request::new(ListCurriculumCoursesRequest { user_id });
+    let mut request = tonic::Request::new(ListCurriculumCoursesRequest {
+        user_id,
+        limit: query.limit.unwrap_or(20),
+        offset: query.offset.unwrap_or(0),
+        track_code: query.track.unwrap_or_default(),
+        cefr_level: query.level.unwrap_or_default(),
+        search: query.search.unwrap_or_default(),
+    });
     attach_bearer_metadata(&headers, &mut request)?;
 
     let mut client = state.content_client.clone();
@@ -234,6 +253,8 @@ pub async fn list_curriculum_courses_handler(
     Ok(Json(CurriculumCourseListDto {
         items: response.items.into_iter().map(Into::into).collect(),
         total: response.total,
+        limit: response.limit,
+        offset: response.offset,
     }))
 }
 

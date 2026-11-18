@@ -251,6 +251,38 @@ impl ContentService for MyContentService {
         request: Request<ListCurriculumCoursesRequest>,
     ) -> Result<Response<ListCurriculumCoursesResponse>, Status> {
         let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let req = request.into_inner();
+        let limit = if req.limit <= 0 {
+            20
+        } else {
+            req.limit.min(50)
+        };
+        if req.offset < 0 || req.offset > 1_000_000 {
+            return Err(Status::invalid_argument(
+                "offset debe estar entre 0 y 1000000",
+            ));
+        }
+        let offset = req.offset;
+        let track_code = req.track_code.trim().to_ascii_lowercase();
+        if !track_code.is_empty() && !matches!(track_code.as_str(), "general" | "technology") {
+            return Err(Status::invalid_argument("track_code no es válido"));
+        }
+        let cefr_level = req.cefr_level.trim().to_ascii_uppercase();
+        if !cefr_level.is_empty()
+            && !matches!(
+                cefr_level.as_str(),
+                "PRE_A1" | "A1" | "A2" | "B1" | "B2" | "C1" | "C2"
+            )
+        {
+            return Err(Status::invalid_argument("cefr_level no es válido"));
+        }
+        let search = req.search.trim();
+        if search.chars().count() > 100 {
+            return Err(Status::invalid_argument(
+                "search no puede superar 100 caracteres",
+            ));
+        }
+
         let mut tx = self
             .pool
             .begin()
@@ -259,6 +291,29 @@ impl ContentService for MyContentService {
         common::set_current_user_id(&mut tx, user_id)
             .await
             .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
+
+        let total: i64 = sqlx::query_scalar(
+            r#"SELECT COUNT(*)
+                 FROM courses course
+                 JOIN course_versions version ON version.course_id = course.id
+                WHERE (version.status = 'published'
+                       OR EXISTS (
+                           SELECT 1 FROM course_enrollments enrollment
+                            WHERE enrollment.course_version_id = version.id
+                              AND enrollment.user_id = $1
+                       ))
+                  AND ($2 = '' OR course.track_code = $2)
+                  AND ($3 = '' OR version.cefr_level = $3)
+                  AND ($4 = '' OR version.title ILIKE '%' || $4 || '%'
+                                  OR course.slug ILIKE '%' || $4 || '%')"#,
+        )
+        .bind(user_id)
+        .bind(&track_code)
+        .bind(&cefr_level)
+        .bind(search)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudo contar el catálogo curricular"))?;
 
         let rows: Vec<(String, String, String, i32, String, String, String, i64, i64, i64, bool, String)> =
             sqlx::query_as(
@@ -282,12 +337,16 @@ impl ContentService for MyContentService {
                        version.status
                    FROM courses course
                    JOIN course_versions version ON version.course_id = course.id
-                  WHERE version.status = 'published'
-                     OR EXISTS (
-                         SELECT 1 FROM course_enrollments enrollment
-                          WHERE enrollment.course_version_id = version.id
-                            AND enrollment.user_id = $1
-                     )
+                  WHERE (version.status = 'published'
+                         OR EXISTS (
+                             SELECT 1 FROM course_enrollments enrollment
+                              WHERE enrollment.course_version_id = version.id
+                                AND enrollment.user_id = $1
+                         ))
+                    AND ($2 = '' OR course.track_code = $2)
+                    AND ($3 = '' OR version.cefr_level = $3)
+                    AND ($4 = '' OR version.title ILIKE '%' || $4 || '%'
+                                    OR course.slug ILIKE '%' || $4 || '%')
                   ORDER BY
                     CASE course.track_code WHEN 'general' THEN 1 ELSE 2 END,
                     CASE version.cefr_level
@@ -295,14 +354,19 @@ impl ContentService for MyContentService {
                       WHEN 'B1' THEN 4 WHEN 'B2' THEN 5 WHEN 'C1' THEN 6 ELSE 7
                     END,
                     course.slug,
-                    version.version_number DESC"#,
+                    version.version_number DESC
+                  LIMIT $5 OFFSET $6"#,
             )
             .bind(user_id)
+            .bind(&track_code)
+            .bind(&cefr_level)
+            .bind(search)
+            .bind(limit as i64)
+            .bind(offset as i64)
             .fetch_all(&mut *tx)
             .await
             .map_err(|_| Status::internal("No se pudo consultar el catálogo curricular"))?;
 
-        let total = rows.len().min(i32::MAX as usize) as i32;
         let items = rows
             .into_iter()
             .map(
@@ -319,21 +383,19 @@ impl ContentService for MyContentService {
                     minutes,
                     enrolled,
                     status,
-                )| {
-                    CurriculumCourseSummary {
-                        course_version_id: version_id,
-                        slug,
-                        track_code: track,
-                        cefr_level: level,
-                        version_number,
-                        title,
-                        description,
-                        unit_count: unit_count.min(i32::MAX as i64) as i32,
-                        lesson_count: lesson_count.min(i32::MAX as i64) as i32,
-                        estimated_minutes: minutes.min(i32::MAX as i64) as i32,
-                        enrolled,
-                        status,
-                    }
+                )| CurriculumCourseSummary {
+                    course_version_id: version_id,
+                    slug,
+                    track_code: track,
+                    cefr_level: level,
+                    version_number,
+                    title,
+                    description,
+                    unit_count: unit_count.min(i32::MAX as i64) as i32,
+                    lesson_count: lesson_count.min(i32::MAX as i64) as i32,
+                    estimated_minutes: minutes.min(i32::MAX as i64) as i32,
+                    enrolled,
+                    status,
                 },
             )
             .collect();
@@ -344,7 +406,9 @@ impl ContentService for MyContentService {
 
         Ok(Response::new(ListCurriculumCoursesResponse {
             items,
-            total,
+            total: total.min(i32::MAX as i64) as i32,
+            limit,
+            offset,
         }))
     }
 
