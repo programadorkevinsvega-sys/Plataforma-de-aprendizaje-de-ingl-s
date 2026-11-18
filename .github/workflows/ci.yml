@@ -165,7 +165,7 @@ jobs:
                     run_shell=true
                     run_deploy=true
                     ;;
-                  scripts/*|*.sh|tools/phase0/*|tests/fixtures/*|tests/load/*)
+                  scripts/*|*.sh|tools/phase0/*|tools/curriculum/*|tests/fixtures/*|tests/load/*)
                     run_shell=true
                     ;;
                 esac
@@ -376,6 +376,7 @@ jobs:
           bash deploy/tests/test-health-checks.sh
           bash deploy/tests/test-frontend-start.sh
           python3 -m unittest discover -s tools/phase0/tests -p 'test_*.py' -v
+          python3 -m unittest discover -s tools/curriculum/tests -p 'test_*.py' -v
 
   markdown:
     name: Markdown lint
