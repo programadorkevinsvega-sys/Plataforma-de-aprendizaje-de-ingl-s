@@ -494,6 +494,7 @@ impl ContentService for MyContentService {
                              WHERE enrollment.course_version_id = version.id
                                AND enrollment.user_id = $2
                         )
+                        OR $3
                     )
                   LIMIT 1"#,
         )
