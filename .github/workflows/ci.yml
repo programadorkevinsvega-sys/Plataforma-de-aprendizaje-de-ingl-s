@@ -34,7 +34,7 @@ jobs:
       head_sha: ${{ steps.classify.outputs.head_sha }}
     steps:
       - name: Checkout full history for reliable diffs
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
@@ -153,8 +153,10 @@ jobs:
                 esac
 
                 case "$file" in
-                  frontend/package.json|frontend/package-lock.json)
+                  frontend/package.json|frontend/package-lock.json|frontend/pnpm-lock.yaml|package.json|pnpm-lock.yaml|pnpm-workspace.yaml|.npmrc|.nvmrc|.node-version)
+                    run_frontend=true
                     run_frontend_audit=true
+                    run_deploy=true
                     ;;
                 esac
 
@@ -202,7 +204,7 @@ jobs:
           echo "Production deployment required: $run_deploy"
 
       - name: Upload change classification for the deployment gate
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ci-change-metadata
           path: ci-change-metadata.txt
@@ -232,18 +234,14 @@ jobs:
           --health-retries 5
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install PostgreSQL client and Protocol Buffers compiler
         run: |
           sudo apt-get update
           sudo apt-get install --yes postgresql-client protobuf-compiler
           protoc --version
-      - name: Apply database migrations for integration tests
-        run: |
-          for migration in migrations/*.sql; do
-            echo "Applying $migration"
-            psql "$TEST_DATABASE_URL" --set ON_ERROR_STOP=1 --file "$migration"
-          done
+      - name: Verify fresh and upgraded curriculum migration paths
+        run: bash scripts/test-phase1-2-migrations.sh
       - name: Install stable Rust
         run: |
           rustup toolchain install stable --profile minimal --component rustfmt --component clippy
@@ -266,7 +264,7 @@ jobs:
           mkdir -p target/coverage
           cargo llvm-cov --workspace --locked --lcov --output-path target/coverage/rust-lcov.info
       - name: Upload Rust coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: rust-coverage-lcov
           path: target/coverage/rust-lcov.info
@@ -278,35 +276,36 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.run_frontend == 'true' }}
     runs-on: ubuntu-latest
+    # CI validates the frontend build with a reserved non-production URL.
+    # The production deploy injects vars.NEXT_PUBLIC_BFF_URL from the
+    # GitHub Environment named "production".
     env:
-      NEXT_PUBLIC_BFF_URL: https://app-ingles.jnmtortas.com
+      NEXT_PUBLIC_BFF_URL: https://bff-ci.invalid
     defaults:
       run:
         working-directory: frontend
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Node.js 26 and pnpm 12
+        uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install locked dependencies
-        run: npm ci
+          version: 12.21.0
+          runtime: node@26.13.1
+          cache: true
+          install: false
+      - name: Install locked workspace dependencies
+        working-directory: .
+        run: pnpm install --frozen-lockfile
       - name: Lint
-        run: npm run lint
+        working-directory: .
+        run: pnpm --filter devfluency-frontend lint
       - name: Measure frontend logic coverage
-        run: |
-          node --experimental-test-coverage \
-            --experimental-loader ./tests/phase0/ts-path-loader.mjs \
-            --test-coverage-include='src/domain/**/*.ts' \
-            --test-coverage-include='src/application/**/*.ts' \
-            --test-coverage-include='src/infrastructure/**/*.ts' \
-            --test-coverage-include='src/shared/**/*.ts' \
-            --test tests/phase0/*.test.mjs
+        working-directory: .
+        run: pnpm --filter devfluency-node-workspace test:frontend:phase0
       - name: Build production bundle
-        run: npm run build
+        working-directory: .
+        run: pnpm --filter devfluency-frontend build
 
   rust-dependency-audit:
     name: Rust dependency vulnerability audit
@@ -315,7 +314,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install stable Rust
         run: rustup toolchain install stable --profile minimal
       - name: Install cargo-audit
@@ -343,16 +342,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Node.js 26 and pnpm 12
+        uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Audit frontend dependencies
-        working-directory: frontend
-        run: npm ci && npm audit --audit-level=high
+          version: 12.21.0
+          runtime: node@26.13.1
+          cache: true
+          install: false
+      - name: Install locked workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Audit workspace dependencies
+        run: pnpm audit --audit-level=high
 
   shell-validation:
     name: Deployment scripts and shell validation
@@ -361,7 +362,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Validate shell scripts and deployment health checks
         run: |
           set -euo pipefail
@@ -382,13 +383,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+      - name: Set up Node.js 26 and pnpm 12
+        uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
-          node-version: 24
+          version: 12.21.0
+          runtime: node@26.13.1
+          cache: true
+          install: false
       - name: Lint only changed Markdown files
         env:
           BASE_SHA: ${{ needs.changes.outputs.base_sha }}
@@ -410,7 +414,7 @@ jobs:
           fi
 
           git diff --check "$BASE_SHA" "$HEAD_SHA" -- "${markdown_files[@]}"
-          npx --yes markdownlint-cli2@0.24.0 --config .github/markdownlint-cli2.jsonc "${markdown_files[@]}"
+          pnpm dlx markdownlint-cli2@0.24.0 --config .github/markdownlint-cli2.jsonc "${markdown_files[@]}"
 
   ci-result:
     name: CI result

@@ -11,3 +11,11 @@
 # Operating system files
 .DS_Store
 Thumbs.db
+
+# Node.js / pnpm workspace outputs
+/node_modules/
+/**/node_modules/
+/.pnpm-store/
+/frontend/.next/
+/frontend/out/
+/frontend/build/

@@ -11,8 +11,12 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y --no-install-recommends ca-certificates curl tar
 
-if ! command -v node >/dev/null 2>&1 || [[ "$(node -p 'Number(process.versions.node.split(".")[0])')" -lt 24 ]]; then
-  curl -fsSL https://deb.nodesource.com/setup_24.x -o /tmp/nodesource_setup.sh
+NODE_REQUIRED_VERSION="26.13.1"
+INSTALLED_NODE_VERSION="$(node -p 'process.versions.node' 2>/dev/null || true)"
+if [[ -z "$INSTALLED_NODE_VERSION" ]] ||
+   [[ ! "$INSTALLED_NODE_VERSION" =~ ^26\. ]] ||
+   ! dpkg --compare-versions "$INSTALLED_NODE_VERSION" ge "$NODE_REQUIRED_VERSION"; then
+  curl -fsSL https://deb.nodesource.com/setup_26.x -o /tmp/nodesource_setup.sh
   bash /tmp/nodesource_setup.sh
   apt-get install -y nodejs
   rm -f /tmp/nodesource_setup.sh
@@ -53,7 +57,7 @@ AWS_REGION=us-east-1
 AWS_BEDROCK_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
 AWS_POLLY_VOICE_ID=Matthew
 AWS_TRANSCRIBE_LANGUAGE_CODE=en-US
-CORS_ALLOWED_ORIGINS=https://app-ingles.jnmtortas.com
+CORS_ALLOWED_ORIGINS=https://ingles.vegtrixgroup.com
 BFF_HTTP_BIND_ADDR=127.0.0.1:8080
 AUTH_SERVICE_BIND_ADDR=127.0.0.1:50051
 CONTENT_SERVICE_BIND_ADDR=127.0.0.1:50052
@@ -134,9 +138,9 @@ chmod 0640 "$APP_CONFIG/plataforma-aprendizaje.env"
 
 # Keep the production browser origin explicit on both fresh and existing VMs.
 if grep -q '^CORS_ALLOWED_ORIGINS=' "$APP_CONFIG/plataforma-aprendizaje.env"; then
-  sed -i 's|^CORS_ALLOWED_ORIGINS=.*$|CORS_ALLOWED_ORIGINS=https://app-ingles.jnmtortas.com|' "$APP_CONFIG/plataforma-aprendizaje.env"
+  sed -i 's|^CORS_ALLOWED_ORIGINS=.*$|CORS_ALLOWED_ORIGINS=https://ingles.vegtrixgroup.com|' "$APP_CONFIG/plataforma-aprendizaje.env"
 else
-  printf '%s\n' 'CORS_ALLOWED_ORIGINS=https://app-ingles.jnmtortas.com' >> "$APP_CONFIG/plataforma-aprendizaje.env"
+  printf '%s\n' 'CORS_ALLOWED_ORIGINS=https://ingles.vegtrixgroup.com' >> "$APP_CONFIG/plataforma-aprendizaje.env"
 fi
 chown root:devfluency "$APP_CONFIG/plataforma-aprendizaje.env"
 chmod 0640 "$APP_CONFIG/plataforma-aprendizaje.env"
@@ -155,6 +159,6 @@ install -m 0644 "$(dirname "$0")/systemd/devfluency-frontend.service" /etc/syste
 systemctl daemon-reload
 systemctl enable devfluency.target devfluency-frontend.service
 
-echo "Platform application systemd and Node.js configured."
+echo "Platform application systemd and Node.js 26 LTS configured."
 echo "Verify DATABASE_URL and JWT_SECRET in $APP_CONFIG/plataforma-aprendizaje.env before first deployment."
 echo "Configure TTS_PROVIDER and provider credentials only in $AUDIO_CONFIG."

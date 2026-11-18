@@ -3,6 +3,19 @@
 
 echo "🚀 Iniciando importación de vocabulario..."
 
+set -euo pipefail
+: "${DATABASE_URL:?DATABASE_URL debe configurarse en el entorno; no se usan credenciales predeterminadas.}"
+
+if ! command -v pnpm >/dev/null 2>&1; then
+    echo "❌ pnpm 12.21.0 no está instalado." >&2
+    exit 1
+fi
+if [[ ! -f pnpm-lock.yaml ]]; then
+    echo "❌ Falta pnpm-lock.yaml; instala el workspace antes de importar." >&2
+    exit 1
+fi
+pnpm install --frozen-lockfile
+
 DATA_DIR="crates/content-vocabulary-service/data"
 
 if [ ! -d "$DATA_DIR" ]; then
@@ -30,7 +43,7 @@ const { Client } = require('pg');
 
 async function migrate() {
     const client = new Client({
-        connectionString: process.env.DATABASE_URL || 'postgres://postgres:Kevins1612522026@127.0.0.1:5432/devfluency_db'
+        connectionString: process.env.DATABASE_URL
     });
     await client.connect();
 
@@ -65,7 +78,7 @@ async function seed() {
     const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
 
     const client = new Client({
-        connectionString: process.env.DATABASE_URL || 'postgres://postgres:Kevins1612522026@127.0.0.1:5432/devfluency_db'
+        connectionString: process.env.DATABASE_URL
     });
 
     await client.connect();
@@ -148,11 +161,7 @@ async function seed() {
 seed();
 EOF
 
-# Ejecutar el script usando node (instalando pg localmente si no existe)
-if [ ! -d "node_modules/pg" ]; then
-    echo "📦 Instalando dependencia de Postgres para Node.js (pg)..."
-    npm install pg --no-save > /dev/null 2>&1
-fi
+# pg está declarado en el package.json raíz y gestionado por pnpm.
 
 for FILE in $DATA_DIR/*.json; do
     echo "▶️ Procesando: $FILE..."

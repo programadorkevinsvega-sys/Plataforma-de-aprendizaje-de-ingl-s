@@ -330,14 +330,19 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 
 ### Subfase 1.2. Modelo y migraciones
 
-- [ ] Diseñar entidades académicas y relaciones.
-- [ ] Crear migraciones aditivas y compatibles.
-- [ ] Versionar cursos y contenido publicado.
-- [ ] Agregar estados draft, review, published y archived.
-- [ ] Agregar metadatos de nivel, tema, competencia, objetivo y prerequisito.
-- [ ] Crear índices según patrones de consulta medidos.
-- [ ] Aplicar RLS a datos personales y políticas adecuadas a contenido público.
-- [ ] Crear pruebas de migración desde una base vacía y desde la versión actualmente desplegada.
+- [x] Diseñar entidades académicas y relaciones en el modelo de persistencia.
+- [x] Crear una migración aditiva y compatible sin alterar las tablas actuales.
+- [x] Versionar cursos y contenido publicado con inscripción fijada a CourseVersion.
+- [x] Agregar estados draft, review, published y archived con transiciones/inmutabilidad.
+- [x] Agregar metadatos de nivel, tema, competencia, objetivo y prerequisito.
+- [x] Crear índices iniciales de integridad y acceso para las consultas previstas.
+- [ ] Medir planes de consulta y ajustar índices no únicos con datos representativos en staging.
+- [x] Aplicar RLS forzado a matrículas y políticas de lectura de contenido publicado/edición.
+- [x] Crear pruebas automatizadas desde base vacía y desde la secuencia de migraciones actualmente versionada.
+
+**Entregable:** [Modelo de dominio y persistencia de Fase 1.2](../curriculum/phase-1.2-domain-persistence-model.md) y migración `20261117000000_curriculum_catalog.sql`.
+
+**Pendientes de evidencia operativa:** medir EXPLAIN/índices con carga representativa y ejecutar la migración contra un backup restaurado de la base desplegada antes de habilitarla en producción.
 
 ### Subfase 1.3. Gestión y validación de contenido
 

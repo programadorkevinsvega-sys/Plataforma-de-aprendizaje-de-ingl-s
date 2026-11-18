@@ -69,7 +69,7 @@ jobs:
           echo "Manual retry will reuse successful CI run $ci_run_id for $RELEASE_SHA."
 
       - name: Download change classification from the exact successful CI run
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ci-change-metadata
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -121,7 +121,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout exact commit validated by CI
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.event.inputs.release_sha || github.sha }}
 
@@ -152,12 +152,14 @@ jobs:
       - name: Build all Rust production executables
         run: cargo build --workspace --release --locked
 
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+      - name: Set up Node.js 26 and pnpm 12
+        uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          version: 12.21.0
+          runtime: node@26.13.1
+          cache: true
+          install: false
+
 
       - name: Build standalone frontend
         working-directory: frontend
@@ -166,16 +168,42 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "${NEXT_PUBLIC_BFF_URL:-}" ]]; then
-            echo "::error::Configure the repository variable NEXT_PUBLIC_BFF_URL=https://app-ingles.jnmtortas.com before building the production frontend."
+            echo "::error::Set NEXT_PUBLIC_BFF_URL in Settings > Environments > production > Environment variables."
             exit 1
           fi
-          if [[ "$NEXT_PUBLIC_BFF_URL" != "https://app-ingles.jnmtortas.com" ]]; then
-            echo "::error::NEXT_PUBLIC_BFF_URL must match the production application origin."
+
+          # Validate the configured production host without pinning an obsolete domain.
+          if ! BFF_ORIGIN="$(
+            node - "$NEXT_PUBLIC_BFF_URL" <<'NODE'
+          const raw = process.argv[2];
+          let url;
+          try {
+            url = new URL(raw);
+          } catch {
+            console.error("NEXT_PUBLIC_BFF_URL must be a valid HTTPS origin.");
+            process.exit(1);
+          }
+          if (
+            url.protocol !== "https:" ||
+            !url.hostname ||
+            url.username ||
+            url.password ||
+            (url.pathname !== "/" && url.pathname !== "") ||
+            url.search ||
+            url.hash
+          ) {
+            console.error("NEXT_PUBLIC_BFF_URL must be an HTTPS origin without credentials, path, query, or fragment.");
+            process.exit(1);
+          }
+          process.stdout.write(url.origin);
+          NODE
+          )"; then
             exit 1
           fi
-          printf 'NEXT_PUBLIC_BFF_URL=%s\n' "$NEXT_PUBLIC_BFF_URL" > .env.production
-          npm ci
-          npm run build
+
+          printf '%s' "NEXT_PUBLIC_BFF_URL=$BFF_ORIGIN" > .env.production
+          pnpm install --frozen-lockfile
+          pnpm --filter devfluency-frontend build
           if grep -R -n -F 'http://localhost:8080' .next/static .next/server; then
             echo "::error::The production frontend bundle still contains the localhost BFF URL; offending files and lines are listed above."
             exit 1
@@ -202,7 +230,7 @@ jobs:
           echo "Deployment package SHA-256: $(cat devfluency-deploy-package.tar.gz.sha256)"
 
       - name: Upload deployment package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: devfluency-release
           path: |
@@ -219,7 +247,7 @@ jobs:
     environment: production
     steps:
       - name: Download deployment package
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: devfluency-release
 
@@ -230,14 +258,21 @@ jobs:
           [[ "$expected" =~ ^[0-9a-f]{64}$ ]]
           printf '%s  %s\n' "$expected" "devfluency-deploy-package.tar.gz" | sha256sum --check
 
-      - name: Validate Tailscale credential is configured
+      - name: Validate production deployment credentials
         env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
           TAILSCALE_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY }}
         run: |
-          if [[ -z "$TAILSCALE_AUTHKEY" ]]; then
-            echo "::error::TAILSCALE_AUTHKEY is empty or unavailable to the production environment. Configure it under Settings > Environments > production > Environment secrets."
-            exit 1
-          fi
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS TAILSCALE_AUTHKEY; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::$name is unavailable. It may be a Repository secret or a production Environment secret; check that an empty Environment secret is not overriding it."
+              exit 1
+            fi
+          done
 
       - name: Connect runner to private tailnet
         uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c

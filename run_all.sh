@@ -86,6 +86,17 @@ fi
 
 echo "📦 Binarios ejecutables localizados en: $BIN_DIR"
 
+# Instalar dependencias Node bloqueadas del workspace pnpm (pg + frontend)
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "❌ pnpm 12.21.0 no está instalado."
+  exit 1
+fi
+if [[ ! -f "$SCRIPT_DIR/pnpm-lock.yaml" ]]; then
+  echo "❌ Falta pnpm-lock.yaml; instala y valida el workspace antes de iniciar."
+  exit 1
+fi
+pnpm install --frozen-lockfile
+
 # 2.5 Ejecutar Migraciones SQL de PostgreSQL
 echo ""
 echo "⚙️ [Pass 1/3] Ejecutando Migraciones SQL en PostgreSQL..."
@@ -159,20 +170,11 @@ echo "  7. BFF Gateway HTTP (Puerto 8080)"
 PIDS+=($!)
 wait_for_port 8080 "BFF Gateway HTTP"
 
-# 4. Iniciar Frontend
+# 4. Iniciar Frontend usando el binario resuelto por el workspace pnpm
 echo ""
 echo "🎨 [Pass 3/3] Iniciando Frontend Web..."
-cd "$SCRIPT_DIR/frontend"
-
-if command -v bun &> /dev/null; then
-  echo "⚡ Ejecutando Frontend en puerto 3000..."
-  (bun run start -p 3000 2>&1 | sed -u 's/^/[FRONTEND] /') &
-  PIDS+=($!)
-else
-  echo "🌐 Ejecutando Frontend en puerto 3000..."
-  (./node_modules/.bin/next start -p 3000 2>&1 | sed -u 's/^/[FRONTEND] /') &
-  PIDS+=($!)
-fi
+(pnpm --filter devfluency-frontend exec next start -p 3000 2>&1 | sed -u 's/^/[FRONTEND] /') &
+PIDS+=($!)
 
 cd "$SCRIPT_DIR"
 
