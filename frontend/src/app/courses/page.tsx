@@ -191,12 +191,15 @@ export default function CoursesPage() {
                   <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
                     <span className="text-xs text-slate-500">
                       Versión {course.versionNumber}
+                      {course.status === 'archived' && (
+                        <span className="ml-2 text-amber-300">· Archivada</span>
+                      )}
                       {course.enrolled && (
                         <span className="ml-2 text-emerald-300">• Matriculado</span>
                       )}
                     </span>
                     <Link
-                      href={`/courses/${encodeURIComponent(course.slug)}/${course.cefrLevel}`}
+                      href={`/courses/${encodeURIComponent(course.courseVersionId)}`}
                       className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 text-xs font-extrabold text-slate-950 transition-colors hover:bg-cyan-300"
                     >
                       Ver ruta
