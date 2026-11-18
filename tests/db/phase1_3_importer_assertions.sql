@@ -54,6 +54,19 @@ BEGIN
         RAISE EXCEPTION 'package import ledger must preserve explicit content schema version presence';
     END IF;
 
+    IF to_regclass('public.content_editors') IS NULL THEN
+        RAISE EXCEPTION 'content_editors registry is missing';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM pg_proc
+         WHERE oid = 'public.app_is_content_editor()'::REGPROCEDURE
+           AND prosecdef = TRUE
+    ) THEN
+        RAISE EXCEPTION 'app_is_content_editor must safely verify the registered editor identity';
+    END IF;
+
     SELECT qual
       INTO course_policy
       FROM pg_policies
