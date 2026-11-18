@@ -94,7 +94,7 @@ BEGIN
           INTO child_policy
           FROM pg_policies
          WHERE schemaname = 'public'
-           AND tablename = table_name
+           AND pg_policies.tablename = table_name
            AND policyname = table_name || '_published_or_enrolled_read';
 
         IF child_policy IS NULL
