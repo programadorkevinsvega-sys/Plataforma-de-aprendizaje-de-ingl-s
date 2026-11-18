@@ -343,8 +343,7 @@ impl ContentService for MyContentService {
         &self,
         request: Request<GetCurriculumCourseRequest>,
     ) -> Result<Response<GetCurriculumCourseResponse>, Status> {
-        let user_id =
-            common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let req = request.into_inner();
         if req.slug.is_empty()
             || req.slug.len() > 120
@@ -581,8 +580,7 @@ impl ContentService for MyContentService {
         &self,
         request: Request<EnrollInCourseRequest>,
     ) -> Result<Response<EnrollInCourseResponse>, Status> {
-        let user_id =
-            common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let course_version_id = Uuid::parse_str(&request.get_ref().course_version_id)
             .map_err(|_| Status::invalid_argument("course_version_id inválido"))?;
 
