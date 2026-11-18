@@ -311,12 +311,12 @@ fn curriculum_error(error: tonic::Status, operation: &'static str) -> (StatusCod
         tonic::Code::InvalidArgument => (
             StatusCode::BAD_REQUEST,
             "CURRICULUM_INVALID_REQUEST",
-            "La ruta o los datos de la solicitud no son válidos.",
+            error.message(),
         ),
         tonic::Code::FailedPrecondition | tonic::Code::AlreadyExists => (
             StatusCode::CONFLICT,
             "CURRICULUM_STATE_CONFLICT",
-            "La operación no es válida para el estado actual del contenido.",
+            error.message(),
         ),
         tonic::Code::NotFound => (
             StatusCode::NOT_FOUND,
