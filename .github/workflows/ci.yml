@@ -375,6 +375,7 @@ jobs:
           )
           bash deploy/tests/test-health-checks.sh
           bash deploy/tests/test-frontend-start.sh
+          bash deploy/tests/test-frontend-layout.sh
           python3 -m unittest discover -s tools/phase0/tests -p 'test_*.py' -v
 
   markdown:
