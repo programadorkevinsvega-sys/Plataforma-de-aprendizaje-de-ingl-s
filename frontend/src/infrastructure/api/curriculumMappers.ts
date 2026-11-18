@@ -2,6 +2,7 @@ import type {
   CourseEnrollment,
   CurriculumCourseDetail,
   CurriculumCourseSummary,
+  CurriculumLevel,
   CurriculumLesson,
   CurriculumObjective,
   CurriculumPrerequisite,
@@ -48,12 +49,17 @@ function mapTrack(value: string): CurriculumTrackCode {
   return value === 'technology' ? 'technology' : 'general'
 }
 
+function mapLevel(value: string): CurriculumLevel {
+  const levels: CurriculumLevel[] = ['PRE_A1', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2']
+  return levels.includes(value as CurriculumLevel) ? (value as CurriculumLevel) : 'PRE_A1'
+}
+
 export function toCurriculumCourseSummary(dto: Dto): CurriculumCourseSummary {
   return {
     courseVersionId: stringValue(dto, ['course_version_id', 'courseVersionId']),
     slug: stringValue(dto, ['slug']),
     trackCode: mapTrack(stringValue(dto, ['track_code', 'trackCode'])),
-    cefrLevel: stringValue(dto, ['cefr_level', 'cefrLevel'], 'PRE_A1') as import('@/domain/repositories/ICurriculumRepository').CurriculumCourseSummary['cefrLevel'],
+    cefrLevel: mapLevel(stringValue(dto, ['cefr_level', 'cefrLevel'], 'PRE_A1')),
     versionNumber: numberValue(dto, ['version_number', 'versionNumber']),
     title: stringValue(dto, ['title']),
     description: stringValue(dto, ['description']),
