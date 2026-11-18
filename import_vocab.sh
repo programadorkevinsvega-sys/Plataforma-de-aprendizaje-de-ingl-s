@@ -1,6 +1,23 @@
 #!/bin/bash
 # Script para importar Vocabulario JSON a la base de datos PostgreSQL
 
+# This legacy importer updates existing vocabulary and deletes/recreates context
+# sentences (including clearing their SRS progress). Keep it opt-in until the
+# transactional curriculum importer replaces it.
+if [[ "${1:-}" != "--allow-destructive-legacy-import" ]]; then
+    cat >&2 <<'NOTICE'
+ERROR: import_vocab.sh is a destructive legacy importer and is disabled by default.
+It can overwrite existing vocabulary and delete user SRS progress for affected sentences.
+Do not use it against production or a database containing learner history.
+To run it against a disposable database only, pass:
+  bash import_vocab.sh --allow-destructive-legacy-import
+The new curriculum package validator is tools/curriculum/validate_content_package.py.
+It validates packages offline; it does not import them into PostgreSQL.
+NOTICE
+    exit 2
+fi
+shift
+
 echo "🚀 Iniciando importación de vocabulario..."
 
 set -euo pipefail

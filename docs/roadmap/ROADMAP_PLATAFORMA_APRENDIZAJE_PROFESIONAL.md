@@ -346,6 +346,9 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 
 ### Subfase 1.3. Gestión y validación de contenido
 
+**Avance parcial (PR de Fase 1.3):** se incorpora el contrato canónico v1 de paquetes curriculares, JSON Schema, fixture reproducible y validador offline con pruebas semánticas de referencias internas, duplicados, competencias, prerequisitos y ciclos. El validador no accede a PostgreSQL ni importa datos. La subfase sigue abierta: faltan resolver referencias contra el catálogo real, construir el importador/exportador transaccional e idempotente, completar controles editoriales y validar traducciones/ejemplos/fonética del catálogo. La coherencia con ejercicios y respuestas se cerrará cuando exista el contrato de actividades de Fase 2. El importador legado queda protegido por opt-in explícito porque su comportamiento anterior podía borrar progreso SRS.
+
+
 - [ ] Crear un formato canónico de importación/exportación.
 - [ ] Validar estructura, campos requeridos, identificadores, referencias y duplicados.
 - [ ] Validar coherencia entre nivel, objetivo, ejercicio y respuesta.
