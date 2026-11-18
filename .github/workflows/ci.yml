@@ -307,6 +307,49 @@ jobs:
       - name: Build production bundle
         run: npm run build
 
+  node-stack-refresh:
+    name: Resolve latest Node workspace with pnpm
+    needs: changes
+    if: ${{ needs.changes.outputs.run_frontend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Set up Node.js LTS
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 26.13.1
+      - name: Install pinned pnpm release
+        run: |
+          npm install --global pnpm@12.21.0
+          node --version
+          pnpm --version
+      - name: Resolve latest stable workspace dependencies
+        run: |
+          set -euo pipefail
+          pnpm install --no-frozen-lockfile
+          pnpm update --latest
+          pnpm install --no-frozen-lockfile
+      - name: Validate updated frontend
+        run: |
+          set -euo pipefail
+          pnpm --filter devfluency-frontend lint
+          pnpm --filter devfluency-frontend build
+          pnpm --filter devfluency-node-workspace test:frontend:phase0
+      - name: Upload pnpm manifests and lockfile for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pnpm-node-stack
+          path: |
+            package.json
+            frontend/package.json
+            pnpm-lock.yaml
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Audit refreshed Node workspace dependencies
+        run: pnpm audit --audit-level=high
+
   rust-dependency-audit:
     name: Rust dependency vulnerability audit
     needs: changes
