@@ -65,25 +65,30 @@ pub async fn vocabulary_list_handler(
     let user_id = validate_token_from_headers(&headers, &mut state).await?;
     let mut client = state.content_client.clone();
 
-    let mut profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
-        user_id: user_id.clone(),
-    });
-    attach_bearer_metadata(&headers, &mut profile_req)?;
-    let user_level = state
-        .auth_client
-        .get_user_profile(profile_req)
-        .await
-        .map_err(|_| {
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(serde_json::json!({
-                    "message": "No se pudo recuperar el perfil autenticado.",
-                    "code": "PROFILE_UNAVAILABLE"
-                })),
-            )
-        })?
-        .into_inner()
-        .current_level;
+    let user_level = if query.level.is_none() {
+        let mut profile_req = tonic::Request::new(proto::auth::GetUserProfileRequest {
+            user_id: user_id.clone(),
+        });
+        attach_bearer_metadata(&headers, &mut profile_req)?;
+        let user_level = state
+            .auth_client
+            .get_user_profile(profile_req)
+            .await
+            .map_err(|_| {
+                (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    Json(serde_json::json!({
+                        "message": "No se pudo recuperar el perfil autenticado.",
+                        "code": "PROFILE_UNAVAILABLE"
+                    })),
+                )
+            })?
+            .into_inner()
+            .current_level;
+    
+    } else {
+        String::new()
+    };
 
     let page = query.page.unwrap_or(1);
     let page_size = query.page_size.unwrap_or(20);
