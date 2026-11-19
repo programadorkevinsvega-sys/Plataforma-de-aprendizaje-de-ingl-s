@@ -203,9 +203,10 @@ impl ContentService for MyContentService {
             String,
             Option<String>,
             Option<String>,
+            String,
         )> = sqlx::query_as(
             r#"SELECT id, english_text, spanish_phonetic, spanish_translation,
-                          audio_url, spanish_phonetic_natural
+                          audio_url, spanish_phonetic_natural, pronunciation_status
                      FROM context_sentences
                     WHERE word_id = $1 AND publication_status = 'published'
                     ORDER BY position NULLS LAST, created_at, id"#,
@@ -218,13 +219,14 @@ impl ContentService for MyContentService {
         let context_sentences = sentences
             .into_iter()
             .map(
-                |(sentence_id, english, slow, spanish, audio, natural)| ContextSentence {
+                |(sentence_id, english, slow, spanish, audio, natural, pronunciation_status)| ContextSentence {
                     id: sentence_id.to_string(),
                     english_text: english,
                     spanish_phonetic: slow.unwrap_or_default(),
                     spanish_translation: spanish,
                     audio_url: audio.unwrap_or_default(),
                     spanish_phonetic_natural: natural.unwrap_or_default(),
+                    pronunciation_status,
                 },
             )
             .collect();
@@ -395,9 +397,10 @@ impl ContentService for MyContentService {
                 String,
                 Option<String>,
                 Option<String>,
+                String,
             )> = sqlx::query_as(
                 r#"SELECT id, english_text, spanish_phonetic, spanish_translation,
-                          audio_url, spanish_phonetic_natural
+                          audio_url, spanish_phonetic_natural, pronunciation_status
                      FROM context_sentences
                     WHERE word_id = $1 AND publication_status = 'published'
                     ORDER BY position NULLS LAST, created_at, id"#,
@@ -410,13 +413,14 @@ impl ContentService for MyContentService {
             let context_sentences = sentences
                 .into_iter()
                 .map(
-                    |(sentence_id, english, slow, spanish, audio, natural)| ContextSentence {
+                    |(sentence_id, english, slow, spanish, audio, natural, pronunciation_status)| ContextSentence {
                         id: sentence_id.to_string(),
                         english_text: english,
                         spanish_phonetic: slow.unwrap_or_default(),
                         spanish_translation: spanish,
                         audio_url: audio.unwrap_or_default(),
                         spanish_phonetic_natural: natural.unwrap_or_default(),
+                    pronunciation_status,
                     },
                 )
                 .collect();
