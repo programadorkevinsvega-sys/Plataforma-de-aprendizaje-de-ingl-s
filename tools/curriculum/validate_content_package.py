@@ -147,9 +147,11 @@ def validate_package(data: Any) -> list[str]:
         _check_keys(
             metadata, "$/metadata", errors,
             required={"author", "authored_at", "source"},
-            allowed={"author", "authored_at", "source"},
+            allowed={"author", "authored_at", "source", "reference_catalog"},
         )
         _string(metadata, "author", "$/metadata", errors, max_length=160)
+        if "reference_catalog" in metadata:
+            _enum(metadata.get("reference_catalog"), {"devfluency.lexical-catalog.v2"}, "$/metadata/reference_catalog", errors)
         authored_at = _string(metadata, "authored_at", "$/metadata", errors)
         if authored_at:
             try:
