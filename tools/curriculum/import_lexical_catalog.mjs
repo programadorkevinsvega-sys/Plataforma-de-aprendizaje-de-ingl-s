@@ -264,7 +264,7 @@ export async function importLexicalCatalog(pool, catalog, contentSha256, { apply
        SELECT entry.source_key, $2, $3, entry.track, entry.cefr_level,
               entry.skill, entry.title, entry.topic, entry.content,
               entry.word_count, entry.sentence_count, entry.estimated_minutes,
-              entry.difficulty_profile, entry.comprehension_focus,
+              entry.difficulty_profile, entry.comprehension_focus, entry.questions,
               entry.lexical_tags, entry.transcript_available, entry.audio_metadata,
               entry.editorial_status, 'draft', entry.provenance
          FROM jsonb_to_recordset($1::jsonb) AS entry(

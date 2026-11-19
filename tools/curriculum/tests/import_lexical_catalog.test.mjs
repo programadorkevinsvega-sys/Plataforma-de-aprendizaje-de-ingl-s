@@ -75,7 +75,7 @@ if (!pool) {
           (SELECT count(*)::int FROM context_sentences WHERE source_catalog = $1) AS examples,
           (SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1) AS resources,
           (SELECT COALESCE(sum(jsonb_array_length(questions)), 0)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1) AS questions,
-          (SELECT count(*)::int FROM curriculum_comprehension_resources resource CROSS JOIN LATERAL jsonb_array_elements(resource.questions) question WHERE resource.source_catalog = $1 AND question ->> 'editorial_status' = 'pending_human_review') AS pending_questions,
+          (SELECT count(*)::int FROM curriculum_comprehension_resources resource CROSS JOIN LATERAL jsonb_array_elements(resource.questions) AS question(value) WHERE resource.source_catalog = $1 AND question.value ->> 'editorial_status' = 'pending_human_review') AS pending_questions,
           (SELECT count(*)::int FROM vocabulary_words WHERE source_catalog = $1 AND publication_status = 'draft') AS draft_items,
           (SELECT count(*)::int FROM vocabulary_words WHERE source_catalog = $1 AND publication_status = 'published') AS published_items,
           (SELECT count(*)::int FROM context_sentences WHERE source_catalog = $1 AND publication_status = 'published') AS published_examples,
@@ -91,6 +91,34 @@ if (!pool) {
     assert.equal(counts.rows[0].published_items, 0);
     assert.equal(counts.rows[0].published_examples, 0);
     assert.equal(counts.rows[0].published_resources, 0);
+
+    const listeningPayloadSourceKey = `v2:resource:${catalog.comprehension_resources.find((resource) => resource.skill === 'listening').id}`;
+    const studentPayload = await pool.query(
+      `SELECT
+          CASE WHEN skill = 'listening' AND NOT transcript_available THEN '' ELSE content END AS student_content,
+          COALESCE((
+            SELECT jsonb_agg(
+              question.value - ARRAY['correct_option_id', 'rationale', 'evidence', 'editorial_status']
+              ORDER BY question.ordinality
+            )
+            FROM jsonb_array_elements(questions) WITH ORDINALITY AS question(value, ordinality)
+          ), '[]'::jsonb)::text AS questions_json
+         FROM curriculum_comprehension_resources
+        WHERE source_key = $1 AND publication_status = 'draft'`,
+      [listeningPayloadSourceKey],
+    );
+    assert.equal(studentPayload.rowCount, 1);
+    assert.equal(studentPayload.rows[0].student_content, '');
+    const publicQuestions = JSON.parse(studentPayload.rows[0].questions_json);
+    assert.equal(publicQuestions.length, 2);
+    for (const question of publicQuestions) {
+      assert.ok(question.prompt);
+      assert.ok(Array.isArray(question.options));
+      assert.equal('correct_option_id' in question, false);
+      assert.equal('rationale' in question, false);
+      assert.equal('evidence' in question, false);
+      assert.equal('editorial_status' in question, false);
+    }
 
     const client = await pool.connect();
     const firstSourceKey = `v2:item:${catalog.lexical_items[0].id}`;
