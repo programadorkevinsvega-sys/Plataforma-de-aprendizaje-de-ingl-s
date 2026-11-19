@@ -1,78 +1,400 @@
 @import "tailwindcss";
 
+:root {
+  color-scheme: light;
+  --fl-bg: #f5f4ed;
+  --fl-surface: #ffffff;
+  --fl-border: #e8e6dc;
+  --fl-text: #242a31;
+  --fl-muted: #737a80;
+  --fl-green: #187b57;
+  --fl-green-dark: #126746;
+  --fl-green-soft: #e4f2e9;
+  --fl-cream: #f1efe4;
+  --fl-navy: #1e2635;
+}
+
 @layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
   body {
-    background-color: #0b0d13;
-    color: #eef1f7;
-    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    min-height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--fl-bg);
+    color: var(--fl-text);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
   }
 }
 
-.glass-panel {
-  background-color: rgba(20, 23, 34, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+/* Fluenta: navegación superior del diseño de referencia. */
+.fl-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.97);
+  border-bottom: 1px solid var(--fl-border);
+  box-shadow: 0 2px 10px rgba(30, 38, 53, 0.035);
 }
 
-.btn-primary {
-  background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
-  color: #04121a;
-  font-weight: 800;
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.875rem;
-  box-shadow: 0 0 20px rgba(0, 242, 254, 0.35);
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  display: inline-block;
+.fl-navbar-inner {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  width: min(calc(100% - 48px), 1440px);
+  min-height: 62px;
+  margin-inline: auto;
+}
+
+.fl-brand {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  color: var(--fl-green);
+  text-decoration: none;
+}
+
+.fl-brand-mark {
+  display: none;
+}
+
+.fl-brand-name {
+  color: var(--fl-green);
+  font-size: 19px;
+  font-weight: 850;
+  letter-spacing: -0.045em;
+}
+
+.fl-nav-links {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.fl-nav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  color: #58615e;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.fl-nav-link:hover {
+  background: #f2f5f0;
+  color: var(--fl-green-dark);
+}
+
+.fl-nav-link.is-active {
+  background: var(--fl-green-soft);
+  color: var(--fl-green-dark);
+}
+
+.fl-user-tools {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.fl-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.fl-chip-streak {
+  background: #fff2df;
+  color: #94601d;
+}
+
+.fl-chip-xp {
+  background: #e5f3e9;
+  color: #176747;
+}
+
+.fl-chip-coins {
+  background: #edf1fb;
+  color: #435f9a;
+}
+
+.fl-user-name {
+  color: var(--fl-muted);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fl-logout {
+  padding: 5px 8px;
+  border: 1px solid var(--fl-border);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #68716d;
+  font-size: 10px;
+  font-weight: 650;
   cursor: pointer;
-  border: none;
+}
+
+.fl-logout:hover {
+  border-color: #bad8c7;
+  color: var(--fl-green-dark);
+}
+
+.fl-navbar + main {
+  width: min(calc(100% - 48px), 1360px);
+  margin-inline: auto;
+  padding: 28px 0 48px;
+}
+
+.fl-navbar + main h1.text-3xl {
+  font-size: clamp(1.4rem, 2vw, 1.65rem);
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+.fl-navbar + main input:not([type="checkbox"]),
+.fl-navbar + main select,
+.fl-navbar + main textarea {
+  min-height: 42px;
+  border-color: var(--fl-border);
+  border-radius: 11px;
+  background: #ffffff;
+  color: var(--fl-text);
+  outline: none;
+}
+
+.fl-navbar + main input:not([type="checkbox"]):focus,
+.fl-navbar + main select:focus,
+.fl-navbar + main textarea:focus {
+  border-color: #8cbda2;
+  box-shadow: 0 0 0 3px rgba(24, 123, 87, 0.1);
+}
+
+.fl-navbar + main input::placeholder,
+.fl-navbar + main textarea::placeholder {
+  color: #929994;
+}
+
+/* Tarjetas y controles: superficies claras, bordes suaves y verde Fluenta. */
+.glass-panel {
+  border: 1px solid var(--fl-border);
+  background: var(--fl-surface);
+  color: var(--fl-text);
+  box-shadow: 0 2px 9px rgba(36, 42, 49, 0.035);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.btn-primary,
+a.btn-primary,
+button.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--fl-green);
+  border-radius: 11px;
+  background: var(--fl-green);
+  padding: 0.72rem 1.25rem;
+  color: #ffffff !important;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.2;
+  text-decoration: none;
+  box-shadow: none;
+  transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
 
 .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 0 30px rgba(0, 242, 254, 0.6);
-  filter: brightness(1.1);
+  transform: translateY(-1px);
+  border-color: var(--fl-green-dark);
+  background: var(--fl-green-dark);
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(18, 103, 70, 0.14);
+  filter: none;
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, #00f2fe 0%, #8b5cf6 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  background: none;
+  color: var(--fl-green);
+  -webkit-text-fill-color: currentColor;
 }
 
-.fl-feature-panel {
-  background: #1d2430 !important;
-  color: #ffffff !important;
+/* Neutraliza las utilidades del antiguo tema oscuro que siguen en algunas páginas. */
+.fl-navbar + main [class*="text-slate-50"],
+.fl-navbar + main [class*="text-slate-100"],
+.fl-navbar + main [class*="text-slate-200"],
+.fl-navbar + main [class*="text-slate-300"] {
+  color: var(--fl-text) !important;
 }
-.fl-feature-panel h2,
-.fl-feature-panel .text-white {
-  color: #ffffff !important;
+
+.fl-navbar + main [class*="text-slate-400"],
+.fl-navbar + main [class*="text-slate-500"],
+.fl-navbar + main [class*="text-slate-600"] {
+  color: var(--fl-muted) !important;
 }
-.fl-feature-panel .text-emerald-200 {
-  color: #b9e5c9 !important;
+
+.fl-navbar + main [class*="text-cyan-"],
+.fl-navbar + main [class*="text-sky-"],
+.fl-navbar + main [class*="text-violet-"] {
+  color: var(--fl-green-dark) !important;
 }
-.fl-feature-panel .text-slate-200 {
-  color: #d5ddd8 !important;
+
+.fl-navbar + main [class*="text-white"] {
+  color: var(--fl-text) !important;
 }
-[class*="bg-slate-800"][class*="text-white"] {
-  background: #1d2430 !important;
+
+.fl-navbar + main [class*="bg-slate-950"],
+.fl-navbar + main [class*="bg-slate-900"],
+.fl-navbar + main [class*="bg-slate-700"],
+.fl-navbar + main [class*="bg-slate-600"],
+.fl-navbar + main [class*="bg-slate-800"]:not([class~="text-white"]) {
+  background-color: #f3f1e8 !important;
 }
-[class*="bg-slate-800"][class*="text-white"] .text-white {
+
+.fl-navbar + main [class*="border-white/"] {
+  border-color: var(--fl-border) !important;
+}
+
+.fl-navbar + main [class*="border-cyan-"],
+.fl-navbar + main [class*="border-sky-"],
+.fl-navbar + main [class*="border-violet-"] {
+  border-color: #cfe3d6 !important;
+}
+
+.fl-navbar + main [class*="bg-cyan-400"],
+.fl-navbar + main [class*="bg-sky-400"] {
+  background-color: var(--fl-green) !important;
+}
+
+/* La llamada a la acción oscura del dashboard sí forma parte del PDF. */
+.fl-navbar + main [class*="bg-slate-800"][class~="text-white"] {
+  border-color: var(--fl-navy) !important;
+  background: var(--fl-navy) !important;
   color: #ffffff !important;
 }
 
-/* Buttons and feature panels keep readable contrast on the light Fluenta palette. */
-.btn-primary,
-.btn-primary .text-white,
-a.btn-primary,
-button.btn-primary {
+.fl-navbar + main [class*="bg-slate-800"][class~="text-white"] [class*="text-white"] {
   color: #ffffff !important;
 }
-[class*="bg-slate-800"][class*="text-white"] {
-  background: #1d2430 !important;
-  color: #ffffff !important;
+
+.fl-navbar + main [class*="bg-slate-800"][class~="text-white"] [class*="text-slate-"],
+.fl-navbar + main [class*="bg-slate-800"][class~="text-white"] [class*="text-cyan-"],
+.fl-navbar + main [class*="bg-slate-800"][class~="text-white"] [class*="text-sky-"] {
+  color: #d7e5dc !important;
 }
-[class*="bg-slate-800"][class*="text-white"] .text-white {
-  color: #ffffff !important;
+
+.fl-empty-state {
+  display: flex;
+  min-height: 154px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+  text-align: center;
+}
+
+@media (max-width: 1100px) {
+  .fl-navbar-inner {
+    width: min(calc(100% - 28px), 1440px);
+    gap: 9px;
+  }
+
+  .fl-nav-link {
+    padding-inline: 6px;
+    font-size: 10px;
+  }
+
+  .fl-user-name,
+  .fl-logout {
+    display: none;
+  }
+
+  .fl-navbar + main {
+    width: min(calc(100% - 32px), 1360px);
+  }
+}
+
+@media (max-width: 760px) {
+  .fl-navbar-inner {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 10px 0 7px;
+  }
+
+  .fl-brand-name {
+    font-size: 18px;
+  }
+
+  .fl-nav-links {
+    order: 3;
+    flex: 0 0 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 3px;
+    scrollbar-width: thin;
+  }
+
+  .fl-nav-link {
+    flex: 0 0 auto;
+    padding-inline: 9px;
+    font-size: 11px;
+  }
+
+  .fl-user-tools {
+    gap: 5px;
+  }
+
+  .fl-chip {
+    padding-inline: 7px;
+    font-size: 9px;
+  }
+
+  .fl-navbar + main {
+    width: min(calc(100% - 28px), 1360px);
+    padding-top: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

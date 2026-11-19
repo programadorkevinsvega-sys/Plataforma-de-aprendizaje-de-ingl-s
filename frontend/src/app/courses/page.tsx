@@ -177,7 +177,7 @@ export default function CoursesPage() {
         )}
 
         {!isLoading && !error && courses.length === 0 && (
-          <div className="glass-panel rounded-2xl p-8 text-center">
+          <div className="glass-panel fl-empty-state rounded-2xl p-8 text-center">
             <h2 className="text-lg font-bold">No hay cursos publicados para estos filtros</h2>
             <p className="mt-2 text-sm">El catálogo muestra únicamente contenido curricular real que haya sido revisado y publicado.</p>
             {(search || track !== 'all' || level !== 'all') && <button onClick={resetFilters} className="btn-primary mt-4">Limpiar filtros</button>}
