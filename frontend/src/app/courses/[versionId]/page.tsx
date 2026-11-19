@@ -220,6 +220,15 @@ export default function CurriculumCoursePage() {
                 </div>
               </header>
 
+              <nav className="flex flex-wrap gap-3" aria-label="Herramientas de aprendizaje">
+                <Link href="/learn" className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-xs font-bold text-emerald-100 hover:bg-emerald-400/15">
+                  Practicar vocabulario y pronunciación →
+                </Link>
+                <Link href="/comprehension" className="rounded-xl border border-white/10 bg-slate-900/50 px-4 py-3 text-xs font-bold text-slate-200 hover:border-emerald-400/30">
+                  Abrir Reading y Listening →
+                </Link>
+              </nav>
+
               <section className="space-y-4" aria-label="Estructura del curso">
                 <div>
                   <h2 className="text-xl font-extrabold text-white">Contenido del curso</h2>
