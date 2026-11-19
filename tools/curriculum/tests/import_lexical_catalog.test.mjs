@@ -88,6 +88,80 @@ if (!pool) {
     assert.equal(counts.rows[0].published_examples, 0);
     assert.equal(counts.rows[0].published_resources, 0);
 
+    const client = await pool.connect();
+    const firstSourceKey = `v2:item:${catalog.lexical_items[0].id}`;
+    const listeningSourceKey = `v2:resource:${catalog.comprehension_resources.find((resource) => resource.skill === 'listening').id}`;
+    try {
+      await client.query('BEGIN');
+      await assert.rejects(
+        client.query(
+          "UPDATE vocabulary_words SET publication_status = 'review' WHERE source_key = $1",
+          [firstSourceKey],
+        ),
+        /registered content editor/,
+      );
+      await client.query('ROLLBACK');
+
+      await client.query('BEGIN');
+      await client.query("SELECT set_config('app.current_user_id', $1, true)", [editorId]);
+      await client.query(
+        "UPDATE vocabulary_words SET publication_status = 'review' WHERE source_key = $1",
+        [firstSourceKey],
+      );
+      await assert.rejects(
+        client.query(
+          `UPDATE vocabulary_words
+              SET publication_status = 'published',
+                  editorial_metadata = jsonb_set(editorial_metadata, '{editorial_status}', '"approved"'::jsonb, true),
+                  pronunciation_status = 'approved'
+            WHERE source_key = $1`,
+          [firstSourceKey],
+        ),
+        /both slow and natural guides/,
+      );
+      await client.query('ROLLBACK');
+
+      await client.query('BEGIN');
+      await client.query("SELECT set_config('app.current_user_id', $1, true)", [editorId]);
+      await client.query(
+        "UPDATE vocabulary_words SET publication_status = 'review' WHERE source_key = $1",
+        [firstSourceKey],
+      );
+      await client.query(
+        `UPDATE vocabulary_words
+            SET publication_status = 'published',
+                editorial_metadata = jsonb_set(editorial_metadata, '{editorial_status}', '"approved"'::jsonb, true),
+                pronunciation_status = 'not_required'
+          WHERE source_key = $1`,
+        [firstSourceKey],
+      );
+      await assert.rejects(
+        client.query(
+          "UPDATE vocabulary_words SET spanish_translation = 'mutated' WHERE source_key = $1",
+          [firstSourceKey],
+        ),
+        /immutable/,
+      );
+      await client.query('ROLLBACK');
+
+      await client.query('BEGIN');
+      await client.query("SELECT set_config('app.current_user_id', $1, true)", [editorId]);
+      await client.query(
+        "UPDATE curriculum_comprehension_resources SET publication_status = 'review', editorial_status = 'approved' WHERE source_key = $1",
+        [listeningSourceKey],
+      );
+      await assert.rejects(
+        client.query(
+          "UPDATE curriculum_comprehension_resources SET publication_status = 'published' WHERE source_key = $1",
+          [listeningSourceKey],
+        ),
+        /real approved audio asset/,
+      );
+      await client.query('ROLLBACK');
+    } finally {
+      client.release();
+    }
+
     const ledger = await pool.query(
       'SELECT lexical_items, examples, comprehension_resources, imported_by FROM lexical_catalog_imports WHERE catalog_key = $1 AND content_sha256 = $2',
       ['devfluency-lexical-catalog-v2', sha256],
