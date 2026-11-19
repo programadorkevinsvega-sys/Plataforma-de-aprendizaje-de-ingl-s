@@ -4,6 +4,9 @@ import type {
   Lesson,
   VocabularyQuery,
   SynthesizedSpeech,
+  VocabularyPage,
+  ComprehensionQuery,
+  ComprehensionPage,
 } from '@/domain/repositories/IContentRepository'
 
 export class GetVocabularyListUseCase {
@@ -15,6 +18,28 @@ export class GetVocabularyListUseCase {
     return words.filter((word) =>
       word.sentences.every((sentence) => sentence.isPedagogicallyValid),
     )
+  }
+}
+
+export class GetVocabularyPageUseCase {
+  constructor(private readonly contentRepository: IContentRepository) {}
+
+  async execute(query: VocabularyQuery = {}): Promise<VocabularyPage> {
+    const page = await this.contentRepository.getVocabularyPage(query)
+    return {
+      ...page,
+      items: page.items.filter((word) =>
+        word.sentences.every((sentence) => sentence.isPedagogicallyValid),
+      ),
+    }
+  }
+}
+
+export class GetComprehensionResourcesUseCase {
+  constructor(private readonly contentRepository: IContentRepository) {}
+
+  execute(query: ComprehensionQuery): Promise<ComprehensionPage> {
+    return this.contentRepository.getComprehensionResources(query)
   }
 }
 
