@@ -52,7 +52,8 @@ test("every course vocabulary and sentence reference resolves to exactly one can
     assert.equal(data.course.slug, "english-general");
     assert.equal(data.course.track_code, "general");
     assert.equal(data.version.cefr_level, entry.level);
-    assert.equal(data.version.content_schema_version, 2);
+    assert.equal(data.metadata.reference_catalog, "devfluency.lexical-catalog.v2");
+    assert.equal(Object.hasOwn(data.version, "content_schema_version"), false);
 
     for (const objective of data.objectives) {
       const vocabularyReferences = objective.vocabulary ?? [];
