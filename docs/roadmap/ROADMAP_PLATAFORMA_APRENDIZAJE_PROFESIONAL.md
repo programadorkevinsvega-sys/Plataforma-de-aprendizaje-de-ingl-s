@@ -342,7 +342,7 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 
 **Entregable:** [Modelo de dominio y persistencia de Fase 1.2](../curriculum/phase-1.2-domain-persistence-model.md) y migración `20261117000000_curriculum_catalog.sql`.
 
-**Pendientes de evidencia operativa:** medir EXPLAIN/índices con carga representativa y ejecutar la migración contra un backup restaurado de la base desplegada antes de habilitarla en producción.
+**Pendientes de evidencia operativa:** el esquema `20261117000000_curriculum_catalog.sql` ya está integrado y forma parte de las migraciones desplegadas. Sin embargo, no se debe inferir de ese despliegue que se ejecutaron las dos validaciones de staging/backup. La comprobación de planes requiere datos representativos en staging; la comprobación de migración requiere una copia aislada restaurada desde un backup anterior a Fase 1.2. Los procedimientos están en [Validación operativa de Fase 1.2](../curriculum/phase-1.2-operations-validation.md). Como la migración ya llegó a producción, el gate previo solo puede acreditarse retroactivamente si se conserva un backup pre-1.2; si no existe, debe registrarse explícitamente esa limitación. No marcar estos criterios como completados sin sus informes.
 
 ### Subfase 1.3. Gestión y validación de contenido
 
