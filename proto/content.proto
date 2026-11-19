@@ -33,6 +33,15 @@ message VocabularyWordResponse {
   string level = 6;
   repeated ContextSentence context_sentences = 7;
   string spanish_phonetic_natural = 8;
+  string definition_en = 9;
+  string lexical_type = 10;
+  repeated string tracks = 11;
+  string lexical_register = 12;
+  string editorial_priority = 13;
+  string usefulness = 14;
+  repeated string context_tags = 15;
+  string usage_mode = 16;
+  string pronunciation_status = 17;
 }
 
 message GetVocabularyWordRequest {
