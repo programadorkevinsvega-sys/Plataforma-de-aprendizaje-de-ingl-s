@@ -1,7 +1,7 @@
 # ROADMAP Y ARQUITECTURA ENTERPRISE — DEVFLUENCY
 
 > **Estado:** documento original sincronizado con la planificación vigente.
-> **Última sincronización:** 2026-11-18.
+> **Última sincronización:** 2026-11-19.
 > **Documento rector de ejecución:** [docs/roadmap/ROADMAP_PLATAFORMA_APRENDIZAJE_PROFESIONAL.md](docs/roadmap/ROADMAP_PLATAFORMA_APRENDIZAJE_PROFESIONAL.md).
 > **Documento complementario de arquitectura:** [DOCUMENTO_MAESTRO_ARQUITECTURA_DEVFLUENCY.md](DOCUMENTO_MAESTRO_ARQUITECTURA_DEVFLUENCY.md).
 
@@ -47,7 +47,7 @@ Los siguientes estados describen la evidencia de código y pruebas observada en 
 |---|---|---|---|
 | Workspace y servicios Rust | Implementado parcialmente | Workspace Cargo, BFF Axum, servicios Rust, contratos Protobuf/gRPC | La existencia y compilación de un servicio no prueban todos sus flujos operativos |
 | Autenticación | Implementado parcialmente | Argon2id, JWT configurado mediante JWT_SECRET, perfiles autenticados, refresh tokens persistidos con hash, rotación y revocación en código | La implementación actual usa el algoritmo predeterminado de jsonwebtoken con secreto simétrico; no describirla como Ed25519. La seguridad integral debe seguir verificándose |
-| Contenido | Implementado parcialmente | Servicio de vocabulario, semillas A0 y A1, frases de contexto y campos fonéticos | Hay 322 entradas A0 y 469 A1 en las semillas revisadas; no existe todavía el catálogo curricular completo de 5.000–8.000 términos ni todas las rutas A2–C2 |
+| Contenido | Implementado parcialmente | Catálogo léxico v2 en PR #90: 790 unidades, 26 categorías, 2.201 ejemplos y 26 recursos de comprensión; migración PostgreSQL, importador transaccional y RPC de recursos publicados en la rama de trabajo | PR #90 sigue abierta; 790 unidades y 2.201 ejemplos requieren curación humana, faltan rangos de corpus verificables, pronunciaciones aprobadas, expansión A2–C2 y 13 audios reales. Las filas heredadas quedan ocultas hasta revisión/publicación |
 | Sistema Dual de Pronunciación | Implementado parcialmente | Pantalla /learn, campos spanish_phonetic y spanish_phonetic_natural, controles de escucha lenta y natural, TTS configurable | El generador actual produce el mismo texto para los campos lento/natural; el contenido sembrado puede diferir, pero requiere validación editorial y fonética. La práctica no es una evaluación |
 | TTS | Implementado en su flujo actual | phonetic-audio-service, selector TTS_PROVIDER con AWS Polly y Cloudflare Workers AI/Aura-2 | El proveedor se carga al iniciar y no existe fallback automático. Su selección es independiente de la IA conversacional |
 | STT | Implementado en su flujo actual | AWS Transcribe Streaming mediante WebSocket | La transcripción es texto reconocido; no equivale a análisis acústico de pronunciación |
@@ -98,7 +98,7 @@ La secuencia de abajo resume el roadmap rector. Los checklists completos, entreg
 | Fase vigente | Resultado que debe producir | Estado observado |
 |---|---|---|
 | 0. Descubrimiento, inventario y diseño técnico | Línea base funcional/técnica, ADR, trazabilidad, calidad y riesgos | Parcial: existe inventario y auditoría inicial; falta completar la matriz integral y las decisiones aprobadas |
-| 1. Currículo, contenido y catálogo académico | Rutas general y tecnológica, niveles Pre-A1/A0–C1 y extensión C2, contenido validado y versionado | En curso: 1.3 completada e integrada; 1.5 tiene catálogo estudiantil, paginación/filtros, progreso por evidencia y flujo editorial web en implementación; curación 1.4, edición de borradores existente y carga/publicación de contenido real siguen pendientes |
+| 1. Currículo, contenido y catálogo académico | Rutas general y tecnológica, niveles Pre-A1/A0–C1 y extensión C2, contenido validado y versionado | En curso: 1.3 completada; 1.4 tiene base técnica v2 en PR #90 (no fusionada), con importación y lectura gRPC de recursos publicados; curación lingüística, cobertura de vocabulario, frecuencias, audios y verificación en staging siguen pendientes; 1.5 conserva pendientes de editor visual e integración completa |
 | 2. Motor de lecciones y ejercicios | Contrato reutilizable, familias de ejercicios, feedback y Sistema Dual de Pronunciación integrado | Parcial: hay flujos actuales de vocabulario, audio y entrevista; falta el motor general y completar la validación del Sistema Dual |
 | 3. Diagnóstico, evaluación académica y dominio | Diagnóstico y dominio por competencia, con modalidades escrita y hablada separadas | Parcial con brecha crítica: el evaluador actual puntúa texto con seis métricas; no implementa aún las dos modalidades ni evidencia acústica real |
 | 4. Repetición espaciada y memoria | Repaso vinculado al currículo y retención demostrable | Parcial: SM-2 y revisiones existen; falta integración y medición académica |
