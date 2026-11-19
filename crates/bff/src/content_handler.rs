@@ -70,7 +70,7 @@ pub async fn vocabulary_list_handler(
             user_id: user_id.clone(),
         });
         attach_bearer_metadata(&headers, &mut profile_req)?;
-        let user_level = state
+        state
             .auth_client
             .get_user_profile(profile_req)
             .await
@@ -84,8 +84,7 @@ pub async fn vocabulary_list_handler(
                 )
             })?
             .into_inner()
-            .current_level;
-    
+            .current_level
     } else {
         String::new()
     };
