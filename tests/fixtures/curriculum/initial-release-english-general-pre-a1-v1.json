@@ -1,0 +1,416 @@
+{
+  "format": "devfluency.curriculum-content",
+  "schema_version": 1,
+  "metadata": {
+    "author": "DevFluency curriculum team",
+    "authored_at": "2026-11-19",
+    "source": {
+      "name": "Original DevFluency General English curriculum",
+      "url": null,
+      "license": "original"
+    }
+  },
+  "course": {
+    "slug": "english-general",
+    "track_code": "general"
+  },
+  "version": {
+    "version_number": 1,
+    "cefr_level": "PRE_A1",
+    "title": "English General — Pre-A1: First steps",
+    "description": "A beginner course for first contact, personal introductions, simple descriptions and everyday actions. Lessons build from short, highly familiar language to simple personal statements.",
+    "locale": "en"
+  },
+  "units": [
+    {
+      "code": "greetings-and-first-contacts",
+      "position": 1,
+      "title": "Greetings and first contacts",
+      "theme": "Social communication",
+      "description": "Recognise everyday greetings, respond politely and share basic personal information.",
+      "estimated_minutes": 24,
+      "lessons": [
+        {
+          "code": "recognise-greetings-and-courtesy",
+          "position": 1,
+          "pattern": "discover",
+          "title": "Greetings and polite words",
+          "description": "Recognise short greetings, farewells and common polite responses.",
+          "estimated_minutes": 12,
+          "objective_codes": [
+            "recognise-greetings-and-courtesy"
+          ],
+          "prerequisites": []
+        },
+        {
+          "code": "say-your-name",
+          "position": 2,
+          "pattern": "practice",
+          "title": "Say your name",
+          "description": "Introduce yourself with a greeting and a simple name statement.",
+          "estimated_minutes": 12,
+          "objective_codes": [
+            "introduce-yourself"
+          ],
+          "prerequisites": [
+            {
+              "lesson_code": "recognise-greetings-and-courtesy",
+              "required_state": "completed",
+              "minimum_mastery_score": 0.8
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "people-and-simple-descriptions",
+      "position": 2,
+      "title": "People and simple descriptions",
+      "theme": "People and descriptions",
+      "description": "Use familiar words to identify people and give a simple personal description.",
+      "estimated_minutes": 12,
+      "lessons": [
+        {
+          "code": "describe-a-person",
+          "position": 1,
+          "pattern": "understand",
+          "title": "Describe a person",
+          "description": "Understand and produce simple descriptions using familiar people and feeling words.",
+          "estimated_minutes": 12,
+          "objective_codes": [
+            "describe-a-person"
+          ],
+          "prerequisites": []
+        }
+      ]
+    },
+    {
+      "code": "everyday-actions-and-numbers",
+      "position": 3,
+      "title": "Everyday actions and numbers",
+      "theme": "Daily life",
+      "description": "Use common action verbs and numbers in short everyday statements.",
+      "estimated_minutes": 24,
+      "lessons": [
+        {
+          "code": "talk-about-simple-actions",
+          "position": 1,
+          "pattern": "integrate",
+          "title": "Everyday actions",
+          "description": "Recognise and use a small set of everyday verbs in familiar contexts.",
+          "estimated_minutes": 12,
+          "objective_codes": [
+            "use-everyday-actions"
+          ],
+          "prerequisites": []
+        },
+        {
+          "code": "use-basic-numbers",
+          "position": 2,
+          "pattern": "practice",
+          "title": "Count to three",
+          "description": "Recognise and use numbers one to three in simple statements.",
+          "estimated_minutes": 12,
+          "objective_codes": [
+            "use-basic-numbers"
+          ],
+          "prerequisites": []
+        }
+      ]
+    }
+  ],
+  "objectives": [
+    {
+      "code": "recognise-greetings-and-courtesy",
+      "position": 1,
+      "description": "Identify and understand very common greetings, farewells and polite responses.",
+      "success_criteria": "Correctly identify at least five of six familiar greeting or courtesy expressions in short exchanges.",
+      "skills": [
+        {
+          "code": "listening",
+          "is_primary": true
+        },
+        {
+          "code": "vocabulary",
+          "is_primary": false
+        }
+      ],
+      "vocabulary": [
+        {
+          "word": "hi",
+          "category": "social_communication",
+          "usage_mode": "receptive",
+          "position": 1
+        },
+        {
+          "word": "bye",
+          "category": "social_communication",
+          "usage_mode": "receptive",
+          "position": 2
+        },
+        {
+          "word": "yes",
+          "category": "social_communication",
+          "usage_mode": "receptive",
+          "position": 3
+        },
+        {
+          "word": "no",
+          "category": "social_communication",
+          "usage_mode": "receptive",
+          "position": 4
+        },
+        {
+          "word": "please",
+          "category": "social_communication",
+          "usage_mode": "receptive",
+          "position": 5
+        },
+        {
+          "word": "thanks",
+          "category": "social_communication",
+          "usage_mode": "receptive",
+          "position": 6
+        }
+      ],
+      "sentences": [
+        {
+          "word": "hi",
+          "english_text": "Hi, I am Tom.",
+          "usage_mode": "listening",
+          "position": 1
+        },
+        {
+          "word": "bye",
+          "english_text": "Bye, see you.",
+          "usage_mode": "listening",
+          "position": 2
+        },
+        {
+          "word": "thanks",
+          "english_text": "Thanks a lot.",
+          "usage_mode": "listening",
+          "position": 3
+        }
+      ]
+    },
+    {
+      "code": "introduce-yourself",
+      "position": 2,
+      "description": "Give a short personal introduction using a greeting and a name.",
+      "success_criteria": "Say a greeting and produce one clear sentence with your name in a short introduction.",
+      "skills": [
+        {
+          "code": "speaking",
+          "is_primary": true
+        },
+        {
+          "code": "interaction",
+          "is_primary": false
+        }
+      ],
+      "vocabulary": [
+        {
+          "word": "name",
+          "category": "personal_identity",
+          "usage_mode": "productive",
+          "position": 1
+        },
+        {
+          "word": "friend",
+          "category": "personal_identity",
+          "usage_mode": "receptive",
+          "position": 2
+        }
+      ],
+      "sentences": [
+        {
+          "word": "name",
+          "english_text": "My name is Bob.",
+          "usage_mode": "speaking",
+          "position": 1
+        },
+        {
+          "word": "friend",
+          "english_text": "He is my friend.",
+          "usage_mode": "reading",
+          "position": 2
+        }
+      ]
+    },
+    {
+      "code": "describe-a-person",
+      "position": 3,
+      "description": "Understand and use simple words to describe a person or express a basic feeling.",
+      "success_criteria": "Choose the correct familiar description for at least four of five short statements.",
+      "skills": [
+        {
+          "code": "vocabulary",
+          "is_primary": true
+        },
+        {
+          "code": "reading",
+          "is_primary": false
+        }
+      ],
+      "vocabulary": [
+        {
+          "word": "good",
+          "category": "descriptions_emotions",
+          "usage_mode": "both",
+          "position": 1
+        },
+        {
+          "word": "happy",
+          "category": "descriptions_emotions",
+          "usage_mode": "both",
+          "position": 2
+        },
+        {
+          "word": "sad",
+          "category": "descriptions_emotions",
+          "usage_mode": "both",
+          "position": 3
+        }
+      ],
+      "sentences": [
+        {
+          "word": "good",
+          "english_text": "Very good.",
+          "usage_mode": "reading",
+          "position": 1
+        },
+        {
+          "word": "happy",
+          "english_text": "I am happy.",
+          "usage_mode": "speaking",
+          "position": 2
+        },
+        {
+          "word": "sad",
+          "english_text": "Don't be sad.",
+          "usage_mode": "reading",
+          "position": 3
+        }
+      ]
+    },
+    {
+      "code": "use-everyday-actions",
+      "position": 4,
+      "description": "Understand and use common everyday action verbs in short present-tense statements.",
+      "success_criteria": "Match at least four of five familiar action sentences to the correct action or meaning.",
+      "skills": [
+        {
+          "code": "vocabulary",
+          "is_primary": true
+        },
+        {
+          "code": "grammar",
+          "is_primary": false
+        }
+      ],
+      "vocabulary": [
+        {
+          "word": "eat",
+          "category": "actions_movement",
+          "usage_mode": "both",
+          "position": 1
+        },
+        {
+          "word": "drink",
+          "category": "actions_movement",
+          "usage_mode": "both",
+          "position": 2
+        },
+        {
+          "word": "go",
+          "category": "actions_movement",
+          "usage_mode": "both",
+          "position": 3
+        },
+        {
+          "word": "stop",
+          "category": "actions_movement",
+          "usage_mode": "receptive",
+          "position": 4
+        }
+      ],
+      "sentences": [
+        {
+          "word": "eat",
+          "english_text": "I eat an apple.",
+          "usage_mode": "reading",
+          "position": 1
+        },
+        {
+          "word": "drink",
+          "english_text": "I drink water.",
+          "usage_mode": "speaking",
+          "position": 2
+        },
+        {
+          "word": "go",
+          "english_text": "I go home.",
+          "usage_mode": "speaking",
+          "position": 3
+        }
+      ]
+    },
+    {
+      "code": "use-basic-numbers",
+      "position": 5,
+      "description": "Recognise and use the numbers one, two and three in everyday contexts.",
+      "success_criteria": "Identify the quantities one, two and three in at least three short prompts.",
+      "skills": [
+        {
+          "code": "vocabulary",
+          "is_primary": true
+        },
+        {
+          "code": "listening",
+          "is_primary": false
+        }
+      ],
+      "vocabulary": [
+        {
+          "word": "one",
+          "category": "time_numbers",
+          "usage_mode": "both",
+          "position": 1
+        },
+        {
+          "word": "two",
+          "category": "time_numbers",
+          "usage_mode": "both",
+          "position": 2
+        },
+        {
+          "word": "three",
+          "category": "time_numbers",
+          "usage_mode": "both",
+          "position": 3
+        }
+      ],
+      "sentences": [
+        {
+          "word": "one",
+          "english_text": "I have one cat.",
+          "usage_mode": "reading",
+          "position": 1
+        },
+        {
+          "word": "two",
+          "english_text": "I have two dogs.",
+          "usage_mode": "reading",
+          "position": 2
+        },
+        {
+          "word": "three",
+          "english_text": "Three girls.",
+          "usage_mode": "reading",
+          "position": 3
+        }
+      ]
+    }
+  ]
+}
