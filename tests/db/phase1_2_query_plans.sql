@@ -9,9 +9,9 @@ SELECT current_database() = :'expected_db_name' AS db_name_matches \gset
   \quit 3
 \endif
 
-SELECT (NOT role.rolsuper AND NOT role.rolbypassrls) AS safe_runtime_role
-  FROM pg_roles role
- WHERE role.rolname = current_user \gset
+SELECT (NOT current_role.rolsuper AND NOT current_role.rolbypassrls) AS safe_runtime_role
+  FROM pg_roles current_role
+ WHERE current_role.rolname = current_user \gset
 \if :safe_runtime_role
   \echo 'Rol de conexión no es superusuario ni BYPASSRLS.'
 \else
@@ -19,6 +19,7 @@ SELECT (NOT role.rolsuper AND NOT role.rolbypassrls) AS safe_runtime_role
   \quit 3
 \endif
 
+BEGIN;
 SELECT set_config('app.current_user_id', :'student_user_id', TRUE);
 SET LOCAL track_io_timing = on;
 
