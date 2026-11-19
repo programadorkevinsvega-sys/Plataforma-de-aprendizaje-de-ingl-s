@@ -178,7 +178,7 @@ export function toComprehensionResource(dto: Dto): ComprehensionResource {
 
   const questions: ComprehensionQuestion[] = questionItems.flatMap((item, index) => {
     if (typeof item === 'string' && item.trim()) {
-      return [{ id: `question-${index + 1}`, prompt: item }]
+      return [{ id: `question-${index + 1}`, prompt: item, options: [] }]
     }
     if (typeof item !== 'object' || item === null || Array.isArray(item)) return []
     const question = item as Dto
