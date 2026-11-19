@@ -17,7 +17,7 @@ test('el catálogo unificado supera la auditoría estricta', () => {
   assert.equal(report.summary.listening_resources, 13);
   assert.equal(report.summary.examples, 2201);
   assert.equal(report.summary.pending_editorial_review, 790);
-  assert.equal(report.summary.pending_frequency_match, 790);
+  assert.equal(report.summary.pending_frequency_match, 709);
   assert.equal(report.summary.level_counts.PRE_A1, 237);
   assert.equal(report.summary.level_counts.A1, 484);
   assert.ok(report.summary.shared_example_warnings >= 0);
@@ -80,4 +80,20 @@ test('rechaza identidad léxica duplicada en el mismo nivel, categoría y sentid
   };
   const report = auditCatalog(catalog);
   assert.ok(report.errors.some(error => error.code === 'DUPLICATE_LEXICAL_IDENTITY'));
+});
+
+test('un rango de frecuencia nunca puede existir sin evidencia reproducible', () => {
+  const catalog = readCatalog();
+  const item = catalog.lexical_items.find(entry => entry.frequency.validation_status === 'pending_corpus_match');
+  item.frequency.general_rank = 12;
+  item.frequency.validation_status = 'matched_both_modified_lemma_lists';
+  const report = auditCatalog(catalog);
+  assert.ok(report.errors.some(error => error.code === 'FREQUENCY_RANK_WITHOUT_PROVENANCE'));
+});
+
+test('las expresiones multi-palabra no se fuerzan dentro de listas de frecuencia unigrama', () => {
+  const catalog = readCatalog();
+  const item = catalog.lexical_items.find(entry => entry.lexical_type === 'collocation');
+  item.frequency.validation_status = 'not_applicable_multiword';
+  assert.equal(auditCatalog(catalog).errors.length, 0);
 });
