@@ -40,6 +40,14 @@ Las categorías son conceptos de catálogo, no etiquetas improvisadas a partir d
 
 Los recursos oficiales descargables son [NGSL 1.2](https://www.newgeneralservicelist.com/new-general-service-list) y [NGSL-Spoken 1.2](https://www.newgeneralservicelist.com/ngsl-spoken). NGSL cubre 2.809 lemas de inglés general; NGSL-Spoken contiene 721 entradas para habla no guionizada. Ambas listas declaran CC BY-SA 4.0 y requieren atribución.
 
+Descarga directa desde los enlaces oficiales (el formato CSV lo entrega la página oficial):
+```bash
+curl -fL https://www.newgeneralservicelist.com/s/NGSL_12_stats.csv \
+  -o /tmp/NGSL_12_stats.csv
+curl -fL https://www.newgeneralservicelist.com/s/NGSL-Spoken_12_stats.csv \
+  -o /tmp/NGSL-Spoken_12_stats.csv
+```
+
 El script `tools/curriculum/match_lexical_frequency.mjs` hace coincidencia exacta de lema modificado; no usa fuzzy matching, stemming ni traducción para adivinar equivalencias. Produce un informe con coincidencias, elementos sin correspondencia, expresiones omitidas, atribución, URL y SHA-256 del archivo. Solo aplica rangos cuando recibe los dos CSV:
 ```bash
 node tools/curriculum/match_lexical_frequency.mjs \
