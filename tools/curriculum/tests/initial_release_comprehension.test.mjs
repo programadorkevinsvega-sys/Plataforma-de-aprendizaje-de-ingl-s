@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
@@ -9,6 +11,7 @@ import { auditCatalog } from "../audit_lexical_catalog.mjs";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const CATALOG = path.join(ROOT, "crates/content-vocabulary-service/data/lexical_catalog.v2.json");
 const RELEASE = path.join(ROOT, "tools/curriculum/initial-release-comprehension.v1.json");
+const IMPORTER = path.join(ROOT, "tools/curriculum/import_initial_release_catalog.mjs");
 
 test("initial Pre-A1/A1 comprehension release passes the canonical catalog audit and remains unpublished", () => {
   const catalog = JSON.parse(readFileSync(CATALOG, "utf8"));
@@ -57,4 +60,32 @@ test("initial release overlay rejects answer keys or editorial states that bypas
   const missingAudio = structuredClone(release);
   missingAudio.resources.find((resource) => resource.skill === "listening").audio.status = "approved";
   assert.throws(() => composeInitialReleaseCatalog(catalog, missingAudio), /must remain unpublished/);
+});
+
+test("release catalog export is deterministic input for the listening TTS generator and needs no database", () => {
+  const tempDir = mkdtempSync(path.join(os.tmpdir(), "devfluency-initial-release-"));
+  const outputPath = path.join(tempDir, "merged-catalog.json");
+  try {
+    const result = spawnSync(
+      process.execPath,
+      [IMPORTER, "--export-merged-catalog", outputPath],
+      { cwd: ROOT, encoding: "utf8", env: { ...process.env, DATABASE_URL: "" } },
+    );
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    const report = JSON.parse(result.stdout);
+    assert.equal(report.lexical_items, 790);
+    assert.equal(report.examples, 2201);
+    assert.equal(report.comprehension_resources, 26);
+    const exported = JSON.parse(readFileSync(outputPath, "utf8"));
+    assert.equal(
+      exported.comprehension_resources.find((resource) => resource.id === "general-pre_a1-reading-01").title,
+      "A new English class",
+    );
+    assert.equal(
+      exported.comprehension_resources.find((resource) => resource.id === "general-a1-listening-04").audio.status,
+      "awaiting_tts_generation",
+    );
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
 });
