@@ -14,6 +14,7 @@ export interface ContextSentenceProps {
   spanishPhoneticsNatural?: string
   spanishTranslation: string
   audioUrl?: string | null
+  pronunciationStatus?: string | null
 }
 
 export class ContextSentence {
@@ -23,6 +24,7 @@ export class ContextSentence {
   readonly spanishPhoneticsNatural: string
   readonly spanishTranslation: string
   readonly audioUrl: string | null
+  readonly pronunciationStatus: string | null
 
   constructor(props: ContextSentenceProps) {
     this.id = props.id
@@ -31,6 +33,7 @@ export class ContextSentence {
     this.spanishPhoneticsNatural = props.spanishPhoneticsNatural || props.spanishPhonetics
     this.spanishTranslation = props.spanishTranslation
     this.audioUrl = props.audioUrl ?? null
+    this.pronunciationStatus = props.pronunciationStatus ?? null
   }
 
   get isPedagogicallyValid(): boolean {
