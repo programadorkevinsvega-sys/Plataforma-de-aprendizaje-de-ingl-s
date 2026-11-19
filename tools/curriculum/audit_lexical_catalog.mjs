@@ -126,6 +126,21 @@ export function auditCatalog(catalog) {
           issue(errors, 'MULTIWORD_FREQUENCY_RANK', p + '.frequency.' + field, 'No se asignan rangos unigramas a expresiones multi-palabra.');
         }
       }
+      if (item.frequency.validation_status === 'verified_against_both_modified_lemma_lists') {
+        for (const source of ['general', 'spoken']) {
+          const matchStatus = item.frequency[`${source}_match_status`];
+          const rank = item.frequency[`${source}_rank`];
+          if (!['matched_exact_modified_lemma', 'not_in_source'].includes(matchStatus)) {
+            issue(errors, 'INCOMPLETE_FREQUENCY_SOURCE_CHECK', p + '.frequency.' + source, 'Cada lista cotejada debe registrar coincidencia exacta o ausencia verificada.');
+          }
+          if (matchStatus === 'not_in_source' && rank !== null) {
+            issue(errors, 'FREQUENCY_ABSENCE_HAS_RANK', p + '.frequency.' + source, 'Una entrada ausente de la lista no puede conservar un rango.');
+          }
+          if (matchStatus === 'matched_exact_modified_lemma' && rank === null) {
+            issue(errors, 'FREQUENCY_MATCH_MISSING_RANK', p + '.frequency.' + source, 'Una coincidencia exacta requiere su rango.');
+          }
+        }
+      }
       if (item.frequency.validation_status === 'pending_corpus_match') pendingFrequency++;
     }
     const identity = [item.cefr_level, item.category_id, item.lexical_form?.toLowerCase(), item.meaning_es?.toLowerCase()].join('|');
