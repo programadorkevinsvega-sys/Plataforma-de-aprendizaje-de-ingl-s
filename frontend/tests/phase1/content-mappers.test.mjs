@@ -33,7 +33,7 @@ test('published vocabulary maps v2 taxonomy, learning metadata and sentence revi
   })
 
   assert.equal(word.term, 'deploy')
-  assert.equal(word.category, 'cloud_devops')
+  assert.equal(word.topic, 'cloud_devops')
   assert.equal(word.definitionEnglish, 'To make software available for use.')
   assert.equal(word.lexicalType, 'verb')
   assert.deepEqual(word.tracks, ['technology'])
