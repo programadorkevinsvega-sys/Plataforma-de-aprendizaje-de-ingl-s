@@ -103,6 +103,9 @@ export async function importLexicalCatalog(pool, catalog, contentSha256, { apply
 
     if (apply) {
       if (!actorUserId) throw new Error('--actor-user-id es obligatorio cuando se utiliza --apply.');
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actorUserId)) {
+        throw new Error('--actor-user-id debe ser un UUID válido.');
+      }
       const editor = await client.query(
         'SELECT EXISTS (SELECT 1 FROM content_editors WHERE user_id = $1::uuid) AS allowed',
         [actorUserId],
@@ -360,8 +363,9 @@ export async function importLexicalCatalog(pool, catalog, contentSha256, { apply
 
 async function main() {
   const args = process.argv.slice(2);
-  const file = args.find((arg) => !arg.startsWith('--'))
-    ?? 'crates/content-vocabulary-service/data/lexical_catalog.v2.json';
+  const file = args.find((arg, index) =>
+    !arg.startsWith('--') && args[index - 1] !== '--actor-user-id',
+  ) ?? 'crates/content-vocabulary-service/data/lexical_catalog.v2.json';
   const apply = args.includes('--apply');
   const actorIndex = args.indexOf('--actor-user-id');
   const actorUserId = actorIndex >= 0 ? args[actorIndex + 1] : null;
