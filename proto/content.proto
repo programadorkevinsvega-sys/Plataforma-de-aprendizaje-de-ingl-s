@@ -5,6 +5,7 @@ package content;
 service ContentService {
   rpc GetVocabularyWord (GetVocabularyWordRequest) returns (VocabularyWordResponse);
   rpc ListVocabularyWords (ListVocabularyWordsRequest) returns (ListVocabularyWordsResponse);
+  rpc ListComprehensionResources (ListComprehensionResourcesRequest) returns (ListComprehensionResourcesResponse);
   rpc GetRandomInterviewQuestion (GetRandomInterviewQuestionRequest) returns (InterviewQuestionResponse);
   rpc ListCurriculumCourses (ListCurriculumCoursesRequest) returns (ListCurriculumCoursesResponse);
   rpc GetCurriculumCourse (GetCurriculumCourseRequest) returns (GetCurriculumCourseResponse);
@@ -49,6 +50,42 @@ message ListVocabularyWordsRequest {
 message ListVocabularyWordsResponse {
   repeated VocabularyWordResponse words = 1;
   int32 total = 2;
+}
+
+
+message ListComprehensionResourcesRequest {
+  string user_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+  string track = 4;
+  string cefr_level = 5;
+  string skill = 6;
+}
+
+message ListComprehensionResourcesResponse {
+  repeated ComprehensionResource items = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
+}
+
+message ComprehensionResource {
+  string id = 1;
+  string track = 2;
+  string cefr_level = 3;
+  string skill = 4;
+  string title = 5;
+  string topic = 6;
+  string content = 7;
+  int32 word_count = 8;
+  int32 sentence_count = 9;
+  int32 estimated_minutes = 10;
+  string comprehension_focus = 11;
+  repeated string lexical_tags = 12;
+  bool transcript_available = 13;
+  string audio_url = 14;
+  string audio_status = 15;
 }
 
 message GetRandomInterviewQuestionRequest {
