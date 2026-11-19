@@ -1,7 +1,6 @@
 import type { VocabularyWord } from '@/domain/entities/VocabularyWord'
 import type {
   IContentRepository,
-  Lesson,
   VocabularyQuery,
   SynthesizedSpeech,
 } from '@/domain/repositories/IContentRepository'
@@ -65,10 +64,6 @@ export class BffContentRepository implements IContentRepository {
     }
   }
 
-  async getTodayLesson(): Promise<Lesson> {
-    const dto = await this.http.get<Dto>('/api/v1/content/lessons/today')
-    return toLesson((dto.lesson ?? dto) as Dto)
-  }
 
   async synthesizeSpeech(
     text: string,
@@ -89,9 +84,5 @@ export class BffContentRepository implements IContentRepository {
           ? dto.playback_rate
           : 1,
     }
-  }
-
-  async markWordCompleted(wordId: string): Promise<void> {
-    await this.http.post<void>(`/api/v1/content/vocabulary/${wordId}/complete`)
   }
 }
