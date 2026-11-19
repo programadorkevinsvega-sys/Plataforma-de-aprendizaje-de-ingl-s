@@ -288,6 +288,7 @@ pub async fn comprehension_resources_handler(
         .items
         .into_iter()
         .map(|resource| {
+            let is_listening = resource.skill == "listening";
             let questions = serde_json::from_str::<serde_json::Value>(&resource.questions_json)
                 .map_err(|_| {
                     (
@@ -306,7 +307,7 @@ pub async fn comprehension_resources_handler(
                 title: resource.title,
                 topic: resource.topic,
                 // Never return listening transcripts before an evaluated attempt.
-                content: if resource.skill == "listening" {
+                content: if is_listening {
                     String::new()
                 } else {
                     resource.content
