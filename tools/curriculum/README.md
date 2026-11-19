@@ -12,7 +12,7 @@ node --test tools/curriculum/tests/lexical_catalog_audit.test.mjs
 
 ### Importación PostgreSQL v2
 
-La migración `migrations/20261119000000_lexical_catalog_v2.sql` extiende las tablas léxicas existentes con metadatos v2, añade recursos de comprensión y un ledger SHA-256. Las filas heredadas se conservan como `legacy_pending_review`; no se exponen al estudiante. El servicio gRPC lista únicamente vocabulario y ejemplos cuyo estado sea `published`.
+La migración `migrations/20261119000000_lexical_catalog_v2.sql` extiende las tablas léxicas existentes con metadatos v2, añade recursos de comprensión y un ledger SHA-256. Las filas heredadas se conservan como `legacy_pending_review`; no se exponen al estudiante. El servicio gRPC lista únicamente vocabulario y ejemplos cuyo estado sea `published`. El RPC `ListComprehensionResources` expone lecturas y escuchas publicadas con filtros de ruta, nivel y skill y paginación; exige autenticación y jamás devuelve borradores.
 
 La importación usa `tools/curriculum/import_lexical_catalog.mjs`, es transaccional e idempotente. El modo predeterminado es dry-run y siempre revierte:
 ```bash
