@@ -259,10 +259,10 @@ BEGIN
         END IF;
 
         IF TG_TABLE_NAME = 'curriculum_comprehension_resources'
-           AND NEW.skill = 'listening'
+           AND to_jsonb(NEW) ->> 'skill' = 'listening'
            AND (
-             NEW.audio_metadata ->> 'status' IS DISTINCT FROM 'approved'
-             OR length(btrim(COALESCE(NEW.audio_metadata ->> 'asset_url', ''))) = 0
+             (to_jsonb(NEW) -> 'audio_metadata' ->> 'status') IS DISTINCT FROM 'approved'
+             OR length(btrim(COALESCE(to_jsonb(NEW) -> 'audio_metadata' ->> 'asset_url', ''))) = 0
            ) THEN
             RAISE EXCEPTION 'Listening resources require a real approved audio asset before publication'
                 USING ERRCODE = '23514';
