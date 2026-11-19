@@ -8,7 +8,8 @@
       "name": "Original DevFluency General English curriculum",
       "url": null,
       "license": "original"
-    }
+    },
+    "reference_catalog": "devfluency.lexical-catalog.v2"
   },
   "course": {
     "slug": "english-general",
@@ -19,8 +20,7 @@
     "cefr_level": "A1",
     "title": "English General — A1: Everyday life and getting around",
     "description": "An elementary course that develops simple exchanges about routines, home, travel and everyday needs, with short connected sentences and familiar situations.",
-    "locale": "en",
-    "content_schema_version": 2
+    "locale": "en"
   },
   "units": [
     {
