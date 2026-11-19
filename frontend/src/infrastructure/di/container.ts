@@ -26,6 +26,8 @@ import { RecordLearningProgressUseCase } from '@/application/use-cases/RecordLea
 import {
   GetTodayLessonUseCase,
   GetVocabularyListUseCase,
+  GetVocabularyPageUseCase,
+  GetComprehensionResourcesUseCase,
   MarkWordCompletedUseCase,
   SynthesizeSpeechUseCase,
 } from '@/application/use-cases/GetVocabularyListUseCase'
@@ -73,6 +75,8 @@ export interface Container {
     getCurrentUser: GetCurrentUserUseCase
     updateProfile: UpdateProfileUseCase
     getVocabulary: GetVocabularyListUseCase
+    getVocabularyPage: GetVocabularyPageUseCase
+    getComprehensionResources: GetComprehensionResourcesUseCase
     getCurriculumCourses: GetCurriculumCoursesUseCase
     getCurriculumCourse: GetCurriculumCourseUseCase
     enrollInCurriculumCourse: EnrollInCurriculumCourseUseCase
@@ -123,6 +127,8 @@ function build(): Container {
       getCurrentUser: new GetCurrentUserUseCase(auth),
       updateProfile: new UpdateProfileUseCase(auth),
       getVocabulary: new GetVocabularyListUseCase(content),
+      getVocabularyPage: new GetVocabularyPageUseCase(content),
+      getComprehensionResources: new GetComprehensionResourcesUseCase(content),
       getCurriculumCourses: new GetCurriculumCoursesUseCase(curriculum),
       getCurriculumCourse: new GetCurriculumCourseUseCase(curriculum),
       enrollInCurriculumCourse: new EnrollInCurriculumCourseUseCase(curriculum),
