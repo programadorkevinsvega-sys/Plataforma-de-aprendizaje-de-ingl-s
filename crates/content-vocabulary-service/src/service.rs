@@ -315,45 +315,52 @@ impl ContentService for MyContentService {
         .await
         .map_err(|_| Status::internal("No se pudo contar el vocabulario publicado"))?;
 
-        let words: Vec<(Uuid, String, Option<String>, String, String, String, Option<String>)> =
-            sqlx::query_as(
-                r#"SELECT word.id, word.word, word.spanish_phonetic,
-                          word.spanish_translation, word.category, word.level,
-                          word.spanish_phonetic_natural
-                     FROM vocabulary_words AS word
-                    WHERE word.publication_status = 'published'
-                      AND ($1::TEXT IS NULL OR word.level = $1)
-                      AND ($2::TEXT IS NULL OR word.category = $2)
-                      AND (
-                        $3::UUID IS NULL
-                        OR NOT EXISTS (
-                            SELECT 1
-                              FROM context_sentences AS sentence
-                              JOIN user_srs_progress AS progress
-                                ON progress.sentence_id = sentence.id
-                             WHERE sentence.word_id = word.id
-                               AND sentence.publication_status = 'published'
-                               AND progress.user_id = $3
-                        )
-                      )
-                    ORDER BY
-                      CASE word.level
-                        WHEN 'PRE_A1' THEN 1 WHEN 'A1' THEN 2 WHEN 'A2' THEN 3
-                        WHEN 'B1' THEN 4 WHEN 'B2' THEN 5 WHEN 'C1' THEN 6 ELSE 7
-                      END,
-                      word.category,
-                      word.word,
-                      word.id
-                    LIMIT $4 OFFSET $5"#,
-            )
-            .bind(level.as_deref())
-            .bind(category.as_deref())
-            .bind(user_uuid)
-            .bind(i64::from(limit))
-            .bind(offset)
-            .fetch_all(&mut *tx)
-            .await
-            .map_err(|_| Status::internal("No se pudo consultar el vocabulario publicado"))?;
+        let words: Vec<(
+            Uuid,
+            String,
+            Option<String>,
+            String,
+            String,
+            String,
+            Option<String>,
+        )> = sqlx::query_as(
+            r#"SELECT word.id, word.word, word.spanish_phonetic,
+                      word.spanish_translation, word.category, word.level,
+                      word.spanish_phonetic_natural
+                 FROM vocabulary_words AS word
+                WHERE word.publication_status = 'published'
+                  AND ($1::TEXT IS NULL OR word.level = $1)
+                  AND ($2::TEXT IS NULL OR word.category = $2)
+                  AND (
+                    $3::UUID IS NULL
+                    OR NOT EXISTS (
+                        SELECT 1
+                          FROM context_sentences AS sentence
+                          JOIN user_srs_progress AS progress
+                            ON progress.sentence_id = sentence.id
+                         WHERE sentence.word_id = word.id
+                           AND sentence.publication_status = 'published'
+                           AND progress.user_id = $3
+                    )
+                  )
+                ORDER BY
+                  CASE word.level
+                    WHEN 'PRE_A1' THEN 1 WHEN 'A1' THEN 2 WHEN 'A2' THEN 3
+                    WHEN 'B1' THEN 4 WHEN 'B2' THEN 5 WHEN 'C1' THEN 6 ELSE 7
+                  END,
+                  word.category,
+                  word.word,
+                  word.id
+                LIMIT $4 OFFSET $5"#,
+        )
+        .bind(level.as_deref())
+        .bind(category.as_deref())
+        .bind(user_uuid)
+        .bind(i64::from(limit))
+        .bind(offset)
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudo consultar el vocabulario publicado"))?;
 
         let mut result_words = Vec::with_capacity(words.len());
         for (id, word, phonetic, translation, category, level, phonetic_nat) in words {
