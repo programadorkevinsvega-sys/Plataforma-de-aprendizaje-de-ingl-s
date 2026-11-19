@@ -24,11 +24,9 @@ import { GetDashboardSummaryUseCase } from '@/application/use-cases/GetDashboard
 import { GetLeaderboardUseCase } from '@/application/use-cases/GetLeaderboardUseCase'
 import { RecordLearningProgressUseCase } from '@/application/use-cases/RecordLearningProgressUseCase'
 import {
-  GetTodayLessonUseCase,
   GetVocabularyListUseCase,
   GetVocabularyPageUseCase,
   GetComprehensionResourcesUseCase,
-  MarkWordCompletedUseCase,
   SynthesizeSpeechUseCase,
 } from '@/application/use-cases/GetVocabularyListUseCase'
 import { LoginUserUseCase } from '@/application/use-cases/LoginUserUseCase'
@@ -83,9 +81,7 @@ export interface Container {
     getCurriculumEditorialVersions: GetCurriculumEditorialVersionsUseCase
     manageCurriculumEditorialVersion: ManageCurriculumEditorialVersionUseCase
     importCurriculumContentPackage: ImportCurriculumContentPackageUseCase
-    getTodayLesson: GetTodayLessonUseCase
     synthesizeSpeech: SynthesizeSpeechUseCase
-    markWordCompleted: MarkWordCompletedUseCase
     getInterviewQuestion: GetInterviewQuestionUseCase
     evaluateAnswer: EvaluateExamAnswerUseCase
     getWeaknessDrill: GetWeaknessDrillUseCase
@@ -135,9 +131,7 @@ function build(): Container {
       getCurriculumEditorialVersions: new GetCurriculumEditorialVersionsUseCase(curriculum),
       manageCurriculumEditorialVersion: new ManageCurriculumEditorialVersionUseCase(curriculum),
       importCurriculumContentPackage: new ImportCurriculumContentPackageUseCase(curriculum),
-      getTodayLesson: new GetTodayLessonUseCase(content),
       synthesizeSpeech: new SynthesizeSpeechUseCase(content),
-      markWordCompleted: new MarkWordCompletedUseCase(content),
       getInterviewQuestion: new GetInterviewQuestionUseCase(evaluator),
       evaluateAnswer: new EvaluateExamAnswerUseCase(evaluator),
       getWeaknessDrill: new GetWeaknessDrillUseCase(evaluator),
