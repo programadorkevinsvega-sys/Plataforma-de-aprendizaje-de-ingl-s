@@ -314,6 +314,31 @@ if (!DATABASE_URL) {
     }
   });
 
+  test("canonical schema v2 never falls back to a matching legacy vocabulary row", async () => {
+    const seeded = await seedPackage();
+    try {
+      const data = structuredClone(seeded.data);
+      data.version.content_schema_version = 2;
+      const reference = data.objectives[0].vocabulary[0];
+      await pool.query(
+        "DELETE FROM vocabulary_words WHERE word = $1 AND source_catalog = 'devfluency.lexical-catalog.v2'",
+        [reference.word],
+      );
+      const strictHash = canonicalHash(data);
+
+      await assert.rejects(
+        importCurriculumPackage(pool, data, strictHash, { apply: true, actorUserId: editorId }),
+        /External curriculum reference not found: canonical PRE_A1 vocabulary word/,
+      );
+      const count = await pool.query("SELECT count(*)::int AS total FROM courses WHERE slug = $1", [
+        data.course.slug,
+      ]);
+      assert.equal(count.rows[0].total, 0);
+    } finally {
+      await seeded.cleanup();
+    }
+  });
+
   test("concurrent imports of one version serialize and create exactly one version", async () => {
     const seeded = await seedPackage();
     try {
