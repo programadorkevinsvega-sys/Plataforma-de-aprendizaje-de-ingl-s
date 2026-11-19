@@ -397,22 +397,44 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 
 ### Subfase 1.4. Curación y expansión del catálogo
 
-**Segundo incremento — catálogo léxico v2:** se consolida una fuente única de 790 unidades léxicas, 26 categorías canónicas y 26 recursos originales graduados (13 lecturas y 13 guiones de escucha). La colección anterior se transforma y deduplica; 86 expresiones/unidades adicionales se crean para inglés general y tecnología. El informe y las reglas de revisión están en [Catálogo léxico y recursos graduados v2](../curriculum/phase-1.4-catalog-audit.md).
+**Estado: EN CURSO — base técnica v2 implementada en la rama de trabajo; no cumple todavía el gate editorial ni la cobertura curricular.** La fuente v2 reúne 790 unidades léxicas (704 trasladadas/deduplicadas y 86 nuevas), 26 categorías y 26 recursos graduados. Su inventario, distribución por nivel y pendientes están en [Catálogo léxico y recursos graduados v2](../curriculum/phase-1.4-catalog-audit.md).
 
-- [x] Auditar y normalizar el contenido semilla inicial, conservando procedencia y fusionando sentidos/ejemplos equivalentes sin conservar identificadores antiguos.
-- [x] Definir una taxonomía controlada de 26 categorías para ambas rutas y retirar los nombres de categoría anteriores.
-- [x] Definir campos separados para prioridad pedagógica, utilidad, registro, contexto, nivel y frecuencia de corpus.
-- [ ] Completar el cruce verificable de rangos NGSL 1.2 y NGSL-Spoken 1.2 por lema, categoría gramatical y sentido; no se inventan rangos.
-- [ ] Finalizar la revisión lingüística humana de traducciones, ejemplos, naturalidad y adecuación de nivel del catálogo.
-- [ ] Revisar y aprobar las guías de pronunciación lenta/natural; los candidatos procedentes del catálogo anterior están marcados como pendientes y no se exponen al estudiante.
-- [x] Crear 86 expresiones funcionales, sentence frames, collocations, phrasal verbs, marcadores discursivos y unidades técnicas contextualizadas.
-- [ ] Completar la cobertura curricular de vocabulario/expresiones en todos los niveles de Inglés General y en los dominios de Tecnología; el primer catálogo v2 es una expansión, no se declara cobertura exhaustiva.
-- [x] Incorporar 13 textos de lectura graduados y 13 guiones de escucha/diálogo con nivel, ruta y perfil de dificultad.
-- [ ] Generar, revisar y adjuntar los audios reales de listening; no se publica un reproductor sin asset aprobado.
-- [ ] Integrar el catálogo v2 en PostgreSQL, el servicio de contenido, los paquetes curriculares y el frontend; sustituir la lectura de las tablas/formato anteriores.
-- [ ] Generar fixtures por nivel y tipo de actividad con el contrato de actividades de Fase 2.
-- [x] Añadir auditoría estricta que bloquea categorías/niveles inválidos, identidades duplicadas, rangos no verificados, pronunciación incompleta y listening publicado sin audio real.
-- [ ] No publicar contenido hasta contar con validación automática y revisión editorial humana documentada.
+**Modelo, auditoría y procedencia**
+- [x] Consolidar el catálogo en una fuente JSON v2 y retirar los tres JSON semilla anteriores, las claves antiguas y el alias persistido A0.
+- [x] Definir una taxonomía canónica compartida de 26 categorías con etiquetas español/inglés.
+- [x] Separar nivel, rutas, tipo léxico, prioridad pedagógica, utilidad, registro, contextos y frecuencia de corpus.
+- [x] Detectar identidades léxicas duplicadas, posiciones/ejemplos repetidos dentro de unidad, y reportar ejemplos ingleses compartidos y significados españoles repetidos como advertencias sin borrado automático.
+- [x] Auditar campos heredados de pronunciación y preservarlos únicamente como candidatos no aprobados; desactivar el motor heurístico de conversión.
+- [x] Bloquear rangos numéricos de frecuencia mientras no exista cotejo validado de lema, POS y sentido.
+
+**Curación lingüística y cobertura**
+- [ ] Revisar por persona competente traducciones, significado, naturalidad, registro, categoría gramatical, nivel y todos los ejemplos de las 790 unidades (2.201 ejemplos).
+- [ ] Incorporar la categoría gramatical y evidencia de sentido que permita cotejar NGSL 1.2 y NGSL-Spoken 1.2, respetando atribución y CC BY-SA 4.0; no derivar rangos de coincidencias superficiales.
+- [ ] Aprobar individualmente las guías lenta/natural para hispanohablantes y agregar notas de sonidos que no existen en español; no publicar aproximaciones automáticas.
+- [ ] Alcanzar y validar el presupuesto léxico interno acumulado de la ruta general. La fuente actual registra 237 PRE_A1, 462 A1, 7 A2, 7 B1, 7 B2, 6 C1 y 6 C2 en General; el déficit de A2–C2 sigue siendo importante.
+- [ ] Completar los dominios de la ruta Tecnología en A1–C2 con vocabulario/expresiones contextualizadas, objetivos y progresión curricular aprobada.
+- [x] Crear 86 unidades iniciales adicionales: expresiones funcionales, sentence frames, collocations, phrasal verbs, marcadores discursivos y términos técnicos.
+- [x] Crear 13 lecturas y 13 guiones originales de listening con ruta, nivel, foco y perfil de dificultad.
+- [ ] Generar y revisar los 13 audios de listening, registrar voz/acento/licencia y validar su correspondencia con el guion y sus preguntas de comprensión.
+- [ ] Crear fixtures por nivel y tipo de ejercicio al quedar definido el contrato común de actividades en Fase 2.
+
+**Persistencia e integración**
+- [x] Añadir migración PostgreSQL v2 para conservar procedencia, frecuencia, estados editoriales, ejemplos y recursos graduados; preservar las filas heredadas para no romper referencias SRS, pero marcarlas como pendientes de revisión.
+- [x] Añadir importador transaccional/idempotente con dry-run por defecto, ledger SHA-256 y comprobación de editor registrado para aplicar.
+- [x] Hacer que el servicio de contenido consulte solo vocabulario y ejemplos publicados; los datos heredados y los importados como draft quedan fuera de las respuestas estudiantiles.
+- [x] Bloquear en base de datos la publicación de vocabulario/ejemplos sin aprobación editorial y pronunciación aprobada o explícitamente no requerida; listening publicado requiere asset real aprobado.
+- [ ] Ejecutar migración/importación en staging con editor provisionado y verificar las consultas gRPC/frontend de extremo a extremo.
+- [ ] Completar revisión, aprobación y publicación de la primera selección de catálogo real. El catálogo completo no se debe publicar por el mero hecho de haberlo importado.
+- [ ] Ejecutar CI completo para migración fresca/upgrade, auditoría, importación transaccional y regresiones; cerrar hallazgos antes de integrar.
+
+**Pruebas y aceptación**
+- [x] Auditor estricto de esquema, categorías, niveles, identidades duplicadas, estados de publicación, frecuencia no verificada y listening sin audio aprobado.
+- [x] Pruebas para taxonomía canónica y reportes de ejemplos compartidos/traducciones repetidas.
+- [x] Pruebas de seguridad de publicación: los registros pendientes no pueden entrar en resultados de vocabulario publicados.
+- [ ] Evidencia CI verde de migración desde base vacía y desde esquema anterior, dry-run, importación completa, autorización, idempotencia y filtros del servicio.
+- [ ] Evidencia editorial de revisión y cobertura curricular suficiente, más audios reales revisados.
+
+**Criterio de cierre:** no declarar DONE hasta que se completen las revisiones editoriales, la expansión general/tecnológica, la evidencia de frecuencia que se decida utilizar, los 13 audios y la validación operativa en staging. La infraestructura de importación y publicación es necesaria, pero por sí sola no cierra la subfase.
 
 ### Subfase 1.5. APIs y administración
 
