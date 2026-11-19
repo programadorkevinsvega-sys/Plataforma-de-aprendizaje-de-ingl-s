@@ -1,5 +1,9 @@
 use axum::http::StatusCode;
-use axum::{extract::{Query, State}, http::HeaderMap, Json};
+use axum::{
+    extract::{Query, State},
+    http::HeaderMap,
+    Json,
+};
 use proto::content::{ListComprehensionResourcesRequest, ListVocabularyWordsRequest};
 use proto::phonetic_audio::SynthesizeRequest;
 use serde::{Deserialize, Serialize};
@@ -156,8 +160,18 @@ pub async fn vocabulary_list_handler(
                 })
                 .collect();
             let total = inner.total;
-            let total_pages = if total == 0 { 0 } else { (total + page_size - 1) / page_size };
-            Ok(Json(VocabularyListDto { items, total, page, page_size, total_pages }))
+            let total_pages = if total == 0 {
+                0
+            } else {
+                (total + page_size - 1) / page_size
+            };
+            Ok(Json(VocabularyListDto {
+                items,
+                total,
+                page,
+                page_size,
+                total_pages,
+            }))
         }
         Err(_error) => Err((
             StatusCode::SERVICE_UNAVAILABLE,
@@ -167,7 +181,6 @@ pub async fn vocabulary_list_handler(
         )),
     }
 }
-
 
 #[derive(Deserialize, Default)]
 pub struct ComprehensionResourcesQuery {
@@ -238,34 +251,38 @@ pub async fn comprehension_resources_handler(
     attach_bearer_metadata(&headers, &mut request)?;
 
     let mut client = state.content_client.clone();
-    let response = client.list_comprehension_resources(request).await.map_err(|error| {
-        let (status, code, message) = match error.code() {
-            tonic::Code::Unauthenticated => (
-                StatusCode::UNAUTHORIZED,
-                "CONTENT_UNAUTHENTICATED",
-                "Se requiere una sesión válida.",
-            ),
-            tonic::Code::InvalidArgument => (
-                StatusCode::BAD_REQUEST,
-                "CONTENT_INVALID_QUERY",
-                "Los filtros de lectura/escucha no son válidos.",
-            ),
-            tonic::Code::DeadlineExceeded | tonic::Code::Unavailable => (
-                StatusCode::SERVICE_UNAVAILABLE,
-                "CONTENT_UNAVAILABLE",
-                "El catálogo de comprensión no está disponible temporalmente.",
-            ),
-            _ => (
-                StatusCode::BAD_GATEWAY,
-                "CONTENT_UPSTREAM_ERROR",
-                "No se pudieron consultar los recursos de comprensión.",
-            ),
-        };
-        (
-            status,
-            Json(serde_json::json!({ "message": message, "code": code })),
-        )
-    })?.into_inner();
+    let response = client
+        .list_comprehension_resources(request)
+        .await
+        .map_err(|error| {
+            let (status, code, message) = match error.code() {
+                tonic::Code::Unauthenticated => (
+                    StatusCode::UNAUTHORIZED,
+                    "CONTENT_UNAUTHENTICATED",
+                    "Se requiere una sesión válida.",
+                ),
+                tonic::Code::InvalidArgument => (
+                    StatusCode::BAD_REQUEST,
+                    "CONTENT_INVALID_QUERY",
+                    "Los filtros de lectura/escucha no son válidos.",
+                ),
+                tonic::Code::DeadlineExceeded | tonic::Code::Unavailable => (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "CONTENT_UNAVAILABLE",
+                    "El catálogo de comprensión no está disponible temporalmente.",
+                ),
+                _ => (
+                    StatusCode::BAD_GATEWAY,
+                    "CONTENT_UPSTREAM_ERROR",
+                    "No se pudieron consultar los recursos de comprensión.",
+                ),
+            };
+            (
+                status,
+                Json(serde_json::json!({ "message": message, "code": code })),
+            )
+        })?
+        .into_inner();
 
     let items = response
         .items
