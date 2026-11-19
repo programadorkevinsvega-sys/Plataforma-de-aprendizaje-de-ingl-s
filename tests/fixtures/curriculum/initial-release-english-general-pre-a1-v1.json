@@ -8,7 +8,8 @@
       "name": "Original DevFluency General English curriculum",
       "url": null,
       "license": "original"
-    }
+    },
+    "reference_catalog": "devfluency.lexical-catalog.v2"
   },
   "course": {
     "slug": "english-general",
@@ -19,8 +20,7 @@
     "cefr_level": "PRE_A1",
     "title": "English General — Pre-A1: First steps",
     "description": "A beginner course for first contact, personal introductions, simple descriptions and everyday actions. Lessons build from short, highly familiar language to simple personal statements.",
-    "locale": "en",
-    "content_schema_version": 2
+    "locale": "en"
   },
   "units": [
     {
