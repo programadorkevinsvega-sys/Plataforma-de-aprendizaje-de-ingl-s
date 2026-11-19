@@ -231,11 +231,11 @@ pub async fn synthesize_speech_handler(
         .and_then(serde_json::Value::as_str)
         .unwrap_or_default()
         .to_string();
-    if text.trim().is_empty() || text.chars().count() > 500 {
+    if text.trim().is_empty() || text.chars().count() > 1_000 {
         return Err((
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({
-                "message": "El texto debe contener entre 1 y 500 caracteres.",
+                "message": "El texto debe contener entre 1 y 1000 caracteres.",
                 "code": "INVALID_SPEECH_TEXT"
             })),
         ));

@@ -73,6 +73,26 @@ Cada unidad y ejemplo mantiene estados editoriales y fonéticos explícitos. Par
 
 La revisión humana de naturalidad de los 2.201 ejemplos y de los candidatos fonéticos pendientes no se declara completada por la mera creación del catálogo. El auditor impide que un ítem sin aprobación se publique.
 
+## Generación reproducible de audio listening
+
+El servicio TTS limita cada síntesis de la aplicación a 1.000 caracteres. Los 13 guiones actuales miden entre 181 y 621 caracteres. El límite se aplica tanto en el BFF como en `phonetic-audio-service`; está por debajo del máximo documentado de Amazon Polly para `SynthesizeSpeech` (6.000 caracteres totales y 3.000 facturables). La documentación oficial de [Amazon Polly](https://docs.aws.amazon.com/polly/latest/APIReference/API_SynthesizeSpeech.html) y [Cloudflare Aura-2 EN](https://developers.cloudflare.com/workers-ai/models/aura-2-en/) describe los límites/entradas de los proveedores.
+
+Se añade el binario `generate-listening-assets`. Por defecto solo muestra inventario y tamaños, sin invocar proveedores. La generación real exige `--apply` y un `phonetic-audio-service` funcionando con el proveedor TTS configurado:
+
+```bash
+# Desde la raíz del repositorio: no hace llamadas de audio
+cargo run --package phonetic-audio-service --bin generate-listening-assets -- --dry-run
+
+# Ejecuta 13 síntesis secuenciales y escribe MP3 + manifiesto fuera de la web pública
+TTS_SMOKE_ENDPOINT=http://127.0.0.1:50054 \
+cargo run --package phonetic-audio-service --bin generate-listening-assets -- \
+  --apply \
+  --voice Matthew \
+  --output-dir /tmp/devfluency-listening-audio
+```
+
+El manifiesto registra proveedor/modelo/voz, hash SHA-256 del audio y del guion, bytes, referencia de acento en-US y estados `generated_pending_audio_review` / `pending_human_listening_review`. El comando no modifica el catálogo, la base de datos ni publica rutas; además rechaza sobrescribir un directorio existente o un audio ya aprobado. Los MP3 deben escucharse y validarse antes de asociar su URL y aprobación editorial al recurso.
+
 ## Lecturas y escuchas
 
 Hay 13 lecturas y 13 guiones de diálogo/escucha originales, con nivel objetivo, ruta, tema, recuento de palabras, patrón de dificultad, foco de comprensión y vocabulario de apoyo.

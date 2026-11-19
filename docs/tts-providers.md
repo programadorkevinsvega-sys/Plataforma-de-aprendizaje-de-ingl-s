@@ -116,3 +116,16 @@ sudo journalctl -u 'devfluency@phonetic-audio-service' -f
 El pipeline existente continúa compilando Rust en GitHub Actions y copiando los binarios a Ubuntu.
 No se introduce Docker. Esta implementación no ejecuta cambios sobre la VM ni edita el entorno
 de producción.
+
+
+## Audio editorial de listening
+
+El límite interno del endpoint se establece en 1.000 caracteres; los 13 guiones actuales están entre 181 y 621. El límite sincrónico documentado de Polly es 6.000 caracteres totales (3.000 facturables); Aura-2 EN publica su campo `text` en el esquema del modelo. La aplicación conserva el límite inferior de 1.000 para uniformidad entre proveedores. Referencias: [AWS Polly SynthesizeSpeech](https://docs.aws.amazon.com/polly/latest/APIReference/API_SynthesizeSpeech.html) y [Cloudflare Aura-2 EN](https://developers.cloudflare.com/workers-ai/models/aura-2-en/).
+
+El binario `generate-listening-assets` usa este gRPC sin pasar por el rate limiter del BFF y sintetiza secuencialmente. Dry-run por defecto:
+```bash
+cargo run --package phonetic-audio-service --bin generate-listening-assets -- --dry-run
+TTS_SMOKE_ENDPOINT=http://127.0.0.1:50054 cargo run --package phonetic-audio-service --bin generate-listening-assets -- --apply --voice Matthew --output-dir /tmp/devfluency-listening-audio
+```
+
+El proceso escribe MP3 y un manifiesto SHA-256 fuera de la carpeta pública, solo después de completar las 13 síntesis. El manifiesto marca cada salida como `generated_pending_audio_review`, conserva proveedor/modelo/voz, hash del guion y del audio, y registra la revisión auditiva/licencia como pendientes. No modifica PostgreSQL ni enlaza los assets al catálogo. El editor debe escuchar y validar los 13 archivos antes de asociar sus URLs y aprobarlos en el flujo editorial.

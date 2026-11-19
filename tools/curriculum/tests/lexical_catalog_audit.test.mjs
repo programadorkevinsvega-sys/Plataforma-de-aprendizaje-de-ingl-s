@@ -130,3 +130,11 @@ test('no expone transcripts de listening antes de una actividad completada', () 
   listening[0].transcript_available = true;
   assert.ok(auditCatalog(catalog).errors.some(error => error.code === 'LISTENING_TRANSCRIPT_EXPOSED'));
 });
+
+test('los 13 guiones listening permanecen ocultos y caben en el límite TTS de 1000 caracteres', () => {
+  const catalog = readCatalog();
+  const listening = catalog.comprehension_resources.filter(resource => resource.skill === 'listening');
+  assert.equal(listening.length, 13);
+  assert.ok(listening.every(resource => resource.transcript_available === false));
+  assert.ok(listening.every(resource => resource.content.length <= 1000));
+});
