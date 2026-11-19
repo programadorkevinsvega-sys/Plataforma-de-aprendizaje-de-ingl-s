@@ -471,6 +471,7 @@ impl ContentService for MyContentService {
             bool,
             Option<String>,
             Option<String>,
+            String,
         )> = sqlx::query_as(
             r#"SELECT
                    id::TEXT,
@@ -479,7 +480,7 @@ impl ContentService for MyContentService {
                    skill,
                    title,
                    topic,
-                   content,
+                   CASE WHEN skill = 'listening' AND NOT transcript_available THEN '' ELSE content END,
                    word_count,
                    sentence_count,
                    estimated_minutes,
@@ -493,7 +494,14 @@ impl ContentService for MyContentService {
                    CASE WHEN skill = 'listening'
                         THEN audio_metadata ->> 'status'
                         ELSE 'not_applicable'
-                   END
+                   END,
+                   COALESCE((
+                     SELECT jsonb_agg(
+                       question.value - ARRAY['correct_option_id', 'rationale', 'evidence', 'editorial_status']
+                       ORDER BY question.ordinality
+                     )
+                       FROM jsonb_array_elements(questions) WITH ORDINALITY AS question(value, ordinality)
+                   ), '[]'::jsonb)::TEXT
                  FROM curriculum_comprehension_resources
                 WHERE publication_status = 'published'
                   AND ($1::TEXT IS NULL OR track = $1)
@@ -538,6 +546,7 @@ impl ContentService for MyContentService {
                     transcript_available,
                     audio_url,
                     audio_status,
+                    questions_json,
                 )| ComprehensionResource {
                     id,
                     track,
@@ -554,6 +563,7 @@ impl ContentService for MyContentService {
                     transcript_available,
                     audio_url: audio_url.unwrap_or_default(),
                     audio_status: audio_status.unwrap_or_else(|| "not_available".to_string()),
+                    questions_json,
                 },
             )
             .collect();

@@ -209,6 +209,38 @@ export function auditCatalog(catalog) {
     if (!Number.isInteger(resource.word_count) || resource.word_count !== wordCount(resource.content || '')) {
       issue(errors, 'WORD_COUNT_MISMATCH', p + '.word_count', 'El recuento de palabras no coincide con el contenido.');
     }
+    const questions = Array.isArray(resource.questions) ? resource.questions : [];
+    if (questions.length < 2) {
+      issue(errors, 'MISSING_COMPREHENSION_QUESTIONS', p + '.questions', 'Cada recurso requiere al menos dos preguntas de comprensión.');
+    }
+    const questionIds = new Set();
+    for (const [questionIndex, question] of questions.entries()) {
+      const qp = p + '.questions[' + questionIndex + ']';
+      if (!nonEmpty(question.id) || questionIds.has(question.id)) {
+        issue(errors, 'DUPLICATE_OR_MISSING_QUESTION_ID', qp + '.id', 'Cada pregunta requiere un id único dentro del recurso.');
+      }
+      questionIds.add(question.id);
+      if (!nonEmpty(question.prompt) || question.type !== 'multiple_choice') {
+        issue(errors, 'INVALID_COMPREHENSION_QUESTION', qp, 'La pregunta requiere prompt y tipo multiple_choice.');
+      }
+      const options = Array.isArray(question.options) ? question.options : [];
+      const optionIds = new Set();
+      for (const [optionIndex, option] of options.entries()) {
+        if (!nonEmpty(option.id) || optionIds.has(option.id) || !nonEmpty(option.text)) {
+          issue(errors, 'INVALID_COMPREHENSION_OPTION', qp + '.options[' + optionIndex + ']', 'Cada opción requiere id/texto y no puede repetirse.');
+        }
+        optionIds.add(option.id);
+      }
+      if (options.length < 3 || options.length > 4 || !optionIds.has(question.correct_option_id)) {
+        issue(errors, 'INVALID_COMPREHENSION_ANSWER', qp, 'La pregunta requiere 3–4 opciones y una clave que exista.');
+      }
+      if (!['pending_human_review', 'approved'].includes(question.editorial_status)) {
+        issue(errors, 'INVALID_QUESTION_EDITORIAL_STATUS', qp + '.editorial_status', 'El estado editorial de la pregunta no es válido.');
+      }
+      if (resource.publication_status === 'published' && question.editorial_status !== 'approved') {
+        issue(errors, 'UNREVIEWED_COMPREHENSION_QUESTION_PUBLISHED', qp, 'No se publica un recurso con preguntas pendientes de revisión.');
+      }
+    }
     if (resource.skill === 'listening' && resource.publication_status === 'published') {
       if (!nonEmpty(resource.audio?.asset_url) || resource.audio?.status !== 'approved') {
         issue(errors, 'LISTENING_WITHOUT_APPROVED_AUDIO', p + '.audio', 'Un recurso auditivo publicado requiere un audio real y aprobado.');
@@ -244,6 +276,8 @@ export function auditCatalog(catalog) {
     comprehension_resources: resources.length,
     reading_resources: resources.filter(r => r.skill === 'reading').length,
     listening_resources: resources.filter(r => r.skill === 'listening').length,
+    comprehension_questions: resources.reduce((total, resource) => total + (resource.questions?.length ?? 0), 0),
+    pending_question_review: resources.reduce((total, resource) => total + (resource.questions ?? []).filter(question => question.editorial_status !== 'approved').length, 0),
     examples: exampleCount,
     level_counts: levelCounts,
     track_level_counts: trackCounts,

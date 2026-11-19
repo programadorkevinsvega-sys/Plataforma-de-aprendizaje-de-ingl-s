@@ -30,7 +30,7 @@ Solo se aceptan coincidencias exactas de lema modificado. Se registra hash SHA-2
 
 ### Importación PostgreSQL v2
 
-La migración `migrations/20261119000000_lexical_catalog_v2.sql` extiende las tablas léxicas existentes con metadatos v2, añade recursos de comprensión y un ledger SHA-256. Las filas heredadas se conservan como `legacy_pending_review`; no se exponen al estudiante. El servicio gRPC lista únicamente vocabulario y ejemplos cuyo estado sea `published`. El RPC `ListComprehensionResources` expone lecturas y escuchas publicadas con filtros de ruta, nivel y skill y paginación; exige autenticación y jamás devuelve borradores.
+La migración `migrations/20261119000000_lexical_catalog_v2.sql` extiende las tablas léxicas existentes con metadatos v2, añade recursos de comprensión y un ledger SHA-256. Las filas heredadas se conservan como `legacy_pending_review`; no se exponen al estudiante. El servicio gRPC lista únicamente vocabulario y ejemplos cuyo estado sea `published`. El RPC `ListComprehensionResources` expone lecturas y escuchas publicadas con filtros de ruta, nivel y skill y paginación; exige autenticación y jamás devuelve borradores. Los payloads incluyen preguntas sin claves/justificaciones; para listening no se devuelve el transcript mientras `transcript_available=false`.
 
 La importación usa `tools/curriculum/import_lexical_catalog.mjs`, es transaccional e idempotente. El modo predeterminado es dry-run y siempre revierte:
 ```bash
@@ -44,7 +44,7 @@ DATABASE_URL='postgresql://…' node tools/curriculum/import_lexical_catalog.mjs
 
 El importador registra actor, hash, conteos y metadatos; no publica contenido. Rechaza modificar contenido previamente publicado. La publicación de una unidad exige revisión editorial aprobada y pronunciación aprobada o declarada explícitamente como no requerida. La publicación de un recurso listening requiere además un audio real con estado aprobado y URL registrada.
 
-La importación y las migraciones v2 se prueban con `node --test tools/curriculum/tests/import_lexical_catalog.test.mjs` y el harness de migraciones de Fase 1.2–1.4. Los guiones de listening continúan en borrador sin audio; los ejemplos, traducciones, niveles y guías fonéticas continúan pendientes de revisión editorial competente. La presencia de la estructura y la auditoría estricta no equivale a aprobar la naturalidad del contenido.
+La importación y las migraciones v2 se prueban con `node --test tools/curriculum/tests/import_lexical_catalog.test.mjs` y el harness de migraciones de Fase 1.2–1.4. Los guiones de listening continúan en borrador sin audio; las 52 preguntas de comprensión, los ejemplos, traducciones, niveles y guías fonéticas continúan pendientes de revisión editorial competente. La presencia de la estructura y la auditoría estricta no equivale a aprobar la naturalidad del contenido.
 
 ---
 

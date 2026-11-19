@@ -86,6 +86,7 @@ message ComprehensionResource {
   bool transcript_available = 13;
   string audio_url = 14;
   string audio_status = 15;
+  string questions_json = 16;
 }
 
 message GetRandomInterviewQuestionRequest {

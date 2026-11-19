@@ -83,6 +83,7 @@ export async function importLexicalCatalog(pool, catalog, contentSha256, { apply
     estimated_minutes: resource.estimated_minutes ?? null,
     difficulty_profile: resource.difficulty_profile,
     comprehension_focus: resource.comprehension_focus ?? '',
+    questions: resource.questions ?? [],
     lexical_tags: resource.lexical_tags ?? [],
     transcript_available: resource.transcript_available ?? false,
     audio_metadata: resource.audio ?? {},
@@ -256,7 +257,7 @@ export async function importLexicalCatalog(pool, catalog, contentSha256, { apply
       `INSERT INTO curriculum_comprehension_resources (
           source_key, source_catalog, catalog_hash, track, cefr_level,
           skill, title, topic, content, word_count, sentence_count,
-          estimated_minutes, difficulty_profile, comprehension_focus,
+          estimated_minutes, difficulty_profile, comprehension_focus, questions,
           lexical_tags, transcript_available, audio_metadata,
           editorial_status, publication_status, provenance
        )
@@ -270,7 +271,7 @@ export async function importLexicalCatalog(pool, catalog, contentSha256, { apply
            source_key text, track text, cefr_level text, skill text,
            title text, topic text, content text, word_count integer,
            sentence_count integer, estimated_minutes integer,
-           difficulty_profile jsonb, comprehension_focus text,
+           difficulty_profile jsonb, comprehension_focus text, questions jsonb,
            lexical_tags text[], transcript_available boolean,
            audio_metadata jsonb, editorial_status text,
            publication_status text, provenance jsonb
@@ -289,6 +290,7 @@ export async function importLexicalCatalog(pool, catalog, contentSha256, { apply
           estimated_minutes = EXCLUDED.estimated_minutes,
           difficulty_profile = EXCLUDED.difficulty_profile,
           comprehension_focus = EXCLUDED.comprehension_focus,
+          questions = EXCLUDED.questions,
           lexical_tags = EXCLUDED.lexical_tags,
           transcript_available = EXCLUDED.transcript_available,
           audio_metadata = EXCLUDED.audio_metadata,

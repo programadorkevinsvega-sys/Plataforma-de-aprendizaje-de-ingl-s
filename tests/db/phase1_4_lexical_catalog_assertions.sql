@@ -27,6 +27,16 @@ BEGIN
         END IF;
     END LOOP;
 
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+         WHERE table_schema = 'public'
+           AND table_name = 'curriculum_comprehension_resources'
+           AND column_name = 'questions'
+           AND data_type = 'jsonb'
+    ) THEN
+        RAISE EXCEPTION 'Comprehension resource question payload is missing';
+    END IF;
+
     IF to_regprocedure('public.guard_lexical_catalog_publication()') IS NULL THEN
         RAISE EXCEPTION 'Lexical catalog publication guard function is missing';
     END IF;

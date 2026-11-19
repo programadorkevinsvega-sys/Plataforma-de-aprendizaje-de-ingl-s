@@ -95982,7 +95982,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "What is the person's name?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Sara"
+            },
+            {
+              "id": "b",
+              "text": "Daniel"
+            },
+            {
+              "id": "c",
+              "text": "Laura"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The first sentence identifies the speaker as Sara.",
+          "evidence": "My name is Sara.",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "When does Sara study English?",
+          "options": [
+            {
+              "id": "a",
+              "text": "In the morning"
+            },
+            {
+              "id": "b",
+              "text": "In the evening"
+            },
+            {
+              "id": "c",
+              "text": "At lunchtime"
+            }
+          ],
+          "correct_option_id": "b",
+          "rationale": "The text states that she studies English in the evening.",
+          "evidence": "I study English in the evening.",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "general-pre_a1-listening-02",
@@ -96025,7 +96073,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "What is the visitor's name?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Daniel"
+            },
+            {
+              "id": "b",
+              "text": "Sara"
+            },
+            {
+              "id": "c",
+              "text": "Tom"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The visitor says his name is Daniel.",
+          "evidence": "My name is Daniel.",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "Where is Daniel from?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Mexico"
+            },
+            {
+              "id": "b",
+              "text": "Colombia"
+            },
+            {
+              "id": "c",
+              "text": "Canada"
+            }
+          ],
+          "correct_option_id": "b",
+          "rationale": "Daniel answers that he is from Colombia.",
+          "evidence": "I am from Colombia.",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "general-a1-reading-03",
@@ -96066,7 +96162,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "How does Laura travel to work?",
+          "options": [
+            {
+              "id": "a",
+              "text": "By bus"
+            },
+            {
+              "id": "b",
+              "text": "By train"
+            },
+            {
+              "id": "c",
+              "text": "On foot"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The text says she takes the bus to work.",
+          "evidence": "takes the bus to work",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "Why does Laura go to bed before eleven?",
+          "options": [
+            {
+              "id": "a",
+              "text": "She starts work at six"
+            },
+            {
+              "id": "b",
+              "text": "She gets up early"
+            },
+            {
+              "id": "c",
+              "text": "She studies at night"
+            }
+          ],
+          "correct_option_id": "b",
+          "rationale": "The final clause gives the reason: she gets up early.",
+          "evidence": "because she gets up early",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "general-a1-listening-04",
@@ -96110,7 +96254,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "What does the customer order?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Tea and a cake"
+            },
+            {
+              "id": "b",
+              "text": "Coffee and a cheese sandwich"
+            },
+            {
+              "id": "c",
+              "text": "Water and a salad"
+            }
+          ],
+          "correct_option_id": "b",
+          "rationale": "The customer explicitly orders coffee and a cheese sandwich.",
+          "evidence": "a coffee and a cheese sandwich",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "How much does the order cost?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Six dollars"
+            },
+            {
+              "id": "b",
+              "text": "Eight dollars"
+            },
+            {
+              "id": "c",
+              "text": "Ten dollars"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The server states the price.",
+          "evidence": "It is six dollars.",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "general-a2-reading-05",
@@ -96151,7 +96343,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "Why was the bus service delayed?",
+          "options": [
+            {
+              "id": "a",
+              "text": "A driver was ill"
+            },
+            {
+              "id": "b",
+              "text": "Heavy rain"
+            },
+            {
+              "id": "c",
+              "text": "A road was closed"
+            }
+          ],
+          "correct_option_id": "b",
+          "rationale": "The message explains that heavy rain delayed the service.",
+          "evidence": "the service was delayed because of heavy rain",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "What did Mateo and his cousin decide to do first?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Meet online"
+            },
+            {
+              "id": "b",
+              "text": "Cancel the visit permanently"
+            },
+            {
+              "id": "c",
+              "text": "Travel by train"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "They decided to meet online first and choose a new date.",
+          "evidence": "meet online first",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "general-a2-listening-06",
@@ -96196,7 +96436,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "What does Nina suggest doing on Saturday?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Visiting a museum and having dinner"
+            },
+            {
+              "id": "b",
+              "text": "Going to the beach"
+            },
+            {
+              "id": "c",
+              "text": "Watching a match"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "Nina proposes a museum visit followed by dinner nearby.",
+          "evidence": "visit the new museum and have dinner nearby",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "Where will they meet?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Inside the museum"
+            },
+            {
+              "id": "b",
+              "text": "Outside the station"
+            },
+            {
+              "id": "c",
+              "text": "At the restaurant"
+            }
+          ],
+          "correct_option_id": "b",
+          "rationale": "Nina says to meet outside the station at two.",
+          "evidence": "outside the station",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "general-b1-reading-07",
@@ -96238,7 +96526,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "What caused the delivery problem?",
+          "options": [
+            {
+              "id": "a",
+              "text": "The supplier lost the order"
+            },
+            {
+              "id": "b",
+              "text": "A label was damaged during transport"
+            },
+            {
+              "id": "c",
+              "text": "The shop gave the wrong address"
+            }
+          ],
+          "correct_option_id": "b",
+          "rationale": "The supplier explains that the label was damaged in transit.",
+          "evidence": "a label had been damaged during transport",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "How did the supplier handle the urgent parts?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Sent them separately"
+            },
+            {
+              "id": "b",
+              "text": "Cancelled them"
+            },
+            {
+              "id": "c",
+              "text": "Asked the shop to collect them"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The supplier offered to send the most urgent parts separately.",
+          "evidence": "send the most urgent parts separately",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "general-b1-listening-08",
@@ -96284,7 +96620,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "What did Maya finish yesterday?",
+          "options": [
+            {
+              "id": "a",
+              "text": "The customer report"
+            },
+            {
+              "id": "b",
+              "text": "The presentation"
+            },
+            {
+              "id": "c",
+              "text": "The latest figures"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "Maya says she finished the customer report.",
+          "evidence": "I finished the customer report yesterday",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "When was the review moved to?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Tuesday"
+            },
+            {
+              "id": "b",
+              "text": "Thursday"
+            },
+            {
+              "id": "c",
+              "text": "Friday"
+            }
+          ],
+          "correct_option_id": "b",
+          "rationale": "Maya says she moved the review to Thursday.",
+          "evidence": "I moved the review to Thursday",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "general-b2-reading-09",
@@ -96326,7 +96710,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "Why did the team avoid creating separate queues?",
+          "options": [
+            {
+              "id": "a",
+              "text": "They lacked enough staff"
+            },
+            {
+              "id": "b",
+              "text": "It would add operational complexity"
+            },
+            {
+              "id": "c",
+              "text": "Customers requested one queue"
+            }
+          ],
+          "correct_option_id": "b",
+          "rationale": "The team considered separate queues but judged their operational complexity too high.",
+          "evidence": "that would have added operational complexity",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "What did the team review after a month?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Response times"
+            },
+            {
+              "id": "b",
+              "text": "The number of employees"
+            },
+            {
+              "id": "c",
+              "text": "The shop's opening hours"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The team compared response times after a month.",
+          "evidence": "After a month, the team compared response times",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "general-b2-listening-10",
@@ -96372,7 +96804,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "Which option does Emma consider less disruptive?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Extending the deadline"
+            },
+            {
+              "id": "b",
+              "text": "Reducing the scope"
+            },
+            {
+              "id": "c",
+              "text": "Removing the pilot"
+            }
+          ],
+          "correct_option_id": "b",
+          "rationale": "Emma says reducing scope is less disruptive, with documentation of deferred work.",
+          "evidence": "Reducing scope is less disruptive",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "Which requirement must remain?",
+          "options": [
+            {
+              "id": "a",
+              "text": "The reporting requirement"
+            },
+            {
+              "id": "b",
+              "text": "The training schedule"
+            },
+            {
+              "id": "c",
+              "text": "The optional dashboard"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "Emma says reporting is needed for compliance and should remain.",
+          "evidence": "That should remain",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "general-c1-reading-11",
@@ -96415,7 +96895,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "What should a decision record include?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Only the final decision"
+            },
+            {
+              "id": "b",
+              "text": "The problem, constraints, options and supporting evidence"
+            },
+            {
+              "id": "c",
+              "text": "A list of everyone who attended"
+            }
+          ],
+          "correct_option_id": "b",
+          "rationale": "The text lists the elements that make the reasoning inspectable.",
+          "evidence": "A concise record states the problem, the constraints, the options considered and the evidence",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "Why should a record state what would invalidate a decision?",
+          "options": [
+            {
+              "id": "a",
+              "text": "To make reconsideration possible"
+            },
+            {
+              "id": "b",
+              "text": "To prevent anyone from changing it"
+            },
+            {
+              "id": "c",
+              "text": "To shorten the document"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "Without a reconsideration trigger, a temporary compromise can become permanent through inertia.",
+          "evidence": "without a trigger for reconsideration",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "general-c1-listening-12",
@@ -96461,7 +96989,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "What limitation does the engineer identify?",
+          "options": [
+            {
+              "id": "a",
+              "text": "The sample is too small to establish the effect under peak load"
+            },
+            {
+              "id": "b",
+              "text": "The average latency increased"
+            },
+            {
+              "id": "c",
+              "text": "The service was not measured"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The engineer distinguishes a measured average improvement from evidence at peak traffic.",
+          "evidence": "the sample is too small to establish the effect under peak load",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "What does the engineer recommend?",
+          "options": [
+            {
+              "id": "a",
+              "text": "A full rollout immediately"
+            },
+            {
+              "id": "b",
+              "text": "A limited rollout with a rollback threshold"
+            },
+            {
+              "id": "c",
+              "text": "Waiting without collecting more evidence"
+            }
+          ],
+          "correct_option_id": "b",
+          "rationale": "A limited rollout gathers evidence while controlling risk.",
+          "evidence": "a limited rollout with an explicit rollback threshold",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "general-c2-reading-13",
@@ -96504,7 +97080,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "Why can a highly optimised process become brittle?",
+          "options": [
+            {
+              "id": "a",
+              "text": "It eliminates slack, redundancy or room for recovery"
+            },
+            {
+              "id": "b",
+              "text": "It uses too many staff"
+            },
+            {
+              "id": "c",
+              "text": "It avoids measuring performance"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The opening sentence links extreme optimisation with removal of recovery capacity.",
+          "evidence": "eliminate slack, redundancy or room for recovery",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "What should a broader account of efficiency consider?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Only routine throughput"
+            },
+            {
+              "id": "b",
+              "text": "Disruption cost, risk distribution and capacity to adapt"
+            },
+            {
+              "id": "c",
+              "text": "Only the cost of hardware"
+            }
+          ],
+          "correct_option_id": "b",
+          "rationale": "The final sentence identifies these dimensions explicitly.",
+          "evidence": "the cost of disruption, the distribution of risk and the capacity to adapt",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "general-c2-listening-14",
@@ -96550,7 +97174,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "According to Guest 1, what else supports resilience besides spare capacity?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Fast detection and coordinated response"
+            },
+            {
+              "id": "b",
+              "text": "More documentation alone"
+            },
+            {
+              "id": "c",
+              "text": "A larger budget in every case"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "Guest 1 says resilience also depends on detecting problems and coordinating responses.",
+          "evidence": "how quickly people detect a problem and coordinate a response",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "Which measures do the guests recommend examining?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Recovery time, user impact and recurring failures"
+            },
+            {
+              "id": "b",
+              "text": "Employee satisfaction only"
+            },
+            {
+              "id": "c",
+              "text": "Average cost per request only"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "Guest 1 lists recovery time, severity of user impact and recurring failures.",
+          "evidence": "recovery time, the severity of user impact and whether the same failure keeps recurring",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "technology-a1-reading-15",
@@ -96591,7 +97263,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "Which tools does Alex use?",
+          "options": [
+            {
+              "id": "a",
+              "text": "A laptop and keyboard"
+            },
+            {
+              "id": "b",
+              "text": "A phone and printer"
+            },
+            {
+              "id": "c",
+              "text": "A tablet and camera"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The text names a laptop and a keyboard.",
+          "evidence": "a laptop, a keyboard",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "When does Alex ask for help?",
+          "options": [
+            {
+              "id": "a",
+              "text": "When he cannot find the meeting link"
+            },
+            {
+              "id": "b",
+              "text": "When he saves a copy"
+            },
+            {
+              "id": "c",
+              "text": "When he opens the project folder"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The final sentence explains when he asks for help.",
+          "evidence": "when he cannot find the meeting link",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "technology-a1-listening-16",
@@ -96636,7 +97356,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "What problem does Alex report?",
+          "options": [
+            {
+              "id": "a",
+              "text": "He cannot open a file"
+            },
+            {
+              "id": "b",
+              "text": "He forgot his password"
+            },
+            {
+              "id": "c",
+              "text": "The screen is broken"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "Alex begins by saying he cannot open the file.",
+          "evidence": "I can't open this file.",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "What does Sam ask Alex to send?",
+          "options": [
+            {
+              "id": "a",
+              "text": "A screenshot"
+            },
+            {
+              "id": "b",
+              "text": "A new password"
+            },
+            {
+              "id": "c",
+              "text": "The laptop"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "Sam asks for a screenshot of the message.",
+          "evidence": "Please send me a screenshot.",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "technology-a2-reading-17",
@@ -96678,7 +97446,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "What does the developer check first?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Whether other devices are online"
+            },
+            {
+              "id": "b",
+              "text": "Whether the laptop needs replacing"
+            },
+            {
+              "id": "c",
+              "text": "Whether the office is closed"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The first troubleshooting step is to compare other devices.",
+          "evidence": "she checks whether other devices are online",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "What does support ask her not to do yet?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Reset the laptop"
+            },
+            {
+              "id": "b",
+              "text": "Report the error message"
+            },
+            {
+              "id": "c",
+              "text": "Check the network name"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "Support asks her not to reset the laptop until settings are reviewed.",
+          "evidence": "not to reset the laptop until they review the settings",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "technology-a2-listening-18",
@@ -96724,7 +97540,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "What can the user see?",
+          "options": [
+            {
+              "id": "a",
+              "text": "The network name"
+            },
+            {
+              "id": "b",
+              "text": "The desktop wallpaper only"
+            },
+            {
+              "id": "c",
+              "text": "A new password prompt"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The user confirms that the network name is visible, but connection fails.",
+          "evidence": "Yes, but the connection fails.",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "What does support say not to do yet?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Reset the settings"
+            },
+            {
+              "id": "b",
+              "text": "Restart the laptop"
+            },
+            {
+              "id": "c",
+              "text": "Check the account"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "Support explicitly says not to reset the settings yet.",
+          "evidence": "Don't reset the settings yet.",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "technology-b1-reading-19",
@@ -96766,7 +97630,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "What helped the team reproduce the issue reliably?",
+          "options": [
+            {
+              "id": "a",
+              "text": "A sequence of filter actions using the test account and browser version"
+            },
+            {
+              "id": "b",
+              "text": "A new server"
+            },
+            {
+              "id": "c",
+              "text": "Changing the page title"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "Reviewing the account and browser version helped reveal the repeatable steps.",
+          "evidence": "After reviewing the test account and browser version, the team found a reliable sequence",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "What evidence did the developer add to the ticket?",
+          "options": [
+            {
+              "id": "a",
+              "text": "The steps and a short recording"
+            },
+            {
+              "id": "b",
+              "text": "A customer invoice"
+            },
+            {
+              "id": "c",
+              "text": "A list of unrelated bugs"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The developer documented the steps and attached a short recording.",
+          "evidence": "added these steps to the ticket and attached a short recording",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "technology-b1-listening-20",
@@ -96812,7 +97724,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "What did the developer complete yesterday?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Fixed a validation error and opened a pull request"
+            },
+            {
+              "id": "b",
+              "text": "Deployed to production"
+            },
+            {
+              "id": "c",
+              "text": "Closed the incident"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The developer reports both completed actions.",
+          "evidence": "I fixed the validation error and opened a pull request",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "What is blocking the review?",
+          "options": [
+            {
+              "id": "a",
+              "text": "A configuration value from operations"
+            },
+            {
+              "id": "b",
+              "text": "A failing test"
+            },
+            {
+              "id": "c",
+              "text": "A missing design"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The developer says a configuration value is still needed from operations.",
+          "evidence": "I need one configuration value from operations",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "technology-b2-reading-21",
@@ -96855,7 +97815,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "What does the team check before deployment?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Artifact hash, environment variables and database compatibility"
+            },
+            {
+              "id": "b",
+              "text": "Only the release title"
+            },
+            {
+              "id": "c",
+              "text": "The support team's holiday schedule"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The second sentence lists the preparation checks.",
+          "evidence": "checks the artifact hash, required environment variables and database compatibility",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "When is the release rolled back automatically?",
+          "options": [
+            {
+              "id": "a",
+              "text": "When a predefined threshold is exceeded"
+            },
+            {
+              "id": "b",
+              "text": "After every successful canary"
+            },
+            {
+              "id": "c",
+              "text": "When the observation window begins"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The conditional sentence specifies the rollback trigger.",
+          "evidence": "If a predefined threshold is exceeded",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "technology-b2-listening-22",
@@ -96901,7 +97909,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "What is the reviewer's main concern?",
+          "options": [
+            {
+              "id": "a",
+              "text": "The number of database queries"
+            },
+            {
+              "id": "b",
+              "text": "The endpoint name"
+            },
+            {
+              "id": "c",
+              "text": "The colour of the interface"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The reviewer says they are concerned about the number of database queries.",
+          "evidence": "concerned about the number of database queries",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "What evidence is still needed before merging?",
+          "options": [
+            {
+              "id": "a",
+              "text": "A staging measurement with representative data"
+            },
+            {
+              "id": "b",
+              "text": "A new product logo"
+            },
+            {
+              "id": "c",
+              "text": "A longer meeting"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The reviewer asks for a query-plan measurement with representative data.",
+          "evidence": "measured the query plan with representative data",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "technology-c1-reading-23",
@@ -96943,7 +97999,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "What amplified the requests before the service crossed its error threshold?",
+          "options": [
+            {
+              "id": "a",
+              "text": "A background retry process"
+            },
+            {
+              "id": "b",
+              "text": "A manual database migration"
+            },
+            {
+              "id": "c",
+              "text": "A user interface change"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The timeline says the retry process had been amplifying requests for several minutes.",
+          "evidence": "A background retry process had been amplifying requests",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "Which dependency was responding slowly?",
+          "options": [
+            {
+              "id": "a",
+              "text": "The identity provider"
+            },
+            {
+              "id": "b",
+              "text": "The cache"
+            },
+            {
+              "id": "c",
+              "text": "The public API"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "Distributed traces identified the downstream identity provider.",
+          "evidence": "a downstream identity provider was responding slowly",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "technology-c1-listening-24",
@@ -96989,7 +98093,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "Which component remained healthy during the incident?",
+          "options": [
+            {
+              "id": "a",
+              "text": "The database"
+            },
+            {
+              "id": "b",
+              "text": "The identity provider"
+            },
+            {
+              "id": "c",
+              "text": "The public API"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The engineer explicitly says the database remained healthy.",
+          "evidence": "The database remained healthy.",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "Which corrective actions are proposed?",
+          "options": [
+            {
+              "id": "a",
+              "text": "A bounded retry budget, dependency-level alerts and degraded mode"
+            },
+            {
+              "id": "b",
+              "text": "More retries and fewer alerts"
+            },
+            {
+              "id": "c",
+              "text": "A complete rewrite of the database"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The SRE lists the three actions for preventing or containing a recurrence.",
+          "evidence": "bounded retry budget, add dependency-level alerts and test the degraded mode",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "technology-c2-reading-25",
@@ -97032,7 +98184,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "Which factors guide the decision to separate dependencies?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Threat model, user impact and recovery objectives"
+            },
+            {
+              "id": "b",
+              "text": "The number of code files"
+            },
+            {
+              "id": "c",
+              "text": "The team's preferred programming language"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The text states that separation depends on these system-level factors.",
+          "evidence": "given the system's threat model, user impact and recovery objectives",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "What is one cost of greater isolation?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Operational overhead and new coordination demands"
+            },
+            {
+              "id": "b",
+              "text": "Guaranteed removal of all shared failures"
+            },
+            {
+              "id": "c",
+              "text": "No need for recovery procedures"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The text says replicas, credentials and redundant paths add overhead and coordination.",
+          "evidence": "introduce operational overhead and new coordination demands",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     },
     {
       "id": "technology-c2-listening-26",
@@ -97078,7 +98278,55 @@
       "provenance": {
         "origin": "phase_1_4_original_resource",
         "license": "original"
-      }
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "What is one benefit of isolating the event processor?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Reducing the blast radius"
+            },
+            {
+              "id": "b",
+              "text": "Removing all shared failure modes"
+            },
+            {
+              "id": "c",
+              "text": "Eliminating the need for a runbook"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The SRE says separation reduces the blast radius but does not remove shared failure modes.",
+          "evidence": "Separation reduces the blast radius",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "What evidence does the SRE propose before accepting the boundary?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Failure analysis, load testing and a recovery exercise"
+            },
+            {
+              "id": "b",
+              "text": "A code style review only"
+            },
+            {
+              "id": "c",
+              "text": "A larger deployment team"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The SRE names all three forms of evidence before committing.",
+          "evidence": "First, a failure analysis tied to user impact. Then a load test that shows whether backpressure protects the database. Finally, a recovery exercise",
+          "editorial_status": "pending_human_review"
+        }
+      ]
     }
   ]
 }

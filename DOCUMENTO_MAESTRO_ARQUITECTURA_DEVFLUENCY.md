@@ -137,7 +137,7 @@ El nivel del estudiante debe estimarse mediante evidencias académicas, no por X
 - El auditor reporta ejemplos ingleses compartidos entre unidades y significados españoles repetidos como candidatos a revisión; no aplica borrado automático.
 - La migración PostgreSQL v2 añade metadatos, recursos de comprensión y ledger SHA-256. El importador es transaccional e idempotente, dry-run por defecto y requiere un editor registrado para aplicar.
 - El servicio de vocabulario solo entrega unidades y ejemplos publicados. Las filas heredadas se conservan como `legacy_pending_review` para preservar referencias SRS, pero no se exponen como material aprobado.
-- Se añade el RPC autenticado `ListComprehensionResources` para lecturas y escuchas publicadas, con filtros por ruta, nivel y skill y paginación.
+- Se añade el RPC autenticado `ListComprehensionResources` para lecturas y escuchas publicadas, con filtros por ruta, nivel y skill y paginación. Los 26 recursos tienen 52 preguntas con clave editorial separada; la API elimina la clave/justificación y no devuelve el transcript de listening antes de la respuesta.
 - La publicación de vocabulario/ejemplos exige aprobación editorial y pronunciación aprobada o explícitamente no requerida. Los recursos listening requieren URL y asset real aprobado.
 - La Subfase 1.3 quedó completada técnicamente el 2026-11-18: contrato JSON canónico v1 y validador offline (PR #75), importador PostgreSQL transaccional/idempotente (PR #77), exportador relacional verificable y CLI editorial (PR #78), y validación de integridad al publicar más congelación del contenido durante revisión (PR #79). Las cuatro PR están fusionadas en `main`.
 - El modelo persistido de cursos incluye Course/CourseVersion, Unit, Lesson, LearningObjective, Skill y relaciones, ledger de paquetes, registro de editores e historial append-only de revisión. PostgreSQL valida completitud académica al publicar.
@@ -147,7 +147,7 @@ El nivel del estudiante debe estimarse mediante evidencias académicas, no por X
 **Estado y límites verificables de Subfase 1.4 en PR #90 (rama abierta, no fusionada):**
 - Las 790 unidades tienen revisión editorial pendiente. De ellas, 709 son candidatos unigrama para cotejo exacto con NGSL/NGSL-Spoken y 81 expresiones multi-palabra no aplican a listas unigramas. Los 709 rangos continúan null; el cruce aún no se ha ejecutado con los CSV oficiales. NGSL usa lemas modificados, por lo que el rango es agregado por lema y no por sentido/POS.
 - De los 2.201 ejemplos, 2.115 tienen guías candidatas pendientes de validación; 86 expresiones nuevas aún no tienen candidata fonética.
-- Los 13 recursos reading y 13 listening siguen en draft. No existe audio listening real aprobado.
+- Los 13 recursos reading y 13 listening siguen en draft. No existe audio listening real aprobado; las 52 preguntas siguen pendientes de revisión humana.
 - La cobertura General se distribuye en 237 PRE_A1, 462 A1, 7 A2, 7 B1, 7 B2, 6 C1 y 6 C2; es muy inferior al presupuesto léxico interno acumulado, especialmente desde A2.
 - La revisión humana de traducciones, naturalidad, nivel, registro y pronunciación no puede reemplazarse por validaciones estructurales. La importación v2 no publica contenido ni se ha ejecutado en VM desde esta PR.
 - La CI de la rama corrigió un error sintáctico en el test del auditor; la ejecución completa del último commit debe terminar verde antes de aceptar la integración técnica.

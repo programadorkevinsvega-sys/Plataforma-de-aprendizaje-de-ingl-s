@@ -74,6 +74,8 @@ if (!pool) {
           (SELECT count(*)::int FROM vocabulary_words WHERE source_catalog = $1) AS items,
           (SELECT count(*)::int FROM context_sentences WHERE source_catalog = $1) AS examples,
           (SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1) AS resources,
+          (SELECT COALESCE(sum(jsonb_array_length(questions)), 0)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1) AS questions,
+          (SELECT count(*)::int FROM curriculum_comprehension_resources resource CROSS JOIN LATERAL jsonb_array_elements(resource.questions) question WHERE resource.source_catalog = $1 AND question ->> 'editorial_status' = 'pending_human_review') AS pending_questions,
           (SELECT count(*)::int FROM vocabulary_words WHERE source_catalog = $1 AND publication_status = 'draft') AS draft_items,
           (SELECT count(*)::int FROM vocabulary_words WHERE source_catalog = $1 AND publication_status = 'published') AS published_items,
           (SELECT count(*)::int FROM context_sentences WHERE source_catalog = $1 AND publication_status = 'published') AS published_examples,
@@ -83,6 +85,8 @@ if (!pool) {
     assert.equal(counts.rows[0].items, catalog.lexical_items.length);
     assert.equal(counts.rows[0].examples, expectedExamples);
     assert.equal(counts.rows[0].resources, catalog.comprehension_resources.length);
+    assert.equal(counts.rows[0].questions, 52);
+    assert.equal(counts.rows[0].pending_questions, 52);
     assert.equal(counts.rows[0].draft_items, catalog.lexical_items.length);
     assert.equal(counts.rows[0].published_items, 0);
     assert.equal(counts.rows[0].published_examples, 0);
@@ -141,6 +145,22 @@ if (!pool) {
           [firstSourceKey],
         ),
         /immutable/,
+      );
+      await client.query('ROLLBACK');
+
+      const readingSourceKey = `v2:resource:${catalog.comprehension_resources.find((resource) => resource.skill === 'reading').id}`;
+      await client.query('BEGIN');
+      await client.query("SELECT set_config('app.current_user_id', $1, true)", [editorId]);
+      await client.query(
+        "UPDATE curriculum_comprehension_resources SET publication_status = 'review', editorial_status = 'approved' WHERE source_key = $1",
+        [readingSourceKey],
+      );
+      await assert.rejects(
+        client.query(
+          "UPDATE curriculum_comprehension_resources SET publication_status = 'published' WHERE source_key = $1",
+          [readingSourceKey],
+        ),
+        /Every comprehension question requires editorial approval/,
       );
       await client.query('ROLLBACK');
 

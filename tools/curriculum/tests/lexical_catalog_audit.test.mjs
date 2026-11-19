@@ -15,6 +15,8 @@ test('el catálogo unificado supera la auditoría estricta', () => {
   assert.equal(report.summary.comprehension_resources, 26);
   assert.equal(report.summary.reading_resources, 13);
   assert.equal(report.summary.listening_resources, 13);
+  assert.equal(report.summary.comprehension_questions, 52);
+  assert.equal(report.summary.pending_question_review, 52);
   assert.equal(report.summary.examples, 2201);
   assert.equal(report.summary.pending_editorial_review, 790);
   assert.equal(report.summary.pending_frequency_match, 709);
@@ -96,4 +98,26 @@ test('las expresiones multi-palabra no se fuerzan dentro de listas de frecuencia
   const item = catalog.lexical_items.find(entry => entry.lexical_type === 'collocation');
   item.frequency.validation_status = 'not_applicable_multiword';
   assert.equal(auditCatalog(catalog).errors.length, 0);
+});
+
+test('cada recurso tiene dos preguntas con opciones y clave válidas', () => {
+  const catalog = readCatalog();
+  for (const resource of catalog.comprehension_resources) {
+    assert.equal(resource.questions.length, 2, resource.id);
+    for (const question of resource.questions) {
+      assert.ok(question.prompt.trim().length > 0);
+      assert.ok(question.options.length >= 3);
+      assert.ok(question.options.some(option => option.id === question.correct_option_id));
+      assert.equal(question.editorial_status, 'pending_human_review');
+    }
+  }
+});
+
+test('no permite publicar un recurso con preguntas pendientes de revisión', () => {
+  const catalog = readCatalog();
+  const resource = catalog.comprehension_resources.find(item => item.skill === 'reading');
+  resource.editorial_status = 'approved';
+  resource.publication_status = 'published';
+  const report = auditCatalog(catalog);
+  assert.ok(report.errors.some(error => error.code === 'UNREVIEWED_COMPREHENSION_QUESTION_PUBLISHED'));
 });

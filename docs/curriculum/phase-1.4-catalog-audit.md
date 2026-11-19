@@ -110,6 +110,12 @@ La ruta tecnológica aporta 83 asignaciones adicionales (41 A1, 7 A2, 7 B1, 9 B2
 
 El auditor ahora informa ejemplos ingleses compartidos entre unidades y significados españoles repetidos como advertencias editoriales. No los elimina automáticamente: pueden representar polisemia, sentidos, contextos o reutilización pedagógica legítima y requieren decisión editorial.
 
+## Preguntas de comprensión
+
+Cada uno de los 26 recursos incorpora dos preguntas originales de opción múltiple (52 en total), con tres opciones, clave de respuesta, justificación y evidencia del texto/guion. Las preguntas, distractores y claves siguen en `pending_human_review`; no equivalen a una rúbrica validada ni se publican automáticamente.
+
+La migración v2 persiste las preguntas como JSONB. Antes de publicar un recurso, PostgreSQL exige al menos dos preguntas aprobadas, cada una con una clave que corresponda a una opción existente. El RPC de estudiante devuelve el enunciado y las opciones, pero elimina la clave, la justificación, la evidencia y los estados editoriales. Para listening, el RPC devuelve `content` vacío mientras `transcript_available=false`; por tanto no revela el guion antes de que el estudiante responda. El guion completo permanece en el paquete editorial para generar y validar el audio.
+
 ## Persistencia e integración v2
 
 La migración `20261119000000_lexical_catalog_v2.sql` añade metadatos de procedencia, frecuencia, tipo léxico, rutas, registro, prioridad y estado editorial sobre las tablas léxicas existentes; añade una tabla para recursos de comprensión y un ledger de importaciones. Los registros preexistentes se conservan como `legacy_pending_review`, no como contenido aprobado.

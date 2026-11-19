@@ -133,6 +133,7 @@ CREATE TABLE IF NOT EXISTS public.curriculum_comprehension_resources (
     estimated_minutes INTEGER,
     difficulty_profile JSONB NOT NULL,
     comprehension_focus TEXT NOT NULL DEFAULT '',
+    questions JSONB NOT NULL DEFAULT '[]'::JSONB CHECK (jsonb_typeof(questions) = 'array'),
     lexical_tags TEXT[] NOT NULL DEFAULT '{}',
     transcript_available BOOLEAN NOT NULL DEFAULT FALSE,
     audio_metadata JSONB NOT NULL DEFAULT '{}'::JSONB,
@@ -255,6 +256,28 @@ BEGIN
         ELSIF v_pronunciation_status <> 'approved'
               AND v_pronunciation_status <> 'not_required' THEN
             RAISE EXCEPTION 'Pronunciation must be approved or explicitly marked not_required'
+                USING ERRCODE = '23514';
+        END IF;
+
+        IF TG_TABLE_NAME = 'curriculum_comprehension_resources'
+           AND jsonb_array_length(COALESCE(to_jsonb(NEW) -> 'questions', '[]'::jsonb)) < 2 THEN
+            RAISE EXCEPTION 'Published comprehension resources require at least two reviewed questions'
+                USING ERRCODE = '23514';
+        END IF;
+
+        IF TG_TABLE_NAME = 'curriculum_comprehension_resources'
+           AND EXISTS (
+             SELECT 1
+               FROM jsonb_array_elements(COALESCE(to_jsonb(NEW) -> 'questions', '[]'::jsonb)) AS question(value)
+              WHERE question.value ->> 'editorial_status' IS DISTINCT FROM 'approved'
+                 OR length(btrim(COALESCE(question.value ->> 'prompt', ''))) = 0
+                 OR NOT EXISTS (
+                      SELECT 1
+                        FROM jsonb_array_elements(COALESCE(question.value -> 'options', '[]'::jsonb)) AS option_item(value)
+                       WHERE option_item.value ->> 'id' = question.value ->> 'correct_option_id'
+                 )
+           ) THEN
+            RAISE EXCEPTION 'Every comprehension question requires editorial approval and a valid answer option'
                 USING ERRCODE = '23514';
         END IF;
 
