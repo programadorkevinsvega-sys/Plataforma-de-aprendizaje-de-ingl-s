@@ -168,7 +168,7 @@ export async function importLexicalCatalog(pool, catalog, contentSha256, { apply
            pronunciation_status text, pronunciation_metadata jsonb, review jsonb,
            provenance jsonb
          )
-       ON CONFLICT (source_key) DO UPDATE SET
+       ON CONFLICT (source_key) WHERE source_key IS NOT NULL DO UPDATE SET
           source_catalog = EXCLUDED.source_catalog,
           catalog_hash = EXCLUDED.catalog_hash,
           word = EXCLUDED.word,
