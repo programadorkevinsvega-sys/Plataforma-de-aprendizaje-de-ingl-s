@@ -217,7 +217,7 @@ export async function importLexicalCatalog(pool, catalog, contentSha256, { apply
            audio_url text, audio_metadata jsonb, provenance jsonb
          )
          JOIN vocabulary_words AS word ON word.source_key = entry.item_source_key
-       ON CONFLICT (source_key) DO UPDATE SET
+       ON CONFLICT (source_key) WHERE source_key IS NOT NULL DO UPDATE SET
           source_catalog = EXCLUDED.source_catalog,
           catalog_hash = EXCLUDED.catalog_hash,
           word_id = EXCLUDED.word_id,
