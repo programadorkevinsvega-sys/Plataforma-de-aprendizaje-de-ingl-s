@@ -409,7 +409,7 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 
 **Curación lingüística y cobertura**
 - [ ] Revisar por persona competente traducciones, significado, naturalidad, registro, categoría gramatical, nivel y todos los ejemplos de las 790 unidades (2.201 ejemplos).
-- [ ] Incorporar la categoría gramatical y evidencia de sentido que permita cotejar NGSL 1.2 y NGSL-Spoken 1.2, respetando atribución y CC BY-SA 4.0; no derivar rangos de coincidencias superficiales.
+- [ ] Ejecutar y revisar el cruce exacto de los 709 candidatos unigrama con NGSL 1.2 y NGSL-Spoken 1.2 mediante el script reproducible, conservando atribución, CC BY-SA 4.0, hash y metodología. Los lemas modificados de las listas agregan categorías gramaticales y no representan una frecuencia por sentido; no derivar rangos con fuzzy matching. Las 81 expresiones multi-palabra quedan fuera de listas unigramas.
 - [ ] Aprobar individualmente las guías lenta/natural para hispanohablantes y agregar notas de sonidos que no existen en español; no publicar aproximaciones automáticas.
 - [ ] Alcanzar y validar el presupuesto léxico interno acumulado de la ruta general. La fuente actual registra 237 PRE_A1, 462 A1, 7 A2, 7 B1, 7 B2, 6 C1 y 6 C2 en General; el déficit de A2–C2 sigue siendo importante.
 - [ ] Completar los dominios de la ruta Tecnología en A1–C2 con vocabulario/expresiones contextualizadas, objetivos y progresión curricular aprobada.
