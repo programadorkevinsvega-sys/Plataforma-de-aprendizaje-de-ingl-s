@@ -911,6 +911,14 @@
             "natural_guide": "zancs",
             "status": "pending_linguistic_validation"
           }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/θ/",
+            "label_es": "Fricativa dental sorda",
+            "note_es": "La z usada en la guía es solo una ayuda visual, no equivale a la z del español latinoamericano ni a una s exacta. Coloca la punta de la lengua ligeramente entre los incisivos y deja salir aire sin vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
         ]
       },
       "examples": [
@@ -988,7 +996,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -3197,6 +3206,14 @@
             "natural_guide": "zrí",
             "status": "pending_linguistic_validation"
           }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/θ/",
+            "label_es": "Fricativa dental sorda",
+            "note_es": "La z usada en la guía es solo una ayuda visual, no equivale a la z del español latinoamericano ni a una s exacta. Coloca la punta de la lengua ligeramente entre los incisivos y deja salir aire sin vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
         ]
       },
       "examples": [
@@ -3274,7 +3291,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -6372,6 +6390,14 @@
             "natural_guide": "déi",
             "status": "pending_linguistic_validation"
           }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/ð/",
+            "label_es": "Fricativa dental sonora",
+            "note_es": "La d usada en la guía es solo una aproximación, no equivale a la d oclusiva del español. Acerca o coloca ligeramente la punta de la lengua entre los incisivos y deja pasar aire con vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
         ]
       },
       "examples": [
@@ -6449,7 +6475,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -7007,6 +7034,14 @@
             "natural_guide": "dis",
             "status": "pending_linguistic_validation"
           }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/ð/",
+            "label_es": "Fricativa dental sonora",
+            "note_es": "La d usada en la guía es solo una aproximación, no equivale a la d oclusiva del español. Acerca o coloca ligeramente la punta de la lengua entre los incisivos y deja pasar aire con vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
         ]
       },
       "examples": [
@@ -7084,7 +7119,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -7133,6 +7169,14 @@
             "slow_guide": "dat",
             "natural_guide": "dat",
             "status": "pending_linguistic_validation"
+          }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/ð/",
+            "label_es": "Fricativa dental sonora",
+            "note_es": "La d usada en la guía es solo una aproximación, no equivale a la d oclusiva del español. Acerca o coloca ligeramente la punta de la lengua entre los incisivos y deja pasar aire con vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
           }
         ]
       },
@@ -7211,7 +7255,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -7388,6 +7433,14 @@
             "natural_guide": "dér",
             "status": "pending_linguistic_validation"
           }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/ð/",
+            "label_es": "Fricativa dental sonora",
+            "note_es": "La d usada en la guía es solo una aproximación, no equivale a la d oclusiva del español. Acerca o coloca ligeramente la punta de la lengua entre los incisivos y deja pasar aire con vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
         ]
       },
       "examples": [
@@ -7465,7 +7518,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -19688,6 +19742,14 @@
             "natural_guide": "máuz",
             "status": "pending_linguistic_validation"
           }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/θ/",
+            "label_es": "Fricativa dental sorda",
+            "note_es": "La z usada en la guía es solo una ayuda visual, no equivale a la z del español latinoamericano ni a una s exacta. Coloca la punta de la lengua ligeramente entre los incisivos y deja salir aire sin vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
         ]
       },
       "examples": [
@@ -19765,7 +19827,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -23752,6 +23815,14 @@
             "natural_guide": "zínc",
             "status": "pending_linguistic_validation"
           }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/θ/",
+            "label_es": "Fricativa dental sorda",
+            "note_es": "La z usada en la guía es solo una ayuda visual, no equivale a la z del español latinoamericano ni a una s exacta. Coloca la punta de la lengua ligeramente entre los incisivos y deja salir aire sin vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
         ]
       },
       "examples": [
@@ -23829,7 +23900,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -25403,6 +25475,14 @@
             "natural_guide": "má-der",
             "status": "pending_linguistic_validation"
           }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/ð/",
+            "label_es": "Fricativa dental sonora",
+            "note_es": "La d usada en la guía es solo una aproximación, no equivale a la d oclusiva del español. Acerca o coloca ligeramente la punta de la lengua entre los incisivos y deja pasar aire con vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
         ]
       },
       "examples": [
@@ -25480,7 +25560,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -25529,6 +25610,14 @@
             "slow_guide": "fá-der",
             "natural_guide": "fá-der",
             "status": "pending_linguistic_validation"
+          }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/ð/",
+            "label_es": "Fricativa dental sonora",
+            "note_es": "La d usada en la guía es solo una aproximación, no equivale a la d oclusiva del español. Acerca o coloca ligeramente la punta de la lengua entre los incisivos y deja pasar aire con vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
           }
         ]
       },
@@ -25607,7 +25696,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -25656,6 +25746,14 @@
             "slow_guide": "bró-der",
             "natural_guide": "bró-der",
             "status": "pending_linguistic_validation"
+          }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/ð/",
+            "label_es": "Fricativa dental sonora",
+            "note_es": "La d usada en la guía es solo una aproximación, no equivale a la d oclusiva del español. Acerca o coloca ligeramente la punta de la lengua entre los incisivos y deja pasar aire con vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
           }
         ]
       },
@@ -25734,7 +25832,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -46463,6 +46562,14 @@
             "natural_guide": "monz",
             "status": "pending_linguistic_validation"
           }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/θ/",
+            "label_es": "Fricativa dental sorda",
+            "note_es": "La z usada en la guía es solo una ayuda visual, no equivale a la z del español latinoamericano ni a una s exacta. Coloca la punta de la lengua ligeramente entre los incisivos y deja salir aire sin vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
         ]
       },
       "examples": [
@@ -46540,7 +46647,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -47352,6 +47460,14 @@
             "natural_guide": "norz",
             "status": "pending_linguistic_validation"
           }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/θ/",
+            "label_es": "Fricativa dental sorda",
+            "note_es": "La z usada en la guía es solo una ayuda visual, no equivale a la z del español latinoamericano ni a una s exacta. Coloca la punta de la lengua ligeramente entre los incisivos y deja salir aire sin vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
         ]
       },
       "examples": [
@@ -47429,7 +47545,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -47478,6 +47595,14 @@
             "slow_guide": "sáuz",
             "natural_guide": "sáuz",
             "status": "pending_linguistic_validation"
+          }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/θ/",
+            "label_es": "Fricativa dental sorda",
+            "note_es": "La z usada en la guía es solo una ayuda visual, no equivale a la z del español latinoamericano ni a una s exacta. Coloca la punta de la lengua ligeramente entre los incisivos y deja salir aire sin vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
           }
         ]
       },
@@ -47556,7 +47681,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -52335,6 +52461,14 @@
             "natural_guide": "cloz",
             "status": "pending_linguistic_validation"
           }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/θ/",
+            "label_es": "Fricativa dental sorda",
+            "note_es": "La z usada en la guía es solo una ayuda visual, no equivale a la z del español latinoamericano ni a una s exacta. Coloca la punta de la lengua ligeramente entre los incisivos y deja salir aire sin vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
         ]
       },
       "examples": [
@@ -52412,7 +52546,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -61245,6 +61380,14 @@
             "natural_guide": "moz",
             "status": "pending_linguistic_validation"
           }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/θ/",
+            "label_es": "Fricativa dental sorda",
+            "note_es": "La z usada en la guía es solo una ayuda visual, no equivale a la z del español latinoamericano ni a una s exacta. Coloca la punta de la lengua ligeramente entre los incisivos y deja salir aire sin vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
         ]
       },
       "examples": [
@@ -61322,7 +61465,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -62896,6 +63040,14 @@
             "natural_guide": "paz",
             "status": "pending_linguistic_validation"
           }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/θ/",
+            "label_es": "Fricativa dental sorda",
+            "note_es": "La z usada en la guía es solo una ayuda visual, no equivale a la z del español latinoamericano ni a una s exacta. Coloca la punta de la lengua ligeramente entre los incisivos y deja salir aire sin vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
         ]
       },
       "examples": [
@@ -62973,7 +63125,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -63277,6 +63430,14 @@
             "natural_guide": "erz",
             "status": "pending_linguistic_validation"
           }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/θ/",
+            "label_es": "Fricativa dental sorda",
+            "note_es": "La z usada en la guía es solo una ayuda visual, no equivale a la z del español latinoamericano ni a una s exacta. Coloca la punta de la lengua ligeramente entre los incisivos y deja salir aire sin vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
         ]
       },
       "examples": [
@@ -63354,7 +63515,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -67352,6 +67514,14 @@
             "natural_guide": "brez",
             "status": "pending_linguistic_validation"
           }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/θ/",
+            "label_es": "Fricativa dental sorda",
+            "note_es": "La z usada en la guía es solo una ayuda visual, no equivale a la z del español latinoamericano ni a una s exacta. Coloca la punta de la lengua ligeramente entre los incisivos y deja salir aire sin vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
         ]
       },
       "examples": [
@@ -67429,7 +67599,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -74845,6 +75016,14 @@
             "natural_guide": "zróu",
             "status": "pending_linguistic_validation"
           }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/θ/",
+            "label_es": "Fricativa dental sorda",
+            "note_es": "La z usada en la guía es solo una ayuda visual, no equivale a la z del español latinoamericano ni a una s exacta. Coloca la punta de la lengua ligeramente entre los incisivos y deja salir aire sin vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
         ]
       },
       "examples": [
@@ -74922,7 +75101,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -89080,6 +89260,14 @@
             "natural_guide": "máder",
             "status": "pending_linguistic_validation"
           }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/ð/",
+            "label_es": "Fricativa dental sonora",
+            "note_es": "La d usada en la guía es solo una aproximación, no equivale a la d oclusiva del español. Acerca o coloca ligeramente la punta de la lengua entre los incisivos y deja pasar aire con vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
         ]
       },
       "examples": [
@@ -89157,7 +89345,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -89206,6 +89395,14 @@
             "slow_guide": "fáder",
             "natural_guide": "fáder",
             "status": "pending_linguistic_validation"
+          }
+        ],
+        "sound_notes": [
+          {
+            "sound_ipa": "/ð/",
+            "label_es": "Fricativa dental sonora",
+            "note_es": "La d usada en la guía es solo una aproximación, no equivale a la d oclusiva del español. Acerca o coloca ligeramente la punta de la lengua entre los incisivos y deja pasar aire con vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
           }
         ]
       },
@@ -89284,7 +89481,8 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -91234,8 +91432,16 @@
         "accent_reference": "en-US",
         "spanish_guide_slow": null,
         "spanish_guide_natural": null,
-        "status": "not_authored_pending_linguistic_validation",
-        "draft_candidates": []
+        "status": "pending_linguistic_validation",
+        "draft_candidates": [],
+        "sound_notes": [
+          {
+            "sound_ipa": "/ð/",
+            "label_es": "Fricativa dental sonora",
+            "note_es": "La d usada en la guía es solo una aproximación, no equivale a la d oclusiva del español. Acerca o coloca ligeramente la punta de la lengua entre los incisivos y deja pasar aire con vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
+        ]
       },
       "examples": [
         {
@@ -91260,7 +91466,8 @@
         "translation_status": "pending_linguistic_review",
         "flags": [
           "original_phase_1_4_content",
-          "editorial_review_pending"
+          "editorial_review_pending",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -91837,8 +92044,16 @@
         "accent_reference": "en-US",
         "spanish_guide_slow": null,
         "spanish_guide_natural": null,
-        "status": "not_authored_pending_linguistic_validation",
-        "draft_candidates": []
+        "status": "pending_linguistic_validation",
+        "draft_candidates": [],
+        "sound_notes": [
+          {
+            "sound_ipa": "/ð/",
+            "label_es": "Fricativa dental sonora",
+            "note_es": "La d usada en la guía es solo una aproximación, no equivale a la d oclusiva del español. Acerca o coloca ligeramente la punta de la lengua entre los incisivos y deja pasar aire con vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
+        ]
       },
       "examples": [
         {
@@ -91863,7 +92078,8 @@
         "translation_status": "pending_linguistic_review",
         "flags": [
           "original_phase_1_4_content",
-          "editorial_review_pending"
+          "editorial_review_pending",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -92507,8 +92723,16 @@
         "accent_reference": "en-US",
         "spanish_guide_slow": null,
         "spanish_guide_natural": null,
-        "status": "not_authored_pending_linguistic_validation",
-        "draft_candidates": []
+        "status": "pending_linguistic_validation",
+        "draft_candidates": [],
+        "sound_notes": [
+          {
+            "sound_ipa": "/ð/",
+            "label_es": "Fricativa dental sonora",
+            "note_es": "La d usada en la guía es solo una aproximación, no equivale a la d oclusiva del español. Acerca o coloca ligeramente la punta de la lengua entre los incisivos y deja pasar aire con vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
+        ]
       },
       "examples": [
         {
@@ -92533,7 +92757,8 @@
         "translation_status": "pending_linguistic_review",
         "flags": [
           "original_phase_1_4_content",
-          "editorial_review_pending"
+          "editorial_review_pending",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -92708,8 +92933,16 @@
         "accent_reference": "en-US",
         "spanish_guide_slow": null,
         "spanish_guide_natural": null,
-        "status": "not_authored_pending_linguistic_validation",
-        "draft_candidates": []
+        "status": "pending_linguistic_validation",
+        "draft_candidates": [],
+        "sound_notes": [
+          {
+            "sound_ipa": "/ð/",
+            "label_es": "Fricativa dental sonora",
+            "note_es": "La d usada en la guía es solo una aproximación, no equivale a la d oclusiva del español. Acerca o coloca ligeramente la punta de la lengua entre los incisivos y deja pasar aire con vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
+        ]
       },
       "examples": [
         {
@@ -92734,7 +92967,8 @@
         "translation_status": "pending_linguistic_review",
         "flags": [
           "original_phase_1_4_content",
-          "editorial_review_pending"
+          "editorial_review_pending",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -92909,8 +93143,16 @@
         "accent_reference": "en-US",
         "spanish_guide_slow": null,
         "spanish_guide_natural": null,
-        "status": "not_authored_pending_linguistic_validation",
-        "draft_candidates": []
+        "status": "pending_linguistic_validation",
+        "draft_candidates": [],
+        "sound_notes": [
+          {
+            "sound_ipa": "/ð/",
+            "label_es": "Fricativa dental sonora",
+            "note_es": "La d usada en la guía es solo una aproximación, no equivale a la d oclusiva del español. Acerca o coloca ligeramente la punta de la lengua entre los incisivos y deja pasar aire con vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
+        ]
       },
       "examples": [
         {
@@ -92935,7 +93177,8 @@
         "translation_status": "pending_linguistic_review",
         "flags": [
           "original_phase_1_4_content",
-          "editorial_review_pending"
+          "editorial_review_pending",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
@@ -95254,8 +95497,16 @@
         "accent_reference": "en-US",
         "spanish_guide_slow": null,
         "spanish_guide_natural": null,
-        "status": "not_authored_pending_linguistic_validation",
-        "draft_candidates": []
+        "status": "pending_linguistic_validation",
+        "draft_candidates": [],
+        "sound_notes": [
+          {
+            "sound_ipa": "/θ/",
+            "label_es": "Fricativa dental sorda",
+            "note_es": "La z usada en la guía es solo una ayuda visual, no equivale a la z del español latinoamericano ni a una s exacta. Coloca la punta de la lengua ligeramente entre los incisivos y deja salir aire sin vibración de voz.",
+            "status": "pending_phonetic_specialist_validation"
+          }
+        ]
       },
       "examples": [
         {
@@ -95280,7 +95531,8 @@
         "translation_status": "pending_linguistic_review",
         "flags": [
           "original_phase_1_4_content",
-          "editorial_review_pending"
+          "editorial_review_pending",
+          "dental_fricative_guidance_pending_validation"
         ]
       },
       "provenance": {
