@@ -63,6 +63,7 @@ const SPANISH_SPEAKERS: &[&str] = &[
 const MODEL_EN: &str = "@cf/deepgram/aura-2-en";
 const MODEL_ES: &str = "@cf/deepgram/aura-2-es";
 const CLOUDFLARE_API_BASE_URL: &str = "https://api.cloudflare.com";
+const MAX_SYNTHESIS_TEXT_CHARS: usize = 1_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ProviderKind {
@@ -240,9 +241,9 @@ impl TtsEngine {
         voice: &str,
         rate: &str,
     ) -> Result<SynthesizedAudio, Status> {
-        if text.trim().is_empty() || text.chars().count() > 500 {
+        if text.trim().is_empty() || text.chars().count() > MAX_SYNTHESIS_TEXT_CHARS {
             return Err(Status::invalid_argument(
-                "El texto debe contener entre 1 y 500 caracteres",
+                "El texto debe contener entre 1 y 1000 caracteres",
             ));
         }
         let selected_voice = if voice.trim().is_empty() {
@@ -714,12 +715,18 @@ mod tests {
         cloudflare_request_body, decode_cloudflare_audio, is_logical_voice_valid, is_mp3,
         is_rate_valid, is_spanish_voice, parse_provider, parse_timeout_seconds, playback_rate,
         polly_synthesis_input, required_config_value, validate_model_and_speaker, CloudflareConfig,
-        CloudflareWorkersAiProvider, ProviderKind, TtsProvider, BASE64_STANDARD, MODEL_EN,
-        MODEL_ES,
+        CloudflareWorkersAiProvider, ProviderKind, TtsProvider, BASE64_STANDARD,
+        MAX_SYNTHESIS_TEXT_CHARS, MODEL_EN, MODEL_ES,
     };
     use base64::Engine as _;
     use std::time::Duration;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    #[test]
+    fn listening_scripts_fit_the_application_synthesis_limit() {
+        assert_eq!(MAX_SYNTHESIS_TEXT_CHARS, 1_000);
+        const { assert!(MAX_SYNTHESIS_TEXT_CHARS >= 621) };
+    }
 
     #[test]
     fn defaults_to_aws_when_provider_is_missing() {

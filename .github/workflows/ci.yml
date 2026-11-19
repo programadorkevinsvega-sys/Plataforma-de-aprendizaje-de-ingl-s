@@ -128,7 +128,12 @@ jobs:
                 esac
 
                 case "$file" in
-                  Cargo.toml|Cargo.lock|build.rs|rust-toolchain*|.cargo/config*|crates/*|proto/*|migrations/*)
+                  crates/*/data/*.json|crates/*/scripts/*)
+                    # Seed data and authoring helpers are validated but are not
+                    # part of the application binary deployed to production.
+                    run_rust=true
+                    ;;
+                  Cargo.toml|Cargo.lock|build.rs|rust-toolchain*|.cargo/config*|proto/*|migrations/*|crates/*)
                     run_rust=true
                     run_deploy=true
                     ;;
@@ -262,7 +267,9 @@ jobs:
       - name: Test transactional curriculum package importer
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/devfluency_test
-        run: node --test tools/curriculum/tests/*.test.mjs
+        run: |
+          node tools/curriculum/audit_lexical_catalog.mjs --strict
+          node --test tools/curriculum/tests/*.test.mjs
       - name: Install stable Rust
         run: |
           rustup toolchain install stable --profile minimal --component rustfmt --component clippy

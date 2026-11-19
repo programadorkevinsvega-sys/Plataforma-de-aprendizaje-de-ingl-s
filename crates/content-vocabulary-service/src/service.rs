@@ -1,14 +1,16 @@
 use crate::curriculum_package::{import_package, validate_package_json};
 use proto::content::content_service_server::ContentService;
 use proto::content::{
-    ContextSentence, CurriculumCourseSummary, CurriculumLesson, CurriculumLessonProgress,
-    CurriculumObjective, CurriculumPrerequisite, CurriculumUnit, EditorialCourseVersionSummary,
-    EnrollInCourseRequest, EnrollInCourseResponse, GetCurriculumCourseRequest,
-    GetCurriculumCourseResponse, GetRandomInterviewQuestionRequest, GetVocabularyWordRequest,
-    ImportCurriculumPackageRequest, ImportCurriculumPackageResponse, InterviewQuestionResponse,
-    ListCurriculumCoursesRequest, ListCurriculumCoursesResponse, ListEditorialVersionsRequest,
-    ListEditorialVersionsResponse, ListVocabularyWordsRequest, ListVocabularyWordsResponse,
-    ManageEditorialVersionRequest, ManageEditorialVersionResponse, VocabularyWordResponse,
+    ComprehensionResource, ContextSentence, CurriculumCourseSummary, CurriculumLesson,
+    CurriculumLessonProgress, CurriculumObjective, CurriculumPrerequisite, CurriculumUnit,
+    EditorialCourseVersionSummary, EnrollInCourseRequest, EnrollInCourseResponse,
+    GetCurriculumCourseRequest, GetCurriculumCourseResponse, GetRandomInterviewQuestionRequest,
+    GetVocabularyWordRequest, ImportCurriculumPackageRequest, ImportCurriculumPackageResponse,
+    InterviewQuestionResponse, ListComprehensionResourcesRequest,
+    ListComprehensionResourcesResponse, ListCurriculumCoursesRequest,
+    ListCurriculumCoursesResponse, ListEditorialVersionsRequest, ListEditorialVersionsResponse,
+    ListVocabularyWordsRequest, ListVocabularyWordsResponse, ManageEditorialVersionRequest,
+    ManageEditorialVersionResponse, VocabularyWordResponse,
 };
 use sqlx::PgPool;
 use std::collections::HashMap;
@@ -59,6 +61,48 @@ fn validate_student_catalog_query(
         track: (!request.track_code.is_empty()).then(|| request.track_code.clone()),
         level: (!request.cefr_level.is_empty()).then(|| request.cefr_level.clone()),
         search: (!search.is_empty()).then_some(search),
+    })
+}
+
+struct ValidatedComprehensionQuery {
+    page: i32,
+    page_size: i32,
+    track: Option<String>,
+    level: Option<String>,
+    skill: Option<String>,
+}
+
+fn validate_comprehension_query(
+    request: &ListComprehensionResourcesRequest,
+) -> Result<ValidatedComprehensionQuery, &'static str> {
+    let page = if request.page <= 0 { 1 } else { request.page };
+    let page_size = if request.page_size <= 0 {
+        12
+    } else if request.page_size > 50 {
+        return Err("page_size no puede superar 50");
+    } else {
+        request.page_size
+    };
+    if !request.track.is_empty() && !matches!(request.track.as_str(), "general" | "technology") {
+        return Err("track no es válido");
+    }
+    if !request.cefr_level.is_empty()
+        && !matches!(
+            request.cefr_level.as_str(),
+            "PRE_A1" | "A1" | "A2" | "B1" | "B2" | "C1" | "C2"
+        )
+    {
+        return Err("cefr_level no es válido");
+    }
+    if !request.skill.is_empty() && !matches!(request.skill.as_str(), "reading" | "listening") {
+        return Err("skill no es válido");
+    }
+    Ok(ValidatedComprehensionQuery {
+        page,
+        page_size,
+        track: (!request.track.is_empty()).then(|| request.track.clone()),
+        level: (!request.cefr_level.is_empty()).then(|| request.cefr_level.clone()),
+        skill: (!request.skill.is_empty()).then(|| request.skill.clone()),
     })
 }
 
@@ -129,46 +173,70 @@ impl ContentService for MyContentService {
         let word_id = Uuid::parse_str(&req.word_id)
             .map_err(|_| Status::invalid_argument("word_id inválido"))?;
 
-        let word: Option<(Uuid, String, String, String, String, String, String)> = sqlx::query_as(
-            "SELECT id, word, spanish_phonetic, spanish_translation, category, level, COALESCE(spanish_phonetic_natural, spanish_phonetic) FROM vocabulary_words WHERE id = $1"
+        let word: Option<(
+            Uuid,
+            String,
+            Option<String>,
+            String,
+            String,
+            String,
+            Option<String>,
+        )> = sqlx::query_as(
+            r#"SELECT id, word, spanish_phonetic, spanish_translation, category, level,
+                          spanish_phonetic_natural
+                     FROM vocabulary_words
+                    WHERE id = $1 AND publication_status = 'published'"#,
         )
         .bind(word_id)
         .fetch_optional(self.pool.as_ref())
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(|_| Status::internal("No se pudo consultar el vocabulario publicado"))?;
 
         let (id, word, phonetic, translation, category, level, phonetic_nat) =
-            word.ok_or_else(|| Status::not_found("Palabra no encontrada"))?;
+            word.ok_or_else(|| Status::not_found("Palabra publicada no encontrada"))?;
 
-        let sentences: Vec<(Uuid, String, String, String, Option<String>, String)> = sqlx::query_as(
-            "SELECT id, english_text, spanish_phonetic, spanish_translation, audio_url, COALESCE(spanish_phonetic_natural, spanish_phonetic) FROM context_sentences WHERE word_id = $1"
+        let sentences: Vec<(
+            Uuid,
+            String,
+            Option<String>,
+            String,
+            Option<String>,
+            Option<String>,
+        )> = sqlx::query_as(
+            r#"SELECT id, english_text, spanish_phonetic, spanish_translation,
+                          audio_url, spanish_phonetic_natural
+                     FROM context_sentences
+                    WHERE word_id = $1 AND publication_status = 'published'
+                    ORDER BY position NULLS LAST, created_at, id"#,
         )
         .bind(id)
         .fetch_all(self.pool.as_ref())
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(|_| Status::internal("No se pudieron consultar los ejemplos publicados"))?;
 
         let context_sentences = sentences
             .into_iter()
-            .map(|(sid, en, ph, es, audio, ph_nat)| ContextSentence {
-                id: sid.to_string(),
-                english_text: en,
-                spanish_phonetic: ph,
-                spanish_translation: es,
-                audio_url: audio.unwrap_or_default(),
-                spanish_phonetic_natural: ph_nat,
-            })
+            .map(
+                |(sentence_id, english, slow, spanish, audio, natural)| ContextSentence {
+                    id: sentence_id.to_string(),
+                    english_text: english,
+                    spanish_phonetic: slow.unwrap_or_default(),
+                    spanish_translation: spanish,
+                    audio_url: audio.unwrap_or_default(),
+                    spanish_phonetic_natural: natural.unwrap_or_default(),
+                },
+            )
             .collect();
 
         Ok(Response::new(VocabularyWordResponse {
             id: id.to_string(),
             word,
-            spanish_phonetic: phonetic,
+            spanish_phonetic: phonetic.unwrap_or_default(),
             spanish_translation: translation,
             category,
             level,
             context_sentences,
-            spanish_phonetic_natural: phonetic_nat,
+            spanish_phonetic_natural: phonetic_nat.unwrap_or_default(),
         }))
     }
 
@@ -181,154 +249,166 @@ impl ContentService for MyContentService {
         }
         let req = request.into_inner();
         let limit = if req.limit <= 0 { 20 } else { req.limit };
-        let offset = if req.offset < 0 { 0 } else { req.offset };
+        if limit > 50 {
+            return Err(Status::invalid_argument("limit no puede superar 50"));
+        }
+        let offset = i64::from(req.offset.max(0));
+        let level = req.level.trim().to_owned();
+        if !level.is_empty()
+            && !matches!(
+                level.as_str(),
+                "PRE_A1" | "A1" | "A2" | "B1" | "B2" | "C1" | "C2"
+            )
+        {
+            return Err(Status::invalid_argument(
+                "level no es un nivel curricular válido",
+            ));
+        }
+        let level = (!level.is_empty()).then_some(level);
+        let category = req.category.trim().to_ascii_lowercase();
+        if category.len() > 50 {
+            return Err(Status::invalid_argument(
+                "category no puede superar 50 caracteres",
+            ));
+        }
+        let category = (!category.is_empty()).then_some(category);
+        let user_uuid = if req.user_id.is_empty() {
+            None
+        } else {
+            Some(
+                Uuid::parse_str(&req.user_id)
+                    .map_err(|_| Status::invalid_argument("user_id inválido"))?,
+            )
+        };
 
-        let user_uuid = Uuid::parse_str(&req.user_id).ok();
-
-        // Todas las consultas que usan el progreso del usuario comparten una
-        // transacción y su contexto RLS. Para una petición pública, no se define
-        // identidad, por lo que solo se consultan tablas de contenido público.
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(|_| Status::internal("No se pudo iniciar la consulta de vocabulario"))?;
-        if let Some(uid) = user_uuid {
-            common::set_current_user_id(&mut tx, uid)
+        if let Some(user_id) = user_uuid {
+            common::set_current_user_id(&mut tx, user_id)
                 .await
                 .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
         }
 
-        // Construir query con filtros opcionales y exclusión de palabras ya aprendidas
-        let words: Vec<(Uuid, String, String, String, String, String, String)> = match (
-            !req.level.is_empty(),
-            !req.category.is_empty(),
-            user_uuid,
-        ) {
-            (true, true, Some(uid)) => {
-                sqlx::query_as(
-                    r#"SELECT id, word, spanish_phonetic, spanish_translation, category, level, COALESCE(spanish_phonetic_natural, spanish_phonetic) 
-                       FROM vocabulary_words 
-                       WHERE level = $1 AND category = $2 
-                         AND id NOT IN (SELECT s.word_id FROM context_sentences s JOIN user_srs_progress p ON s.id = p.sentence_id WHERE p.user_id = $3)
-                       LIMIT $4 OFFSET $5"#,
-                )
-                .bind(&req.level).bind(&req.category).bind(uid).bind(limit as i64).bind(offset as i64)
-                .fetch_all(&mut *tx).await
-            }
-            (true, false, Some(uid)) => {
-                sqlx::query_as(
-                    r#"SELECT id, word, spanish_phonetic, spanish_translation, category, level, COALESCE(spanish_phonetic_natural, spanish_phonetic) 
-                       FROM vocabulary_words 
-                       WHERE id NOT IN (SELECT s.word_id FROM context_sentences s JOIN user_srs_progress p ON s.id = p.sentence_id WHERE p.user_id = $2)
-                         AND CASE level 
-                             WHEN 'A0' THEN 1 
-                             WHEN 'A1' THEN 2 
-                             WHEN 'A2' THEN 3 
-                             WHEN 'B1' THEN 4 
-                             WHEN 'B2' THEN 5 
-                             WHEN 'C1' THEN 6 
-                             ELSE 7 
-                         END >= CASE $1 
-                             WHEN 'A0' THEN 1 
-                             WHEN 'A1' THEN 2 
-                             WHEN 'A2' THEN 3 
-                             WHEN 'B1' THEN 4 
-                             WHEN 'B2' THEN 5 
-                             WHEN 'C1' THEN 6 
-                             ELSE 1 
-                         END
-                       ORDER BY CASE level 
-                           WHEN 'A0' THEN 1 
-                           WHEN 'A1' THEN 2 
-                           WHEN 'A2' THEN 3 
-                           WHEN 'B1' THEN 4 
-                           WHEN 'B2' THEN 5 
-                           WHEN 'C1' THEN 6 
-                           ELSE 7 
-                       END ASC
-                       LIMIT $3 OFFSET $4"#,
-                )
-                .bind(&req.level).bind(uid).bind(limit as i64).bind(offset as i64)
-                .fetch_all(&mut *tx).await
-            }
-            (false, false, Some(uid)) => {
-                sqlx::query_as(
-                    r#"SELECT id, word, spanish_phonetic, spanish_translation, category, level, COALESCE(spanish_phonetic_natural, spanish_phonetic) 
-                       FROM vocabulary_words 
-                       WHERE id NOT IN (SELECT s.word_id FROM context_sentences s JOIN user_srs_progress p ON s.id = p.sentence_id WHERE p.user_id = $1)
-                       ORDER BY CASE level 
-                           WHEN 'A0' THEN 1 
-                           WHEN 'A1' THEN 2 
-                           WHEN 'A2' THEN 3 
-                           WHEN 'B1' THEN 4 
-                           WHEN 'B2' THEN 5 
-                           WHEN 'C1' THEN 6 
-                           ELSE 7 
-                       END ASC
-                       LIMIT $2 OFFSET $3"#,
-                )
-                .bind(uid).bind(limit as i64).bind(offset as i64)
-                .fetch_all(&mut *tx).await
-            }
-            (true, true, None) => {
-                sqlx::query_as(
-                    "SELECT id, word, spanish_phonetic, spanish_translation, category, level, COALESCE(spanish_phonetic_natural, spanish_phonetic) FROM vocabulary_words WHERE level = $1 AND category = $2 LIMIT $3 OFFSET $4"
-                )
-                .bind(&req.level).bind(&req.category).bind(limit as i64).bind(offset as i64)
-                .fetch_all(&mut *tx).await
-            }
-            (true, false, None) => {
-                sqlx::query_as(
-                    "SELECT id, word, spanish_phonetic, spanish_translation, category, level, COALESCE(spanish_phonetic_natural, spanish_phonetic) FROM vocabulary_words WHERE level = $1 LIMIT $2 OFFSET $3"
-                )
-                .bind(&req.level).bind(limit as i64).bind(offset as i64)
-                .fetch_all(&mut *tx).await
-            }
-            _ => {
-                sqlx::query_as(
-                    "SELECT id, word, spanish_phonetic, spanish_translation, category, level, COALESCE(spanish_phonetic_natural, spanish_phonetic) FROM vocabulary_words LIMIT $1 OFFSET $2"
-                )
-                .bind(limit as i64).bind(offset as i64)
-                .fetch_all(&mut *tx).await
-            }
-        }
-        .map_err(|e| Status::internal(e.to_string()))?;
+        let total: i64 = sqlx::query_scalar(
+            r#"SELECT COUNT(*)
+                 FROM vocabulary_words AS word
+                WHERE word.publication_status = 'published'
+                  AND ($1::TEXT IS NULL OR word.level = $1)
+                  AND ($2::TEXT IS NULL OR word.category = $2)
+                  AND (
+                    $3::UUID IS NULL
+                    OR NOT EXISTS (
+                        SELECT 1
+                          FROM context_sentences AS sentence
+                          JOIN user_srs_progress AS progress
+                            ON progress.sentence_id = sentence.id
+                         WHERE sentence.word_id = word.id
+                           AND sentence.publication_status = 'published'
+                           AND progress.user_id = $3
+                    )
+                  )"#,
+        )
+        .bind(level.as_deref())
+        .bind(category.as_deref())
+        .bind(user_uuid)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudo contar el vocabulario publicado"))?;
 
-        let total = words.len() as i32;
+        let words: Vec<(
+            Uuid,
+            String,
+            Option<String>,
+            String,
+            String,
+            String,
+            Option<String>,
+        )> = sqlx::query_as(
+            r#"SELECT word.id, word.word, word.spanish_phonetic,
+                      word.spanish_translation, word.category, word.level,
+                      word.spanish_phonetic_natural
+                 FROM vocabulary_words AS word
+                WHERE word.publication_status = 'published'
+                  AND ($1::TEXT IS NULL OR word.level = $1)
+                  AND ($2::TEXT IS NULL OR word.category = $2)
+                  AND (
+                    $3::UUID IS NULL
+                    OR NOT EXISTS (
+                        SELECT 1
+                          FROM context_sentences AS sentence
+                          JOIN user_srs_progress AS progress
+                            ON progress.sentence_id = sentence.id
+                         WHERE sentence.word_id = word.id
+                           AND sentence.publication_status = 'published'
+                           AND progress.user_id = $3
+                    )
+                  )
+                ORDER BY
+                  CASE word.level
+                    WHEN 'PRE_A1' THEN 1 WHEN 'A1' THEN 2 WHEN 'A2' THEN 3
+                    WHEN 'B1' THEN 4 WHEN 'B2' THEN 5 WHEN 'C1' THEN 6 ELSE 7
+                  END,
+                  word.category,
+                  word.word,
+                  word.id
+                LIMIT $4 OFFSET $5"#,
+        )
+        .bind(level.as_deref())
+        .bind(category.as_deref())
+        .bind(user_uuid)
+        .bind(i64::from(limit))
+        .bind(offset)
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudo consultar el vocabulario publicado"))?;
 
-        // Para cada palabra traer sus frases
-        let mut result_words = Vec::new();
+        let mut result_words = Vec::with_capacity(words.len());
         for (id, word, phonetic, translation, category, level, phonetic_nat) in words {
-            let sentences: Vec<(Uuid, String, String, String, Option<String>, String)> = sqlx::query_as(
-                "SELECT id, english_text, spanish_phonetic, spanish_translation, audio_url, COALESCE(spanish_phonetic_natural, spanish_phonetic) FROM context_sentences WHERE word_id = $1"
+            let sentences: Vec<(
+                Uuid,
+                String,
+                Option<String>,
+                String,
+                Option<String>,
+                Option<String>,
+            )> = sqlx::query_as(
+                r#"SELECT id, english_text, spanish_phonetic, spanish_translation,
+                          audio_url, spanish_phonetic_natural
+                     FROM context_sentences
+                    WHERE word_id = $1 AND publication_status = 'published'
+                    ORDER BY position NULLS LAST, created_at, id"#,
             )
             .bind(id)
             .fetch_all(&mut *tx)
             .await
-            .map_err(|_| Status::internal("No se pudieron consultar las frases de vocabulario"))?;
+            .map_err(|_| Status::internal("No se pudieron consultar los ejemplos publicados"))?;
 
             let context_sentences = sentences
                 .into_iter()
-                .map(|(sid, en, ph, es, audio, ph_nat)| ContextSentence {
-                    id: sid.to_string(),
-                    english_text: en,
-                    spanish_phonetic: ph,
-                    spanish_translation: es,
-                    audio_url: audio.unwrap_or_default(),
-                    spanish_phonetic_natural: ph_nat,
-                })
+                .map(
+                    |(sentence_id, english, slow, spanish, audio, natural)| ContextSentence {
+                        id: sentence_id.to_string(),
+                        english_text: english,
+                        spanish_phonetic: slow.unwrap_or_default(),
+                        spanish_translation: spanish,
+                        audio_url: audio.unwrap_or_default(),
+                        spanish_phonetic_natural: natural.unwrap_or_default(),
+                    },
+                )
                 .collect();
 
             result_words.push(VocabularyWordResponse {
                 id: id.to_string(),
                 word,
-                spanish_phonetic: phonetic,
+                spanish_phonetic: phonetic.unwrap_or_default(),
                 spanish_translation: translation,
                 category,
                 level,
                 context_sentences,
-                spanish_phonetic_natural: phonetic_nat,
+                spanish_phonetic_natural: phonetic_nat.unwrap_or_default(),
             });
         }
 
@@ -338,7 +418,172 @@ impl ContentService for MyContentService {
 
         Ok(Response::new(ListVocabularyWordsResponse {
             words: result_words,
-            total,
+            total: total.min(i64::from(i32::MAX)) as i32,
+        }))
+    }
+
+    async fn list_comprehension_resources(
+        &self,
+        request: Request<ListComprehensionResourcesRequest>,
+    ) -> Result<Response<ListComprehensionResourcesResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let filters =
+            validate_comprehension_query(request.get_ref()).map_err(Status::invalid_argument)?;
+        let offset = i64::from(filters.page - 1).saturating_mul(i64::from(filters.page_size));
+
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| Status::internal("No se pudo iniciar la consulta de recursos"))?;
+        common::set_current_user_id(&mut tx, user_id)
+            .await
+            .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
+
+        let total: i64 = sqlx::query_scalar(
+            r#"SELECT COUNT(*)
+                 FROM curriculum_comprehension_resources
+                WHERE publication_status = 'published'
+                  AND ($1::TEXT IS NULL OR track = $1)
+                  AND ($2::TEXT IS NULL OR cefr_level = $2)
+                  AND ($3::TEXT IS NULL OR skill = $3)"#,
+        )
+        .bind(filters.track.as_deref())
+        .bind(filters.level.as_deref())
+        .bind(filters.skill.as_deref())
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudieron contar los recursos publicados"))?;
+
+        let rows: Vec<(
+            String,
+            String,
+            String,
+            String,
+            String,
+            String,
+            String,
+            i32,
+            Option<i32>,
+            Option<i32>,
+            String,
+            Vec<String>,
+            bool,
+            Option<String>,
+            Option<String>,
+            String,
+        )> = sqlx::query_as(
+            r#"SELECT
+                   id::TEXT,
+                   track,
+                   cefr_level,
+                   skill,
+                   title,
+                   topic,
+                   CASE WHEN skill = 'listening' AND NOT transcript_available THEN '' ELSE content END,
+                   word_count,
+                   sentence_count,
+                   estimated_minutes,
+                   comprehension_focus,
+                   lexical_tags,
+                   transcript_available,
+                   CASE WHEN skill = 'listening'
+                        THEN audio_metadata ->> 'asset_url'
+                        ELSE NULL
+                   END,
+                   CASE WHEN skill = 'listening'
+                        THEN audio_metadata ->> 'status'
+                        ELSE 'not_applicable'
+                   END,
+                   COALESCE((
+                     SELECT jsonb_agg(
+                       question.value - ARRAY['correct_option_id', 'rationale', 'evidence', 'editorial_status']
+                       ORDER BY question.ordinality
+                     )
+                       FROM jsonb_array_elements(questions) WITH ORDINALITY AS question(value, ordinality)
+                   ), '[]'::jsonb)::TEXT
+                 FROM curriculum_comprehension_resources
+                WHERE publication_status = 'published'
+                  AND ($1::TEXT IS NULL OR track = $1)
+                  AND ($2::TEXT IS NULL OR cefr_level = $2)
+                  AND ($3::TEXT IS NULL OR skill = $3)
+                ORDER BY
+                  CASE track WHEN 'general' THEN 1 ELSE 2 END,
+                  CASE cefr_level
+                    WHEN 'PRE_A1' THEN 1 WHEN 'A1' THEN 2 WHEN 'A2' THEN 3
+                    WHEN 'B1' THEN 4 WHEN 'B2' THEN 5 WHEN 'C1' THEN 6 ELSE 7
+                  END,
+                  CASE skill WHEN 'reading' THEN 1 ELSE 2 END,
+                  title,
+                  id
+                LIMIT $4 OFFSET $5"#,
+        )
+        .bind(filters.track.as_deref())
+        .bind(filters.level.as_deref())
+        .bind(filters.skill.as_deref())
+        .bind(i64::from(filters.page_size))
+        .bind(offset)
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudieron consultar los recursos publicados"))?;
+
+        let items = rows
+            .into_iter()
+            .map(
+                |(
+                    id,
+                    track,
+                    level,
+                    skill,
+                    title,
+                    topic,
+                    content,
+                    word_count,
+                    sentence_count,
+                    estimated_minutes,
+                    comprehension_focus,
+                    lexical_tags,
+                    transcript_available,
+                    audio_url,
+                    audio_status,
+                    questions_json,
+                )| ComprehensionResource {
+                    id,
+                    track,
+                    cefr_level: level,
+                    skill,
+                    title,
+                    topic,
+                    content,
+                    word_count,
+                    sentence_count: sentence_count.unwrap_or_default(),
+                    estimated_minutes: estimated_minutes.unwrap_or_default(),
+                    comprehension_focus,
+                    lexical_tags,
+                    transcript_available,
+                    audio_url: audio_url.unwrap_or_default(),
+                    audio_status: audio_status.unwrap_or_else(|| "not_available".to_string()),
+                    questions_json,
+                },
+            )
+            .collect();
+
+        tx.commit()
+            .await
+            .map_err(|_| Status::internal("No se pudo cerrar la consulta de recursos"))?;
+
+        let total_pages = if total == 0 {
+            0
+        } else {
+            ((total + i64::from(filters.page_size) - 1) / i64::from(filters.page_size))
+                .min(i64::from(i32::MAX)) as i32
+        };
+        Ok(Response::new(ListComprehensionResourcesResponse {
+            items,
+            total: total.min(i64::from(i32::MAX)) as i32,
+            page: filters.page,
+            page_size: filters.page_size,
+            total_pages,
         }))
     }
 
@@ -1387,8 +1632,12 @@ impl ContentService for MyContentService {
 
 #[cfg(test)]
 mod curriculum_progress_tests {
-    use super::{evaluate_lesson_progress, validate_student_catalog_query};
-    use proto::content::{CurriculumPrerequisite, ListCurriculumCoursesRequest};
+    use super::{
+        evaluate_lesson_progress, validate_comprehension_query, validate_student_catalog_query,
+    };
+    use proto::content::{
+        CurriculumPrerequisite, ListComprehensionResourcesRequest, ListCurriculumCoursesRequest,
+    };
     use std::collections::HashMap;
     use uuid::Uuid;
 
@@ -1466,6 +1715,49 @@ mod curriculum_progress_tests {
             enrolled_only: false,
         };
         assert!(validate_student_catalog_query(&oversized_search).is_err());
+    }
+
+    #[test]
+    fn comprehension_query_uses_safe_defaults_and_accepts_canonical_filters() {
+        let request = ListComprehensionResourcesRequest {
+            user_id: "authenticated-user".to_string(),
+            page: 0,
+            page_size: 0,
+            track: "technology".to_string(),
+            cefr_level: "B2".to_string(),
+            skill: "listening".to_string(),
+        };
+        let filters = validate_comprehension_query(&request).expect("canonical filters are valid");
+        assert_eq!(filters.page, 1);
+        assert_eq!(filters.page_size, 12);
+        assert_eq!(filters.track.as_deref(), Some("technology"));
+        assert_eq!(filters.level.as_deref(), Some("B2"));
+        assert_eq!(filters.skill.as_deref(), Some("listening"));
+    }
+
+    #[test]
+    fn comprehension_query_rejects_unknown_track_level_skill_and_oversized_page() {
+        let mut request = ListComprehensionResourcesRequest {
+            user_id: "authenticated-user".to_string(),
+            page: 1,
+            page_size: 51,
+            track: String::new(),
+            cefr_level: String::new(),
+            skill: String::new(),
+        };
+        assert!(validate_comprehension_query(&request).is_err());
+
+        request.page_size = 12;
+        request.track = "all".to_string();
+        assert!(validate_comprehension_query(&request).is_err());
+
+        request.track.clear();
+        request.cefr_level = "A0".to_string();
+        assert!(validate_comprehension_query(&request).is_err());
+
+        request.cefr_level.clear();
+        request.skill = "speaking".to_string();
+        assert!(validate_comprehension_query(&request).is_err());
     }
 
     #[test]
