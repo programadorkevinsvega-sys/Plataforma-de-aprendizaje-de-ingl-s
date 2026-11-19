@@ -21,6 +21,7 @@ export default function SettingsPage() {
     missionsAndAchievements: false,
   })
   const [explanationLanguage, setExplanationLanguage] = useState('Español')
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let active = true
@@ -37,8 +38,6 @@ export default function SettingsPage() {
     })
     return () => { active = false }
   }, [router])
-
-  const [loading, setLoading] = useState(true)
 
   const handleSave = async (event: React.FormEvent) => {
     event.preventDefault()

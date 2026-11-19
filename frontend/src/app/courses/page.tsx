@@ -28,18 +28,6 @@ function trackLabel(track: CurriculumTrackCode): string {
   return track === 'technology' ? 'Profesional y tecnológico' : 'Inglés general'
 }
 
-function lessonStateLabel(state: string): string {
-  const labels: Record<string, string> = {
-    not_enrolled: 'Matricúlate para desbloquear',
-    locked: 'Bloqueada',
-    available: 'Disponible',
-    in_progress: 'En progreso',
-    completed: 'Completada',
-    mastered: 'Consolidada',
-  }
-  return labels[state] ?? 'Progreso no disponible'
-}
-
 export default function CoursesPage() {
   const router = useRouter()
   const [track, setTrack] = useState<TrackFilter>('all')
