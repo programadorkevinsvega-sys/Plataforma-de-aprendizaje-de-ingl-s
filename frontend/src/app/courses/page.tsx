@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import useSWR from 'swr'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -19,6 +19,7 @@ type LevelFilter = 'all' | CurriculumLevel
 
 const PAGE_SIZE = 9
 const LEVELS: CurriculumLevel[] = ['PRE_A1', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2']
+const EMPTY_COURSES: CurriculumCoursePage['items'] = []
 
 function levelLabel(level: string): string {
   return level === 'PRE_A1' ? 'Pre-A1' : level
@@ -62,24 +63,20 @@ export default function CoursesPage() {
     loadCourses,
   )
 
-  const courses = data?.items ?? []
+  const courses = data?.items ?? EMPTY_COURSES
+  const activeCourseId = courses.some((course) => course.courseVersionId === selectedCourseId)
+    ? selectedCourseId
+    : (courses[0]?.courseVersionId ?? '')
   const total = data?.total ?? 0
   const totalPages = data?.totalPages ?? 0
 
-  useEffect(() => {
-    if (courses.length > 0 && !courses.some((course) => course.courseVersionId === selectedCourseId)) {
-      setSelectedCourseId(courses[0].courseVersionId)
-    }
-    if (courses.length === 0 && selectedCourseId) setSelectedCourseId('')
-  }, [courses, selectedCourseId])
-
   const loadSelectedCourse = useCallback(async (): Promise<CurriculumCourseDetail | null> => {
-    if (!selectedCourseId) return null
-    return getContainer().useCases.getCurriculumCourse.execute(selectedCourseId)
-  }, [selectedCourseId])
+    if (!activeCourseId) return null
+    return getContainer().useCases.getCurriculumCourse.execute(activeCourseId)
+  }, [activeCourseId])
 
   const { data: selectedDetail, isLoading: detailLoading } = useSWR<CurriculumCourseDetail | null>(
-    selectedCourseId ? ['curriculum-course-detail', selectedCourseId] : null,
+    activeCourseId ? ['curriculum-course-detail', activeCourseId] : null,
     loadSelectedCourse,
   )
 
@@ -191,7 +188,7 @@ export default function CoursesPage() {
           <>
             <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Cursos disponibles">
               {courses.map((course) => {
-                const selected = selectedCourseId === course.courseVersionId
+                const selected = activeCourseId === course.courseVersionId
                 return (
                   <article key={course.courseVersionId} className={'glass-panel flex flex-col rounded-2xl p-4 ' + (selected ? 'border-emerald-700/50' : '')}>
                     <div className="flex items-center justify-between gap-2">
@@ -229,7 +226,7 @@ export default function CoursesPage() {
           </>
         )}
 
-        {selectedCourseId && (
+        {activeCourseId && (
           <section className="glass-panel rounded-2xl p-5 sm:p-6">
             {detailLoading || !selectedDetail ? (
               <p className="text-sm">Cargando detalle del curso seleccionado…</p>
