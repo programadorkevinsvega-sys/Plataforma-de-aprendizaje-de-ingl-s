@@ -8,21 +8,21 @@
     "context_sentences": [
       {
         "english_text": "Nice to meet you.",
-        "spanish_phonetic": "Náiz tu mít yu.",
+        "spanish_phonetic": "náiz tu mít yu.",
         "spanish_translation": "Encantado de conocerte.",
-        "spanish_phonetic_natural": "Náiz tu mít yu."
+        "spanish_phonetic_natural": "náiz tu mít yu."
       },
       {
         "english_text": "Let's meet at the park.",
-        "spanish_phonetic": "Lets mít at da park.",
+        "spanish_phonetic": "lets mít at da park.",
         "spanish_translation": "Encontrémonos en el parque.",
-        "spanish_phonetic_natural": "Lets mít ata park."
+        "spanish_phonetic_natural": "lets mít ata park."
       },
       {
         "english_text": "I want to meet your family.",
-        "spanish_phonetic": "Ai wánt tu mít yor fámili.",
+        "spanish_phonetic": "ai wánt tu mít yor fámili.",
         "spanish_translation": "Quiero conocer a tu familia.",
-        "spanish_phonetic_natural": "Ai wánt tu mít yor fámili."
+        "spanish_phonetic_natural": "ai wánt tu mít yor fámili."
       }
     ],
     "spanish_phonetic_natural": "mít"
@@ -36,21 +36,21 @@
     "context_sentences": [
       {
         "english_text": "I live in a small apartment.",
-        "spanish_phonetic": "Ai liv in a smól apártment.",
+        "spanish_phonetic": "ai liv in a smól apártment.",
         "spanish_translation": "Vivo en un apartamento pequeño.",
-        "spanish_phonetic_natural": "Ai liv in a smól apártment."
+        "spanish_phonetic_natural": "ai liv in a smól apártment."
       },
       {
         "english_text": "Where do they live?",
-        "spanish_phonetic": "Guér du déi liv?",
+        "spanish_phonetic": "guér du déi liv?",
         "spanish_translation": "¿Dónde viven ellos?",
-        "spanish_phonetic_natural": "Guér du déi liv?"
+        "spanish_phonetic_natural": "guér du déi liv?"
       },
       {
         "english_text": "He lives with his parents.",
-        "spanish_phonetic": "Ji livs guíd jis párents.",
+        "spanish_phonetic": "ji livs guíd jis párents.",
         "spanish_translation": "Él vive con sus padres.",
-        "spanish_phonetic_natural": "Ji livs guíd jis párents."
+        "spanish_phonetic_natural": "ji livs guíd jis párents."
       }
     ],
     "spanish_phonetic_natural": "liv"

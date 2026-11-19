@@ -397,10 +397,12 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 
 ### Subfase 1.4. Curación y expansión del catálogo
 
-- [ ] Auditar el contenido semilla A0 y A1 actual.
-- [ ] Detectar traducciones duplicadas, ejemplos antinaturales y categorías inconsistentes.
+**Primer incremento — auditoría inicial y limpieza segura:** se incorporó una auditoría reproducible de A0/A1 y de la semilla heredada, se eliminaron 85 registros A0 completamente duplicados tras normalizar únicamente el casing fonético y se conservaron variantes de pronunciación que requieren revisión humana. Los detalles y límites están en [Auditoría inicial y limpieza segura del catálogo](../curriculum/phase-1.4-catalog-audit.md). La auditoría es de solo lectura y el CI la ejecuta sin desplegar cambios exclusivos de datos/autoría.
+
+- [x] Auditar el contenido semilla A0 y A1 actual.
+- [ ] Detectar traducciones duplicadas, ejemplos antinaturales y categorías inconsistentes. (Se registraron indicadores y grupos candidatos; la revisión lingüística completa sigue pendiente.)
 - [ ] Organizar vocabulario por frecuencia, utilidad, contexto y nivel.
-- [ ] Auditar y conservar los campos de pronunciación existentes, incluidos `spanish_phonetic` y `spanish_phonetic_natural`, si están presentes en el contenido actual.
+- [x] Auditar y conservar los campos de pronunciación existentes, incluidos **spanish_phonetic** y **spanish_phonetic_natural**, si están presentes en el contenido actual.
 - [ ] Curar guías aproximadas para hispanohablantes y audios lento/natural por palabra o expresión cuando aporten valor pedagógico.
 - [ ] Registrar el acento de referencia y notas para sonidos difíciles o inexistentes en español.
 - [ ] No generar ni publicar aproximaciones fonéticas sin validación de pronunciación y revisión editorial.

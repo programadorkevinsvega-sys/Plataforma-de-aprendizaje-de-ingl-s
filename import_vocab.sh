@@ -50,8 +50,9 @@ fi
 
 echo "📖 Se encontraron $json_count archivos JSON en $DATA_DIR."
 
-echo "🎯 Ejecutando Motor Fonético Consistente (Habla Conectada)..."
-node crates/content-vocabulary-service/scripts/phonetic_engine.js
+echo "🔒 Se conservarán las guías fonéticas del JSON; no se ejecuta generación automática antes de importar."
+# Pronunciation guidance must be reviewed editorially before it is included in a package.
+# The experimental phonetic_engine.js is not part of the import pipeline.
 
 # Script independiente para ejecutar las migraciones SQL una sola vez
 cat << 'EOF' > migrate_script.js

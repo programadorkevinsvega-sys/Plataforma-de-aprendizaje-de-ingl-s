@@ -122,6 +122,16 @@ function processDirectory(dataDir) {
   }
 }
 
-// Ejecutar sobre el directorio de vocabulario
+// This legacy helper rewrites every JSON file in the data directory. It is
+// intentionally disabled by default: generated phonetics are not editorially
+// validated and must never be silently included in an import or publication.
+if (process.env.DEVFLUENCY_ENABLE_UNREVIEWED_PHONETIC_REWRITE !== '1') {
+  console.error(
+    'Disabled: this experimental script rewrites seed JSON without editorial review. ' +
+    'Do not use it for publishable content. Set DEVFLUENCY_ENABLE_UNREVIEWED_PHONETIC_REWRITE=1 only for disposable local experiments.'
+  );
+  process.exit(2);
+}
+
 const targetDir = path.join(__dirname, '../data');
 processDirectory(targetDir);
