@@ -45,7 +45,14 @@ ALTER TABLE public.vocabulary_words
         publication_status <> 'published'
         OR (
             editorial_metadata ->> 'editorial_status' = 'approved'
-            AND pronunciation_status IN ('approved', 'not_required')
+            AND (
+                pronunciation_status = 'not_required'
+                OR (
+                    pronunciation_status = 'approved'
+                    AND length(btrim(COALESCE(spanish_phonetic, ''))) > 0
+                    AND length(btrim(COALESCE(spanish_phonetic_natural, ''))) > 0
+                )
+            )
         )
     );
 
@@ -92,7 +99,14 @@ ALTER TABLE public.context_sentences
         publication_status <> 'published'
         OR (
             editorial_status = 'approved'
-            AND pronunciation_status IN ('approved', 'not_required')
+            AND (
+                pronunciation_status = 'not_required'
+                OR (
+                    pronunciation_status = 'approved'
+                    AND length(btrim(COALESCE(spanish_phonetic, ''))) > 0
+                    AND length(btrim(COALESCE(spanish_phonetic_natural, ''))) > 0
+                )
+            )
         )
     );
 
@@ -167,3 +181,106 @@ COMMENT ON TABLE public.lexical_catalog_imports IS
     'Idempotency ledger for transactional imports of the versioned lexical catalog.';
 COMMENT ON COLUMN public.vocabulary_words.publication_status IS
     'Only published, editorially approved v2 rows may be returned by student-facing vocabulary APIs; legacy rows remain retained but hidden pending review.';
+
+
+-- Publication is an editorial action, not a data-import side effect.
+-- It requires a registered editor and a prior review state; published content is immutable.
+CREATE OR REPLACE FUNCTION public.guard_lexical_catalog_publication()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = pg_catalog, public, pg_temp
+AS $function$
+DECLARE
+    v_pronunciation_status TEXT;
+    v_editorial_status TEXT;
+    v_slow_guide TEXT;
+    v_natural_guide TEXT;
+BEGIN
+    IF TG_OP = 'UPDATE' AND OLD.publication_status = 'published' THEN
+        IF NEW.publication_status <> 'archived' THEN
+            RAISE EXCEPTION 'Published lexical content is immutable; create a reviewed catalog revision instead'
+                USING ERRCODE = '55000';
+        END IF;
+    END IF;
+
+    IF NEW.publication_status IS DISTINCT FROM
+       CASE WHEN TG_OP = 'INSERT' THEN 'draft' ELSE OLD.publication_status END
+       AND NEW.publication_status IN ('review', 'published', 'archived') THEN
+        IF NOT public.app_is_content_editor() THEN
+            RAISE EXCEPTION 'A registered content editor is required to change lexical publication state'
+                USING ERRCODE = '42501';
+        END IF;
+    END IF;
+
+    IF NEW.publication_status = 'published' THEN
+        IF TG_OP = 'INSERT' OR OLD.publication_status <> 'review' THEN
+            RAISE EXCEPTION 'Lexical content must pass through review before publication'
+                USING ERRCODE = '55000';
+        END IF;
+
+        IF TG_TABLE_NAME = 'vocabulary_words' THEN
+            v_editorial_status := NEW.editorial_metadata ->> 'editorial_status';
+            v_pronunciation_status := NEW.pronunciation_status;
+            v_slow_guide := NEW.spanish_phonetic;
+            v_natural_guide := NEW.spanish_phonetic_natural;
+        ELSIF TG_TABLE_NAME = 'context_sentences' THEN
+            v_editorial_status := NEW.editorial_status;
+            v_pronunciation_status := NEW.pronunciation_status;
+            v_slow_guide := NEW.spanish_phonetic;
+            v_natural_guide := NEW.spanish_phonetic_natural;
+        ELSE
+            v_editorial_status := NEW.editorial_status;
+            v_pronunciation_status := 'not_required';
+            v_slow_guide := NULL;
+            v_natural_guide := NULL;
+        END IF;
+
+        IF v_editorial_status <> 'approved' THEN
+            RAISE EXCEPTION 'Lexical content requires explicit editorial approval before publication'
+                USING ERRCODE = '23514';
+        END IF;
+
+        IF v_pronunciation_status = 'approved'
+           AND (length(btrim(COALESCE(v_slow_guide, ''))) = 0
+                OR length(btrim(COALESCE(v_natural_guide, ''))) = 0) THEN
+            RAISE EXCEPTION 'Approved pronunciation requires both slow and natural guides'
+                USING ERRCODE = '23514';
+        ELSIF v_pronunciation_status <> 'approved'
+              AND v_pronunciation_status <> 'not_required' THEN
+            RAISE EXCEPTION 'Pronunciation must be approved or explicitly marked not_required'
+                USING ERRCODE = '23514';
+        END IF;
+
+        IF TG_TABLE_NAME = 'curriculum_comprehension_resources'
+           AND NEW.skill = 'listening'
+           AND (
+             NEW.audio_metadata ->> 'status' <> 'approved'
+             OR length(btrim(COALESCE(NEW.audio_metadata ->> 'asset_url', ''))) = 0
+           ) THEN
+            RAISE EXCEPTION 'Listening resources require a real approved audio asset before publication'
+                USING ERRCODE = '23514';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END
+$function$;
+
+DROP TRIGGER IF EXISTS trg_guard_lexical_catalog_publication ON public.vocabulary_words;
+CREATE TRIGGER trg_guard_lexical_catalog_publication
+    BEFORE INSERT OR UPDATE ON public.vocabulary_words
+    FOR EACH ROW EXECUTE FUNCTION public.guard_lexical_catalog_publication();
+
+DROP TRIGGER IF EXISTS trg_guard_lexical_catalog_publication ON public.context_sentences;
+CREATE TRIGGER trg_guard_lexical_catalog_publication
+    BEFORE INSERT OR UPDATE ON public.context_sentences
+    FOR EACH ROW EXECUTE FUNCTION public.guard_lexical_catalog_publication();
+
+DROP TRIGGER IF EXISTS trg_guard_lexical_catalog_publication ON public.curriculum_comprehension_resources;
+CREATE TRIGGER trg_guard_lexical_catalog_publication
+    BEFORE INSERT OR UPDATE ON public.curriculum_comprehension_resources
+    FOR EACH ROW EXECUTE FUNCTION public.guard_lexical_catalog_publication();
+
+COMMENT ON FUNCTION public.guard_lexical_catalog_publication() IS
+    'Only provisioned editors can transition lexical content through review/publication; publication requires reviewed content and valid pronunciation/audio evidence, and published rows are immutable.';
