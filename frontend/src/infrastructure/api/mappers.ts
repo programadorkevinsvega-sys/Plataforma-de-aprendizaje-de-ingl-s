@@ -182,22 +182,25 @@ export function toComprehensionResource(dto: Dto): ComprehensionResource {
     }
     if (typeof item !== 'object' || item === null || Array.isArray(item)) return []
     const question = item as Dto
+    const id = str(question, ['id', 'question_id'], fallbackId('question', index))
     const prompt = str(question, ['prompt', 'question', 'question_text', 'stem', 'text'])
     if (!prompt.trim()) return []
     const optionValue = pick<unknown>(question, 'options', 'choices', 'answers')
     const rawOptions = Array.isArray(optionValue) ? optionValue : []
-    const options = rawOptions.flatMap((option) => {
-      if (typeof option === 'string' && option.trim()) return [option]
+    const options = rawOptions.flatMap((option, optionIndex) => {
+      if (typeof option === 'string' && option.trim()) {
+        return [{ id: fallbackId(`${id}-option`, optionIndex), text: option }]
+      }
       if (typeof option !== 'object' || option === null || Array.isArray(option)) return []
       const optionDto = option as Dto
-      const label = str(optionDto, ['text', 'label', 'value', 'option_text'])
-      return label.trim() ? [label] : []
+      const text = str(optionDto, ['text', 'label', 'value', 'option_text'])
+      if (!text.trim()) return []
+      return [{
+        id: str(optionDto, ['id', 'option_id'], fallbackId(`${id}-option`, optionIndex)),
+        text,
+      }]
     })
-    return [{
-      id: str(question, ['id', 'question_id'], fallbackId('question', index)),
-      prompt,
-      options,
-    }]
+    return [{ id, prompt, options }]
   })
 
   const skill = str(dto, ['skill']).toLowerCase() === 'listening' ? 'listening' : 'reading'
