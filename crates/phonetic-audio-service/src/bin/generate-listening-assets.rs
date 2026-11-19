@@ -493,16 +493,14 @@ mod tests {
         let catalog: serde_json::Value =
             serde_json::from_slice(&bytes).expect("lexical catalog v2 must be valid JSON");
         assert!(super::listening_resources(&catalog, &["missing-id".to_string()]).is_err());
-        assert!(
-            super::listening_resources(
-                &catalog,
-                &[
-                    "general-pre_a1-listening-02".to_string(),
-                    "general-pre_a1-listening-02".to_string(),
-                ],
-            )
-            .is_err()
-        );
+        assert!(super::listening_resources(
+            &catalog,
+            &[
+                "general-pre_a1-listening-02".to_string(),
+                "general-pre_a1-listening-02".to_string(),
+            ],
+        )
+        .is_err());
     }
 
     #[test]
