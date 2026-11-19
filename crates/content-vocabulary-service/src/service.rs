@@ -174,9 +174,22 @@ impl ContentService for MyContentService {
             .map_err(|_| Status::invalid_argument("word_id inválido"))?;
 
         let word: Option<(
-            Uuid, String, Option<String>, String, String, String, Option<String>,
-            Option<String>, Option<String>, Vec<String>, Option<String>, Option<String>,
-            Option<String>, Vec<String>, Option<String>, String,
+            Uuid,
+            String,
+            Option<String>,
+            String,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Vec<String>,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Vec<String>,
+            Option<String>,
+            String,
         )> = sqlx::query_as(
             r#"SELECT id, word, spanish_phonetic, spanish_translation, category, level,
                       spanish_phonetic_natural, definition_en, lexical_type, tracks,
@@ -191,9 +204,22 @@ impl ContentService for MyContentService {
         .map_err(|_| Status::internal("No se pudo consultar el vocabulario publicado"))?;
 
         let (
-            id, word, phonetic, translation, category, level, phonetic_nat, definition_en,
-            lexical_type, tracks, lexical_register, editorial_priority, usefulness,
-            context_tags, usage_mode, pronunciation_status,
+            id,
+            word,
+            phonetic,
+            translation,
+            category,
+            level,
+            phonetic_nat,
+            definition_en,
+            lexical_type,
+            tracks,
+            lexical_register,
+            editorial_priority,
+            usefulness,
+            context_tags,
+            usage_mode,
+            pronunciation_status,
         ) = word.ok_or_else(|| Status::not_found("Palabra publicada no encontrada"))?;
 
         let sentences: Vec<(
@@ -219,7 +245,15 @@ impl ContentService for MyContentService {
         let context_sentences = sentences
             .into_iter()
             .map(
-                |(sentence_id, english, slow, spanish, audio, natural, pronunciation_status)| ContextSentence {
+                |(
+                    sentence_id,
+                    english,
+                    slow,
+                    spanish,
+                    audio,
+                    natural,
+                    pronunciation_status,
+                )| ContextSentence {
                     id: sentence_id.to_string(),
                     english_text: english,
                     spanish_phonetic: slow.unwrap_or_default(),
@@ -338,9 +372,22 @@ impl ContentService for MyContentService {
         .map_err(|_| Status::internal("No se pudo contar el vocabulario publicado"))?;
 
         let words: Vec<(
-            Uuid, String, Option<String>, String, String, String, Option<String>,
-            Option<String>, Option<String>, Vec<String>, Option<String>, Option<String>,
-            Option<String>, Vec<String>, Option<String>, String,
+            Uuid,
+            String,
+            Option<String>,
+            String,
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Vec<String>,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Vec<String>,
+            Option<String>,
+            String,
         )> = sqlx::query_as(
             r#"SELECT word.id, word.word, word.spanish_phonetic,
                       word.spanish_translation, word.category, word.level,
@@ -386,9 +433,22 @@ impl ContentService for MyContentService {
 
         let mut result_words = Vec::with_capacity(words.len());
         for (
-            id, word, phonetic, translation, category, level, phonetic_nat, definition_en,
-            lexical_type, tracks, lexical_register, editorial_priority, usefulness,
-            context_tags, usage_mode, pronunciation_status,
+            id,
+            word,
+            phonetic,
+            translation,
+            category,
+            level,
+            phonetic_nat,
+            definition_en,
+            lexical_type,
+            tracks,
+            lexical_register,
+            editorial_priority,
+            usefulness,
+            context_tags,
+            usage_mode,
+            pronunciation_status,
         ) in words {
             let sentences: Vec<(
                 Uuid,
@@ -413,14 +473,22 @@ impl ContentService for MyContentService {
             let context_sentences = sentences
                 .into_iter()
                 .map(
-                    |(sentence_id, english, slow, spanish, audio, natural, pronunciation_status)| ContextSentence {
+                    |(
+                        sentence_id,
+                        english,
+                        slow,
+                        spanish,
+                        audio,
+                        natural,
+                        pronunciation_status,
+                    )| ContextSentence {
                         id: sentence_id.to_string(),
                         english_text: english,
                         spanish_phonetic: slow.unwrap_or_default(),
                         spanish_translation: spanish,
                         audio_url: audio.unwrap_or_default(),
                         spanish_phonetic_natural: natural.unwrap_or_default(),
-                    pronunciation_status,
+                        pronunciation_status,
                     },
                 )
                 .collect();
