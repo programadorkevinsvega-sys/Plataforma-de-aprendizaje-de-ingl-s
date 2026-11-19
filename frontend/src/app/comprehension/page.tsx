@@ -109,7 +109,14 @@ function ResourceCard({ resource }: { resource: ComprehensionResource }) {
           </summary>
           <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-stone-700">
             {resource.questions.map((question) => (
-              <li key={question.id}>{question.prompt}</li>
+              <li key={question.id}>
+                <p>{question.prompt}</p>
+                {question.options.length > 0 && (
+                  <ul className="mt-2 list-[lower-alpha] space-y-1 pl-5 text-stone-600">
+                    {question.options.map((option, index) => <li key={index}>{option}</li>)}
+                  </ul>
+                )}
+              </li>
             ))}
           </ol>
           <p className="mt-3 text-xs text-stone-500">
