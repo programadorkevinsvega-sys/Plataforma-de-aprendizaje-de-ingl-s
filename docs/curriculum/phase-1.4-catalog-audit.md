@@ -85,7 +85,7 @@ El auditor ahora informa ejemplos ingleses compartidos entre unidades y signific
 
 La migración `20261119000000_lexical_catalog_v2.sql` añade metadatos de procedencia, frecuencia, tipo léxico, rutas, registro, prioridad y estado editorial sobre las tablas léxicas existentes; añade una tabla para recursos de comprensión y un ledger de importaciones. Los registros preexistentes se conservan como `legacy_pending_review`, no como contenido aprobado.
 
-El servicio gRPC consulta únicamente elementos y ejemplos con `publication_status = 'published'`. La publicación exige revisión editorial aprobada y pronunciación aprobada o marcada explícitamente como no requerida. Un listening requiere además URL de audio real y estado de audio aprobado.
+El servicio gRPC consulta únicamente elementos y ejemplos con `publication_status = 'published'`. La publicación exige revisión editorial aprobada y pronunciación aprobada o marcada explícitamente como no requerida. Un listening requiere además URL de audio real y estado de audio aprobado. Se añade `ListComprehensionResources` al contrato gRPC para consultar lecturas y escuchas publicadas mediante filtros de ruta, nivel y competencia, con paginación; la ruta requiere usuario autenticado y nunca devuelve recursos en borrador.
 
 Importación idempotente y transaccional:
 
