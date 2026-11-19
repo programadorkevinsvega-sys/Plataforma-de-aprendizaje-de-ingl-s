@@ -20,6 +20,7 @@ SELECT (NOT role_info.rolsuper AND NOT role_info.rolbypassrls) AS safe_runtime_r
 \endif
 
 BEGIN;
+SET TRANSACTION READ ONLY;
 SELECT set_config('app.current_user_id', :'student_user_id', TRUE);
 SET LOCAL track_io_timing = on;
 
