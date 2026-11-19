@@ -255,7 +255,10 @@ impl ContentService for MyContentService {
         let offset = i64::from(req.offset.max(0));
         let level = req.level.trim().to_owned();
         if !level.is_empty()
-            && !matches!(level.as_str(), "PRE_A1" | "A1" | "A2" | "B1" | "B2" | "C1" | "C2")
+            && !matches!(
+                level.as_str(),
+                "PRE_A1" | "A1" | "A2" | "B1" | "B2" | "C1" | "C2"
+            )
         {
             return Err(Status::invalid_argument(
                 "level no es un nivel curricular válido",
