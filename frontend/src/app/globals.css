@@ -61,3 +61,18 @@
 [class*="bg-slate-800"][class*="text-white"] .text-white {
   color: #ffffff !important;
 }
+
+/* Buttons and feature panels keep readable contrast on the light Fluenta palette. */
+.btn-primary,
+.btn-primary .text-white,
+a.btn-primary,
+button.btn-primary {
+  color: #ffffff !important;
+}
+[class*="bg-slate-800"][class*="text-white"] {
+  background: #1d2430 !important;
+  color: #ffffff !important;
+}
+[class*="bg-slate-800"][class*="text-white"] .text-white {
+  color: #ffffff !important;
+}

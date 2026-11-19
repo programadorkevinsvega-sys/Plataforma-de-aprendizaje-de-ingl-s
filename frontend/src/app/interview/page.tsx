@@ -3,7 +3,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Navbar } from '@/presentation/components/Navbar'
-import { Sidebar } from '@/presentation/components/Sidebar'
 import { getContainer } from '@/infrastructure/di/container'
 import { BFF_BASE_URL } from '@/infrastructure/api/BffHttpClient'
 import type { ExamResult } from '@/domain/entities/ExamResult'
@@ -317,8 +316,14 @@ export default function InterviewPage() {
     if (!examResult) return
     const params = new URLSearchParams({
       id: examResult.id,
-      score: String(examResult.overallScore ?? examResult.scores.listening),
+      score: String(examResult.overallScore),
       passed: String(examResult.passed),
+      listening: String(examResult.scores.listening),
+      pronunciation: String(examResult.scores.pronunciation),
+      fluency: String(examResult.scores.fluency),
+      vocabulary: String(examResult.scores.vocabulary),
+      conversation: String(examResult.scores.conversation),
+      grammar: String(examResult.scores.grammar),
     })
     router.push(`/interview/result?${params.toString()}`)
   }
@@ -327,10 +332,7 @@ export default function InterviewPage() {
     <div className="min-h-screen bg-[#0b0d13] text-slate-100 flex flex-col">
       <Navbar />
 
-      <div className="flex flex-1">
-        <Sidebar />
-
-        <main className="flex-1 p-6 max-w-5xl space-y-6">
+      <main className="space-y-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-500 to-indigo-600 flex items-center justify-center text-xl shadow-lg shadow-purple-500/30">
               🤖
@@ -524,8 +526,7 @@ export default function InterviewPage() {
               )}
             </div>
           )}
-        </main>
-      </div>
+      </main>
     </div>
   )
 }

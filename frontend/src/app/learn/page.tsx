@@ -15,7 +15,7 @@ const skillTabs = [
   { label: 'Listening', active: false },
   { label: 'Speaking', active: false },
   { label: 'Diálogos', active: false },
-  { label: 'Fonética', active: true },
+  { label: 'Fonética', active: false },
 ]
 
 export default function LearnPage() {
@@ -128,9 +128,15 @@ export default function LearnPage() {
 
         <nav className="flex flex-wrap gap-2" aria-label="Competencias de práctica">
           {skillTabs.map((tab) => (
-            <span key={tab.label} className={'rounded-full border px-4 py-2 text-xs font-semibold ' + (tab.label === 'Vocabulario' || tab.label === 'Fonética' ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-stone-200 bg-white text-stone-500')} aria-disabled={!tab.active}>
+            <button
+              key={tab.label}
+              type="button"
+              disabled={!tab.active}
+              aria-pressed={tab.label === 'Vocabulario'}
+              className={'rounded-full border px-4 py-2 text-xs font-semibold ' + (tab.label === 'Vocabulario' ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-stone-200 bg-white text-stone-500 disabled:cursor-not-allowed disabled:opacity-70')}
+            >
               {tab.label}{!tab.active && <span className="ml-1 text-[10px]">· próximamente</span>}
-            </span>
+            </button>
           ))}
         </nav>
 
@@ -212,6 +218,13 @@ export default function LearnPage() {
               </>
             )}
           </article>
+        </section>
+        <section className="glass-panel rounded-2xl p-5">
+          <h2 className="text-lg font-bold">Corrección y explicación</h2>
+          <div className="mt-4 rounded-xl bg-stone-50 p-4">
+            <p className="text-sm font-semibold">Esta práctica registra el repaso del vocabulario, no una respuesta evaluada.</p>
+            <p className="mt-1 text-xs">La corrección gramatical y la explicación paso a paso aparecerán cuando se conecte el motor de ejercicios interactivos.</p>
+          </div>
         </section>
         <div className="text-right text-xs"><Link href="/courses" className="font-semibold text-emerald-800">Volver al catálogo de cursos →</Link></div>
       </main>
