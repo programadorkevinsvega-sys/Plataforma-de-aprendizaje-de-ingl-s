@@ -45,6 +45,26 @@ test('published vocabulary maps v2 taxonomy, learning metadata and sentence revi
   assert.equal(word.sentences[0].pronunciationStatus, 'approved')
 })
 
+test('a missing natural pronunciation guide stays absent instead of copying the slow guide', () => {
+  const word = toVocabularyWord({
+    id: 'word-pronunciation-review',
+    word: 'mother',
+    spanish_translation: 'madre',
+    level: 'A1',
+    pronunciation_status: 'approved',
+    context_sentences: [{
+      id: 'sentence-without-natural-guide',
+      english_text: 'My mother lives here.',
+      spanish_translation: 'Mi madre vive aquí.',
+      spanish_phonetic: '...',
+      pronunciation_status: 'approved',
+    }],
+  })
+
+  assert.equal(word.spanishPhoneticsNatural, '')
+  assert.equal(word.sentences[0].spanishPhoneticsNatural, '')
+})
+
 test('reading resources map public questions and options without exposing answer keys', () => {
   const resource = toComprehensionResource({
     id: 'reading-a1-01',
