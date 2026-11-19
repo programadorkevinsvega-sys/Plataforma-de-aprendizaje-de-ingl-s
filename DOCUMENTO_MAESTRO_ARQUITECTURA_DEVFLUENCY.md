@@ -1,6 +1,6 @@
 # DOCUMENTO MAESTRO DE ARQUITECTURA — DEVFLUENCY
 
-> **Versión sincronizada:** 2026-11-01.
+> **Versión sincronizada:** 2026-11-19.
 > **Estado:** especificación de arquitectura actual y arquitectura objetivo.
 > **Roadmap rector:** [docs/roadmap/ROADMAP_PLATAFORMA_APRENDIZAJE_PROFESIONAL.md](docs/roadmap/ROADMAP_PLATAFORMA_APRENDIZAJE_PROFESIONAL.md).
 > **Vista ejecutiva e histórica:** [ROADMAP_ARQUITECTURA_ENTERPRISE.md](ROADMAP_ARQUITECTURA_ENTERPRISE.md).
@@ -131,16 +131,28 @@ El nivel del estudiante debe estimarse mediante evidencias académicas, no por X
 
 ### 3.2. Implementación actual
 
-- Existe un servicio de contenido/vocabulario con datos semilla.
-- Las semillas revisadas contienen 322 entradas A0 y 469 entradas A1.
-- Los registros incluyen palabra, categoría, nivel, traducción, guía fonética y frases contextualizadas.
-- Las frases incluyen texto en inglés, guía fonética, traducción y campo de pronunciación natural.
-- El contenido actual es una base inicial. No equivale al catálogo completo de 5.000–8.000 términos ni al currículo A0–C2.
-
+- Existe un servicio Rust de contenido/vocabulario con tablas léxicas, frases de contexto y contratos Protobuf/gRPC.
+- La rama de trabajo de PR #90 consolida un catálogo v2 con 790 unidades léxicas, 26 categorías canónicas, 2.201 ejemplos y 26 recursos graduados (13 lecturas y 13 guiones de listening).
+- Las unidades diferencian tipo léxico, ruta General/Tecnología, nivel PRE_A1–C2, prioridad, utilidad, registro, contextos, frecuencia de corpus y procedencia. La fuente contiene 704 unidades trasladadas/deduplicadas y 86 nuevas.
+- El auditor reporta ejemplos ingleses compartidos entre unidades y significados españoles repetidos como candidatos a revisión; no aplica borrado automático.
+- La migración PostgreSQL v2 añade metadatos, recursos de comprensión y ledger SHA-256. El importador es transaccional e idempotente, dry-run por defecto y requiere un editor registrado para aplicar.
+- El servicio de vocabulario solo entrega unidades y ejemplos publicados. Las filas heredadas se conservan como `legacy_pending_review` para preservar referencias SRS, pero no se exponen como material aprobado.
+- Se añade el RPC autenticado `ListComprehensionResources` para lecturas y escuchas publicadas, con filtros por ruta, nivel y skill y paginación.
+- La publicación de vocabulario/ejemplos exige aprobación editorial y pronunciación aprobada o explícitamente no requerida. Los recursos listening requieren URL y asset real aprobado.
 - La Subfase 1.3 quedó completada técnicamente el 2026-11-18: contrato JSON canónico v1 y validador offline (PR #75), importador PostgreSQL transaccional/idempotente (PR #77), exportador relacional verificable y CLI editorial (PR #78), y validación de integridad al publicar más congelación del contenido durante revisión (PR #79). Las cuatro PR están fusionadas en `main`.
-- El modelo ya persistido incluye Course/CourseVersion, Unit, Lesson, LearningObjective, Skill y sus relaciones, más ledger de paquetes importados, registro explícito de editores e historial append-only de revisiones. PostgreSQL valida la completitud académica en el límite de publicación.
-- El ciclo técnico pasó las pruebas de integración de CI #308/#309 y las migraciones se desplegaron mediante Deploy Ubuntu/systemd #46. El acta de aceptación registra los comandos reproducibles, commits y límites: [aceptación técnica de la Subfase 1.3](docs/curriculum/phase-1.3-acceptance.md).
-- El catálogo estudiantil de PR #81 y el avance web de Subfase 1.5 añaden `/courses`, `/courses/{course_version_id}`, paginación/filtros, progreso de lecciones basado en evidencia de vocabulario/SRS y `/admin/curriculum` para importar paquetes, enviar borradores a revisión, registrar decisiones y publicar versiones aprobadas con autorización PostgreSQL en `content_editors`. El importador web solo crea `draft`; no sobrescribe versiones existentes. Sigue pendiente la edición visual campo a campo de un borrador ya importado, así como la curación lingüística de Subfase 1.4 y el motor de actividades/respuestas de Fase 2.
+- El modelo persistido de cursos incluye Course/CourseVersion, Unit, Lesson, LearningObjective, Skill y relaciones, ledger de paquetes, registro de editores e historial append-only de revisión. PostgreSQL valida completitud académica al publicar.
+- El ciclo técnico de Subfase 1.3 pasó las pruebas de CI #308/#309 y las migraciones se desplegaron mediante Deploy Ubuntu/systemd #46. El acta de aceptación está en [aceptación técnica de la Subfase 1.3](docs/curriculum/phase-1.3-acceptance.md).
+- El catálogo estudiantil de PR #81 y el avance web de Subfase 1.5 añaden `/courses`, `/courses/{course_version_id}`, filtros/paginación, progreso por evidencia y administración editorial protegida. Continúa pendiente la edición visual campo a campo de borradores.
+
+**Estado y límites verificables de Subfase 1.4 en PR #90 (rama abierta, no fusionada):**
+- Las 790 unidades tienen revisión editorial pendiente; los 790 rangos de frecuencia permanecen sin validar por lema, categoría gramatical y sentido (rangos numéricos null).
+- De los 2.201 ejemplos, 2.115 tienen guías candidatas pendientes de validación; 86 expresiones nuevas aún no tienen candidata fonética.
+- Los 13 recursos reading y 13 listening siguen en draft. No existe audio listening real aprobado.
+- La cobertura General se distribuye en 237 PRE_A1, 462 A1, 7 A2, 7 B1, 7 B2, 6 C1 y 6 C2; es muy inferior al presupuesto léxico interno acumulado, especialmente desde A2.
+- La revisión humana de traducciones, naturalidad, nivel, registro y pronunciación no puede reemplazarse por validaciones estructurales. La importación v2 no publica contenido ni se ha ejecutado en VM desde esta PR.
+- La CI de la rama corrigió un error sintáctico en el test del auditor; la ejecución completa del último commit debe terminar verde antes de aceptar la integración técnica.
+
+La Subfase 1.4 permanece EN CURSO. El inventario, los criterios, la distribución por nivel y los comandos de importación se documentan en [auditoría del catálogo v2](docs/curriculum/phase-1.4-catalog-audit.md) y su implementación está en [PR #90](https://github.com/programadorkevinsvega-sys/Plataforma-de-aprendizaje-de-ingl-s/pull/90). No se debe marcar completa hasta terminar la curación editorial, cobertura léxica, cotejo de frecuencias que se decida utilizar, guías fonéticas, audios reales y validación en staging.
 
 ### 3.3. Arquitectura objetivo del contenido
 
