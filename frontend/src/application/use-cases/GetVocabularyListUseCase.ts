@@ -50,11 +50,3 @@ export class SynthesizeSpeechUseCase {
     return this.contentRepository.synthesizeSpeech(text, voice, rate)
   }
 }
-
-export class MarkWordCompletedUseCase {
-  constructor(private readonly contentRepository: IContentRepository) {}
-
-  execute(wordId: string): Promise<void> {
-    return this.contentRepository.markWordCompleted(wordId)
-  }
-}
