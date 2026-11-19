@@ -74,6 +74,7 @@ if (!pool) {
           (SELECT count(*)::int FROM vocabulary_words WHERE source_catalog = $1) AS items,
           (SELECT count(*)::int FROM context_sentences WHERE source_catalog = $1) AS examples,
           (SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1) AS resources,
+          (SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1 AND skill = 'listening' AND transcript_available = TRUE) AS exposed_listening_transcripts,
           (SELECT COALESCE(sum(jsonb_array_length(questions)), 0)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1) AS questions,
           (SELECT count(*)::int FROM curriculum_comprehension_resources resource CROSS JOIN LATERAL jsonb_array_elements(resource.questions) AS question(value) WHERE resource.source_catalog = $1 AND question.value ->> 'editorial_status' = 'pending_human_review') AS pending_questions,
           (SELECT count(*)::int FROM vocabulary_words WHERE source_catalog = $1 AND publication_status = 'draft') AS draft_items,
@@ -85,6 +86,7 @@ if (!pool) {
     assert.equal(counts.rows[0].items, catalog.lexical_items.length);
     assert.equal(counts.rows[0].examples, expectedExamples);
     assert.equal(counts.rows[0].resources, catalog.comprehension_resources.length);
+    assert.equal(counts.rows[0].exposed_listening_transcripts, 0);
     assert.equal(counts.rows[0].questions, 52);
     assert.equal(counts.rows[0].pending_questions, 52);
     assert.equal(counts.rows[0].draft_items, catalog.lexical_items.length);

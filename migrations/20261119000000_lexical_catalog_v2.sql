@@ -270,6 +270,13 @@ BEGIN
         END IF;
 
         IF TG_TABLE_NAME = 'curriculum_comprehension_resources'
+           AND to_jsonb(NEW) ->> 'skill' = 'listening'
+           AND COALESCE((to_jsonb(NEW) ->> 'transcript_available')::BOOLEAN, FALSE) THEN
+            RAISE EXCEPTION 'Listening transcripts remain hidden until a post-response unlock flow is implemented'
+                USING ERRCODE = '23514';
+        END IF;
+
+        IF TG_TABLE_NAME = 'curriculum_comprehension_resources'
            AND jsonb_array_length(COALESCE(to_jsonb(NEW) -> 'questions', '[]'::jsonb)) < 2 THEN
             RAISE EXCEPTION 'Published comprehension resources require at least two reviewed questions'
                 USING ERRCODE = '23514';

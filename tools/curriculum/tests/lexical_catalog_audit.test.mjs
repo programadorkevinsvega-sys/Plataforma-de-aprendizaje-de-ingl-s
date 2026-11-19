@@ -121,3 +121,12 @@ test('no permite publicar un recurso con preguntas pendientes de revisión', () 
   const report = auditCatalog(catalog);
   assert.ok(report.errors.some(error => error.code === 'UNREVIEWED_COMPREHENSION_QUESTION_PUBLISHED'));
 });
+
+test('no expone transcripts de listening antes de una actividad completada', () => {
+  const catalog = readCatalog();
+  const listening = catalog.comprehension_resources.filter(resource => resource.skill === 'listening');
+  assert.equal(listening.length, 13);
+  assert.ok(listening.every(resource => resource.transcript_available === false));
+  listening[0].transcript_available = true;
+  assert.ok(auditCatalog(catalog).errors.some(error => error.code === 'LISTENING_TRANSCRIPT_EXPOSED'));
+});

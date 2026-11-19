@@ -114,7 +114,7 @@ El auditor ahora informa ejemplos ingleses compartidos entre unidades y signific
 
 Cada uno de los 26 recursos incorpora dos preguntas originales de opción múltiple (52 en total), con tres opciones, clave de respuesta, justificación y evidencia del texto/guion. Las preguntas, distractores y claves siguen en `pending_human_review`; no equivalen a una rúbrica validada ni se publican automáticamente.
 
-La migración v2 persiste las preguntas como JSONB. Antes de publicar un recurso, PostgreSQL exige al menos dos preguntas aprobadas, cada una con una clave que corresponda a una opción existente. El RPC de estudiante devuelve el enunciado y las opciones, pero elimina la clave, la justificación, la evidencia y los estados editoriales. Para listening, el RPC devuelve `content` vacío mientras `transcript_available=false`; por tanto no revela el guion antes de que el estudiante responda. El guion completo permanece en el paquete editorial para generar y validar el audio.
+La migración v2 persiste las preguntas como JSONB. Antes de publicar un recurso, PostgreSQL exige al menos dos preguntas aprobadas, cada una con una clave que corresponda a una opción existente. El RPC de estudiante devuelve el enunciado y las opciones, pero elimina la clave, la justificación, la evidencia y los estados editoriales. Para listening, el RPC devuelve `content` vacío y la migración/auditor bloquean `transcript_available=true`; por tanto no revela el guion al estudiante. El unlock posterior a una respuesta aún no existe y pertenece al motor de actividades de Fase 2. El guion completo permanece en el paquete editorial para generar y validar el audio.
 
 ## Persistencia e integración v2
 

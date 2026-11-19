@@ -241,6 +241,9 @@ export function auditCatalog(catalog) {
         issue(errors, 'UNREVIEWED_COMPREHENSION_QUESTION_PUBLISHED', qp, 'No se publica un recurso con preguntas pendientes de revisión.');
       }
     }
+    if (resource.skill === 'listening' && resource.transcript_available === true) {
+      issue(errors, 'LISTENING_TRANSCRIPT_EXPOSED', p + '.transcript_available', 'El transcript de listening no se expone hasta que exista un flujo posterior a la respuesta.');
+    }
     if (resource.skill === 'listening' && resource.publication_status === 'published') {
       if (!nonEmpty(resource.audio?.asset_url) || resource.audio?.status !== 'approved') {
         issue(errors, 'LISTENING_WITHOUT_APPROVED_AUDIO', p + '.audio', 'Un recurso auditivo publicado requiere un audio real y aprobado.');
