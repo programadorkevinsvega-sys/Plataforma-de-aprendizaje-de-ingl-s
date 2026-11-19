@@ -9,9 +9,9 @@ SELECT current_database() = :'expected_db_name' AS db_name_matches \gset
   \quit 3
 \endif
 
-SELECT (NOT current_role.rolsuper AND NOT current_role.rolbypassrls) AS safe_runtime_role
-  FROM pg_roles current_role
- WHERE current_role.rolname = current_user \gset
+SELECT (NOT role_info.rolsuper AND NOT role_info.rolbypassrls) AS safe_runtime_role
+  FROM pg_roles role_info
+ WHERE role_info.rolname = current_user \gset
 \if :safe_runtime_role
   \echo 'Rol de conexión no es superusuario ni BYPASSRLS.'
 \else
