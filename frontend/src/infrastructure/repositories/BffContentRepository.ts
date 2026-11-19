@@ -6,7 +6,7 @@ import type {
   SynthesizedSpeech,
 } from '@/domain/repositories/IContentRepository'
 import type { BffHttpClient } from '../api/BffHttpClient'
-import { toAudioUrl, toLesson, toVocabularyWord } from '../api/mappers'
+import { toAudioUrl, toComprehensionResource, toLesson, toVocabularyWord } from '../api/mappers'
 
 type Dto = Record<string, unknown>
 
