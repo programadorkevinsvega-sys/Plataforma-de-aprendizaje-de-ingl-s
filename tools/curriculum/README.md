@@ -2,15 +2,31 @@
 
 La fuente canónica de contenido léxico y comprensión es `crates/content-vocabulary-service/data/lexical_catalog.v2.json`. La taxonomía de 26 categorías está en `tools/curriculum/lexical-taxonomy.v1.json`.
 
-No se mantienen colecciones separadas A0/A1 ni claves de categoría heredadas. Los niveles persistidos usan `PRE_A1`, `A1`, `A2`, `B1`, `B2`, `C1` y `C2`. Las unidades incluyen tipos léxicos, rutas, prioridad pedagógica, utilidad, contextos, registro, ejemplos, procedencia y estados editoriales.
+No se mantienen colecciones separadas A0/A1 ni claves de categoría heredadas. Los niveles canónicos son `PRE_A1`, `A1`, `A2`, `B1`, `B2`, `C1` y `C2`. Cada unidad separa tipo léxico, ruta, prioridad pedagógica, utilidad, frecuencia de corpus, contextos, registro, ejemplos, pronunciación, revisión editorial y procedencia.
 
-La validación del catálogo:
+Auditoría y pruebas:
 ```bash
 node tools/curriculum/audit_lexical_catalog.mjs --strict
 node --test tools/curriculum/tests/lexical_catalog_audit.test.mjs
 ```
 
-El catálogo v2 es material editorial `draft`. La fonética trasladada desde el catálogo anterior son solo candidatos sin aprobar; ningún consumidor estudiantil debe exponer esos campos mientras no estén validados. Los guiones de listening no tienen audio publicado. La integración transaccional del catálogo v2 con PostgreSQL y sus consumidores es un trabajo pendiente de esta subfase; no se debe ejecutar el importador curricular v1 esperando que importe este formato.
+### Importación PostgreSQL v2
+
+La migración `migrations/20261119000000_lexical_catalog_v2.sql` extiende las tablas léxicas existentes con metadatos v2, añade recursos de comprensión y un ledger SHA-256. Las filas heredadas se conservan como `legacy_pending_review`; no se exponen al estudiante. El servicio gRPC lista únicamente vocabulario y ejemplos cuyo estado sea `published`.
+
+La importación usa `tools/curriculum/import_lexical_catalog.mjs`, es transaccional e idempotente. El modo predeterminado es dry-run y siempre revierte:
+```bash
+DATABASE_URL='postgresql://…' node tools/curriculum/import_lexical_catalog.mjs
+```
+
+Para persistir el catálogo como borrador se requiere un editor provisionado en `content_editors`:
+```bash
+DATABASE_URL='postgresql://…' node tools/curriculum/import_lexical_catalog.mjs --apply --actor-user-id <EDITOR_UUID>
+```
+
+El importador registra actor, hash, conteos y metadatos; no publica contenido. Rechaza modificar contenido previamente publicado. La publicación de una unidad exige revisión editorial aprobada y pronunciación aprobada o declarada explícitamente como no requerida. La publicación de un recurso listening requiere además un audio real con estado aprobado y URL registrada.
+
+La importación y las migraciones v2 se prueban con `node --test tools/curriculum/tests/import_lexical_catalog.test.mjs` y el harness de migraciones de Fase 1.2–1.4. Los guiones de listening continúan en borrador sin audio; los ejemplos, traducciones, niveles y guías fonéticas continúan pendientes de revisión editorial competente. La presencia de la estructura y la auditoría estricta no equivale a aprobar la naturalidad del contenido.
 
 ---
 
