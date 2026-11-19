@@ -16,7 +16,7 @@ const approvedGuide = (pronunciation, field) =>
 const approvedAudioUrl = (audio) =>
   audio?.status === 'approved' ? audio.asset_url ?? null : null;
 
-export async function importLexicalCatalog(pool, catalog, contentSha256, { apply = false } = {}) {
+export async function importLexicalCatalog(pool, catalog, contentSha256, { apply = false, actorUserId = null } = {}) {
   const report = auditCatalog(catalog);
   if (!report.valid) {
     const error = new Error('El catálogo léxico no supera la auditoría estricta.');
@@ -100,6 +100,17 @@ export async function importLexicalCatalog(pool, catalog, contentSha256, { apply
       'SELECT pg_advisory_xact_lock(hashtext($1))',
       ['devfluency:lexical-catalog:v2'],
     );
+
+    if (apply) {
+      if (!actorUserId) throw new Error('--actor-user-id es obligatorio cuando se utiliza --apply.');
+      const editor = await client.query(
+        'SELECT EXISTS (SELECT 1 FROM content_editors WHERE user_id = $1::uuid) AS allowed',
+        [actorUserId],
+      );
+      if (!editor.rows[0]?.allowed) {
+        throw new Error('El actor no está registrado en content_editors; no se importó contenido.');
+      }
+    }
 
     const previous = await client.query(
       'SELECT id FROM lexical_catalog_imports WHERE catalog_key = $1 AND content_sha256 = $2',
@@ -308,8 +319,8 @@ export async function importLexicalCatalog(pool, catalog, contentSha256, { apply
     await client.query(
       `INSERT INTO lexical_catalog_imports (
           catalog_key, schema_version, content_sha256, lexical_items,
-          examples, comprehension_resources, metadata
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)`,
+          examples, comprehension_resources, imported_by, metadata
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7::uuid, $8::jsonb)`,
       [
         CATALOG_KEY,
         catalog.schema_version,
@@ -317,6 +328,7 @@ export async function importLexicalCatalog(pool, catalog, contentSha256, { apply
         items.length,
         examples.length,
         resources.length,
+        actorUserId,
         json(catalog.metadata),
       ],
     );
@@ -351,6 +363,8 @@ async function main() {
   const file = args.find((arg) => !arg.startsWith('--'))
     ?? 'crates/content-vocabulary-service/data/lexical_catalog.v2.json';
   const apply = args.includes('--apply');
+  const actorIndex = args.indexOf('--actor-user-id');
+  const actorUserId = actorIndex >= 0 ? args[actorIndex + 1] : null;
   const filePath = path.resolve(process.cwd(), file);
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL es obligatoria.');
   const bytes = readFileSync(filePath);
@@ -358,7 +372,7 @@ async function main() {
   const sha256 = createHash('sha256').update(bytes).digest('hex');
   const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
   try {
-    const result = await importLexicalCatalog(pool, catalog, sha256, { apply });
+    const result = await importLexicalCatalog(pool, catalog, sha256, { apply, actorUserId });
     process.stdout.write(JSON.stringify(result, null, 2) + '\n');
   } finally {
     await pool.end();
