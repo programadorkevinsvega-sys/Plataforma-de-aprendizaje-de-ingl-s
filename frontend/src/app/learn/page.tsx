@@ -279,23 +279,33 @@ export default function LearnPage() {
                   <span className="text-xs font-semibold text-stone-500">Texto original en inglés</span>
                   <p className="mt-1 text-lg font-bold">{currentSentence.english}</p>
                 </div>
-                <div className="mt-3 rounded-xl border border-stone-200 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs font-semibold text-stone-500">Guía aproximada para practicar lentamente</span>
-                    <button type="button" onClick={() => void handlePlayAudio(currentSentence.english, 'slow')} disabled={isPlayingAudio} className="rounded-lg border border-emerald-700/20 px-3 py-2 text-xs font-semibold text-emerald-800 disabled:opacity-50">▶ Escuchar lentamente</button>
-                  </div>
-                  <p className="mt-2 text-base font-semibold">{currentSentence.spanishPhonetics || 'Guía lenta pendiente de revisión editorial'}</p>
-                </div>
-                <div className="mt-3 rounded-xl border border-stone-200 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs font-semibold text-stone-500">Guía para pronunciación natural</span>
-                    <button type="button" onClick={() => void handlePlayAudio(currentSentence.english)} disabled={isPlayingAudio} className="rounded-lg border border-emerald-700/20 px-3 py-2 text-xs font-semibold text-emerald-800 disabled:opacity-50">▶ Escuchar a velocidad natural</button>
-                  </div>
-                  <p className="mt-2 text-base font-semibold">{currentSentence.spanishPhoneticsNatural || 'Guía natural pendiente de revisión editorial'}</p>
-                </div>
-                <p className="mt-4 text-xs leading-5 text-stone-500">
-                  Los dos audios utilizan la frase inglesa original. La guía escrita es una aproximación para hispanohablantes; no es IPA ni reemplaza una revisión fonética.
-                </p>
+                {currentWord.pronunciationStatus === 'approved' &&
+                currentSentence.spanishPhonetics.trim() &&
+                currentSentence.spanishPhoneticsNatural.trim() ? (
+                  <>
+                    <div className="mt-3 rounded-xl border border-stone-200 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-semibold text-stone-500">Guía aproximada para practicar lentamente</span>
+                        <button type="button" onClick={() => void handlePlayAudio(currentSentence.english, 'slow')} disabled={isPlayingAudio} className="rounded-lg border border-emerald-700/20 px-3 py-2 text-xs font-semibold text-emerald-800 disabled:opacity-50">▶ Escuchar lentamente</button>
+                      </div>
+                      <p className="mt-2 text-base font-semibold">{currentSentence.spanishPhonetics}</p>
+                    </div>
+                    <div className="mt-3 rounded-xl border border-stone-200 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-semibold text-stone-500">Guía para pronunciación natural</span>
+                        <button type="button" onClick={() => void handlePlayAudio(currentSentence.english)} disabled={isPlayingAudio} className="rounded-lg border border-emerald-700/20 px-3 py-2 text-xs font-semibold text-emerald-800 disabled:opacity-50">▶ Escuchar a velocidad natural</button>
+                      </div>
+                      <p className="mt-2 text-base font-semibold">{currentSentence.spanishPhoneticsNatural}</p>
+                    </div>
+                    <p className="mt-4 text-xs leading-5 text-stone-500">
+                      Los dos audios utilizan la frase inglesa original. La guía escrita es una aproximación para hispanohablantes; no es IPA ni reemplaza una revisión fonética.
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-3 rounded-xl bg-stone-50 p-4 text-xs leading-5 text-stone-600">
+                    Este elemento no requiere guía fonética aprobada o el ejemplo todavía no dispone de ella. Puedes escuchar la frase original desde el control de vocabulario.
+                  </p>
+                )}
               </>
             ) : (
               <p className="mt-4 rounded-xl bg-stone-50 p-4 text-sm text-stone-600">Esta palabra no tiene ejemplos publicados asociados.</p>
