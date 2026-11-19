@@ -1595,8 +1595,12 @@ impl ContentService for MyContentService {
 
 #[cfg(test)]
 mod curriculum_progress_tests {
-    use super::{evaluate_lesson_progress, validate_student_catalog_query};
-    use proto::content::{CurriculumPrerequisite, ListCurriculumCoursesRequest};
+    use super::{
+        evaluate_lesson_progress, validate_comprehension_query, validate_student_catalog_query,
+    };
+    use proto::content::{
+        CurriculumPrerequisite, ListComprehensionResourcesRequest, ListCurriculumCoursesRequest,
+    };
     use std::collections::HashMap;
     use uuid::Uuid;
 
@@ -1674,6 +1678,49 @@ mod curriculum_progress_tests {
             enrolled_only: false,
         };
         assert!(validate_student_catalog_query(&oversized_search).is_err());
+    }
+
+    #[test]
+    fn comprehension_query_uses_safe_defaults_and_accepts_canonical_filters() {
+        let request = ListComprehensionResourcesRequest {
+            user_id: "authenticated-user".to_string(),
+            page: 0,
+            page_size: 0,
+            track: "technology".to_string(),
+            cefr_level: "B2".to_string(),
+            skill: "listening".to_string(),
+        };
+        let filters = validate_comprehension_query(&request).expect("canonical filters are valid");
+        assert_eq!(filters.page, 1);
+        assert_eq!(filters.page_size, 12);
+        assert_eq!(filters.track.as_deref(), Some("technology"));
+        assert_eq!(filters.level.as_deref(), Some("B2"));
+        assert_eq!(filters.skill.as_deref(), Some("listening"));
+    }
+
+    #[test]
+    fn comprehension_query_rejects_unknown_track_level_skill_and_oversized_page() {
+        let mut request = ListComprehensionResourcesRequest {
+            user_id: "authenticated-user".to_string(),
+            page: 1,
+            page_size: 51,
+            track: String::new(),
+            cefr_level: String::new(),
+            skill: String::new(),
+        };
+        assert!(validate_comprehension_query(&request).is_err());
+
+        request.page_size = 12;
+        request.track = "all".to_string();
+        assert!(validate_comprehension_query(&request).is_err());
+
+        request.track.clear();
+        request.cefr_level = "A0".to_string();
+        assert!(validate_comprehension_query(&request).is_err());
+
+        request.cefr_level.clear();
+        request.skill = "speaking".to_string();
+        assert!(validate_comprehension_query(&request).is_err());
     }
 
     #[test]
