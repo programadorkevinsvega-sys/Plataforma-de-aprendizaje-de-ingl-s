@@ -197,23 +197,30 @@ DECLARE
     v_slow_guide TEXT;
     v_natural_guide TEXT;
 BEGIN
-    IF TG_OP = 'UPDATE' AND OLD.publication_status = 'published' THEN
-        IF NEW.publication_status <> 'archived' THEN
+    IF TG_OP = 'UPDATE' THEN
+        IF OLD.publication_status = 'published'
+           AND NEW.publication_status <> 'archived' THEN
             RAISE EXCEPTION 'Published lexical content is immutable; create a reviewed catalog revision instead'
                 USING ERRCODE = '55000';
         END IF;
-    END IF;
-
-    IF (TG_OP = 'INSERT' AND NEW.publication_status <> 'draft')
-       OR (TG_OP = 'UPDATE' AND NEW.publication_status IS DISTINCT FROM OLD.publication_status) THEN
-        IF NOT public.app_is_content_editor() THEN
+        IF NEW.publication_status IS DISTINCT FROM OLD.publication_status
+           AND NOT public.app_is_content_editor() THEN
+            RAISE EXCEPTION 'A registered content editor is required to change lexical publication state'
+                USING ERRCODE = '42501';
+        END IF;
+    ELSE
+        IF NEW.publication_status <> 'draft'
+           AND NOT public.app_is_content_editor() THEN
             RAISE EXCEPTION 'A registered content editor is required to change lexical publication state'
                 USING ERRCODE = '42501';
         END IF;
     END IF;
 
     IF NEW.publication_status = 'published' THEN
-        IF TG_OP = 'INSERT' OR OLD.publication_status <> 'review' THEN
+        IF TG_OP = 'INSERT' THEN
+            RAISE EXCEPTION 'Lexical content must pass through review before publication'
+                USING ERRCODE = '55000';
+        ELSIF OLD.publication_status <> 'review' THEN
             RAISE EXCEPTION 'Lexical content must pass through review before publication'
                 USING ERRCODE = '55000';
         END IF;
