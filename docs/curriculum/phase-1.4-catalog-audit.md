@@ -1,71 +1,72 @@
-# Subfase 1.4 — Auditoría inicial y limpieza segura del catálogo
+# Subfase 1.4 — Catálogo léxico y recursos graduados v2
 
-## Alcance de esta entrega
+## Decisión de modelo
 
-Esta entrega inicia la curación de 1.4 con una auditoría reproducible de los tres JSON que existen en el directorio de datos, una eliminación limitada a registros A0 totalmente redundantes y una protección para que las reglas fonéticas experimentales no reescriban el contenido antes de importarlo.
+La colección anterior de tres JSON por nivel queda sustituida por una única fuente de verdad:
 
-No se considera completada la subfase 1.4. No se crea ni se publica un paquete curricular, no se cambian traducciones ni ejemplos por criterio automático y no se declara validada la calidad lingüística de las aproximaciones fonéticas.
+- `crates/content-vocabulary-service/data/lexical_catalog.v2.json`
+- `tools/curriculum/lexical-taxonomy.v1.json`
 
-## Fuentes editoriales aplicadas
+No se conserva el alias A0 ni los nombres de categoría antiguos. Los niveles persistidos son `PRE_A1`, `A1`, `A2`, `B1`, `B2`, `C1` y `C2`. Las categorías utilizan identificadores controlados compartidos entre rutas.
 
-- **Blueprint curricular 1.1**: dos rutas (Inglés General y English for Technology & Professional Communication), progresión por contexto y utilidad, nivel objetivo, frecuencia/prioridad, registro y ejemplos naturales.
-- **Prompt de auditoría fonética**: estructura del vocabulario y reglas explícitas para las guías lentas y naturales.
-- **Roadmap profesional**: prohíbe publicar guías fonéticas generadas sin validación de pronunciación y revisión editorial.
+## Inventario de la nueva fuente
 
-## Resultado de la auditoría
+| Elemento | Cantidad |
+|---|---:|
+| Categorías canónicas | 26 |
+| Unidades léxicas | 790 |
+| Vocablos/sentidos trasladados y deduplicados desde la primera colección | 704 |
+| Nuevas expresiones y unidades contextualizadas | 86 |
+| Ejemplos ingleses en el catálogo léxico | 2.287 |
+| Recursos de reading | 13 |
+| Guiones de listening | 13 |
 
-| Catálogo | Registros actuales | Lemas únicos | Categorías | Pares lenta/natural | Diferencias lenta/natural |
-|---|---:|---:|---:|---:|---:|
-| A0 | 237 | 227 | 39 | 948 | 104 |
-| A1 | 469 | 469 | 53 | 1.876 | 83 |
-| Semilla heredada | 8 | 8 | 7 | 32 | 6 |
+Los nuevos elementos incluyen expresiones funcionales, sentence frames, colocaciones, phrasal verbs, marcadores discursivos, vocabulario técnico y términos de ingeniería de software/operaciones. Las dos rutas se mantienen separadas por contexto y nivel.
 
-A0 tenía 322 filas antes de la limpieza. Se retiraron **85 filas completamente duplicadas**. Para comparar duplicados se normalizó únicamente el uso de mayúsculas/minúsculas en los cuatro campos fonéticos; el texto inglés, las traducciones, categorías, nivel, orden de frases y valores fonéticos no se alteraron. Se conservaron todas las variantes que difieren en contenido.
+## Taxonomía canónica
 
-### Duplicados y ambigüedad léxica
+Las 26 categorías cubren comunicación social, identidad, relaciones, rutinas, tiempo/cantidades, funciones gramaticales, hogar, comida/bebida, comunidad, transporte, educación, trabajo, tecnología digital, desarrollo de software, cloud/DevOps, salud, naturaleza, animales, ropa, acciones, descripciones/emociones, objetos/herramientas, compras/dinero, matemáticas/formas, ocio/cultura y deportes.
 
-- A0 mantiene 10 grupos de lemas repetidos. Nueve pares (por ejemplo, **walk**, **run**, **sleep**, **call**, **cook**, **wash**, **buy**, **pay** y **give**) contienen la misma palabra, categoría, traducción y frases, pero difieren en la anotación de pronunciación natural. Se conservaron para revisión; no se eligió una variante arbitrariamente.
-- **clean** conserva dos sentidos: verbo (**limpiar**, categoría **actions_basic**) y adjetivo (**limpio**, categoría **descriptors_basic**). No son duplicados semánticos.
-- A0 contiene 59 grupos de frases inglesas repetidas (62 ocurrencias adicionales); A1 contiene 5 grupos (5 ocurrencias adicionales). La misma frase puede servir para practicar varios lemas, así que no se borró automáticamente.
-- Se identificaron 12 grupos de traducciones españolas repetidas en A0 y 2 en A1. Casos como **hi/hello → hola**, **bye/goodbye → adiós**, **sofa/couch → sofá** y **talk/speak → hablar** pueden ser sinónimos o equivalencias válidas, no errores por sí mismos.
+Las categorías son conceptos de catálogo, no etiquetas improvisadas a partir del archivo de origen. Los IDs son estables; los nombres y las descripciones se mantienen en español e inglés.
 
-### Categorías
+## Frecuencia, utilidad y contexto
 
-A0 tiene 39 nombres de categoría y A1 tiene 53. Hay nomenclaturas que parecen representar familias similares con claves diferentes, por ejemplo **animals_basic/animals**, **clothing_basic/clothes**, **body_basic/body/body_parts** y **food_basic/food**. No se normalizaron en esta entrega: antes hay que aprobar una taxonomía controlada y comprobar qué filtros, contratos y contenidos dependen de cada valor.
+- `editorial_priority` expresa decisión pedagógica (core, high utility, contextual, domain core, advanced). No es un rango de corpus.
+- `frequency.general_rank` y `frequency.spoken_rank` son null hasta cotejar el lema, la categoría gramatical y el sentido con las listas de frecuencia.
+- Se declaran NGSL 1.2 y NGSL-Spoken 1.2 como fuentes permitidas bajo CC BY-SA 4.0, con atribución; los datos de frecuencia deben conservar la procedencia y los cambios. El material de Oxford 3000/5000 se usa solo como referencia metodológica: no se copian sus entradas ni posiciones.
+- `usefulness`, `context_tags`, `register`, `tracks` y nivel se almacenan de forma separada para filtrar y construir itinerarios sin confundir frecuencia con utilidad.
 
-### Pronunciación
+## Revisión lingüística y pronunciación
 
-Todos los valores de los campos **spanish_phonetic** y **spanish_phonetic_natural** existentes se conservaron y se normalizaron a minúsculas, como exige la guía editorial. Tras esa normalización no quedan campos fonéticos con mayúsculas.
+Las guías fonéticas antiguas se trasladan únicamente a `pronunciation.draft_candidates` como candidatas no aprobadas. No se muestran como una pronunciación verificada. Las nuevas expresiones no reciben aproximaciones fonéticas inventadas.
 
-La diferencia entre lenta y natural es intencional en algunos elementos y puede ser legítima en otros. La auditoría cuenta las diferencias, pero **no certifica** que cada enlace, reducción o guía aproximada sea correcta. Deben revisarse especialmente las nueve variantes A0 conservadas y los casos donde la guía introduce un enlace o una reducción no respaldada por el texto inglés.
+Cada unidad y ejemplo mantiene estados editoriales y fonéticos explícitos. Para pasar a `published` se requiere aprobación editorial; si se proporciona fonética española, se requieren ambas guías lenta/natural aprobadas. La meta de acento de referencia es en-US; las variaciones regionales se registrarán de forma explícita, no se mezclarán en un mismo campo.
 
-El script **phonetic_engine.js** aplica transformaciones automáticas más amplias que la lista cerrada del prompt editorial y modifica archivos JSON en el directorio de datos. Quedó protegido por una opción de entorno explícita y dejó de ejecutarse durante **import_vocab.sh**. No debe utilizarse para generar contenido publicable sin revisión lingüística.
+La revisión humana de naturalidad de los 2.287 ejemplos y de los candidatos fonéticos pendientes no se declara completada por la mera creación del catálogo. El auditor impide que un ítem sin aprobación se publique.
 
-## Cambios realizados
+## Lecturas y escuchas
 
-1. Se eliminaron 85 registros A0 idénticos tras normalizar solo el casing fonético; permanecen 237 registros y los sentidos diferentes.
-2. Se aplicó minúscula a los campos de pronunciación de A0, A1 y la semilla heredada. No se cambiaron palabras inglesas, traducciones ni frases.
-3. Se añadió **tools/curriculum/audit_seed_catalog.mjs**, de solo lectura, que informa estructura, duplicados, frases reutilizadas, traducciones repetidas, categorías, campos fonéticos y lemas compartidos entre catálogos.
-4. Se añadieron pruebas para el esquema, la eliminación de duplicados exactos, la conservación de los dos sentidos de **clean** y el tratamiento informativo de frases reutilizadas.
-5. El CI ejecuta la auditoría estricta. Un cambio exclusivo de JSON de semilla o de scripts de autoría no despliega la aplicación: ejecuta validaciones, no publica ni importa contenido.
-6. El importador heredado dejó de ejecutar el motor fonético automáticamente. **import_vocab.sh** sigue deshabilitado por defecto y sigue siendo destructivo; no se debe usar contra producción ni contra bases con progreso de estudiantes.
+Hay 13 lecturas y 13 guiones de diálogo/escucha originales, con nivel objetivo, ruta, tema, recuento de palabras, patrón de dificultad, foco de comprensión y vocabulario de apoyo.
 
-## Pendientes de 1.4
+Los guiones de listening todavía no incluyen audio real. Se marcan como borrador y el reproductor no debe ofrecerse hasta generar el archivo, validar su correspondencia con el guion y registrar voz/acento/licencia del proveedor.
 
-- Revisar lingüísticamente las variantes fonéticas preservadas y los ejemplos marcados por repetición o naturalidad.
-- Aprobar y aplicar una taxonomía común de categorías sin perder contexto.
-- Definir metadatos de frecuencia, utilidad, registro, contexto y prioridad por nivel.
-- Crear expresiones funcionales, collocations y phrasal verbs como unidades léxicas contextualizadas.
-- Completar el contenido general por niveles y la ruta tecnológica por dominios y niveles.
-- Añadir lecturas, diálogos y recursos auditivos con dificultad conocida y licencia/fuente registradas.
-- Generar fixtures por nivel y tipo de actividad, coordinados con el contrato de actividades de Fase 2.
-- Someter cualquier paquete real a validación, autoría y revisión editorial antes de importarlo como draft; la aprobación/publicación es un paso separado de 1.3/1.5.
+## Sustituciones de legado
 
-## Verificación reproducible
+Se retiran los tres archivos `seed_lessons*.json`, el importador SQL destructivo `import_vocab.sh` y el motor heurístico `phonetic_engine.js`. La auditoría se sustituye por `tools/curriculum/audit_lexical_catalog.mjs`. Esta rama no importa ni publica contenido en la VM; el paquete sigue en estado editorial draft.
 
-Desde la raíz del repositorio:
+## Verificación
 
-    node tools/curriculum/audit_seed_catalog.mjs --strict
-    node --test tools/curriculum/tests/seed_catalog_audit.test.mjs
+```bash
+node tools/curriculum/audit_lexical_catalog.mjs --strict
+node --test tools/curriculum/tests/lexical_catalog_audit.test.mjs
+```
 
-La auditoría no se conecta a PostgreSQL ni modifica datos. La limpieza descrita se limita a los archivos fuente de semillas.
+## Pendientes para cerrar 1.4
+
+1. Completar revisión humana de ejemplos, traducciones, registros, nivel y naturalidad.
+2. Cotejar rangos NGSL y NGSL-Spoken con la versión oficial descargable y guardar trazabilidad por lemma/POS/sentido.
+3. Validar guías lentas/naturales de manera individual; no activar conversiones automáticas.
+4. Producir y validar los 13 assets de audio de escucha, con pruebas de comprensión asociadas.
+5. Conectar el importador transaccional y los consumidores backend al nuevo esquema v2; la base actual continúa usando el esquema anterior hasta aplicar su migración de sustitución.
+
+Esta fuente es de autoría original o material de semilla reorganizado. No representa certificación oficial MCER ni garantiza que la revisión lingüística humana esté completada.

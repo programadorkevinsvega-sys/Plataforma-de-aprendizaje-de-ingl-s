@@ -267,7 +267,9 @@ jobs:
       - name: Test transactional curriculum package importer
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/devfluency_test
-        run: node --test tools/curriculum/tests/*.test.mjs
+        run: |
+          node tools/curriculum/audit_lexical_catalog.mjs --strict
+          node --test tools/curriculum/tests/*.test.mjs
       - name: Install stable Rust
         run: |
           rustup toolchain install stable --profile minimal --component rustfmt --component clippy

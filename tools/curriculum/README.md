@@ -1,3 +1,19 @@
+## Catálogo léxico v2 — fuente única
+
+La fuente canónica de contenido léxico y comprensión es `crates/content-vocabulary-service/data/lexical_catalog.v2.json`. La taxonomía de 26 categorías está en `tools/curriculum/lexical-taxonomy.v1.json`.
+
+No se mantienen colecciones separadas A0/A1 ni claves de categoría heredadas. Los niveles persistidos usan `PRE_A1`, `A1`, `A2`, `B1`, `B2`, `C1` y `C2`. Las unidades incluyen tipos léxicos, rutas, prioridad pedagógica, utilidad, contextos, registro, ejemplos, procedencia y estados editoriales.
+
+La validación del catálogo:
+```bash
+node tools/curriculum/audit_lexical_catalog.mjs --strict
+node --test tools/curriculum/tests/lexical_catalog_audit.test.mjs
+```
+
+El catálogo v2 es material editorial `draft`. La fonética trasladada desde el catálogo anterior son solo candidatos sin aprobar; ningún consumidor estudiantil debe exponer esos campos mientras no estén validados. Los guiones de listening no tienen audio publicado. La integración transaccional del catálogo v2 con PostgreSQL y sus consumidores es un trabajo pendiente de esta subfase; no se debe ejecutar el importador curricular v1 esperando que importe este formato.
+
+---
+
 # Fase 1.3 — Paquetes curriculares, validación, importación y revisión editorial
 
 Esta carpeta contiene el contrato canónico v1, el validador offline, el importador transaccional, el exportador relacional y el CLI editorial de versiones curriculares.

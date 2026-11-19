@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "taxonomy_id": "devfluency-lexical-taxonomy-v1",
+  "categories": [
+    {
+      "id": "social_communication",
+      "label_es": "Comunicación social",
+      "label_en": "Social communication",
+      "description": "Greetings, courtesy formulas, questions and interpersonal exchanges"
+    },
+    {
+      "id": "personal_identity",
+      "label_es": "Identidad personal",
+      "label_en": "Personal identity",
+      "description": "Names, personal information and basic self-description"
+    },
+    {
+      "id": "people_relationships",
+      "label_es": "Personas y relaciones",
+      "label_en": "People and relationships",
+      "description": "Family, relationships and people in everyday contexts"
+    },
+    {
+      "id": "daily_routines",
+      "label_es": "Rutinas cotidianas",
+      "label_en": "Daily routines",
+      "description": "Recurring activities, schedules and everyday habits"
+    },
+    {
+      "id": "time_numbers",
+      "label_es": "Tiempo y cantidades",
+      "label_en": "Time and quantities",
+      "description": "Time expressions, dates, numbers and quantities"
+    },
+    {
+      "id": "grammar_functions",
+      "label_es": "Funciones gramaticales",
+      "label_en": "Grammar functions",
+      "description": "Grammatical groups and language patterns; not a semantic topic"
+    },
+    {
+      "id": "home_life",
+      "label_es": "Hogar y vida doméstica",
+      "label_en": "Home and domestic life",
+      "description": "Rooms, furniture, household objects and domestic tasks"
+    },
+    {
+      "id": "food_drink",
+      "label_es": "Comida y bebida",
+      "label_en": "Food and drink",
+      "description": "Food, meals, ingredients and beverages"
+    },
+    {
+      "id": "places_community",
+      "label_es": "Lugares y comunidad",
+      "label_en": "Places and community",
+      "description": "Cities, buildings, local places and community services"
+    },
+    {
+      "id": "transport_travel",
+      "label_es": "Transporte y viajes",
+      "label_en": "Transport and travel",
+      "description": "Vehicles, directions, trips and travel situations"
+    },
+    {
+      "id": "education_learning",
+      "label_es": "Educación y aprendizaje",
+      "label_en": "Education and learning",
+      "description": "School, study and learning contexts"
+    },
+    {
+      "id": "work_professions",
+      "label_es": "Trabajo y profesiones",
+      "label_en": "Work and professions",
+      "description": "Jobs, roles, offices and workplace contexts"
+    },
+    {
+      "id": "technology_digital",
+      "label_es": "Tecnología y vida digital",
+      "label_en": "Technology and digital life",
+      "description": "Devices, applications, websites and common digital actions"
+    },
+    {
+      "id": "software_engineering",
+      "label_es": "Desarrollo de software",
+      "label_en": "Software engineering",
+      "description": "Programming, code, software development and engineering work"
+    },
+    {
+      "id": "cloud_devops",
+      "label_es": "Cloud y operaciones",
+      "label_en": "Cloud and operations",
+      "description": "Infrastructure, deployment, automation and operational practices"
+    },
+    {
+      "id": "health_body",
+      "label_es": "Salud y cuerpo",
+      "label_en": "Health and body",
+      "description": "Body parts, health, wellbeing and care"
+    },
+    {
+      "id": "nature_environment",
+      "label_es": "Naturaleza y entorno",
+      "label_en": "Nature and environment",
+      "description": "Weather, geography, space, plants and natural phenomena"
+    },
+    {
+      "id": "animals_farm",
+      "label_es": "Animales",
+      "label_en": "Animals",
+      "description": "Animals, insects and farm contexts"
+    },
+    {
+      "id": "clothing_personal_items",
+      "label_es": "Ropa y accesorios",
+      "label_en": "Clothing and personal items",
+      "description": "Clothing, accessories and personal belongings"
+    },
+    {
+      "id": "actions_movement",
+      "label_es": "Acciones y movimiento",
+      "label_en": "Actions and movement",
+      "description": "General actions, verbs and physical movement"
+    },
+    {
+      "id": "descriptions_emotions",
+      "label_es": "Descripciones y emociones",
+      "label_en": "Descriptions and emotions",
+      "description": "Qualities, appearance, colours, traits and feelings"
+    },
+    {
+      "id": "objects_tools",
+      "label_es": "Objetos y herramientas",
+      "label_en": "Objects and tools",
+      "description": "Everyday objects, materials and tools"
+    },
+    {
+      "id": "shopping_money",
+      "label_es": "Compras y dinero",
+      "label_en": "Shopping and money",
+      "description": "Shopping, prices, money and transactions"
+    },
+    {
+      "id": "math_shapes",
+      "label_es": "Matemáticas y formas",
+      "label_en": "Math and shapes",
+      "description": "Shapes, measures and basic mathematical concepts"
+    },
+    {
+      "id": "leisure_culture",
+      "label_es": "Ocio y cultura",
+      "label_en": "Leisure and culture",
+      "description": "Hobbies, music and cultural interests"
+    },
+    {
+      "id": "sports_fitness",
+      "label_es": "Deporte y actividad física",
+      "label_en": "Sports and fitness",
+      "description": "Sports, exercise and physical activity"
+    }
+  ]
+}

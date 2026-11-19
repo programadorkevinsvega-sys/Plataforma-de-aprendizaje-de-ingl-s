@@ -397,21 +397,22 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 
 ### Subfase 1.4. Curación y expansión del catálogo
 
-**Primer incremento — auditoría inicial y limpieza segura:** se incorporó una auditoría reproducible de A0/A1 y de la semilla heredada, se eliminaron 85 registros A0 completamente duplicados tras normalizar únicamente el casing fonético y se conservaron variantes de pronunciación que requieren revisión humana. Los detalles y límites están en [Auditoría inicial y limpieza segura del catálogo](../curriculum/phase-1.4-catalog-audit.md). La auditoría es de solo lectura y el CI la ejecuta sin desplegar cambios exclusivos de datos/autoría.
+**Segundo incremento — catálogo léxico v2:** se consolida una fuente única de 790 unidades léxicas, 26 categorías canónicas y 26 recursos originales graduados (13 lecturas y 13 guiones de escucha). La colección anterior se transforma y deduplica; 86 expresiones/unidades adicionales se crean para inglés general y tecnología. El informe y las reglas de revisión están en [Catálogo léxico y recursos graduados v2](../curriculum/phase-1.4-catalog-audit.md).
 
-- [x] Auditar el contenido semilla A0 y A1 actual.
-- [ ] Detectar traducciones duplicadas, ejemplos antinaturales y categorías inconsistentes. (Se registraron indicadores y grupos candidatos; la revisión lingüística completa sigue pendiente.)
-- [ ] Organizar vocabulario por frecuencia, utilidad, contexto y nivel.
-- [x] Auditar y conservar los campos de pronunciación existentes, incluidos **spanish_phonetic** y **spanish_phonetic_natural**, si están presentes en el contenido actual.
-- [ ] Curar guías aproximadas para hispanohablantes y audios lento/natural por palabra o expresión cuando aporten valor pedagógico.
-- [ ] Registrar el acento de referencia y notas para sonidos difíciles o inexistentes en español.
-- [ ] No generar ni publicar aproximaciones fonéticas sin validación de pronunciación y revisión editorial.
-- [ ] Crear listas de expresiones, collocations, phrasal verbs y frases funcionales.
-- [ ] Completar contenido general por nivel según el currículo aprobado.
-- [ ] Completar el catálogo tecnológico por dominios y niveles.
-- [ ] Añadir textos, diálogos y recursos de comprensión con dificultad conocida.
-- [ ] Generar fixtures para cada nivel y tipo de ejercicio.
-- [ ] No publicar contenido generado por IA sin validación automática y revisión editorial definida.
+- [x] Auditar y normalizar el contenido semilla inicial, conservando procedencia y fusionando sentidos/ejemplos equivalentes sin conservar identificadores antiguos.
+- [x] Definir una taxonomía controlada de 26 categorías para ambas rutas y retirar los nombres de categoría anteriores.
+- [x] Definir campos separados para prioridad pedagógica, utilidad, registro, contexto, nivel y frecuencia de corpus.
+- [ ] Completar el cruce verificable de rangos NGSL 1.2 y NGSL-Spoken 1.2 por lema, categoría gramatical y sentido; no se inventan rangos.
+- [ ] Finalizar la revisión lingüística humana de traducciones, ejemplos, naturalidad y adecuación de nivel del catálogo.
+- [ ] Revisar y aprobar las guías de pronunciación lenta/natural; los candidatos procedentes del catálogo anterior están marcados como pendientes y no se exponen al estudiante.
+- [x] Crear 86 expresiones funcionales, sentence frames, collocations, phrasal verbs, marcadores discursivos y unidades técnicas contextualizadas.
+- [ ] Completar la cobertura curricular de vocabulario/expresiones en todos los niveles de Inglés General y en los dominios de Tecnología; el primer catálogo v2 es una expansión, no se declara cobertura exhaustiva.
+- [x] Incorporar 13 textos de lectura graduados y 13 guiones de escucha/diálogo con nivel, ruta y perfil de dificultad.
+- [ ] Generar, revisar y adjuntar los audios reales de listening; no se publica un reproductor sin asset aprobado.
+- [ ] Integrar el catálogo v2 en PostgreSQL, el servicio de contenido, los paquetes curriculares y el frontend; sustituir la lectura de las tablas/formato anteriores.
+- [ ] Generar fixtures por nivel y tipo de actividad con el contrato de actividades de Fase 2.
+- [x] Añadir auditoría estricta que bloquea categorías/niveles inválidos, identidades duplicadas, rangos no verificados, pronunciación incompleta y listening publicado sin audio real.
+- [ ] No publicar contenido hasta contar con validación automática y revisión editorial humana documentada.
 
 ### Subfase 1.5. APIs y administración
 
