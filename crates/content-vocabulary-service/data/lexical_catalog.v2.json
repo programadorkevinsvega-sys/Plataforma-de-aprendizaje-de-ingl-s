@@ -314,7 +314,7 @@
         },
         {
           "english_text": "Hi there!",
-          "spanish_translation": "¡Hola (ahí)!",
+          "spanish_translation": "¡Hola!",
           "pronunciation_candidates": [
             {
               "accent_reference": "en-US",
@@ -342,7 +342,18 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "ai_suggestion_requires_human_confirmation"
+        ],
+        "editorial_suggestions": [
+          {
+            "field": "examples[3].spanish_translation",
+            "previous_value": "¡Hola (ahí)!",
+            "suggested_value": "¡Hola!",
+            "reason": "El saludo es idiomático; traducir there como «ahí» produce un calco que no comunica el uso pragmático.",
+            "status": "pending_human_confirmation",
+            "review_method": "AI-assisted language suggestion"
+          }
         ]
       },
       "provenance": {
@@ -47876,7 +47887,7 @@
         },
         {
           "english_text": "The front door.",
-          "spanish_translation": "La puerta principal (del frente).",
+          "spanish_translation": "La puerta principal.",
           "pronunciation_candidates": [
             {
               "accent_reference": "en-US",
@@ -47898,7 +47909,7 @@
         },
         {
           "english_text": "Sit in the front.",
-          "spanish_translation": "Siéntate en el frente.",
+          "spanish_translation": "Siéntate adelante.",
           "pronunciation_candidates": [
             {
               "accent_reference": "en-US",
@@ -47926,7 +47937,26 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "ai_suggestion_requires_human_confirmation"
+        ],
+        "editorial_suggestions": [
+          {
+            "field": "examples[2].spanish_translation",
+            "previous_value": "La puerta principal (del frente).",
+            "suggested_value": "La puerta principal.",
+            "reason": "La forma parentética «del frente» es redundante y menos natural en este contexto.",
+            "status": "pending_human_confirmation",
+            "review_method": "AI-assisted language suggestion"
+          },
+          {
+            "field": "examples[3].spanish_translation",
+            "previous_value": "Siéntate en el frente.",
+            "suggested_value": "Siéntate adelante.",
+            "reason": "En contexto de vehículo, adelante expresa mejor la posición delantera que «en el frente».",
+            "status": "pending_human_confirmation",
+            "review_method": "AI-assisted language suggestion"
+          }
         ]
       },
       "provenance": {
@@ -48765,7 +48795,7 @@
         },
         {
           "english_text": "Stand in line.",
-          "spanish_translation": "Haz fila (línea).",
+          "spanish_translation": "Haz fila.",
           "pronunciation_candidates": [
             {
               "accent_reference": "en-US",
@@ -48815,7 +48845,18 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "ai_suggestion_requires_human_confirmation"
+        ],
+        "editorial_suggestions": [
+          {
+            "field": "examples[2].spanish_translation",
+            "previous_value": "Haz fila (línea).",
+            "suggested_value": "Haz fila.",
+            "reason": "En este contexto line significa fila, no línea geométrica.",
+            "status": "pending_human_confirmation",
+            "review_method": "AI-assisted language suggestion"
+          }
         ]
       },
       "provenance": {
@@ -64279,7 +64320,7 @@
         },
         {
           "english_text": "The wine is red.",
-          "spanish_translation": "El vino es tinto (rojo).",
+          "spanish_translation": "El vino es tinto.",
           "pronunciation_candidates": [
             {
               "accent_reference": "en-US",
@@ -64329,7 +64370,18 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "ai_suggestion_requires_human_confirmation"
+        ],
+        "editorial_suggestions": [
+          {
+            "field": "examples[2].spanish_translation",
+            "previous_value": "El vino es tinto (rojo).",
+            "suggested_value": "El vino es tinto.",
+            "reason": "Tinto es la expresión idiomática habitual para red wine; «rojo» resulta literal.",
+            "status": "pending_human_confirmation",
+            "review_method": "AI-assisted language suggestion"
+          }
         ]
       },
       "provenance": {
@@ -75836,7 +75888,7 @@
         },
         {
           "english_text": "Lock the door.",
-          "spanish_translation": "Cierra la puerta (con seguro).",
+          "spanish_translation": "Cierra la puerta con llave.",
           "pronunciation_candidates": [
             {
               "accent_reference": "en-US",
@@ -75886,7 +75938,18 @@
         "flags": [
           "initial_content_needs_editorial_review",
           "examples_need_naturalness_review",
-          "pronunciation_candidates_not_approved"
+          "pronunciation_candidates_not_approved",
+          "ai_suggestion_requires_human_confirmation"
+        ],
+        "editorial_suggestions": [
+          {
+            "field": "examples[2].spanish_translation",
+            "previous_value": "Cierra la puerta (con seguro).",
+            "suggested_value": "Cierra la puerta con llave.",
+            "reason": "La traducción debe expresar la acción de asegurar con llave, no solo cerrar.",
+            "status": "pending_human_confirmation",
+            "review_method": "AI-assisted language suggestion"
+          }
         ]
       },
       "provenance": {
