@@ -30,10 +30,15 @@ export interface ComprehensionQuery {
   skill?: ComprehensionSkill
 }
 
+export interface ComprehensionOption {
+  id: string
+  text: string
+}
+
 export interface ComprehensionQuestion {
   id: string
   prompt: string
-  options: string[]
+  options: ComprehensionOption[]
 }
 
 export interface ComprehensionResource {
