@@ -50,4 +50,4 @@ La navegación principal incluye Práctica y Reading/Listening. El detalle de cu
 
 ## Verificación pendiente
 
-Esta rama debe pasar CI completo en Rust y frontend antes de integrarse. La verificación de publicación con contenido real requiere además un editor autorizado y un entorno de staging con los datos/importación revisados; no se sustituye por fixtures de CI.
+Esta rama debe pasar CI completo en Rust y frontend antes de integrarse. El catálogo editorial no se publica por esta rama ni se modifican los estados pendientes. La verificación de publicación con contenido real requiere además un editor autorizado y un entorno de staging con los datos/importación revisados; no se sustituye por fixtures de CI.
