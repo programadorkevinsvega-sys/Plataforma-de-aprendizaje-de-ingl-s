@@ -106,10 +106,11 @@ export async function importLexicalCatalog(pool, catalog, contentSha256, { apply
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actorUserId)) {
         throw new Error('--actor-user-id debe ser un UUID válido.');
       }
-      const editor = await client.query(
-        'SELECT EXISTS (SELECT 1 FROM content_editors WHERE user_id = $1::uuid) AS allowed',
+      await client.query(
+        "SELECT set_config('app.current_user_id', $1, true)",
         [actorUserId],
       );
+      const editor = await client.query('SELECT app_is_content_editor() AS allowed');
       if (!editor.rows[0]?.allowed) {
         throw new Error('El actor no está registrado en content_editors; no se importó contenido.');
       }
