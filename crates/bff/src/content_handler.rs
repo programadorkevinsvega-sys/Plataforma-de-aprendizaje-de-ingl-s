@@ -162,6 +162,154 @@ pub async fn vocabulary_list_handler(
     }
 }
 
+
+#[derive(Deserialize, Default)]
+pub struct ComprehensionResourcesQuery {
+    pub page: Option<i32>,
+    pub page_size: Option<i32>,
+    pub track: Option<String>,
+    pub cefr_level: Option<String>,
+    pub skill: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct ComprehensionResourceDto {
+    pub id: String,
+    pub track: String,
+    pub cefr_level: String,
+    pub skill: String,
+    pub title: String,
+    pub topic: String,
+    pub content: String,
+    pub word_count: i32,
+    pub sentence_count: i32,
+    pub estimated_minutes: i32,
+    pub comprehension_focus: String,
+    pub lexical_tags: Vec<String>,
+    pub transcript_available: bool,
+    pub audio_url: String,
+    pub audio_status: String,
+    pub questions: serde_json::Value,
+}
+
+#[derive(Serialize)]
+pub struct ComprehensionResourceListDto {
+    pub items: Vec<ComprehensionResourceDto>,
+    pub total: i32,
+    pub page: i32,
+    pub page_size: i32,
+    pub total_pages: i32,
+}
+
+/// GET /api/v1/content/comprehension-resources
+/// The content service returns published resources only and strips answer keys.
+pub async fn comprehension_resources_handler(
+    State(mut state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<ComprehensionResourcesQuery>,
+) -> Result<Json<ComprehensionResourceListDto>, (StatusCode, Json<serde_json::Value>)> {
+    let user_id = validate_token_from_headers(&headers, &mut state).await?;
+    let page = query.page.unwrap_or(1);
+    let page_size = query.page_size.unwrap_or(12);
+    if page <= 0 || !(1..=50).contains(&page_size) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "message": "La página debe ser positiva y page_size debe estar entre 1 y 50.",
+                "code": "INVALID_COMPREHENSION_PAGINATION"
+            })),
+        ));
+    }
+
+    let mut request = tonic::Request::new(ListComprehensionResourcesRequest {
+        user_id,
+        page,
+        page_size,
+        track: query.track.unwrap_or_default(),
+        cefr_level: query.cefr_level.unwrap_or_default(),
+        skill: query.skill.unwrap_or_default(),
+    });
+    attach_bearer_metadata(&headers, &mut request)?;
+
+    let mut client = state.content_client.clone();
+    let response = client.list_comprehension_resources(request).await.map_err(|error| {
+        let (status, code, message) = match error.code() {
+            tonic::Code::Unauthenticated => (
+                StatusCode::UNAUTHORIZED,
+                "CONTENT_UNAUTHENTICATED",
+                "Se requiere una sesión válida.",
+            ),
+            tonic::Code::InvalidArgument => (
+                StatusCode::BAD_REQUEST,
+                "CONTENT_INVALID_QUERY",
+                "Los filtros de lectura/escucha no son válidos.",
+            ),
+            tonic::Code::DeadlineExceeded | tonic::Code::Unavailable => (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "CONTENT_UNAVAILABLE",
+                "El catálogo de comprensión no está disponible temporalmente.",
+            ),
+            _ => (
+                StatusCode::BAD_GATEWAY,
+                "CONTENT_UPSTREAM_ERROR",
+                "No se pudieron consultar los recursos de comprensión.",
+            ),
+        };
+        (
+            status,
+            Json(serde_json::json!({ "message": message, "code": code })),
+        )
+    })?.into_inner();
+
+    let items = response
+        .items
+        .into_iter()
+        .map(|resource| {
+            let questions = serde_json::from_str::<serde_json::Value>(&resource.questions_json)
+                .map_err(|_| {
+                    (
+                        StatusCode::BAD_GATEWAY,
+                        Json(serde_json::json!({
+                            "message": "El servicio de contenido devolvió preguntas con formato inválido.",
+                            "code": "CONTENT_INVALID_QUESTIONS"
+                        })),
+                    )
+                })?;
+            Ok(ComprehensionResourceDto {
+                id: resource.id,
+                track: resource.track,
+                cefr_level: resource.cefr_level,
+                skill: resource.skill,
+                title: resource.title,
+                topic: resource.topic,
+                // Never return listening transcripts before an evaluated attempt.
+                content: if resource.skill == "listening" {
+                    String::new()
+                } else {
+                    resource.content
+                },
+                word_count: resource.word_count,
+                sentence_count: resource.sentence_count,
+                estimated_minutes: resource.estimated_minutes,
+                comprehension_focus: resource.comprehension_focus,
+                lexical_tags: resource.lexical_tags,
+                transcript_available: false,
+                audio_url: resource.audio_url,
+                audio_status: resource.audio_status,
+                questions,
+            })
+        })
+        .collect::<Result<Vec<_>, (StatusCode, Json<serde_json::Value>)>>()?;
+
+    Ok(Json(ComprehensionResourceListDto {
+        items,
+        total: response.total,
+        page: response.page,
+        page_size: response.page_size,
+        total_pages: response.total_pages,
+    }))
+}
+
 /// POST /api/v1/content/speech — TTS delegado al microservicio de audio.
 pub async fn synthesize_speech_handler(
     State(mut state): State<AppState>,
