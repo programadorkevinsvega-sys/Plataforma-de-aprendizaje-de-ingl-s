@@ -3,8 +3,11 @@
 -- student-facing vocabulary queries until explicitly reviewed and published.
 
 ALTER TABLE public.vocabulary_words
+    ALTER COLUMN word TYPE TEXT,
+    ALTER COLUMN spanish_phonetic TYPE TEXT,
     ALTER COLUMN spanish_phonetic DROP NOT NULL,
-    ALTER COLUMN spanish_translation TYPE TEXT;
+    ALTER COLUMN spanish_translation TYPE TEXT,
+    ALTER COLUMN spanish_phonetic_natural TYPE TEXT;
 
 ALTER TABLE public.vocabulary_words
     ADD COLUMN IF NOT EXISTS source_key TEXT,
