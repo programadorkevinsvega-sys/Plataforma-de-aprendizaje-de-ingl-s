@@ -183,7 +183,6 @@ export function buildFrequencyMatchProposal(catalog, {
     const spokenMatch = spoken.entries.get(key) ?? null;
     if (!generalMatch && !spokenMatch) {
       notFound.push({ id: item.id, lexical_form: candidate });
-      continue;
     }
     if (generalMatch) exactGeneralMatches += 1;
     if (spokenMatch) exactSpokenMatches += 1;
@@ -196,6 +195,8 @@ export function buildFrequencyMatchProposal(catalog, {
       spoken: spokenMatch
         ? sourceEvidence(DEFAULT_SPOKEN_SOURCE, spokenFileBytes, spokenMatch.lemma, spokenMatch.rank)
         : null,
+      general_match_status: generalMatch ? 'matched_exact_modified_lemma' : 'not_in_source',
+      spoken_match_status: spokenMatch ? 'matched_exact_modified_lemma' : 'not_in_source',
       interpretation: 'The source lists use modified lemmas; the rank applies to the source lemma entry, not to a separately disambiguated lexical sense.',
     });
   }
@@ -229,7 +230,7 @@ export function buildFrequencyMatchProposal(catalog, {
       catalog_items: (catalog.lexical_items ?? []).length,
       exact_general_matches: exactGeneralMatches,
       exact_spoken_matches: exactSpokenMatches,
-      items_with_any_match: matches.length,
+      items_with_any_match: matches.filter(match => match.general || match.spoken).length,
       not_found_in_both_sources: notFound.length,
       skipped_multiword_or_non_word: skipped.length,
     },
@@ -248,26 +249,13 @@ export function applyFrequencyMatchProposal(catalog, proposal) {
     const item = byId.get(match.id);
     if (!item) throw new Error(`La propuesta contiene un ID no encontrado: ${match.id}`);
     item.frequency ??= {};
-    if (match.general) {
-      item.frequency.general_rank = match.general.rank;
-      item.frequency.general_evidence = match.general;
-    } else {
-      item.frequency.general_rank = null;
-      delete item.frequency.general_evidence;
-    }
-    if (match.spoken) {
-      item.frequency.spoken_rank = match.spoken.rank;
-      item.frequency.spoken_evidence = match.spoken;
-    } else {
-      item.frequency.spoken_rank = null;
-      delete item.frequency.spoken_evidence;
-    }
-    item.frequency.validation_status =
-      match.general && match.spoken
-        ? 'matched_both_modified_lemma_lists'
-        : match.general
-          ? 'matched_ngsl_modified_lemma_only'
-          : 'matched_ngsl_spoken_modified_lemma_only';
+    item.frequency.general_rank = match.general?.rank ?? null;
+    item.frequency.general_evidence = match.general ?? null;
+    item.frequency.general_match_status = match.general_match_status;
+    item.frequency.spoken_rank = match.spoken?.rank ?? null;
+    item.frequency.spoken_evidence = match.spoken ?? null;
+    item.frequency.spoken_match_status = match.spoken_match_status;
+    item.frequency.validation_status = 'verified_against_both_modified_lemma_lists';
   }
   return catalog;
 }
