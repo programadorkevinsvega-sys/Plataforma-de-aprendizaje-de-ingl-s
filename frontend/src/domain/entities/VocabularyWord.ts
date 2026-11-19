@@ -1,8 +1,9 @@
 import type { CefrLevel, TargetRole } from './User'
 
 /**
- * Regla de Oro Pedagógica:
- * Cada oración lleva fonética lenta (palabra por palabra) y fonética natural (habla conectada / connected speech).
+ * El texto y la traducción son el contenido lingüístico principal.
+ * Las guías lenta/natural son metadatos editoriales opcionales: el catálogo
+ * puede declarar la pronunciación como no requerida para un ítem concreto.
  */
 export interface ContextSentenceProps {
   id: string
@@ -35,7 +36,6 @@ export class ContextSentence {
   get isPedagogicallyValid(): boolean {
     return Boolean(
       this.english?.trim() &&
-        this.spanishPhonetics?.trim() &&
         this.spanishTranslation?.trim(),
     )
   }
@@ -57,6 +57,15 @@ export interface VocabularyWordProps {
   topic?: string | null
   audioUrl?: string | null
   sentences: ContextSentenceProps[]
+  definitionEnglish?: string | null
+  lexicalType?: string | null
+  tracks?: string[]
+  lexicalRegister?: string | null
+  editorialPriority?: string | null
+  usefulness?: string | null
+  contextTags?: string[]
+  usageMode?: string | null
+  pronunciationStatus?: string | null
 }
 
 export class VocabularyWord {
@@ -71,6 +80,15 @@ export class VocabularyWord {
   readonly topic: string | null
   readonly audioUrl: string | null
   readonly sentences: ContextSentence[]
+  readonly definitionEnglish: string | null
+  readonly lexicalType: string | null
+  readonly tracks: string[]
+  readonly lexicalRegister: string | null
+  readonly editorialPriority: string | null
+  readonly usefulness: string | null
+  readonly contextTags: string[]
+  readonly usageMode: string | null
+  readonly pronunciationStatus: string | null
 
   constructor(props: VocabularyWordProps) {
     this.id = props.id
@@ -84,6 +102,15 @@ export class VocabularyWord {
     this.topic = props.topic ?? null
     this.audioUrl = props.audioUrl ?? null
     this.sentences = (props.sentences ?? []).map((s) => new ContextSentence(s))
+    this.definitionEnglish = props.definitionEnglish ?? null
+    this.lexicalType = props.lexicalType ?? null
+    this.tracks = props.tracks ?? []
+    this.lexicalRegister = props.lexicalRegister ?? null
+    this.editorialPriority = props.editorialPriority ?? null
+    this.usefulness = props.usefulness ?? null
+    this.contextTags = props.contextTags ?? []
+    this.usageMode = props.usageMode ?? null
+    this.pronunciationStatus = props.pronunciationStatus ?? null
   }
 
   get hasValidSentenceRange(): boolean {
