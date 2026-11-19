@@ -42,9 +42,6 @@ export default function LearnPage() {
   useEffect(() => {
     let active = true
     const container = getContainer()
-    setLoading(true)
-    setLoadError(null)
-
     const load = async () => {
       try {
         const user = await container.useCases.getCurrentUser.execute()
@@ -60,6 +57,7 @@ export default function LearnPage() {
           level: level as CefrLevel | 'all',
         })
         if (!active) return
+        setLoadError(null)
         setWords(result.items)
         setTotal(result.total)
         setTotalPages(result.totalPages)
