@@ -15,6 +15,7 @@ pub struct ContextSentenceDto {
     pub spanish_phonetic_natural: String,
     pub spanish_translation: String,
     pub audio_url: String,
+    pub pronunciation_status: String,
 }
 
 #[derive(Serialize)]
@@ -149,6 +150,7 @@ pub async fn vocabulary_list_handler(
                             spanish_phonetic_natural: s.spanish_phonetic_natural,
                             spanish_translation: s.spanish_translation,
                             audio_url: s.audio_url,
+                            pronunciation_status: s.pronunciation_status,
                         })
                         .collect(),
                 })
