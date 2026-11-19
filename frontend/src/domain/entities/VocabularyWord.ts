@@ -30,7 +30,7 @@ export class ContextSentence {
     this.id = props.id
     this.english = props.english
     this.spanishPhonetics = props.spanishPhonetics
-    this.spanishPhoneticsNatural = props.spanishPhoneticsNatural || props.spanishPhonetics
+    this.spanishPhoneticsNatural = props.spanishPhoneticsNatural ?? ''
     this.spanishTranslation = props.spanishTranslation
     this.audioUrl = props.audioUrl ?? null
     this.pronunciationStatus = props.pronunciationStatus ?? null
@@ -97,7 +97,7 @@ export class VocabularyWord {
     this.id = props.id
     this.term = props.term
     this.spanishPhonetics = props.spanishPhonetics
-    this.spanishPhoneticsNatural = props.spanishPhoneticsNatural || props.spanishPhonetics
+    this.spanishPhoneticsNatural = props.spanishPhoneticsNatural ?? ''
     this.spanishTranslation = props.spanishTranslation
     this.partOfSpeech = props.partOfSpeech ?? null
     this.level = props.level
