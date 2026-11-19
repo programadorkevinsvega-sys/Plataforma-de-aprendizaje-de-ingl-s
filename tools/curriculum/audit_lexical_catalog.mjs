@@ -35,6 +35,12 @@ function issue(errors, code, path, message) {
 export function auditCatalog(catalog) {
   const errors = [];
   const warnings = [];
+  const sharedExamples = new Map();
+  const repeatedTranslations = new Map();
+  const levelCounts = {};
+  const trackCounts = {};
+  const lexicalTypeCounts = {};
+  let exampleCount = 0;
   if (!isObject(catalog)) {
     return { valid: false, errors: [{ code: 'CATALOG_NOT_OBJECT', path: '$', message: 'El catálogo debe ser un objeto JSON.' }], warnings, summary: null };
   }
@@ -71,6 +77,18 @@ export function auditCatalog(catalog) {
     if (!nonEmpty(item.id) || ids.has(item.id)) issue(errors, 'DUPLICATE_OR_MISSING_ID', p + '.id', 'Cada unidad requiere un id único.');
     ids.add(item.id);
     if (!nonEmpty(item.lexical_form)) issue(errors, 'MISSING_LEXICAL_FORM', p + '.lexical_form', 'Falta la forma léxica.');
+    levelCounts[item.cefr_level] = (levelCounts[item.cefr_level] || 0) + 1;
+    lexicalTypeCounts[item.lexical_type] = (lexicalTypeCounts[item.lexical_type] || 0) + 1;
+    for (const track of Array.isArray(item.tracks) ? item.tracks : []) {
+      const key = track + '|' + item.cefr_level;
+      trackCounts[key] = (trackCounts[key] || 0) + 1;
+    }
+    const translationKey = (item.meaning_es || '').trim().toLocaleLowerCase('es');
+    if (translationKey) {
+      const translated = repeatedTranslations.get(translationKey) || [];
+      translated.push({ id: item.id, lexical_form: item.lexical_form });
+      repeatedTranslations.set(translationKey, translated);
+    }
     if (!LEXICAL_TYPES.has(item.lexical_type)) issue(errors, 'INVALID_LEXICAL_TYPE', p + '.lexical_type', 'Tipo léxico no reconocido.');
     if (!nonEmpty(item.meaning_es)) issue(errors, 'MISSING_MEANING', p + '.meaning_es', 'Falta el significado en español.');
     if (!categoryIds.has(item.category_id)) issue(errors, 'UNKNOWN_CATEGORY', p + '.category_id', 'La categoría no pertenece a la taxonomía v1.');
@@ -103,6 +121,13 @@ export function auditCatalog(catalog) {
       const texts = new Set();
       for (const [exampleIndex, example] of item.examples.entries()) {
         const ep = p + '.examples[' + exampleIndex + ']';
+        exampleCount++;
+        const sharedKey = (example.english_text || '').trim().toLocaleLowerCase('en-US');
+        if (sharedKey) {
+          const shared = sharedExamples.get(sharedKey) || [];
+          shared.push({ item_id: item.id, lexical_form: item.lexical_form, position: example.position });
+          sharedExamples.set(sharedKey, shared);
+        }
         if (!nonEmpty(example.english_text) || !nonEmpty(example.spanish_translation)) {
           issue(errors, 'INCOMPLETE_EXAMPLE', ep, 'El ejemplo requiere inglés y traducción contextual.');
         }
@@ -160,12 +185,39 @@ export function auditCatalog(catalog) {
     const key = [resource.track, resource.cefr_level, resource.skill].join('|');
     resourceCoverage[key] = (resourceCoverage[key] || 0) + 1;
   }
+  for (const [englishText, entries] of sharedExamples) {
+    const uniqueItems = [...new Set(entries.map((entry) => entry.item_id))];
+    if (uniqueItems.length > 1) {
+      warnings.push({
+        code: 'SHARED_EXAMPLE_ACROSS_ITEMS',
+        message: 'El mismo ejemplo inglés aparece en más de una unidad; revisar si el contexto es intencional.',
+        english_text: englishText,
+        entries,
+      });
+    }
+  }
+  for (const [translation, entries] of repeatedTranslations) {
+    if (entries.length > 1) {
+      warnings.push({
+        code: 'REPEATED_SPANISH_MEANING',
+        message: 'El mismo significado español aparece en varias unidades; comprobar polisemia, categoría y sentido antes de deduplicar.',
+        meaning_es: translation,
+        entries,
+      });
+    }
+  }
   const summary = {
     categories: categories.length,
     lexical_items: items.length,
     comprehension_resources: resources.length,
     reading_resources: resources.filter(r => r.skill === 'reading').length,
     listening_resources: resources.filter(r => r.skill === 'listening').length,
+    examples: exampleCount,
+    level_counts: levelCounts,
+    track_level_counts: trackCounts,
+    lexical_type_counts: lexicalTypeCounts,
+    shared_example_warnings: warnings.filter(warning => warning.code === 'SHARED_EXAMPLE_ACROSS_ITEMS').length,
+    repeated_translation_warnings: warnings.filter(warning => warning.code === 'REPEATED_SPANISH_MEANING').length,
     pending_editorial_review: pendingEditorial,
     pending_pronunciation_review: pendingPronunciation,
     pending_frequency_match: pendingFrequency,
