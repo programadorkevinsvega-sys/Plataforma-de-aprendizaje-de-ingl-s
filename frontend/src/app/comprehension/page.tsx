@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Navbar } from '@/presentation/components/Navbar'
@@ -138,34 +138,38 @@ export default function ComprehensionPage() {
   const [data, setData] = useState<ComprehensionPage>(EMPTY_PAGE)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    try {
-      const container = getContainer()
-      const user = await container.useCases.getCurrentUser.execute()
-      if (!user) {
-        router.replace('/login')
-        return
-      }
-      const result = await container.useCases.getComprehensionResources.execute({
-        page,
-        pageSize: PAGE_SIZE,
-        skill,
-        track: track === 'all' ? undefined : track,
-        cefrLevel: level === 'all' ? undefined : level,
-      })
-      setData(result)
-      setError(null)
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'No se pudieron cargar los recursos.')
-    } finally {
-      setLoading(false)
-    }
-  }, [level, page, router, skill, track])
+  const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => {
+    let active = true
+    const load = async () => {
+      try {
+        const container = getContainer()
+        const user = await container.useCases.getCurrentUser.execute()
+        if (!active) return
+        if (!user) {
+          router.replace('/login')
+          return
+        }
+        const result = await container.useCases.getComprehensionResources.execute({
+          page,
+          pageSize: PAGE_SIZE,
+          skill,
+          track: track === 'all' ? undefined : track,
+          cefrLevel: level === 'all' ? undefined : level,
+        })
+        if (!active) return
+        setData(result)
+        setError(null)
+      } catch (cause) {
+        if (active) setError(cause instanceof Error ? cause.message : 'No se pudieron cargar los recursos.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
     void load()
-  }, [load])
+    return () => { active = false }
+  }, [level, page, retryCount, router, skill, track])
 
   const changeSkill = (value: ComprehensionSkill) => {
     setSkill(value)
@@ -238,7 +242,7 @@ export default function ComprehensionPage() {
           <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-5">
             <p className="text-sm font-bold text-rose-900">No pudimos cargar los recursos.</p>
             <p className="mt-1 text-xs text-rose-800">{error}</p>
-            <button type="button" onClick={() => { setLoading(true); setError(null); void load() }} className="mt-3 text-xs font-bold text-rose-900 underline">Reintentar</button>
+            <button type="button" onClick={() => { setLoading(true); setError(null); setRetryCount((count) => count + 1) }} className="mt-3 text-xs font-bold text-rose-900 underline">Reintentar</button>
           </div>
         )}
 
