@@ -272,6 +272,11 @@ impl ContentService for MyContentService {
             ));
         }
         let category = (!category.is_empty()).then_some(category);
+        let track = req.track.trim().to_ascii_lowercase();
+        if !track.is_empty() && !matches!(track.as_str(), "general" | "technology") {
+            return Err(Status::invalid_argument("track no es válido"));
+        }
+        let track = (!track.is_empty()).then_some(track);
         let user_uuid = if req.user_id.is_empty() {
             None
         } else {
@@ -298,8 +303,9 @@ impl ContentService for MyContentService {
                 WHERE word.publication_status = 'published'
                   AND ($1::TEXT IS NULL OR word.level = $1)
                   AND ($2::TEXT IS NULL OR word.category = $2)
+                  AND ($3::TEXT IS NULL OR $3 = ANY(word.tracks))
                   AND (
-                    $3::UUID IS NULL
+                    $4::UUID IS NULL
                     OR NOT EXISTS (
                         SELECT 1
                           FROM context_sentences AS sentence
@@ -307,12 +313,13 @@ impl ContentService for MyContentService {
                             ON progress.sentence_id = sentence.id
                          WHERE sentence.word_id = word.id
                            AND sentence.publication_status = 'published'
-                           AND progress.user_id = $3
+                           AND progress.user_id = $4
                     )
                   )"#,
         )
         .bind(level.as_deref())
         .bind(category.as_deref())
+        .bind(track.as_deref())
         .bind(user_uuid)
         .fetch_one(&mut *tx)
         .await
@@ -334,8 +341,9 @@ impl ContentService for MyContentService {
                 WHERE word.publication_status = 'published'
                   AND ($1::TEXT IS NULL OR word.level = $1)
                   AND ($2::TEXT IS NULL OR word.category = $2)
+                  AND ($3::TEXT IS NULL OR $3 = ANY(word.tracks))
                   AND (
-                    $3::UUID IS NULL
+                    $4::UUID IS NULL
                     OR NOT EXISTS (
                         SELECT 1
                           FROM context_sentences AS sentence
@@ -343,7 +351,7 @@ impl ContentService for MyContentService {
                             ON progress.sentence_id = sentence.id
                          WHERE sentence.word_id = word.id
                            AND sentence.publication_status = 'published'
-                           AND progress.user_id = $3
+                           AND progress.user_id = $4
                     )
                   )
                 ORDER BY
@@ -354,10 +362,11 @@ impl ContentService for MyContentService {
                   word.category,
                   word.word,
                   word.id
-                LIMIT $4 OFFSET $5"#,
+                LIMIT $5 OFFSET $6"#,
         )
         .bind(level.as_deref())
         .bind(category.as_deref())
+        .bind(track.as_deref())
         .bind(user_uuid)
         .bind(i64::from(limit))
         .bind(offset)
