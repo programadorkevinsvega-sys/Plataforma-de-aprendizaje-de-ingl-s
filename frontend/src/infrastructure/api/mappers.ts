@@ -18,7 +18,7 @@ import { DashboardSummary, type MetricPoint } from '@/domain/entities/Progress'
 import { SrsCard, type SrsGrade, type SrsReviewOutcome } from '@/domain/entities/SrsCard'
 import { User, type AuthSession, type CefrLevel, type TargetRole } from '@/domain/entities/User'
 import { VocabularyWord, type ContextSentenceProps } from '@/domain/entities/VocabularyWord'
-import type { Lesson, ComprehensionResource, ComprehensionQuestion } from '@/domain/repositories/IContentRepository'
+import type { ComprehensionResource, ComprehensionQuestion } from '@/domain/repositories/IContentRepository'
 
 type Dto = Record<string, unknown>
 
@@ -199,16 +199,6 @@ export function toComprehensionResource(dto: Dto): ComprehensionResource {
     audioUrl: optStr(dto, ['audio_url', 'audioUrl']),
     audioStatus: str(dto, ['audio_status', 'audioStatus'], 'not_available'),
     questions,
-  }
-}
-
-export function toLesson(dto: Dto): Lesson {
-  return {
-    id: str(dto, ['id', 'lesson_id', 'lessonId'], 'today'),
-    title: str(dto, ['title', 'name'], 'Lección de hoy'),
-    topic: str(dto, ['topic', 'category'], 'General'),
-    level: (str(dto, ['level', 'cefr_level'], 'A1').toUpperCase() || 'A1') as CefrLevel,
-    words: list(dto, ['words', 'vocabulary', 'items']).map(toVocabularyWord),
   }
 }
 
