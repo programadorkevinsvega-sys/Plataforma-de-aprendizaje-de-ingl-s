@@ -195,7 +195,10 @@ fn listening_resources(
     let mut selected = Vec::with_capacity(requested_ids.len());
     for requested_id in requested_ids {
         if !selected_ids.insert(requested_id.as_str()) {
-            return Err(format!("El recurso listening se seleccionó más de una vez: {requested_id}").into());
+            return Err(format!(
+                "El recurso listening se seleccionó más de una vez: {requested_id}"
+            )
+            .into());
         }
         let resource = listening
             .iter()
@@ -490,13 +493,16 @@ mod tests {
         let catalog: serde_json::Value =
             serde_json::from_slice(&bytes).expect("lexical catalog v2 must be valid JSON");
         assert!(super::listening_resources(&catalog, &["missing-id".to_string()]).is_err());
-        assert!(super::listening_resources(
-            &catalog,
-            &[
-                "general-pre_a1-listening-02".to_string(),
-                "general-pre_a1-listening-02".to_string(),
-            ],
-        ).is_err());
+        assert!(
+            super::listening_resources(
+                &catalog,
+                &[
+                    "general-pre_a1-listening-02".to_string(),
+                    "general-pre_a1-listening-02".to_string(),
+                ],
+            )
+            .is_err()
+        );
     }
 
     #[test]
