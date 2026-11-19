@@ -100,13 +100,30 @@ export function auditCatalog(catalog) {
     if (!isObject(item.frequency) || !FREQUENCY_BANDS.has(item.frequency.band)) {
       issue(errors, 'INVALID_FREQUENCY', p + '.frequency', 'La clasificación de frecuencia debe usar una banda válida.');
     } else {
-      for (const field of ['general_rank', 'spoken_rank']) {
+      for (const [field, evidenceField] of [
+        ['general_rank', 'general_evidence'],
+        ['spoken_rank', 'spoken_evidence'],
+      ]) {
         const value = item.frequency[field];
+        const evidence = item.frequency[evidenceField];
         if (value !== null && (!Number.isInteger(value) || value < 1)) {
           issue(errors, 'INVALID_FREQUENCY_RANK', p + '.frequency.' + field, 'El rango debe ser entero positivo o null.');
         }
         if (item.frequency.validation_status === 'pending_corpus_match' && value !== null) {
-          issue(errors, 'UNVERIFIED_FREQUENCY_RANK', p + '.frequency.' + field, 'No se acepta un rango sin cruce verificado de lema/sentido.');
+          issue(errors, 'UNVERIFIED_FREQUENCY_RANK', p + '.frequency.' + field, 'No se acepta un rango sin cruce verificado de lema.');
+        }
+        if (value !== null && (
+          !isObject(evidence)
+          || evidence.rank !== value
+          || !nonEmpty(evidence.source_id)
+          || !nonEmpty(evidence.source_url)
+          || !/^[a-f0-9]{64}$/i.test(evidence.source_sha256 || '')
+          || evidence.match_method !== 'exact_modified_lemma'
+        )) {
+          issue(errors, 'FREQUENCY_RANK_WITHOUT_PROVENANCE', p + '.frequency.' + field, 'Cada rango requiere evidencia exacta del corpus, URL, metodología y SHA-256.');
+        }
+        if (item.frequency.validation_status === 'not_applicable_multiword' && value !== null) {
+          issue(errors, 'MULTIWORD_FREQUENCY_RANK', p + '.frequency.' + field, 'No se asignan rangos unigramas a expresiones multi-palabra.');
         }
       }
       if (item.frequency.validation_status === 'pending_corpus_match') pendingFrequency++;
