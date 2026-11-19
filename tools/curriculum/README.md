@@ -10,6 +10,24 @@ node tools/curriculum/audit_lexical_catalog.mjs --strict
 node --test tools/curriculum/tests/lexical_catalog_audit.test.mjs
 ```
 
+### Cruce de frecuencia NGSL / NGSL-Spoken
+
+Los CSV se descargan desde las páginas oficiales [NGSL 1.2](https://www.newgeneralservicelist.com/new-general-service-list) y [NGSL-Spoken 1.2](https://www.newgeneralservicelist.com/ngsl-spoken). El script no descarga ni modifica datos externos: recibe ambos archivos locales y genera un informe auditable.
+
+```bash
+node tools/curriculum/match_lexical_frequency.mjs \
+  --ngsl /ruta/NGSL_12_stats.csv \
+  --ngsl-spoken /ruta/NGSL-Spoken_12_stats.csv
+
+# Después de revisar el informe y confirmar las fuentes:
+node tools/curriculum/match_lexical_frequency.mjs \
+  --ngsl /ruta/NGSL_12_stats.csv \
+  --ngsl-spoken /ruta/NGSL-Spoken_12_stats.csv \
+  --apply
+```
+
+Solo se aceptan coincidencias exactas de lema modificado. Se registra hash SHA-256, atribución, licencia y URL. NGSL agrupa categorías gramaticales en sus lemas modificados; sus rangos no son frecuencias por sentido. Las expresiones multi-palabra se marcan `not_applicable_multiword` y no reciben rangos unigrama. La fase debe seguir marcada pendiente hasta ejecutar el cruce con los archivos oficiales íntegros y revisar el informe.
+
 ### Importación PostgreSQL v2
 
 La migración `migrations/20261119000000_lexical_catalog_v2.sql` extiende las tablas léxicas existentes con metadatos v2, añade recursos de comprensión y un ledger SHA-256. Las filas heredadas se conservan como `legacy_pending_review`; no se exponen al estudiante. El servicio gRPC lista únicamente vocabulario y ejemplos cuyo estado sea `published`. El RPC `ListComprehensionResources` expone lecturas y escuchas publicadas con filtros de ruta, nivel y skill y paginación; exige autenticación y jamás devuelve borradores.
