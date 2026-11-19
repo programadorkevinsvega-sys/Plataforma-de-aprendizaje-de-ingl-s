@@ -33,6 +33,7 @@ export interface ComprehensionQuery {
 export interface ComprehensionQuestion {
   id: string
   prompt: string
+  options: string[]
 }
 
 export interface ComprehensionResource {
