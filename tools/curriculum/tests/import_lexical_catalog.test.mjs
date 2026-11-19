@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import test, { after } from 'node:test';
+import test, { after, before } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { importLexicalCatalog } from '../import_lexical_catalog.mjs';
@@ -16,6 +16,16 @@ const catalog = JSON.parse(bytes.toString('utf8'));
 const sha256 = createHash('sha256').update(bytes).digest('hex');
 const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, max: 4 }) : null;
 const SOURCE_CATALOG = 'devfluency.lexical-catalog.v2';
+const editorId = randomUUID();
+
+before(async () => {
+  if (!pool) return;
+  await pool.query(
+    'INSERT INTO users (id, email, password_hash, full_name) VALUES ($1, $2, $3, $4)',
+    [editorId, `${editorId}@lexical-catalog-test.invalid`, 'ci-test-password-hash', 'CI Lexical Catalog Editor'],
+  );
+  await pool.query('INSERT INTO content_editors (user_id) VALUES ($1)', [editorId]);
+});
 
 after(async () => {
   if (!pool) return;
@@ -23,6 +33,8 @@ after(async () => {
   await pool.query('DELETE FROM vocabulary_words WHERE source_catalog = $1', [SOURCE_CATALOG]);
   await pool.query('DELETE FROM curriculum_comprehension_resources WHERE source_catalog = $1', [SOURCE_CATALOG]);
   await pool.query('DELETE FROM lexical_catalog_imports WHERE catalog_key = $1', ['devfluency-lexical-catalog-v2']);
+  await pool.query('DELETE FROM content_editors WHERE user_id = $1', [editorId]);
+  await pool.query('DELETE FROM users WHERE id = $1', [editorId]);
   await pool.end();
 });
 
@@ -41,7 +53,11 @@ if (!pool) {
     );
     assert.equal(absentAfterDryRun.rows[0].count, 0);
 
-    const applied = await importLexicalCatalog(pool, catalog, sha256, { apply: true });
+    await assert.rejects(
+      importLexicalCatalog(pool, catalog, sha256, { apply: true }),
+      /--actor-user-id es obligatorio/,
+    );
+    const applied = await importLexicalCatalog(pool, catalog, sha256, { apply: true, actorUserId: editorId });
     assert.equal(applied.state, 'imported');
     assert.equal(applied.applied, true);
     assert.equal(applied.lexicalItems, catalog.lexical_items.length);
@@ -73,15 +89,16 @@ if (!pool) {
     assert.equal(counts.rows[0].published_resources, 0);
 
     const ledger = await pool.query(
-      'SELECT lexical_items, examples, comprehension_resources FROM lexical_catalog_imports WHERE catalog_key = $1 AND content_sha256 = $2',
+      'SELECT lexical_items, examples, comprehension_resources, imported_by FROM lexical_catalog_imports WHERE catalog_key = $1 AND content_sha256 = $2',
       ['devfluency-lexical-catalog-v2', sha256],
     );
     assert.equal(ledger.rowCount, 1);
     assert.equal(ledger.rows[0].lexical_items, catalog.lexical_items.length);
     assert.equal(ledger.rows[0].examples, expectedExamples);
     assert.equal(ledger.rows[0].comprehension_resources, catalog.comprehension_resources.length);
+    assert.equal(ledger.rows[0].imported_by, editorId);
 
-    const duplicate = await importLexicalCatalog(pool, catalog, sha256, { apply: true });
+    const duplicate = await importLexicalCatalog(pool, catalog, sha256, { apply: true, actorUserId: editorId });
     assert.equal(duplicate.state, 'already_imported');
     assert.equal(duplicate.applied, false);
   });
