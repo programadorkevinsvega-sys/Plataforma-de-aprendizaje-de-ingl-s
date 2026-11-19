@@ -1,6 +1,6 @@
 # Fase 1.2 — Modelo de dominio y persistencia curricular
 
-- **Estado:** propuesta técnica implementada en PR para revisión
+- **Estado:** implementada e integrada en `main`; la migración está desplegada. Pendiente la evidencia operativa de staging/backup descrita al final de este documento.
 - **Fase:** 1.2 — Modelo y migraciones
 - **Fecha:** 2026-11-17
 - **Base:** ADR-0001, ADR-0002, ADR-0003 y blueprint de Fase 1.1
@@ -168,3 +168,15 @@ Esto reconstruye el baseline conocido por las migraciones. No sustituye una prue
 - [ ] Probar el esquema contra una copia restaurada de la base desplegada antes de usarlo en producción.
 
 Los dos puntos finales requieren staging/VM y evidencia real; no se simulan con el CI de GitHub.
+
+
+## 11. Validación operativa pendiente
+
+La migración curricular fue integrada y posteriormente aplicada en la VM dentro de la secuencia de despliegue de Fase 1.3. Eso acredita que el esquema está presente en el entorno desplegado, pero no demuestra por sí solo que se midieran planes con carga representativa ni que se probara la migración antes de producción sobre un backup restaurado.
+
+Los dos procedimientos reproducibles están en [Validación operativa de Fase 1.2](phase-1.2-operations-validation.md):
+
+- Restauración pre-1.2 en base aislada, aplicación transaccional de la migración y comprobación de que las tablas legadas conservan sus conteos.
+- `EXPLAIN (ANALYZE, BUFFERS, SETTINGS)` de consultas de catálogo/detalle/progreso en staging, con rol runtime y una matrícula representativa.
+
+No se declara cerrada la subfase mientras falten ambos informes. No ejecutar ninguno de estos scripts contra producción.
