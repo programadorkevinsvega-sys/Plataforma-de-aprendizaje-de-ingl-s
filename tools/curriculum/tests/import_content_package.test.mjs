@@ -314,11 +314,11 @@ if (!DATABASE_URL) {
     }
   });
 
-  test("canonical schema v2 never falls back to a matching legacy vocabulary row", async () => {
+  test("canonical catalog v2 metadata never falls back to a matching legacy vocabulary row", async () => {
     const seeded = await seedPackage();
     try {
       const data = structuredClone(seeded.data);
-      data.version.content_schema_version = 2;
+      data.metadata.reference_catalog = "devfluency.lexical-catalog.v2";
       const reference = data.objectives[0].vocabulary[0];
       await pool.query(
         "DELETE FROM vocabulary_words WHERE word = $1 AND source_catalog = 'devfluency.lexical-catalog.v2'",
