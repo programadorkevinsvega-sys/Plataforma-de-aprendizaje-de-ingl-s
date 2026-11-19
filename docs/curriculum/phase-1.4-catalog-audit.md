@@ -137,7 +137,7 @@ node --test tools/curriculum/tests/lexical_catalog_audit.test.mjs
 
 1. Revisar editorialmente los 790 ítems y sus 2.201 ejemplos: traducciones, naturalidad, registro, categoría, nivel y adecuación contextual.
 2. Ampliar la ruta general, especialmente A2–C2, hasta una cobertura aprobada contra el presupuesto curricular; ampliar y revisar por separado la ruta tecnológica.
-3. Añadir y revisar categoría gramatical/lematización suficientes para cotejar NGSL 1.2 y NGSL-Spoken 1.2 por lema, POS y sentido, conservando fuentes/licencia y trazabilidad. No se deben inferir rangos de una coincidencia superficial.
+3. Ejecutar y revisar el cruce exacto de los 709 candidatos unigrama con NGSL 1.2 y NGSL-Spoken 1.2 mediante el script reproducible. Conservar atribución, CC BY-SA 4.0, URL, hash y metodología; tratar el rango como medida del lema modificado (no de una acepción/POS aislada). No inferir rangos mediante fuzzy matching.
 4. Validar individualmente las guías lenta/natural existentes y crear las que falten cuando aporten valor pedagógico. La aprobación debe corresponder a pronunciación en-US y tener revisión fonética competente.
 5. Generar 13 audios reales de listening con el proveedor TTS configurado, comprobar que cada archivo coincide con el guion, registrar voz/acento/licencia y añadir pruebas de comprensión.
 6. Ejecutar la migración v2 y el importador con un editor autorizado en staging; validar el ciclo de revisión/publicación y los resultados del servicio gRPC. No publicar el catálogo completo mientras existan estados pendientes.
