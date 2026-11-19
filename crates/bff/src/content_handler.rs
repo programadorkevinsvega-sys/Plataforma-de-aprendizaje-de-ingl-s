@@ -96,7 +96,11 @@ pub async fn vocabulary_list_handler(
         ));
     }
     let offset = page.saturating_sub(1).saturating_mul(page_size);
-    let selected_level = query.level.unwrap_or(user_level);
+    let selected_level = match query.level.as_deref() {
+        Some("all") => String::new(),
+        Some(level) => level.to_string(),
+        None => user_level,
+    };
     let mut request = tonic::Request::new(ListVocabularyWordsRequest {
         level: selected_level,
         category: query.category.unwrap_or_default(),
