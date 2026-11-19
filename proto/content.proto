@@ -45,6 +45,7 @@ message ListVocabularyWordsRequest {
   int32 limit = 3;
   int32 offset = 4;
   string user_id = 5;
+  string track = 6;
 }
 
 message ListVocabularyWordsResponse {
