@@ -82,9 +82,32 @@ async function resolveVocabularyId(client, reference, cefrLevel, trackCode) {
     [reference.word, reference.category, cefrLevel, trackCode],
   );
 
+  if (result.rows.length > 0) {
+    return requireSingleRow(
+      result.rows,
+      `canonical ${cefrLevel} vocabulary word "${reference.word}" in category "${reference.category}"`,
+    );
+  }
+
+  throw new Error(
+    `External curriculum reference not found: canonical ${cefrLevel} vocabulary word "${reference.word}" in category "${reference.category}"`,
+  );
+}
+
+async function resolveLegacyVocabularyId(client, reference, cefrLevel) {
+  const result = await client.query(
+    `SELECT id
+       FROM vocabulary_words
+      WHERE level = $3
+        AND lower(btrim(word)) = lower(btrim($1))
+        AND lower(btrim(category)) = lower(btrim($2))
+      ORDER BY id
+      LIMIT 2`,
+    [reference.word, reference.category, cefrLevel],
+  );
   return requireSingleRow(
     result.rows,
-    `canonical ${cefrLevel} vocabulary word "${reference.word}" in category "${reference.category}"`,
+    `legacy ${cefrLevel} vocabulary word "${reference.word}" in category "${reference.category}"`,
   );
 }
 
@@ -106,9 +129,33 @@ async function resolveSentenceId(client, reference, cefrLevel, trackCode) {
     [reference.word, reference.english_text, cefrLevel, trackCode],
   );
 
+  if (result.rows.length > 0) {
+    return requireSingleRow(
+      result.rows,
+      `canonical ${cefrLevel} context sentence for "${reference.word}": "${reference.english_text}"`,
+    );
+  }
+
+  throw new Error(
+    `External curriculum reference not found: canonical ${cefrLevel} context sentence for "${reference.word}": "${reference.english_text}"`,
+  );
+}
+
+async function resolveLegacySentenceId(client, reference, cefrLevel) {
+  const result = await client.query(
+    `SELECT sentence.id
+       FROM context_sentences AS sentence
+       JOIN vocabulary_words AS word ON word.id = sentence.word_id
+      WHERE word.level = $3
+        AND lower(btrim(word.word)) = lower(btrim($1))
+        AND lower(btrim(sentence.english_text)) = lower(btrim($2))
+      ORDER BY sentence.id
+      LIMIT 2`,
+    [reference.word, reference.english_text, cefrLevel],
+  );
   return requireSingleRow(
     result.rows,
-    `canonical ${cefrLevel} context sentence for "${reference.word}": "${reference.english_text}"`,
+    `legacy ${cefrLevel} context sentence for "${reference.word}": "${reference.english_text}"`,
   );
 }
 
@@ -299,7 +346,12 @@ async function insertPackage(client, data, packageSha256, actorUserId) {
     const objectiveId = objectiveIds.get(objective.code);
 
     for (const reference of objective.vocabulary ?? []) {
-      const vocabularyId = await resolveVocabularyId(client, reference, data.version.cefr_level, data.course.track_code);
+      const vocabularyId = data.version.content_schema_version >= 2
+        ? await resolveVocabularyId(client, reference, data.version.cefr_level, data.course.track_code)
+        : await resolveVocabularyId(client, reference, data.version.cefr_level, data.course.track_code).catch(async (error) => {
+          if (!error.message.startsWith("External curriculum reference not found:")) throw error;
+          return resolveLegacyVocabularyId(client, reference, data.version.cefr_level);
+        });
       await client.query(
         `INSERT INTO learning_objective_vocabulary (
             course_version_id, learning_objective_id, vocabulary_word_id, usage_mode, position
@@ -311,7 +363,12 @@ async function insertPackage(client, data, packageSha256, actorUserId) {
     }
 
     for (const reference of objective.sentences ?? []) {
-      const sentenceId = await resolveSentenceId(client, reference, data.version.cefr_level, data.course.track_code);
+      const sentenceId = data.version.content_schema_version >= 2
+        ? await resolveSentenceId(client, reference, data.version.cefr_level, data.course.track_code)
+        : await resolveSentenceId(client, reference, data.version.cefr_level, data.course.track_code).catch(async (error) => {
+          if (!error.message.startsWith("External curriculum reference not found:")) throw error;
+          return resolveLegacySentenceId(client, reference, data.version.cefr_level);
+        });
       await client.query(
         `INSERT INTO learning_objective_sentences (
             course_version_id, learning_objective_id, context_sentence_id, usage_mode, position
