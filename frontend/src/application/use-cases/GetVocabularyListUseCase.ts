@@ -1,7 +1,6 @@
 import type { VocabularyWord } from '@/domain/entities/VocabularyWord'
 import type {
   IContentRepository,
-  Lesson,
   VocabularyQuery,
   SynthesizedSpeech,
   VocabularyPage,
@@ -40,14 +39,6 @@ export class GetComprehensionResourcesUseCase {
 
   execute(query: ComprehensionQuery): Promise<ComprehensionPage> {
     return this.contentRepository.getComprehensionResources(query)
-  }
-}
-
-export class GetTodayLessonUseCase {
-  constructor(private readonly contentRepository: IContentRepository) {}
-
-  execute(): Promise<Lesson> {
-    return this.contentRepository.getTodayLesson()
   }
 }
 
