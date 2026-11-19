@@ -89,12 +89,21 @@ test('applies evidence with attribution, methodology and both source hashes to m
   const hello = data.lexical_items.find(item => item.id === 'hello-word');
   assert.equal(hello.frequency.general_rank, 42);
   assert.equal(hello.frequency.spoken_rank, 9);
-  assert.equal(hello.frequency.validation_status, 'matched_both_modified_lemma_lists');
+  assert.equal(hello.frequency.validation_status, 'verified_against_both_modified_lemma_lists');
+  assert.equal(hello.frequency.general_match_status, 'matched_exact_modified_lemma');
+  assert.equal(hello.frequency.spoken_match_status, 'matched_exact_modified_lemma');
   assert.equal(hello.frequency.general_evidence.attribution, 'Browne, C., Culligan, B., and Phillips, J.');
   assert.equal(hello.frequency.spoken_evidence.license, 'CC BY-SA 4.0');
 
   const clean = data.lexical_items.find(item => item.id === 'clean-word');
   assert.equal(clean.frequency.general_rank, 250);
   assert.equal(clean.frequency.spoken_rank, null);
-  assert.equal(clean.frequency.validation_status, 'matched_ngsl_modified_lemma_only');
+  assert.equal(clean.frequency.validation_status, 'verified_against_both_modified_lemma_lists');
+  assert.equal(clean.frequency.general_match_status, 'matched_exact_modified_lemma');
+  assert.equal(clean.frequency.spoken_match_status, 'not_in_source');
+
+  const unlisted = data.lexical_items.find(item => item.id === 'unlisted-word');
+  assert.equal(unlisted.frequency.validation_status, 'verified_against_both_modified_lemma_lists');
+  assert.equal(unlisted.frequency.general_match_status, 'not_in_source');
+  assert.equal(unlisted.frequency.spoken_match_status, 'not_in_source');
 });
