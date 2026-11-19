@@ -155,6 +155,7 @@ CREATE TABLE IF NOT EXISTS public.lexical_catalog_imports (
     lexical_items INTEGER NOT NULL CHECK (lexical_items >= 0),
     examples INTEGER NOT NULL CHECK (examples >= 0),
     comprehension_resources INTEGER NOT NULL CHECK (comprehension_resources >= 0),
+    imported_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
     imported_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     metadata JSONB NOT NULL DEFAULT '{}'::JSONB,
     UNIQUE (catalog_key, content_sha256)
