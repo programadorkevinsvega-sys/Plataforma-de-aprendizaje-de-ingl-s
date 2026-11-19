@@ -2,7 +2,7 @@ import type { VocabularyWord } from '../entities/VocabularyWord'
 import type { CefrLevel, TargetRole } from '../entities/User'
 
 export interface VocabularyQuery {
-  level?: CefrLevel
+  level?: CefrLevel | 'all'
   targetRole?: TargetRole
   topic?: string
   category?: string
