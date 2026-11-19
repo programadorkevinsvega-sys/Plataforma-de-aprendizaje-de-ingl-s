@@ -17,7 +17,7 @@ No se conserva el alias A0 ni los nombres de categoría antiguos. Los niveles pe
 | Unidades léxicas | 790 |
 | Vocablos/sentidos trasladados y deduplicados desde la primera colección | 704 |
 | Nuevas expresiones y unidades contextualizadas | 86 |
-| Ejemplos ingleses en el catálogo léxico | 2.287 |
+| Ejemplos ingleses en el catálogo léxico | 2.201 |
 | Recursos de reading | 13 |
 | Guiones de listening | 13 |
 
@@ -42,7 +42,7 @@ Las guías fonéticas antiguas se trasladan únicamente a `pronunciation.draft_c
 
 Cada unidad y ejemplo mantiene estados editoriales y fonéticos explícitos. Para pasar a `published` se requiere aprobación editorial; si se proporciona fonética española, se requieren ambas guías lenta/natural aprobadas. La meta de acento de referencia es en-US; las variaciones regionales se registrarán de forma explícita, no se mezclarán en un mismo campo.
 
-La revisión humana de naturalidad de los 2.287 ejemplos y de los candidatos fonéticos pendientes no se declara completada por la mera creación del catálogo. El auditor impide que un ítem sin aprobación se publique.
+La revisión humana de naturalidad de los 2.201 ejemplos y de los candidatos fonéticos pendientes no se declara completada por la mera creación del catálogo. El auditor impide que un ítem sin aprobación se publique.
 
 ## Lecturas y escuchas
 
@@ -52,7 +52,58 @@ Los guiones de listening todavía no incluyen audio real. Se marcan como borrado
 
 ## Sustituciones de legado
 
-Se retiran los tres archivos `seed_lessons*.json`, el importador SQL destructivo `import_vocab.sh` y el motor heurístico `phonetic_engine.js`. La auditoría se sustituye por `tools/curriculum/audit_lexical_catalog.mjs`. Esta rama no importa ni publica contenido en la VM; el paquete sigue en estado editorial draft.
+Se retiran los tres archivos `seed_lessons*.json`, el importador SQL destructivo `import_vocab.sh` y el motor heurístico `phonetic_engine.js`. La auditoría se sustituye por `tools/curriculum/audit_lexical_catalog.mjs`. Esta rama no despliega ni publica contenido en la VM. Tras integrar la migración, el importador puede cargar el catálogo en PostgreSQL como borrador; solo una revisión editorial explícita permite publicarlo.
+
+## Cobertura real frente al presupuesto curricular
+
+El blueprint de Fase 1.1 define rangos acumulados internos (no equivalentes a requisitos oficiales del MCER). El recuento de la ruta general en v2 es:
+
+| Nivel | Unidades general en este nivel | Acumulado general | Mínimo interno acumulado |
+|---|---:|---:|---:|
+| PRE_A1 | 237 | 237 | 300 |
+| A1 | 462 | 699 | 700 |
+| A2 | 7 | 706 | 1.300 |
+| B1 | 7 | 713 | 2.200 |
+| B2 | 7 | 720 | 3.500 |
+| C1 | 6 | 726 | 5.200 |
+| C2 | 6 | 732 | 7.500 |
+
+La ruta tecnológica aporta 83 asignaciones adicionales (41 A1, 7 A2, 7 B1, 9 B2, 7 C1 y 6 C2), con 19 unidades compartidas entre rutas. El catálogo total contiene 790 unidades únicas. Por tanto, la expansión actual es una base unificada y no alcanza todavía la cobertura léxica planificada, sobre todo desde A2.
+
+## Estado editorial verificable del catálogo
+
+- Unidades con revisión editorial pendiente: 790/790.
+- Ejemplos con pronunciación pendiente: 2.115; otros 86 no tienen candidata fonética porque son expresiones nuevas.
+- Rangos de frecuencia general y hablada validados: 0; los 790 elementos mantienen los rangos en null hasta resolver lema, categoría gramatical y sentido.
+- Recursos de listening con audio real aprobado: 0/13.
+- Recursos de reading pendientes de revisión editorial/nivel: 13/13.
+- Ningún elemento ni recurso se publica automáticamente.
+
+El auditor ahora informa ejemplos ingleses compartidos entre unidades y significados españoles repetidos como advertencias editoriales. No los elimina automáticamente: pueden representar polisemia, sentidos, contextos o reutilización pedagógica legítima y requieren decisión editorial.
+
+## Persistencia e integración v2
+
+La migración `20261119000000_lexical_catalog_v2.sql` añade metadatos de procedencia, frecuencia, tipo léxico, rutas, registro, prioridad y estado editorial sobre las tablas léxicas existentes; añade una tabla para recursos de comprensión y un ledger de importaciones. Los registros preexistentes se conservan como `legacy_pending_review`, no como contenido aprobado.
+
+El servicio gRPC consulta únicamente elementos y ejemplos con `publication_status = 'published'`. La publicación exige revisión editorial aprobada y pronunciación aprobada o marcada explícitamente como no requerida. Un listening requiere además URL de audio real y estado de audio aprobado.
+
+Importación idempotente y transaccional:
+
+```bash
+# Previsualizar: siempre rollback; no necesita actor
+DATABASE_URL='postgresql://…' node tools/curriculum/import_lexical_catalog.mjs
+
+# Persistir en draft: exige UUID provisionado en content_editors
+DATABASE_URL='postgresql://…' node tools/curriculum/import_lexical_catalog.mjs --apply --actor-user-id <EDITOR_UUID>
+```
+
+El importador registra el hash SHA-256, conteos, metadatos y editor; rechaza cambios sobre filas publicadas. No publica unidades, ejemplos ni recursos. Los audios se guardan como metadatos pendientes y no se generan falsos assets.
+
+Pruebas cubiertas en CI:
+- Migración v2 desde instalación vacía y desde esquema anterior.
+- Auditoría estricta, taxonomía compartida y reportes de duplicados candidatos.
+- Dry-run sin escrituras, importación transaccional, conteos, ledger, autorización del editor e idempotencia.
+- Servicio de vocabulario que no devuelve filas heredadas ni contenido v2 en borrador.
 
 ## Verificación
 
@@ -61,12 +112,13 @@ node tools/curriculum/audit_lexical_catalog.mjs --strict
 node --test tools/curriculum/tests/lexical_catalog_audit.test.mjs
 ```
 
-## Pendientes para cerrar 1.4
+## Pendientes reales para cerrar 1.4
 
-1. Completar revisión humana de ejemplos, traducciones, registros, nivel y naturalidad.
-2. Cotejar rangos NGSL y NGSL-Spoken con la versión oficial descargable y guardar trazabilidad por lemma/POS/sentido.
-3. Validar guías lentas/naturales de manera individual; no activar conversiones automáticas.
-4. Producir y validar los 13 assets de audio de escucha, con pruebas de comprensión asociadas.
-5. Conectar el importador transaccional y los consumidores backend al nuevo esquema v2; la base actual continúa usando el esquema anterior hasta aplicar su migración de sustitución.
+1. Revisar editorialmente los 790 ítems y sus 2.201 ejemplos: traducciones, naturalidad, registro, categoría, nivel y adecuación contextual.
+2. Ampliar la ruta general, especialmente A2–C2, hasta una cobertura aprobada contra el presupuesto curricular; ampliar y revisar por separado la ruta tecnológica.
+3. Añadir y revisar categoría gramatical/lematización suficientes para cotejar NGSL 1.2 y NGSL-Spoken 1.2 por lema, POS y sentido, conservando fuentes/licencia y trazabilidad. No se deben inferir rangos de una coincidencia superficial.
+4. Validar individualmente las guías lenta/natural existentes y crear las que falten cuando aporten valor pedagógico. La aprobación debe corresponder a pronunciación en-US y tener revisión fonética competente.
+5. Generar 13 audios reales de listening con el proveedor TTS configurado, comprobar que cada archivo coincide con el guion, registrar voz/acento/licencia y añadir pruebas de comprensión.
+6. Ejecutar la migración v2 y el importador con un editor autorizado en staging; validar el ciclo de revisión/publicación y los resultados del servicio gRPC. No publicar el catálogo completo mientras existan estados pendientes.
 
 Esta fuente es de autoría original o material de semilla reorganizado. No representa certificación oficial MCER ni garantiza que la revisión lingüística humana esté completada.
