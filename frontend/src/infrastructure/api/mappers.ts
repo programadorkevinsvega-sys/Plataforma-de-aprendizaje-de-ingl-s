@@ -126,6 +126,7 @@ function toSentences(dto: Dto, wordId: string): ContextSentenceProps[] {
         'es',
       ]),
       audioUrl: optStr(sentence, ['audio_url', 'audioUrl']),
+      pronunciationStatus: optStr(sentence, ['pronunciation_status', 'pronunciationStatus']),
     }),
   )
 }
