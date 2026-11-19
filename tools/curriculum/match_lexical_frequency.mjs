@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -300,6 +300,7 @@ async function main() {
     spokenFileBytes: spokenBytes,
   });
 
+  mkdirSync(path.dirname(path.resolve(reportPath)), { recursive: true });
   writeFileSync(path.resolve(reportPath), JSON.stringify(proposal, null, 2) + '\n', 'utf8');
   if (args.includes('--apply')) {
     applyFrequencyMatchProposal(catalog, proposal);
