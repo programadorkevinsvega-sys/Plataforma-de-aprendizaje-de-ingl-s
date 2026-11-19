@@ -210,11 +210,12 @@ export default function LearnPage() {
             </div>
 
             <div className="mt-5 rounded-xl bg-[#f4f1e7] p-6 text-center">
-              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">{currentWord.category}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">{LEXICAL_CATEGORIES.find((item) => item.id === currentWord.category)?.labelEs ?? currentWord.category}</p>
               <h3 className="mt-2 text-3xl font-extrabold">{currentWord.term}</h3>
               <p className="mt-2 text-sm font-semibold text-emerald-800">{currentWord.spanishTranslation}</p>
               {currentWord.definitionEnglish && <p className="mt-3 text-sm leading-6 text-slate-600">{currentWord.definitionEnglish}</p>}
               <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+                {currentWord.tracks.map((item) => <span key={item} className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-stone-600">{item === 'technology' ? 'Profesional y tecnología' : 'Inglés general'}</span>)}
                 {currentWord.lexicalType && <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-stone-600">{currentWord.lexicalType}</span>}
                 {currentWord.lexicalRegister && <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-stone-600">{currentWord.lexicalRegister}</span>}
                 {currentWord.usageMode && <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-stone-600">{currentWord.usageMode}</span>}
