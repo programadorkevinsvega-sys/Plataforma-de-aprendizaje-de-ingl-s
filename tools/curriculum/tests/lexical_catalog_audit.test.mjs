@@ -15,6 +15,29 @@ test('el catálogo unificado supera la auditoría estricta', () => {
   assert.equal(report.summary.comprehension_resources, 26);
   assert.equal(report.summary.reading_resources, 13);
   assert.equal(report.summary.listening_resources, 13);
+  assert.equal(report.summary.examples, 2201);
+  assert.equal(report.summary.pending_editorial_review, 790);
+  assert.equal(report.summary.pending_frequency_match, 790);
+  assert.equal(report.summary.level_counts.PRE_A1, 237);
+  assert.equal(report.summary.level_counts.A1, 484);
+  assert.ok(report.summary.shared_example_warnings >= 0);
+});
+
+test('la taxonomía publicada en el catálogo coincide con la fuente canónica compartida', () => {
+  const catalog = readCatalog();
+  const taxonomyPath = path.resolve('tools/curriculum/lexical-taxonomy.v1.json');
+  const taxonomy = JSON.parse(fs.readFileSync(taxonomyPath, 'utf8'));
+  assert.deepEqual(catalog.categories, taxonomy.categories);
+});
+
+test('los ejemplos compartidos se reportan para revisión, no se eliminan automáticamente', () => {
+  const catalog = readCatalog();
+  const shared = catalog.lexical_items[0].examples[0].english_text;
+  catalog.lexical_items[1].examples[0].english_text = shared;
+  const report = auditCatalog(catalog);
+  assert.equal(report.valid, true);
+  assert.ok(report.warnings.some(warning => warning.code === 'SHARED_EXAMPLE_ACROSS_ITEMS'));
+});
 });
 
 test('no admite claves de categoría heredadas ni nivel A0', () => {
