@@ -1,14 +1,16 @@
 use crate::curriculum_package::{import_package, validate_package_json};
 use proto::content::content_service_server::ContentService;
 use proto::content::{
-    ComprehensionResource, ContextSentence, CurriculumCourseSummary, CurriculumLesson, CurriculumLessonProgress,
-    CurriculumObjective, CurriculumPrerequisite, CurriculumUnit, EditorialCourseVersionSummary,
-    EnrollInCourseRequest, EnrollInCourseResponse, GetCurriculumCourseRequest,
-    GetCurriculumCourseResponse, GetRandomInterviewQuestionRequest, GetVocabularyWordRequest,
-    ImportCurriculumPackageRequest, ImportCurriculumPackageResponse, InterviewQuestionResponse,
-    ListComprehensionResourcesRequest, ListComprehensionResourcesResponse, ListCurriculumCoursesRequest, ListCurriculumCoursesResponse, ListEditorialVersionsRequest,
-    ListEditorialVersionsResponse, ListVocabularyWordsRequest, ListVocabularyWordsResponse,
-    ManageEditorialVersionRequest, ManageEditorialVersionResponse, VocabularyWordResponse,
+    ComprehensionResource, ContextSentence, CurriculumCourseSummary, CurriculumLesson,
+    CurriculumLessonProgress, CurriculumObjective, CurriculumPrerequisite, CurriculumUnit,
+    EditorialCourseVersionSummary, EnrollInCourseRequest, EnrollInCourseResponse,
+    GetCurriculumCourseRequest, GetCurriculumCourseResponse, GetRandomInterviewQuestionRequest,
+    GetVocabularyWordRequest, ImportCurriculumPackageRequest, ImportCurriculumPackageResponse,
+    InterviewQuestionResponse, ListComprehensionResourcesRequest,
+    ListComprehensionResourcesResponse, ListCurriculumCoursesRequest,
+    ListCurriculumCoursesResponse, ListEditorialVersionsRequest, ListEditorialVersionsResponse,
+    ListVocabularyWordsRequest, ListVocabularyWordsResponse, ManageEditorialVersionRequest,
+    ManageEditorialVersionResponse, VocabularyWordResponse,
 };
 use sqlx::PgPool;
 use std::collections::HashMap;
@@ -62,7 +64,6 @@ fn validate_student_catalog_query(
     })
 }
 
-
 struct ValidatedComprehensionQuery {
     page: i32,
     page_size: i32,
@@ -82,9 +83,7 @@ fn validate_comprehension_query(
     } else {
         request.page_size
     };
-    if !request.track.is_empty()
-        && !matches!(request.track.as_str(), "general" | "technology")
-    {
+    if !request.track.is_empty() && !matches!(request.track.as_str(), "general" | "technology") {
         return Err("track no es válido");
     }
     if !request.cefr_level.is_empty()
@@ -95,9 +94,7 @@ fn validate_comprehension_query(
     {
         return Err("cefr_level no es válido");
     }
-    if !request.skill.is_empty()
-        && !matches!(request.skill.as_str(), "reading" | "listening")
-    {
+    if !request.skill.is_empty() && !matches!(request.skill.as_str(), "reading" | "listening") {
         return Err("skill no es válido");
     }
     Ok(ValidatedComprehensionQuery {
@@ -176,44 +173,59 @@ impl ContentService for MyContentService {
         let word_id = Uuid::parse_str(&req.word_id)
             .map_err(|_| Status::invalid_argument("word_id inválido"))?;
 
-        let word: Option<(Uuid, String, Option<String>, String, String, String, Option<String>)> =
-            sqlx::query_as(
-                r#"SELECT id, word, spanish_phonetic, spanish_translation, category, level,
+        let word: Option<(
+            Uuid,
+            String,
+            Option<String>,
+            String,
+            String,
+            String,
+            Option<String>,
+        )> = sqlx::query_as(
+            r#"SELECT id, word, spanish_phonetic, spanish_translation, category, level,
                           spanish_phonetic_natural
                      FROM vocabulary_words
                     WHERE id = $1 AND publication_status = 'published'"#,
-            )
-            .bind(word_id)
-            .fetch_optional(self.pool.as_ref())
-            .await
-            .map_err(|_| Status::internal("No se pudo consultar el vocabulario publicado"))?;
+        )
+        .bind(word_id)
+        .fetch_optional(self.pool.as_ref())
+        .await
+        .map_err(|_| Status::internal("No se pudo consultar el vocabulario publicado"))?;
 
         let (id, word, phonetic, translation, category, level, phonetic_nat) =
             word.ok_or_else(|| Status::not_found("Palabra publicada no encontrada"))?;
 
-        let sentences: Vec<(Uuid, String, Option<String>, String, Option<String>, Option<String>)> =
-            sqlx::query_as(
-                r#"SELECT id, english_text, spanish_phonetic, spanish_translation,
+        let sentences: Vec<(
+            Uuid,
+            String,
+            Option<String>,
+            String,
+            Option<String>,
+            Option<String>,
+        )> = sqlx::query_as(
+            r#"SELECT id, english_text, spanish_phonetic, spanish_translation,
                           audio_url, spanish_phonetic_natural
                      FROM context_sentences
                     WHERE word_id = $1 AND publication_status = 'published'
                     ORDER BY position NULLS LAST, created_at, id"#,
-            )
-            .bind(id)
-            .fetch_all(self.pool.as_ref())
-            .await
-            .map_err(|_| Status::internal("No se pudieron consultar los ejemplos publicados"))?;
+        )
+        .bind(id)
+        .fetch_all(self.pool.as_ref())
+        .await
+        .map_err(|_| Status::internal("No se pudieron consultar los ejemplos publicados"))?;
 
         let context_sentences = sentences
             .into_iter()
-            .map(|(sentence_id, english, slow, spanish, audio, natural)| ContextSentence {
-                id: sentence_id.to_string(),
-                english_text: english,
-                spanish_phonetic: slow.unwrap_or_default(),
-                spanish_translation: spanish,
-                audio_url: audio.unwrap_or_default(),
-                spanish_phonetic_natural: natural.unwrap_or_default(),
-            })
+            .map(
+                |(sentence_id, english, slow, spanish, audio, natural)| ContextSentence {
+                    id: sentence_id.to_string(),
+                    english_text: english,
+                    spanish_phonetic: slow.unwrap_or_default(),
+                    spanish_translation: spanish,
+                    audio_url: audio.unwrap_or_default(),
+                    spanish_phonetic_natural: natural.unwrap_or_default(),
+                },
+            )
             .collect();
 
         Ok(Response::new(VocabularyWordResponse {
@@ -245,12 +257,16 @@ impl ContentService for MyContentService {
         if !level.is_empty()
             && !matches!(level.as_str(), "PRE_A1" | "A1" | "A2" | "B1" | "B2" | "C1" | "C2")
         {
-            return Err(Status::invalid_argument("level no es un nivel curricular válido"));
+            return Err(Status::invalid_argument(
+                "level no es un nivel curricular válido",
+            ));
         }
         let level = (!level.is_empty()).then_some(level);
         let category = req.category.trim().to_ascii_lowercase();
         if category.len() > 50 {
-            return Err(Status::invalid_argument("category no puede superar 50 caracteres"));
+            return Err(Status::invalid_argument(
+                "category no puede superar 50 caracteres",
+            ));
         }
         let category = (!category.is_empty()).then_some(category);
         let user_uuid = if req.user_id.is_empty() {
@@ -362,14 +378,16 @@ impl ContentService for MyContentService {
 
             let context_sentences = sentences
                 .into_iter()
-                .map(|(sentence_id, english, slow, spanish, audio, natural)| ContextSentence {
-                    id: sentence_id.to_string(),
-                    english_text: english,
-                    spanish_phonetic: slow.unwrap_or_default(),
-                    spanish_translation: spanish,
-                    audio_url: audio.unwrap_or_default(),
-                    spanish_phonetic_natural: natural.unwrap_or_default(),
-                })
+                .map(
+                    |(sentence_id, english, slow, spanish, audio, natural)| ContextSentence {
+                        id: sentence_id.to_string(),
+                        english_text: english,
+                        spanish_phonetic: slow.unwrap_or_default(),
+                        spanish_translation: spanish,
+                        audio_url: audio.unwrap_or_default(),
+                        spanish_phonetic_natural: natural.unwrap_or_default(),
+                    },
+                )
                 .collect();
 
             result_words.push(VocabularyWordResponse {
@@ -393,7 +411,6 @@ impl ContentService for MyContentService {
             total: total.min(i64::from(i32::MAX)) as i32,
         }))
     }
-
 
     async fn list_comprehension_resources(
         &self,
