@@ -281,6 +281,7 @@ export default function LearnPage() {
                 {currentWord.pronunciationStatus === 'approved' &&
                 currentSentence.spanishPhonetics.trim() &&
                 currentSentence.pronunciationStatus === 'approved' &&
+                currentSentence.spanishPhonetics.trim() &&
                 currentSentence.spanishPhoneticsNatural.trim() ? (
                   <>
                     <div className="mt-3 rounded-xl border border-stone-200 p-4">
