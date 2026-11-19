@@ -71,9 +71,9 @@ async function seedPackage() {
         const inserted = await pool.query(
           `INSERT INTO vocabulary_words (
               source_catalog, word, spanish_phonetic, spanish_translation,
-              category, level, spanish_phonetic_natural
+              category, level, tracks, spanish_phonetic_natural
            )
-           VALUES ('devfluency.lexical-catalog.v2', $1, $2, $3, $4, 'PRE_A1', $2)
+           VALUES ('devfluency.lexical-catalog.v2', $1, $2, $3, $4, 'PRE_A1', ARRAY['general']::text[], $2)
            RETURNING id`,
           [word, "prueba fonética", "traducción de prueba", category],
         );
