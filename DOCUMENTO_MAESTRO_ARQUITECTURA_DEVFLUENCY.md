@@ -145,7 +145,7 @@ El nivel del estudiante debe estimarse mediante evidencias académicas, no por X
 - El catálogo estudiantil de PR #81 y el avance web de Subfase 1.5 añaden `/courses`, `/courses/{course_version_id}`, filtros/paginación, progreso por evidencia y administración editorial protegida. Continúa pendiente la edición visual campo a campo de borradores.
 
 **Estado y límites verificables de Subfase 1.4 en PR #90 (rama abierta, no fusionada):**
-- Las 790 unidades tienen revisión editorial pendiente; los 790 rangos de frecuencia permanecen sin validar por lema, categoría gramatical y sentido (rangos numéricos null).
+- Las 790 unidades tienen revisión editorial pendiente. De ellas, 709 son candidatos unigrama para cotejo exacto con NGSL/NGSL-Spoken y 81 expresiones multi-palabra no aplican a listas unigramas. Los 709 rangos continúan null; el cruce aún no se ha ejecutado con los CSV oficiales. NGSL usa lemas modificados, por lo que el rango es agregado por lema y no por sentido/POS.
 - De los 2.201 ejemplos, 2.115 tienen guías candidatas pendientes de validación; 86 expresiones nuevas aún no tienen candidata fonética.
 - Los 13 recursos reading y 13 listening siguen en draft. No existe audio listening real aprobado.
 - La cobertura General se distribuye en 237 PRE_A1, 462 A1, 7 A2, 7 B1, 7 B2, 6 C1 y 6 C2; es muy inferior al presupuesto léxico interno acumulado, especialmente desde A2.
