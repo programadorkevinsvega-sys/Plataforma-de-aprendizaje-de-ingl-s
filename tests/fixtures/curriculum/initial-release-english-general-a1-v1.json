@@ -1,0 +1,386 @@
+{
+  "format": "devfluency.curriculum-content",
+  "schema_version": 1,
+  "metadata": {
+    "author": "DevFluency curriculum team",
+    "authored_at": "2026-11-19",
+    "source": {
+      "name": "Original DevFluency General English curriculum",
+      "url": null,
+      "license": "original"
+    }
+  },
+  "course": {
+    "slug": "english-general",
+    "track_code": "general"
+  },
+  "version": {
+    "version_number": 1,
+    "cefr_level": "A1",
+    "title": "English General — A1: Everyday life and getting around",
+    "description": "An elementary course that develops simple exchanges about routines, home, travel and everyday needs, with short connected sentences and familiar situations.",
+    "locale": "en"
+  },
+  "units": [
+    {
+      "code": "daily-routines-and-home",
+      "position": 1,
+      "title": "Daily routines and home",
+      "theme": "Everyday life",
+      "description": "Talk about where you live and describe a simple daily routine.",
+      "estimated_minutes": 24,
+      "lessons": [
+        {
+          "code": "describe-your-home-and-routine",
+          "position": 1,
+          "pattern": "understand",
+          "title": "Home and daily routine",
+          "description": "Understand short statements about a person's home and usual routine.",
+          "estimated_minutes": 12,
+          "objective_codes": [
+            "describe-home-and-routine"
+          ],
+          "prerequisites": []
+        },
+        {
+          "code": "talk-about-your-day",
+          "position": 2,
+          "pattern": "practice",
+          "title": "Talk about your day",
+          "description": "Use common routine verbs to describe a familiar day.",
+          "estimated_minutes": 12,
+          "objective_codes": [
+            "talk-about-daily-actions"
+          ],
+          "prerequisites": [
+            {
+              "lesson_code": "describe-your-home-and-routine",
+              "required_state": "completed",
+              "minimum_mastery_score": 0.75
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "travel-and-moving-around",
+      "position": 2,
+      "title": "Travel and moving around",
+      "theme": "Travel",
+      "description": "Understand and use common words for simple travel arrangements and directions.",
+      "estimated_minutes": 24,
+      "lessons": [
+        {
+          "code": "prepare-for-a-trip",
+          "position": 1,
+          "pattern": "discover",
+          "title": "Prepare for a trip",
+          "description": "Identify common travel items and understand simple travel statements.",
+          "estimated_minutes": 12,
+          "objective_codes": [
+            "identify-travel-information"
+          ],
+          "prerequisites": []
+        },
+        {
+          "code": "find-your-way",
+          "position": 2,
+          "pattern": "integrate",
+          "title": "Find your way",
+          "description": "Use simple travel words and short instructions to understand a familiar journey.",
+          "estimated_minutes": 12,
+          "objective_codes": [
+            "understand-simple-directions"
+          ],
+          "prerequisites": [
+            {
+              "lesson_code": "prepare-for-a-trip",
+              "required_state": "completed",
+              "minimum_mastery_score": 0.75
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": "feelings-and-weather",
+      "position": 3,
+      "title": "Feelings and weather",
+      "theme": "Descriptions",
+      "description": "Understand and communicate basic feelings and simple weather conditions.",
+      "estimated_minutes": 12,
+      "lessons": [
+        {
+          "code": "describe-feelings-and-weather",
+          "position": 1,
+          "pattern": "integrate",
+          "title": "Feelings and weather",
+          "description": "Recognise and use familiar adjectives for feelings and weather.",
+          "estimated_minutes": 12,
+          "objective_codes": [
+            "describe-feelings-and-weather"
+          ],
+          "prerequisites": []
+        }
+      ]
+    }
+  ],
+  "objectives": [
+    {
+      "code": "describe-home-and-routine",
+      "position": 1,
+      "description": "Understand and describe where you live using a short present-simple sentence.",
+      "success_criteria": "Identify a person's home context and understand the sentence 'I live in a small apartment.'",
+      "skills": [
+        {
+          "code": "reading",
+          "is_primary": true
+        },
+        {
+          "code": "grammar",
+          "is_primary": false
+        }
+      ],
+      "vocabulary": [
+        {
+          "word": "live",
+          "category": "grammar_functions",
+          "usage_mode": "both",
+          "position": 1
+        }
+      ],
+      "sentences": [
+        {
+          "word": "live",
+          "english_text": "I live in a small apartment.",
+          "usage_mode": "reading",
+          "position": 1
+        }
+      ]
+    },
+    {
+      "code": "talk-about-daily-actions",
+      "position": 2,
+      "description": "Describe simple routine actions using familiar present-simple expressions.",
+      "success_criteria": "Use at least two familiar routine expressions in short statements about a normal day.",
+      "skills": [
+        {
+          "code": "speaking",
+          "is_primary": true
+        },
+        {
+          "code": "grammar",
+          "is_primary": false
+        }
+      ],
+      "vocabulary": [
+        {
+          "word": "wake",
+          "category": "daily_routines",
+          "usage_mode": "both",
+          "position": 1
+        },
+        {
+          "word": "shower",
+          "category": "daily_routines",
+          "usage_mode": "both",
+          "position": 2
+        }
+      ],
+      "sentences": [
+        {
+          "word": "wake",
+          "english_text": "I wake up early.",
+          "usage_mode": "speaking",
+          "position": 1
+        },
+        {
+          "word": "shower",
+          "english_text": "I take a shower.",
+          "usage_mode": "speaking",
+          "position": 2
+        }
+      ]
+    },
+    {
+      "code": "identify-travel-information",
+      "position": 3,
+      "description": "Recognise common travel words and understand simple information about a trip.",
+      "success_criteria": "Correctly identify at least four of five common travel items or places in short prompts.",
+      "skills": [
+        {
+          "code": "vocabulary",
+          "is_primary": true
+        },
+        {
+          "code": "reading",
+          "is_primary": false
+        }
+      ],
+      "vocabulary": [
+        {
+          "word": "airport",
+          "category": "transport_travel",
+          "usage_mode": "both",
+          "position": 1
+        },
+        {
+          "word": "ticket",
+          "category": "transport_travel",
+          "usage_mode": "both",
+          "position": 2
+        },
+        {
+          "word": "hotel",
+          "category": "transport_travel",
+          "usage_mode": "both",
+          "position": 3
+        },
+        {
+          "word": "passport",
+          "category": "transport_travel",
+          "usage_mode": "both",
+          "position": 4
+        }
+      ],
+      "sentences": [
+        {
+          "word": "airport",
+          "english_text": "I go to the airport.",
+          "usage_mode": "reading",
+          "position": 1
+        },
+        {
+          "word": "ticket",
+          "english_text": "I have a ticket.",
+          "usage_mode": "reading",
+          "position": 2
+        },
+        {
+          "word": "hotel",
+          "english_text": "We sleep in a hotel.",
+          "usage_mode": "reading",
+          "position": 3
+        },
+        {
+          "word": "passport",
+          "english_text": "I need my passport.",
+          "usage_mode": "reading",
+          "position": 4
+        }
+      ]
+    },
+    {
+      "code": "understand-simple-directions",
+      "position": 4,
+      "description": "Use basic travel language to understand a simple location or direction prompt.",
+      "success_criteria": "Select the correct meaning for at least three of four short travel prompts.",
+      "skills": [
+        {
+          "code": "listening",
+          "is_primary": true
+        },
+        {
+          "code": "vocabulary",
+          "is_primary": false
+        }
+      ],
+      "vocabulary": [
+        {
+          "word": "map",
+          "category": "transport_travel",
+          "usage_mode": "both",
+          "position": 1
+        },
+        {
+          "word": "airport",
+          "category": "transport_travel",
+          "usage_mode": "receptive",
+          "position": 2
+        }
+      ],
+      "sentences": [
+        {
+          "word": "map",
+          "english_text": "Look at the map.",
+          "usage_mode": "listening",
+          "position": 1
+        },
+        {
+          "word": "airport",
+          "english_text": "I go to the airport.",
+          "usage_mode": "listening",
+          "position": 2
+        }
+      ]
+    },
+    {
+      "code": "describe-feelings-and-weather",
+      "position": 5,
+      "description": "Describe a simple feeling and understand familiar weather expressions.",
+      "success_criteria": "Understand and produce two short statements about feelings or weather.",
+      "skills": [
+        {
+          "code": "speaking",
+          "is_primary": true
+        },
+        {
+          "code": "vocabulary",
+          "is_primary": false
+        }
+      ],
+      "vocabulary": [
+        {
+          "word": "happy",
+          "category": "descriptions_emotions",
+          "usage_mode": "both",
+          "position": 1
+        },
+        {
+          "word": "tired",
+          "category": "descriptions_emotions",
+          "usage_mode": "both",
+          "position": 2
+        },
+        {
+          "word": "hot",
+          "category": "nature_environment",
+          "usage_mode": "both",
+          "position": 3
+        },
+        {
+          "word": "cold",
+          "category": "nature_environment",
+          "usage_mode": "both",
+          "position": 4
+        }
+      ],
+      "sentences": [
+        {
+          "word": "happy",
+          "english_text": "I am very happy.",
+          "usage_mode": "speaking",
+          "position": 1
+        },
+        {
+          "word": "tired",
+          "english_text": "I am so tired.",
+          "usage_mode": "speaking",
+          "position": 2
+        },
+        {
+          "word": "hot",
+          "english_text": "It is very hot.",
+          "usage_mode": "reading",
+          "position": 3
+        },
+        {
+          "word": "cold",
+          "english_text": "It is very cold.",
+          "usage_mode": "reading",
+          "position": 4
+        }
+      ]
+    }
+  ]
+}
