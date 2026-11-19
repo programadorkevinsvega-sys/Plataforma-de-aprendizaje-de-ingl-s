@@ -128,7 +128,7 @@
       "title": "Your first English class",
       "topic": "Greetings and classroom instructions",
       "content": "Teacher: Good morning. Are you new here?\nStudent: Yes. My name is Ana.\nTeacher: Welcome, Ana. What class are you in?\nStudent: English class.\nTeacher: Great. Please sit here.",
-      "sentence_count": 6,
+      "sentence_count": 9,
       "estimated_minutes": 2,
       "difficulty_profile": {
         "pattern": "short_repeated_classroom_exchange",
@@ -245,7 +245,7 @@
       "title": "Mateo's working day",
       "topic": "Daily routines and transport",
       "content": "On weekdays, Mateo gets up at six thirty. He has breakfast with his sister and walks to the bus stop. He takes the bus and starts work at eight. At lunch, he eats with a colleague. After work, he studies English for twenty minutes. On Fridays, he meets a friend at a café.",
-      "sentence_count": 7,
+      "sentence_count": 6,
       "estimated_minutes": 3,
       "difficulty_profile": {
         "pattern": "short_connected_present_simple_narrative",
@@ -359,7 +359,7 @@
       "title": "Checking in at a hotel",
       "topic": "Travel and accommodation",
       "content": "Clerk: Good afternoon. Can I help you?\nCustomer: Yes, I have a reservation.\nClerk: What is your name?\nCustomer: Mateo Ruiz.\nClerk: How many nights are you staying?\nCustomer: Two nights.\nClerk: Breakfast is from seven to ten.\nCustomer: Thank you.",
-      "sentence_count": 8,
+      "sentence_count": 9,
       "estimated_minutes": 3,
       "difficulty_profile": {
         "pattern": "short_service_encounter_with_numbers",
