@@ -1,0 +1,47 @@
+name: Temporary Cargo lock regeneration
+
+on:
+  push:
+    branches:
+      - feat/phase-1.4-catalog-curation-audit
+    paths:
+      - .github/workflows/cargo-lock-refresh.yml
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install stable Rust
+        run: rustup toolchain install stable --profile minimal
+
+      - name: Resolve workspace lockfile
+        run: |
+          set -euo pipefail
+          cargo tree --workspace --all-targets --target x86_64-unknown-linux-gnu
+          echo "---- Cargo.lock diff ----"
+          git diff -- Cargo.lock
+          echo "---- changed files ----"
+          git status --short
+          test -n "$(git status --short -- Cargo.lock)" || {
+            echo "::error::Cargo resolution did not change Cargo.lock; inspect the lockfile mismatch."
+            exit 1
+          }
+          test -z "$(git status --short | grep -v '^.. Cargo.lock$' || true)" || {
+            echo "::error::Unexpected files changed while resolving dependencies."
+            git status --short
+            exit 1
+          }
+
+      - name: Upload resolved Cargo.lock
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: resolved-cargo-lock
+          path: Cargo.lock
+          if-no-files-found: error
+          retention-days: 1
