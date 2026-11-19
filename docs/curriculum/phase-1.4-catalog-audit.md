@@ -32,9 +32,30 @@ Las categorías son conceptos de catálogo, no etiquetas improvisadas a partir d
 ## Frecuencia, utilidad y contexto
 
 - `editorial_priority` expresa decisión pedagógica (core, high utility, contextual, domain core, advanced). No es un rango de corpus.
-- `frequency.general_rank` y `frequency.spoken_rank` son null hasta cotejar el lema, la categoría gramatical y el sentido con las listas de frecuencia.
-- Se declaran NGSL 1.2 y NGSL-Spoken 1.2 como fuentes permitidas bajo CC BY-SA 4.0, con atribución; los datos de frecuencia deben conservar la procedencia y los cambios. El material de Oxford 3000/5000 se usa solo como referencia metodológica: no se copian sus entradas ni posiciones.
+- `frequency.general_rank` y `frequency.spoken_rank` son null hasta cotejar la forma de lema con la entrada exacta de las listas. NGSL/NGSL-Spoken usan lemas modificados que agrupan categorías gramaticales; el rango resultante es de lema, no de sentido/POS independiente. No se debe atribuir el mismo rango a una acepción distinta como si fuera una frecuencia por sentido.
+- Se declaran NGSL 1.2 y NGSL-Spoken 1.2 como fuentes permitidas bajo CC BY-SA 4.0, con atribución; los datos de frecuencia deben conservar archivo fuente, URL, metodología y SHA-256. El material de Oxford 3000/5000 se usa solo como referencia metodológica: no se copian sus entradas ni posiciones.
 - `usefulness`, `context_tags`, `register`, `tracks` y nivel se almacenan de forma separada para filtrar y construir itinerarios sin confundir frecuencia con utilidad.
+
+### Cotejo reproducible de frecuencia
+
+Los recursos oficiales descargables son [NGSL 1.2](https://www.newgeneralservicelist.com/new-general-service-list) y [NGSL-Spoken 1.2](https://www.newgeneralservicelist.com/ngsl-spoken). NGSL cubre 2.809 lemas de inglés general; NGSL-Spoken contiene 721 entradas para habla no guionizada. Ambas listas declaran CC BY-SA 4.0 y requieren atribución.
+
+El script `tools/curriculum/match_lexical_frequency.mjs` hace coincidencia exacta de lema modificado; no usa fuzzy matching, stemming ni traducción para adivinar equivalencias. Produce un informe con coincidencias, elementos sin correspondencia, expresiones omitidas, atribución, URL y SHA-256 del archivo. Solo aplica rangos cuando recibe los dos CSV:
+```bash
+node tools/curriculum/match_lexical_frequency.mjs \
+  --ngsl /ruta/NGSL_12_stats.csv \
+  --ngsl-spoken /ruta/NGSL-Spoken_12_stats.csv
+
+# Aplicar después de revisar el informe generado
+node tools/curriculum/match_lexical_frequency.mjs \
+  --ngsl /ruta/NGSL_12_stats.csv \
+  --ngsl-spoken /ruta/NGSL-Spoken_12_stats.csv \
+  --apply
+```
+
+El cruce usa las columnas `Lemma`/`Word`/`Headword` y `SFI Rank`/`Rank`. Cada rango aplicado guarda la metodología `exact_modified_lemma`, atribución, licencia, URL y hash del CSV. Las expresiones de varias palabras no se comparan con listas unigramas y quedan como `not_applicable_multiword`. Una coincidencia de lema no demuestra frecuencia de un sentido específico: las listas agrupan usos gramaticales dentro de la entrada del lema.
+
+El estado de ejecución sigue pendiente porque los CSV oficiales no están incorporados en esta rama y no se ha ejecutado el cruce con sus datos completos. No se han escrito rangos numéricos inventados.
 
 ## Revisión lingüística y pronunciación
 
@@ -74,7 +95,7 @@ La ruta tecnológica aporta 83 asignaciones adicionales (41 A1, 7 A2, 7 B1, 9 B2
 
 - Unidades con revisión editorial pendiente: 790/790.
 - Ejemplos con pronunciación pendiente: 2.115; otros 86 no tienen candidata fonética porque son expresiones nuevas.
-- Rangos de frecuencia general y hablada validados: 0; los 790 elementos mantienen los rangos en null hasta resolver lema, categoría gramatical y sentido.
+- Rangos de frecuencia general y hablada validados: 0. Hay 709 candidatos de una sola palabra que requieren cruce exacto; 81 expresiones multi-palabra quedan explícitamente fuera de las listas unigramas. Los 709 candidatos siguen con los rangos en null hasta disponer de los CSV oficiales.
 - Recursos de listening con audio real aprobado: 0/13.
 - Recursos de reading pendientes de revisión editorial/nivel: 13/13.
 - Ningún elemento ni recurso se publica automáticamente.
