@@ -399,6 +399,8 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 
 **Estado: EN CURSO — base técnica v2 implementada en la rama de trabajo; no cumple todavía el gate editorial ni la cobertura curricular.** La fuente v2 reúne 790 unidades léxicas (704 trasladadas/deduplicadas y 86 nuevas), 26 categorías y 26 recursos graduados. Su inventario, distribución por nivel y pendientes están en [Catálogo léxico y recursos graduados v2](../curriculum/phase-1.4-catalog-audit.md).
 
+**Integración del panel estudiantil 1.1–1.4 (rama de trabajo):** se conectaron filtros por ruta/nivel/categoría, metadatos léxicos v2, controles duales sujetos a aprobación editorial y la biblioteca de Reading/Listening. La matriz de pantallas, APIs y límites está en [Integración frontend estudiantil 1.1–1.4](../curriculum/phase-1.1-1.4-student-frontend-integration.md). Esta entrega aún requiere CI verde y no cambia el estado editorial del catálogo.
+
 **Modelo, auditoría y procedencia**
 - [x] Consolidar el catálogo en una fuente JSON v2 y retirar los tres JSON semilla anteriores, las claves antiguas y el alias persistido A0.
 - [x] Definir una taxonomía canónica compartida de 26 categorías con etiquetas español/inglés.
@@ -421,6 +423,12 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 - [ ] Crear fixtures por nivel y tipo de ejercicio al quedar definido el contrato común de actividades en Fase 2.
 
 **Persistencia e integración**
+
+- [x] Conectar la consulta de vocabulario publicado con filtros por ruta, nivel y categoría, paginación y metadatos de catálogo v2 en el panel del estudiante.
+- [x] Exponer el RPC de recursos graduados mediante BFF autenticado y crear biblioteca estudiantil de Reading/Listening; la API elimina claves de respuesta y no entrega transcripción de listening.
+- [x] Mostrar guías de pronunciación lenta/natural únicamente con aprobación editorial del vocabulario y del ejemplo; ambos audios parten del texto inglés original.
+- [x] Retirar del BFF las rutas heredadas de lección sintética y finalización ficticia; el panel registra práctica mediante el flujo persistente de progreso.
+- [ ] Validar la integración completa con CI y prueba de navegador contra un entorno con contenido realmente publicado.
 - [x] Añadir migración PostgreSQL v2 para conservar procedencia, frecuencia, estados editoriales, ejemplos y recursos graduados; preservar las filas heredadas para no romper referencias SRS, pero marcarlas como pendientes de revisión.
 - [x] Añadir importador transaccional/idempotente con dry-run por defecto, ledger SHA-256 y comprobación de editor registrado para aplicar.
 - [x] Hacer que el servicio de contenido consulte solo vocabulario y ejemplos publicados; los datos heredados y los importados como draft quedan fuera de las respuestas estudiantiles.
