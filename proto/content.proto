@@ -22,6 +22,7 @@ message ContextSentence {
   string spanish_translation = 4;
   string audio_url = 5;
   string spanish_phonetic_natural = 6;
+  string pronunciation_status = 7;
 }
 
 message VocabularyWordResponse {
