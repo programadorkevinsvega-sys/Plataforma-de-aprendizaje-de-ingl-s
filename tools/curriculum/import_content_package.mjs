@@ -346,7 +346,7 @@ async function insertPackage(client, data, packageSha256, actorUserId) {
     const objectiveId = objectiveIds.get(objective.code);
 
     for (const reference of objective.vocabulary ?? []) {
-      const vocabularyId = data.version.content_schema_version >= 2
+      const vocabularyId = data.metadata.reference_catalog === "devfluency.lexical-catalog.v2"
         ? await resolveVocabularyId(client, reference, data.version.cefr_level, data.course.track_code)
         : await resolveVocabularyId(client, reference, data.version.cefr_level, data.course.track_code).catch(async (error) => {
           if (!error.message.startsWith("External curriculum reference not found:")) throw error;
@@ -363,7 +363,7 @@ async function insertPackage(client, data, packageSha256, actorUserId) {
     }
 
     for (const reference of objective.sentences ?? []) {
-      const sentenceId = data.version.content_schema_version >= 2
+      const sentenceId = data.metadata.reference_catalog === "devfluency.lexical-catalog.v2"
         ? await resolveSentenceId(client, reference, data.version.cefr_level, data.course.track_code)
         : await resolveSentenceId(client, reference, data.version.cefr_level, data.course.track_code).catch(async (error) => {
           if (!error.message.startsWith("External curriculum reference not found:")) throw error;
