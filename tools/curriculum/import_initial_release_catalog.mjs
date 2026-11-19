@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
@@ -29,7 +29,7 @@ function parseArgs(argv) {
       apply = true;
       continue;
     }
-    if (!["--catalog", "--release", "--actor-user-id"].includes(option)) {
+    if (!["--catalog", "--release", "--actor-user-id", "--export-merged-catalog"].includes(option)) {
       throw new Error(`Unknown option: ${option}`);
     }
     const value = argv[index + 1];
@@ -43,6 +43,7 @@ function parseArgs(argv) {
     catalogPath: path.resolve(values.get("--catalog") ?? DEFAULT_CATALOG),
     releasePath: path.resolve(values.get("--release") ?? DEFAULT_RELEASE),
     actorUserId: values.get("--actor-user-id") ?? null,
+    exportCatalogPath: values.has("--export-merged-catalog") ? path.resolve(values.get("--export-merged-catalog")) : null,
     apply,
   };
 }
@@ -121,11 +122,13 @@ function usage() {
   return [
     "Usage:",
     "  node tools/curriculum/import_initial_release_catalog.mjs --actor-user-id <uuid> [--apply]",
+    "  node tools/curriculum/import_initial_release_catalog.mjs --export-merged-catalog <output.json>",
     "",
     "Imports the canonical 790-word v2 catalog and overlays the four original Pre-A1/A1 Reading/Listening resources.",
     "Default mode is a transactional database dry-run. --apply persists all imported content as drafts.",
     "No content is published by this command. Editorial approval and publication remain separate steps.",
-    "The actor must be provisioned in public.content_editors and DATABASE_URL must be configured.",
+    "Use --export-merged-catalog to prepare the exact catalog file consumed by the Listening TTS generator (no database connection).",
+    "For database import, the actor must be provisioned in public.content_editors and DATABASE_URL must be configured.",
   ].join("\\n");
 }
 
@@ -135,7 +138,8 @@ async function main(argv) {
     process.stdout.write(usage() + "\\n");
     return 0;
   }
-  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required.");
+  if (args.apply && args.exportCatalogPath) throw new Error("--export-merged-catalog cannot be combined with --apply.");
+  if (!args.exportCatalogPath && !process.env.DATABASE_URL) throw new Error("DATABASE_URL is required.");
   if (args.apply && !args.actorUserId) throw new Error("--actor-user-id is required with --apply.");
 
   const catalog = JSON.parse(readFileSync(args.catalogPath, "utf8"));
@@ -143,6 +147,19 @@ async function main(argv) {
   const merged = composeInitialReleaseCatalog(catalog, release);
   const mergedBytes = Buffer.from(JSON.stringify(merged, null, 2) + "\\n", "utf8");
   const contentSha256 = createHash("sha256").update(mergedBytes).digest("hex");
+  if (args.exportCatalogPath) {
+    mkdirSync(path.dirname(args.exportCatalogPath), { recursive: true });
+    writeFileSync(args.exportCatalogPath, mergedBytes);
+    process.stdout.write(JSON.stringify({
+      exported_path: args.exportCatalogPath,
+      content_sha256: contentSha256,
+      lexical_items: merged.lexical_items.length,
+      examples: merged.lexical_items.reduce((total, item) => total + (item.examples?.length ?? 0), 0),
+      comprehension_resources: merged.comprehension_resources.length,
+      initial_release_resources: release.resources.map((resource) => resource.id),
+    }, null, 2) + "\\n");
+    return 0;
+  }
   const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1, connectionTimeoutMillis: 5000 });
   try {
     const result = await importLexicalCatalog(pool, merged, contentSha256, {
