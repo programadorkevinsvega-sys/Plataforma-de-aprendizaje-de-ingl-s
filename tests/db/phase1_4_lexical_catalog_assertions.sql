@@ -27,6 +27,27 @@ BEGIN
         END IF;
     END LOOP;
 
+    IF to_regprocedure('public.guard_lexical_catalog_publication()') IS NULL THEN
+        RAISE EXCEPTION 'Lexical catalog publication guard function is missing';
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger
+         WHERE tgrelid = 'public.vocabulary_words'::REGCLASS
+           AND tgname = 'trg_guard_lexical_catalog_publication'
+           AND NOT tgisinternal
+    ) OR NOT EXISTS (
+        SELECT 1 FROM pg_trigger
+         WHERE tgrelid = 'public.context_sentences'::REGCLASS
+           AND tgname = 'trg_guard_lexical_catalog_publication'
+           AND NOT tgisinternal
+    ) OR NOT EXISTS (
+        SELECT 1 FROM pg_trigger
+         WHERE tgrelid = 'public.curriculum_comprehension_resources'::REGCLASS
+           AND tgname = 'trg_guard_lexical_catalog_publication'
+           AND NOT tgisinternal
+    ) THEN
+        RAISE EXCEPTION 'Every lexical content table must enforce the publication guard';
+    END IF;
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint
          WHERE conrelid = 'public.vocabulary_words'::REGCLASS
