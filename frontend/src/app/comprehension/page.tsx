@@ -113,7 +113,7 @@ function ResourceCard({ resource }: { resource: ComprehensionResource }) {
                 <p>{question.prompt}</p>
                 {question.options.length > 0 && (
                   <ul className="mt-2 list-[lower-alpha] space-y-1 pl-5 text-stone-600">
-                    {question.options.map((option, index) => <li key={index}>{option}</li>)}
+                    {question.options.map((option) => <li key={option.id}>{option.text}</li>)}
                   </ul>
                 )}
               </li>
