@@ -44,7 +44,7 @@ ALTER TABLE public.vocabulary_words
     CHECK (
         publication_status <> 'published'
         OR (
-            editorial_metadata ->> 'editorial_status' = 'approved'
+            editorial_metadata ->> 'editorial_status' IS NOT DISTINCT FROM 'approved'
             AND (
                 pronunciation_status = 'not_required'
                 OR (
@@ -98,7 +98,7 @@ ALTER TABLE public.context_sentences
     CHECK (
         publication_status <> 'published'
         OR (
-            editorial_status = 'approved'
+            editorial_status IS NOT DISTINCT FROM 'approved'
             AND (
                 pronunciation_status = 'not_required'
                 OR (
@@ -149,7 +149,7 @@ CREATE TABLE IF NOT EXISTS public.curriculum_comprehension_resources (
             AND (
                 skill <> 'listening'
                 OR (
-                    audio_metadata ->> 'status' = 'approved'
+                    audio_metadata ->> 'status' IS NOT DISTINCT FROM 'approved'
                     AND length(btrim(COALESCE(audio_metadata ->> 'asset_url', ''))) > 0
                 )
             )
