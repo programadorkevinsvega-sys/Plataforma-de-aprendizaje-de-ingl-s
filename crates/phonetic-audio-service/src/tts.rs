@@ -715,8 +715,8 @@ mod tests {
         cloudflare_request_body, decode_cloudflare_audio, is_logical_voice_valid, is_mp3,
         is_rate_valid, is_spanish_voice, parse_provider, parse_timeout_seconds, playback_rate,
         polly_synthesis_input, required_config_value, validate_model_and_speaker, CloudflareConfig,
-        CloudflareWorkersAiProvider, ProviderKind, TtsProvider, BASE64_STANDARD, MODEL_EN,
-        MODEL_ES, MAX_SYNTHESIS_TEXT_CHARS,
+        CloudflareWorkersAiProvider, ProviderKind, TtsProvider, BASE64_STANDARD,
+        MAX_SYNTHESIS_TEXT_CHARS, MODEL_EN, MODEL_ES,
     };
     use base64::Engine as _;
     use std::time::Duration;

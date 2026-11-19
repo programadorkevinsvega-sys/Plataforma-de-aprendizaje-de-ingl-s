@@ -415,6 +415,7 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 - [ ] Completar los dominios de la ruta Tecnología en A1–C2 con vocabulario/expresiones contextualizadas, objetivos y progresión curricular aprobada.
 - [x] Crear 86 unidades iniciales adicionales: expresiones funcionales, sentence frames, collocations, phrasal verbs, marcadores discursivos y términos técnicos.
 - [x] Crear 13 lecturas y 13 guiones originales de listening con ruta, nivel, foco y perfil de dificultad.
+- [x] Añadir generador gRPC TTS en lote con dry-run, límite de 1.000 caracteres, validación MP3, manifiesto SHA-256/proveedor/voz y estado obligatorio `generated_pending_audio_review`; no modifica catálogo/DB ni publica archivos.
 - [ ] Revisar editorialmente las 52 preguntas, sus distractores y claves; comprobar que miden comprensión y no lectura del transcript.
 - [ ] Generar y revisar los 13 audios de listening, registrar voz/acento/licencia y validar su correspondencia con el guion y sus preguntas de comprensión.
 - [ ] Crear fixtures por nivel y tipo de ejercicio al quedar definido el contrato común de actividades en Fase 2.

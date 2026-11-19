@@ -56,8 +56,7 @@ fn options() -> Result<Options, String> {
     let output_dir = option_value(
         &args,
         "--output-dir",
-        env::var("LISTENING_AUDIO_OUTPUT_DIR")
-            .unwrap_or_else(|_| DEFAULT_OUTPUT_DIR.to_string()),
+        env::var("LISTENING_AUDIO_OUTPUT_DIR").unwrap_or_else(|_| DEFAULT_OUTPUT_DIR.to_string()),
     )?;
     let endpoint = option_value(
         &args,
@@ -105,15 +104,16 @@ fn safe_asset_name(resource_id: &str) -> Result<String, String> {
             .chars()
             .all(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_'))
     {
-        return Err(format!("ID de recurso no válido para nombre de archivo: {resource_id}"));
+        return Err(format!(
+            "ID de recurso no válido para nombre de archivo: {resource_id}"
+        ));
     }
     Ok(format!("{resource_id}.mp3"))
 }
 
 fn is_mp3(bytes: &[u8]) -> bool {
     bytes.len() >= 4
-        && (bytes.starts_with(b"ID3")
-            || (bytes[0] == 0xff && (bytes[1] & 0xe0) == 0xe0))
+        && (bytes.starts_with(b"ID3") || (bytes[0] == 0xff && (bytes[1] & 0xe0) == 0xe0))
 }
 
 fn listening_resources(catalog: &Value) -> Result<Vec<Value>, Box<dyn Error>> {
@@ -158,10 +158,9 @@ fn listening_resources(catalog: &Value) -> Result<Vec<Value>, Box<dyn Error>> {
             .into());
         }
         if resource["audio"]["status"] == "approved" {
-            return Err(format!(
-                "El recurso {id} ya tiene audio aprobado; no se sobrescribirá."
-            )
-            .into());
+            return Err(
+                format!("El recurso {id} ya tiene audio aprobado; no se sobrescribirá.").into(),
+            );
         }
         safe_asset_name(id)?;
     }
@@ -216,7 +215,11 @@ async fn synthesize_all(
             .into_inner();
 
         if response.format != "mp3" {
-            return Err(format!("El proveedor devolvió un formato inesperado para {id}: {}", response.format).into());
+            return Err(format!(
+                "El proveedor devolvió un formato inesperado para {id}: {}",
+                response.format
+            )
+            .into());
         }
         if response.text != source_text {
             return Err(format!("El texto devuelto por TTS no coincide con el guion {id}.").into());
@@ -309,12 +312,13 @@ fn persist_assets(
         .file_name()
         .and_then(|value| value.to_str())
         .ok_or("El directorio de salida necesita un nombre válido.")?;
-    let staging_dir = parent.join(format!(
-        ".{directory_name}-staging-{}",
-        std::process::id()
-    ));
+    let staging_dir = parent.join(format!(".{directory_name}-staging-{}", std::process::id()));
     if staging_dir.exists() {
-        return Err(format!("El directorio temporal ya existe: {}", staging_dir.display()).into());
+        return Err(format!(
+            "El directorio temporal ya existe: {}",
+            staging_dir.display()
+        )
+        .into());
     }
     fs::create_dir(&staging_dir)?;
 
@@ -369,7 +373,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let resources = listening_resources(&catalog)?;
 
     if !options.apply {
-        println!("{}", serde_json::to_string_pretty(&dry_run_report(&resources, &options))?);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&dry_run_report(&resources, &options))?
+        );
         return Ok(());
     }
     if options.output_dir.exists() {
@@ -406,7 +413,8 @@ mod tests {
         let bytes = std::fs::read(catalog_path).expect("lexical catalog v2 must exist");
         let catalog: serde_json::Value =
             serde_json::from_slice(&bytes).expect("lexical catalog v2 must be valid JSON");
-        let resources = super::listening_resources(&catalog).expect("listening scripts must validate");
+        let resources =
+            super::listening_resources(&catalog).expect("listening scripts must validate");
         assert_eq!(resources.len(), 13);
         assert!(resources.iter().all(|resource| {
             resource["transcript_available"] == false
