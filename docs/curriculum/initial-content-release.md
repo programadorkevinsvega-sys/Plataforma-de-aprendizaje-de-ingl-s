@@ -60,11 +60,12 @@ Repetir para `A1`. Revisar el contenido antes de aprobarlo; quien registra la de
 
 La importación léxica mantiene palabras y ejemplos en `draft`. Cada palabra, sus ejemplos y ambas guías de pronunciación requieren revisión por separado; la publicación exige el paso `draft → review → published`, un editor autorizado y guías lenta/natural aprobadas o pronunciación marcada explícitamente como no requerida.
 
-Los recursos Reading y Listening también quedan como `draft`. Cada pregunta requiere aprobación editorial; Listening necesita un MP3 real validado, una URL de asset aprobada y transcript oculto. El generador existente produce MP3 y manifiesto con hashes en estado `generated_pending_audio_review`; no modifica PostgreSQL ni publica URLs.
+Los recursos Reading y Listening también quedan como `draft`. Cada pregunta requiere aprobación editorial; Listening necesita un MP3 real validado, una URL de asset aprobada y transcript oculto. El exportador produce un catálogo temporal que incluye exactamente los cuatro recursos del paquete; el generador Rust debe recibir ese archivo con `--catalog` para sintetizar los guiones nuevos. Produce MP3 y manifiesto con hashes en estado `generated_pending_audio_review`; no modifica PostgreSQL ni publica URLs.
 
 ```bash
-cargo run --package phonetic-audio-service --bin generate-listening-assets -- --dry-run
-TTS_SMOKE_ENDPOINT=http://127.0.0.1:50054 cargo run --package phonetic-audio-service --bin generate-listening-assets -- --apply --voice Matthew --output-dir /tmp/devfluency-listening-audio
+node tools/curriculum/import_initial_release_catalog.mjs --export-merged-catalog /tmp/devfluency-initial-release-catalog.v2.json
+cargo run --package phonetic-audio-service --bin generate-listening-assets -- --catalog /tmp/devfluency-initial-release-catalog.v2.json --dry-run
+TTS_SMOKE_ENDPOINT=http://127.0.0.1:50054 cargo run --package phonetic-audio-service --bin generate-listening-assets -- --catalog /tmp/devfluency-initial-release-catalog.v2.json --apply --voice Matthew --output-dir /tmp/devfluency-listening-audio
 ```
 
 Tras escuchar cada archivo, un editor debe revisar su calidad, proveedor/licencia y guion, almacenar el asset en el origen público configurado y registrar la aprobación antes de publicar el Listening. Este repositorio no contiene las credenciales TTS ni una conexión de almacenamiento que permita completar esos pasos desde CI.
