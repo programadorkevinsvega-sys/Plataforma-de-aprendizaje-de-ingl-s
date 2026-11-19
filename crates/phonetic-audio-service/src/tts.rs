@@ -725,7 +725,7 @@ mod tests {
     #[test]
     fn listening_scripts_fit_the_application_synthesis_limit() {
         assert_eq!(MAX_SYNTHESIS_TEXT_CHARS, 1_000);
-        assert!(MAX_SYNTHESIS_TEXT_CHARS >= 621);
+        const { assert!(MAX_SYNTHESIS_TEXT_CHARS >= 621) };
     }
 
     #[test]
