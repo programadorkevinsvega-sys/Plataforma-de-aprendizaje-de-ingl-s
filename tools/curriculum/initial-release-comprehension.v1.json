@@ -1,0 +1,472 @@
+{
+  "format": "devfluency.initial-comprehension-release",
+  "schema_version": 1,
+  "metadata": {
+    "author": "DevFluency curriculum team",
+    "authored_at": "2026-11-19",
+    "license": "original",
+    "review_policy": "Drafts only until a registered editor confirms text, CEFR suitability, distractors and answer evidence."
+  },
+  "resources": [
+    {
+      "id": "general-pre_a1-reading-01",
+      "track": "general",
+      "cefr_level": "PRE_A1",
+      "skill": "reading",
+      "title": "A new English class",
+      "topic": "Introductions and the classroom",
+      "content": "Hello. My name is Ana. I am from Colombia. I live in Medellin. I study English. I like music and coffee. My friend Leo is in my class. We say hello to our teacher.",
+      "sentence_count": 8,
+      "estimated_minutes": 2,
+      "difficulty_profile": {
+        "pattern": "very_short_present_simple_statements",
+        "target_max_sentence_words": 7,
+        "grammar_focus": [
+          "be in personal-information statements",
+          "present simple with familiar verbs"
+        ],
+        "lexical_load": "very_familiar_personal_and_classroom_words",
+        "support": "high_contextual_support"
+      },
+      "comprehension_focus": "Identify a name, a country, a classmate and a simple personal preference.",
+      "lexical_tags": [
+        "my name is",
+        "I am from",
+        "I live in",
+        "my friend"
+      ],
+      "transcript_available": false,
+      "audio": {
+        "asset_url": null,
+        "status": "not_applicable"
+      },
+      "editorial_status": "pending_editorial_and_level_review",
+      "publication_status": "draft",
+      "provenance": {
+        "origin": "initial_release_original_v1",
+        "license": "original",
+        "authored_by": "DevFluency curriculum team"
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "What is the student's name?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Ana"
+            },
+            {
+              "id": "b",
+              "text": "Maya"
+            },
+            {
+              "id": "c",
+              "text": "Laura"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "Ana introduces herself in the second sentence.",
+          "evidence": "My name is Ana.",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "Where is Ana from?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Mexico"
+            },
+            {
+              "id": "b",
+              "text": "Colombia"
+            },
+            {
+              "id": "c",
+              "text": "Canada"
+            }
+          ],
+          "correct_option_id": "b",
+          "rationale": "Ana says where she is from.",
+          "evidence": "I am from Colombia.",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q3",
+          "type": "multiple_choice",
+          "prompt": "Who is in Ana's class?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Her brother"
+            },
+            {
+              "id": "b",
+              "text": "Her teacher"
+            },
+            {
+              "id": "c",
+              "text": "Her friend Leo"
+            }
+          ],
+          "correct_option_id": "c",
+          "rationale": "The text names Leo as her friend and classmate.",
+          "evidence": "My friend Leo is in my class.",
+          "editorial_status": "pending_human_review"
+        }
+      ],
+      "word_count": 34
+    },
+    {
+      "id": "general-pre_a1-listening-02",
+      "track": "general",
+      "cefr_level": "PRE_A1",
+      "skill": "listening",
+      "title": "Your first English class",
+      "topic": "Greetings and classroom instructions",
+      "content": "Teacher: Good morning. Are you new here?\nStudent: Yes. My name is Ana.\nTeacher: Welcome, Ana. What class are you in?\nStudent: English class.\nTeacher: Great. Please sit here.",
+      "sentence_count": 9,
+      "estimated_minutes": 2,
+      "difficulty_profile": {
+        "pattern": "short_repeated_classroom_exchange",
+        "target_max_sentence_words": 8,
+        "grammar_focus": [
+          "simple questions with be",
+          "short affirmative answers",
+          "basic classroom imperatives"
+        ],
+        "lexical_load": "familiar_greetings_and_classroom_words",
+        "support": "speaker_labels_and_repeated_names"
+      },
+      "comprehension_focus": "Identify the student's name, class and a simple instruction.",
+      "lexical_tags": [
+        "good morning",
+        "my name is",
+        "English class",
+        "please sit"
+      ],
+      "transcript_available": false,
+      "audio": {
+        "status": "awaiting_tts_generation",
+        "asset_url": null,
+        "accent_reference": "en-US",
+        "voice_style": "clear_conversational",
+        "provider": "configured_tts_provider",
+        "playback_control_must_remain_hidden_until_asset_exists": true
+      },
+      "editorial_status": "pending_editorial_and_level_review",
+      "publication_status": "draft",
+      "provenance": {
+        "origin": "initial_release_original_v1",
+        "license": "original",
+        "authored_by": "DevFluency curriculum team"
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "What is the student's name?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Ana"
+            },
+            {
+              "id": "b",
+              "text": "Lina"
+            },
+            {
+              "id": "c",
+              "text": "Sara"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The student gives her name.",
+          "evidence": "My name is Ana.",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "Which class is the student in?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Math class"
+            },
+            {
+              "id": "b",
+              "text": "English class"
+            },
+            {
+              "id": "c",
+              "text": "Music class"
+            }
+          ],
+          "correct_option_id": "b",
+          "rationale": "The student directly answers the teacher's question.",
+          "evidence": "English class.",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q3",
+          "type": "multiple_choice",
+          "prompt": "What does the teacher ask the student to do?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Open a book"
+            },
+            {
+              "id": "b",
+              "text": "Go home"
+            },
+            {
+              "id": "c",
+              "text": "Sit here"
+            }
+          ],
+          "correct_option_id": "c",
+          "rationale": "The teacher gives a short classroom instruction.",
+          "evidence": "Please sit here.",
+          "editorial_status": "pending_human_review"
+        }
+      ],
+      "word_count": 29
+    },
+    {
+      "id": "general-a1-reading-03",
+      "track": "general",
+      "cefr_level": "A1",
+      "skill": "reading",
+      "title": "Mateo's working day",
+      "topic": "Daily routines and transport",
+      "content": "On weekdays, Mateo gets up at six thirty. He has breakfast with his sister and walks to the bus stop. He takes the bus and starts work at eight. At lunch, he eats with a colleague. After work, he studies English for twenty minutes. On Fridays, he meets a friend at a café.",
+      "sentence_count": 6,
+      "estimated_minutes": 3,
+      "difficulty_profile": {
+        "pattern": "short_connected_present_simple_narrative",
+        "target_max_sentence_words": 15,
+        "grammar_focus": [
+          "present simple third person",
+          "time expressions",
+          "basic sequence and reason"
+        ],
+        "lexical_load": "high_frequency_daily_routine_and_transport_vocabulary",
+        "support": "clear_time_markers_and_repeated_subject"
+      },
+      "comprehension_focus": "Identify transport, a daily activity, a time and a weekly social routine.",
+      "lexical_tags": [
+        "gets up",
+        "takes the bus",
+        "at lunch",
+        "after work",
+        "on Fridays"
+      ],
+      "transcript_available": false,
+      "audio": {
+        "asset_url": null,
+        "status": "not_applicable"
+      },
+      "editorial_status": "pending_editorial_and_level_review",
+      "publication_status": "draft",
+      "provenance": {
+        "origin": "initial_release_original_v1",
+        "license": "original",
+        "authored_by": "DevFluency curriculum team"
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "How does Mateo travel to work?",
+          "options": [
+            {
+              "id": "a",
+              "text": "By train"
+            },
+            {
+              "id": "b",
+              "text": "By bus"
+            },
+            {
+              "id": "c",
+              "text": "By bicycle"
+            }
+          ],
+          "correct_option_id": "b",
+          "rationale": "The text says that he takes the bus.",
+          "evidence": "He takes the bus and starts work at eight.",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "What does Mateo do after work?",
+          "options": [
+            {
+              "id": "a",
+              "text": "He studies English"
+            },
+            {
+              "id": "b",
+              "text": "He goes to the airport"
+            },
+            {
+              "id": "c",
+              "text": "He has breakfast"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The text describes his activity after work.",
+          "evidence": "After work, he studies English for twenty minutes.",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q3",
+          "type": "multiple_choice",
+          "prompt": "When does Mateo meet a friend at a café?",
+          "options": [
+            {
+              "id": "a",
+              "text": "On Mondays"
+            },
+            {
+              "id": "b",
+              "text": "Every morning"
+            },
+            {
+              "id": "c",
+              "text": "On Fridays"
+            }
+          ],
+          "correct_option_id": "c",
+          "rationale": "The final sentence states the day.",
+          "evidence": "On Fridays, he meets a friend at a café.",
+          "editorial_status": "pending_human_review"
+        }
+      ],
+      "word_count": 53
+    },
+    {
+      "id": "general-a1-listening-04",
+      "track": "general",
+      "cefr_level": "A1",
+      "skill": "listening",
+      "title": "Checking in at a hotel",
+      "topic": "Travel and accommodation",
+      "content": "Clerk: Good afternoon. Can I help you?\nCustomer: Yes, I have a reservation.\nClerk: What is your name?\nCustomer: Mateo Ruiz.\nClerk: How many nights are you staying?\nCustomer: Two nights.\nClerk: Breakfast is from seven to ten.\nCustomer: Thank you.",
+      "sentence_count": 9,
+      "estimated_minutes": 3,
+      "difficulty_profile": {
+        "pattern": "short_service_encounter_with_numbers",
+        "target_max_sentence_words": 10,
+        "grammar_focus": [
+          "polite questions",
+          "present simple",
+          "numbers and time ranges"
+        ],
+        "lexical_load": "familiar_travel_and_hotel_vocabulary",
+        "support": "speaker_labels_and_explicit_time_information"
+      },
+      "comprehension_focus": "Identify a guest's name, length of stay and breakfast time.",
+      "lexical_tags": [
+        "reservation",
+        "how many nights",
+        "two nights",
+        "from seven to ten"
+      ],
+      "transcript_available": false,
+      "audio": {
+        "status": "awaiting_tts_generation",
+        "asset_url": null,
+        "accent_reference": "en-US",
+        "voice_style": "clear_conversational",
+        "provider": "configured_tts_provider",
+        "playback_control_must_remain_hidden_until_asset_exists": true
+      },
+      "editorial_status": "pending_editorial_and_level_review",
+      "publication_status": "draft",
+      "provenance": {
+        "origin": "initial_release_original_v1",
+        "license": "original",
+        "authored_by": "DevFluency curriculum team"
+      },
+      "questions": [
+        {
+          "id": "q1",
+          "type": "multiple_choice",
+          "prompt": "What is the customer's name?",
+          "options": [
+            {
+              "id": "a",
+              "text": "Mateo Ruiz"
+            },
+            {
+              "id": "b",
+              "text": "Marco Díaz"
+            },
+            {
+              "id": "c",
+              "text": "Daniel Cruz"
+            }
+          ],
+          "correct_option_id": "a",
+          "rationale": "The customer answers the clerk's question about his name.",
+          "evidence": "Mateo Ruiz.",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q2",
+          "type": "multiple_choice",
+          "prompt": "How many nights is the customer staying?",
+          "options": [
+            {
+              "id": "a",
+              "text": "One night"
+            },
+            {
+              "id": "b",
+              "text": "Two nights"
+            },
+            {
+              "id": "c",
+              "text": "Three nights"
+            }
+          ],
+          "correct_option_id": "b",
+          "rationale": "The customer gives the length of his stay.",
+          "evidence": "Two nights.",
+          "editorial_status": "pending_human_review"
+        },
+        {
+          "id": "q3",
+          "type": "multiple_choice",
+          "prompt": "When is breakfast?",
+          "options": [
+            {
+              "id": "a",
+              "text": "From six to nine"
+            },
+            {
+              "id": "b",
+              "text": "From eight to eleven"
+            },
+            {
+              "id": "c",
+              "text": "From seven to ten"
+            }
+          ],
+          "correct_option_id": "c",
+          "rationale": "The clerk states the breakfast time range.",
+          "evidence": "Breakfast is from seven to ten.",
+          "editorial_status": "pending_human_review"
+        }
+      ],
+      "word_count": 41
+    }
+  ]
+}

@@ -58,6 +58,8 @@ async function seedPackage() {
 
   const seededWordIds = [];
   const seededSentenceIds = [];
+  const seededLegacyWordIds = [];
+  const seededLegacySentenceIds = [];
   const replacements = new Map();
 
   try {
@@ -68,14 +70,24 @@ async function seedPackage() {
         const category = `test_${suffix}`;
         const inserted = await pool.query(
           `INSERT INTO vocabulary_words (
+              source_catalog, word, spanish_phonetic, spanish_translation,
+              category, level, tracks, spanish_phonetic_natural
+           )
+           VALUES ('devfluency.lexical-catalog.v2', $1, $2, $3, $4, 'PRE_A1', ARRAY['general']::text[], $2)
+           RETURNING id`,
+          [word, "prueba fonética", "traducción de prueba", category],
+        );
+        seededWordIds.push(inserted.rows[0].id);
+        const legacyDuplicate = await pool.query(
+          `INSERT INTO vocabulary_words (
               word, spanish_phonetic, spanish_translation, category, level,
               spanish_phonetic_natural
            )
            VALUES ($1, $2, $3, $4, 'PRE_A1', $2)
            RETURNING id`,
-          [word, "prueba fonética", "traducción de prueba", category],
+          [word, "fonética heredada", "traducción heredada", category],
         );
-        seededWordIds.push(inserted.rows[0].id);
+        seededLegacyWordIds.push(legacyDuplicate.rows[0].id);
         replacements.set(`${objective.code}:${originalWord.toLowerCase()}`, {
           word,
           category,
@@ -91,14 +103,24 @@ async function seedPackage() {
         const englishText = `Test sentence ${suffix} ${objective.code} ${index}.`;
         const inserted = await pool.query(
           `INSERT INTO context_sentences (
+              source_catalog, word_id, english_text, spanish_phonetic,
+              spanish_translation, spanish_phonetic_natural
+           )
+           VALUES ('devfluency.lexical-catalog.v2', $1, $2, $3, $4, $3)
+           RETURNING id`,
+          [match.id, englishText, "frase fonética de prueba", "frase de prueba"],
+        );
+        seededSentenceIds.push(inserted.rows[0].id);
+        const legacySentenceDuplicate = await pool.query(
+          `INSERT INTO context_sentences (
               word_id, english_text, spanish_phonetic, spanish_translation,
               spanish_phonetic_natural
            )
            VALUES ($1, $2, $3, $4, $3)
            RETURNING id`,
-          [match.id, englishText, "frase fonética de prueba", "frase de prueba"],
+          [match.id, englishText, "frase fonética heredada", "frase heredada"],
         );
-        seededSentenceIds.push(inserted.rows[0].id);
+        seededLegacySentenceIds.push(legacySentenceDuplicate.rows[0].id);
         reference.word = match.word;
         reference.english_text = englishText;
       }
@@ -130,20 +152,24 @@ async function seedPackage() {
           }
           await pool.query("DELETE FROM courses WHERE id = $1", [course.id]);
         }
-        if (seededSentenceIds.length > 0) {
-          await pool.query("DELETE FROM context_sentences WHERE id = ANY($1::uuid[])", [seededSentenceIds]);
+        const allSentenceIds = [...seededSentenceIds, ...seededLegacySentenceIds];
+        if (allSentenceIds.length > 0) {
+          await pool.query("DELETE FROM context_sentences WHERE id = ANY($1::uuid[])", [allSentenceIds]);
         }
-        if (seededWordIds.length > 0) {
-          await pool.query("DELETE FROM vocabulary_words WHERE id = ANY($1::uuid[])", [seededWordIds]);
+        const allWordIds = [...seededWordIds, ...seededLegacyWordIds];
+        if (allWordIds.length > 0) {
+          await pool.query("DELETE FROM vocabulary_words WHERE id = ANY($1::uuid[])", [allWordIds]);
         }
       },
     };
   } catch (error) {
-    if (seededSentenceIds.length > 0) {
-      await pool.query("DELETE FROM context_sentences WHERE id = ANY($1::uuid[])", [seededSentenceIds]);
+    const allSentenceIds = [...seededSentenceIds, ...seededLegacySentenceIds];
+    if (allSentenceIds.length > 0) {
+      await pool.query("DELETE FROM context_sentences WHERE id = ANY($1::uuid[])", [allSentenceIds]);
     }
-    if (seededWordIds.length > 0) {
-      await pool.query("DELETE FROM vocabulary_words WHERE id = ANY($1::uuid[])", [seededWordIds]);
+    const allWordIds = [...seededWordIds, ...seededLegacyWordIds];
+    if (allWordIds.length > 0) {
+      await pool.query("DELETE FROM vocabulary_words WHERE id = ANY($1::uuid[])", [allWordIds]);
     }
     throw error;
   }
@@ -281,6 +307,31 @@ if (!DATABASE_URL) {
 
       const count = await pool.query("SELECT count(*)::int AS total FROM courses WHERE slug = $1", [
         seeded.data.course.slug,
+      ]);
+      assert.equal(count.rows[0].total, 0);
+    } finally {
+      await seeded.cleanup();
+    }
+  });
+
+  test("canonical catalog v2 metadata never falls back to a matching legacy vocabulary row", async () => {
+    const seeded = await seedPackage();
+    try {
+      const data = structuredClone(seeded.data);
+      data.metadata.reference_catalog = "devfluency.lexical-catalog.v2";
+      const reference = data.objectives[0].vocabulary[0];
+      await pool.query(
+        "DELETE FROM vocabulary_words WHERE word = $1 AND source_catalog = 'devfluency.lexical-catalog.v2'",
+        [reference.word],
+      );
+      const strictHash = canonicalHash(data);
+
+      await assert.rejects(
+        importCurriculumPackage(pool, data, strictHash, { apply: true, actorUserId: editorId }),
+        /External curriculum reference not found: canonical PRE_A1 vocabulary word/,
+      );
+      const count = await pool.query("SELECT count(*)::int AS total FROM courses WHERE slug = $1", [
+        data.course.slug,
       ]);
       assert.equal(count.rows[0].total, 0);
     } finally {

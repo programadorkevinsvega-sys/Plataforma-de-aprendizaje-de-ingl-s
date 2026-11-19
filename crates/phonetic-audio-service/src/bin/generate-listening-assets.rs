@@ -7,6 +7,7 @@ use proto::phonetic_audio::{
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
+    collections::HashSet,
     env,
     error::Error,
     fs,
@@ -26,6 +27,7 @@ struct Options {
     output_dir: PathBuf,
     endpoint: String,
     voice: String,
+    resource_ids: Vec<String>,
     apply: bool,
 }
 
@@ -44,6 +46,21 @@ fn option_value(args: &[String], name: &str, fallback: String) -> Result<String,
             .ok_or_else(|| format!("{name} requiere un valor.")),
         None => Ok(fallback),
     }
+}
+
+fn option_values(args: &[String], name: &str) -> Result<Vec<String>, String> {
+    let mut values = Vec::new();
+    for (index, argument) in args.iter().enumerate() {
+        if argument == name {
+            let value = args
+                .get(index + 1)
+                .filter(|value| !value.starts_with("--"))
+                .cloned()
+                .ok_or_else(|| format!("{name} requiere un valor."))?;
+            values.push(value);
+        }
+    }
+    Ok(values)
 }
 
 fn options() -> Result<Options, String> {
@@ -68,6 +85,7 @@ fn options() -> Result<Options, String> {
         "--voice",
         env::var("LISTENING_TTS_VOICE").unwrap_or_else(|_| "Matthew".to_string()),
     )?;
+    let resource_ids = option_values(&args, "--resource-id")?;
 
     for argument in &args {
         if argument.starts_with("--")
@@ -77,6 +95,7 @@ fn options() -> Result<Options, String> {
                 "--output-dir",
                 "--endpoint",
                 "--voice",
+                "--resource-id",
                 "--dry-run",
             ]
             .contains(&argument.as_str())
@@ -90,6 +109,7 @@ fn options() -> Result<Options, String> {
         output_dir: PathBuf::from(output_dir),
         endpoint,
         voice,
+        resource_ids,
         apply,
     })
 }
@@ -116,7 +136,10 @@ fn is_mp3(bytes: &[u8]) -> bool {
         && (bytes.starts_with(b"ID3") || (bytes[0] == 0xff && (bytes[1] & 0xe0) == 0xe0))
 }
 
-fn listening_resources(catalog: &Value) -> Result<Vec<Value>, Box<dyn Error>> {
+fn listening_resources(
+    catalog: &Value,
+    requested_ids: &[String],
+) -> Result<Vec<Value>, Box<dyn Error>> {
     if catalog["format"] != "devfluency.lexical-catalog" || catalog["schema_version"] != 2 {
         return Err("Se requiere un catálogo léxico v2.".into());
     }
@@ -164,7 +187,27 @@ fn listening_resources(catalog: &Value) -> Result<Vec<Value>, Box<dyn Error>> {
         }
         safe_asset_name(id)?;
     }
-    Ok(listening)
+    if requested_ids.is_empty() {
+        return Ok(listening);
+    }
+
+    let mut selected_ids = HashSet::with_capacity(requested_ids.len());
+    let mut selected = Vec::with_capacity(requested_ids.len());
+    for requested_id in requested_ids {
+        if !selected_ids.insert(requested_id.as_str()) {
+            return Err(format!(
+                "El recurso listening se seleccionó más de una vez: {requested_id}"
+            )
+            .into());
+        }
+        let resource = listening
+            .iter()
+            .find(|resource| resource["id"].as_str() == Some(requested_id.as_str()))
+            .cloned()
+            .ok_or_else(|| format!("No existe un recurso listening con ID: {requested_id}"))?;
+        selected.push(resource);
+    }
+    Ok(selected)
 }
 
 fn dry_run_report(resources: &[Value], options: &Options) -> Value {
@@ -365,12 +408,12 @@ fn persist_assets(
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let options = options().map_err(|message| {
-        format!("{message}\nUso: generate-listening-assets [--dry-run|--apply] [--catalog PATH] [--endpoint URL] [--voice VOICE] [--output-dir DIR]")
+        format!("{message}\nUso: generate-listening-assets [--dry-run|--apply] [--catalog PATH] [--resource-id ID ...] [--endpoint URL] [--voice VOICE] [--output-dir DIR]")
     })?;
     let catalog_bytes = fs::read(&options.catalog)?;
     let catalog_sha256 = sha256(&catalog_bytes);
     let catalog: Value = serde_json::from_slice(&catalog_bytes)?;
-    let resources = listening_resources(&catalog)?;
+    let resources = listening_resources(&catalog, &options.resource_ids)?;
 
     if !options.apply {
         println!(
@@ -414,7 +457,7 @@ mod tests {
         let catalog: serde_json::Value =
             serde_json::from_slice(&bytes).expect("lexical catalog v2 must be valid JSON");
         let resources =
-            super::listening_resources(&catalog).expect("listening scripts must validate");
+            super::listening_resources(&catalog, &[]).expect("listening scripts must validate");
         assert_eq!(resources.len(), 13);
         assert!(resources.iter().all(|resource| {
             resource["transcript_available"] == false
@@ -422,6 +465,42 @@ mod tests {
                     .as_str()
                     .is_some_and(|text| text.chars().count() <= super::MAX_TEXT_CHARS)
         }));
+    }
+
+    #[test]
+    fn selects_only_the_requested_pre_a1_and_a1_listening_resources() {
+        let catalog_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../content-vocabulary-service/data/lexical_catalog.v2.json");
+        let bytes = std::fs::read(catalog_path).expect("lexical catalog v2 must exist");
+        let catalog: serde_json::Value =
+            serde_json::from_slice(&bytes).expect("lexical catalog v2 must be valid JSON");
+        let requested = vec![
+            "general-pre_a1-listening-02".to_string(),
+            "general-a1-listening-04".to_string(),
+        ];
+        let resources = super::listening_resources(&catalog, &requested)
+            .expect("requested initial listening resources must exist");
+        assert_eq!(resources.len(), 2);
+        assert_eq!(resources[0]["id"], requested[0]);
+        assert_eq!(resources[1]["id"], requested[1]);
+    }
+
+    #[test]
+    fn rejects_unknown_or_duplicate_listening_resource_selection() {
+        let catalog_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../content-vocabulary-service/data/lexical_catalog.v2.json");
+        let bytes = std::fs::read(catalog_path).expect("lexical catalog v2 must exist");
+        let catalog: serde_json::Value =
+            serde_json::from_slice(&bytes).expect("lexical catalog v2 must be valid JSON");
+        assert!(super::listening_resources(&catalog, &["missing-id".to_string()]).is_err());
+        assert!(super::listening_resources(
+            &catalog,
+            &[
+                "general-pre_a1-listening-02".to_string(),
+                "general-pre_a1-listening-02".to_string(),
+            ],
+        )
+        .is_err());
     }
 
     #[test]

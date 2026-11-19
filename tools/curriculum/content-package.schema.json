@@ -55,7 +55,11 @@
     "metadata": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["author", "authored_at", "source"],
+      "required": [
+        "author",
+        "authored_at",
+        "source"
+      ],
       "properties": {
         "author": {
           "type": "string",
@@ -69,7 +73,10 @@
         "source": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["name", "license"],
+          "required": [
+            "name",
+            "license"
+          ],
           "properties": {
             "name": {
               "type": "string",
@@ -77,7 +84,10 @@
               "maxLength": 200
             },
             "url": {
-              "type": ["string", "null"],
+              "type": [
+                "string",
+                "null"
+              ],
               "format": "uri"
             },
             "license": {
@@ -86,13 +96,19 @@
               "maxLength": 120
             }
           }
+        },
+        "reference_catalog": {
+          "const": "devfluency.lexical-catalog.v2"
         }
       }
     },
     "course": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["slug", "track_code"],
+      "required": [
+        "slug",
+        "track_code"
+      ],
       "properties": {
         "slug": {
           "type": "string",
@@ -100,7 +116,10 @@
           "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
         },
         "track_code": {
-          "enum": ["general", "technology"]
+          "enum": [
+            "general",
+            "technology"
+          ]
         }
       }
     },
@@ -120,7 +139,15 @@
           "minimum": 1
         },
         "cefr_level": {
-          "enum": ["PRE_A1", "A1", "A2", "B1", "B2", "C1", "C2"]
+          "enum": [
+            "PRE_A1",
+            "A1",
+            "A2",
+            "B1",
+            "B2",
+            "C1",
+            "C2"
+          ]
         },
         "title": {
           "type": "string",
@@ -205,7 +232,13 @@
           "minimum": 1
         },
         "pattern": {
-          "enum": ["discover", "understand", "practice", "integrate", "custom"]
+          "enum": [
+            "discover",
+            "understand",
+            "practice",
+            "integrate",
+            "custom"
+          ]
         },
         "title": {
           "type": "string",
@@ -248,7 +281,10 @@
           "$ref": "#/$defs/code"
         },
         "required_state": {
-          "enum": ["completed", "mastered"]
+          "enum": [
+            "completed",
+            "mastered"
+          ]
         },
         "minimum_mastery_score": {
           "type": "number",
@@ -309,7 +345,10 @@
     "skill": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["code", "is_primary"],
+      "required": [
+        "code",
+        "is_primary"
+      ],
       "properties": {
         "code": {
           "enum": [
@@ -332,7 +371,12 @@
     "vocabularyReference": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["word", "category", "usage_mode", "position"],
+      "required": [
+        "word",
+        "category",
+        "usage_mode",
+        "position"
+      ],
       "properties": {
         "word": {
           "type": "string",
@@ -346,7 +390,11 @@
           "pattern": "^[a-z][a-z0-9_]*$"
         },
         "usage_mode": {
-          "enum": ["receptive", "productive", "both"]
+          "enum": [
+            "receptive",
+            "productive",
+            "both"
+          ]
         },
         "position": {
           "type": "integer",
@@ -357,7 +405,12 @@
     "sentenceReference": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["word", "english_text", "usage_mode", "position"],
+      "required": [
+        "word",
+        "english_text",
+        "usage_mode",
+        "position"
+      ],
       "properties": {
         "word": {
           "type": "string",
@@ -370,7 +423,13 @@
           "maxLength": 500
         },
         "usage_mode": {
-          "enum": ["listening", "reading", "speaking", "writing", "example"]
+          "enum": [
+            "listening",
+            "reading",
+            "speaking",
+            "writing",
+            "example"
+          ]
         },
         "position": {
           "type": "integer",

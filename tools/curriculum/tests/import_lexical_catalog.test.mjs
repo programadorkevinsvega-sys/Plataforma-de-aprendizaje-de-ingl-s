@@ -16,6 +16,11 @@ const catalog = JSON.parse(bytes.toString('utf8'));
 const sha256 = createHash('sha256').update(bytes).digest('hex');
 const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, max: 4 }) : null;
 const SOURCE_CATALOG = 'devfluency.lexical-catalog.v2';
+const ITEM_SOURCE_KEYS = catalog.lexical_items.map((item) => `v2:item:${item.id}`);
+const EXAMPLE_SOURCE_KEYS = catalog.lexical_items.flatMap((item) =>
+  (item.examples ?? []).map((example) => `v2:example:${item.id}:${example.position}`),
+);
+const RESOURCE_SOURCE_KEYS = catalog.comprehension_resources.map((resource) => `v2:resource:${resource.id}`);
 const editorId = randomUUID();
 
 before(async () => {
@@ -29,10 +34,13 @@ before(async () => {
 
 after(async () => {
   if (!pool) return;
-  await pool.query('DELETE FROM context_sentences WHERE source_catalog = $1', [SOURCE_CATALOG]);
-  await pool.query('DELETE FROM vocabulary_words WHERE source_catalog = $1', [SOURCE_CATALOG]);
-  await pool.query('DELETE FROM curriculum_comprehension_resources WHERE source_catalog = $1', [SOURCE_CATALOG]);
-  await pool.query('DELETE FROM lexical_catalog_imports WHERE catalog_key = $1', ['devfluency-lexical-catalog-v2']);
+  await pool.query('DELETE FROM context_sentences WHERE source_key = ANY($1::text[])', [EXAMPLE_SOURCE_KEYS]);
+  await pool.query('DELETE FROM vocabulary_words WHERE source_key = ANY($1::text[])', [ITEM_SOURCE_KEYS]);
+  await pool.query('DELETE FROM curriculum_comprehension_resources WHERE source_key = ANY($1::text[])', [RESOURCE_SOURCE_KEYS]);
+  await pool.query(
+    'DELETE FROM lexical_catalog_imports WHERE catalog_key = $1 AND content_sha256 = $2',
+    ['devfluency-lexical-catalog-v2', sha256],
+  );
   await pool.query('DELETE FROM content_editors WHERE user_id = $1', [editorId]);
   await pool.query('DELETE FROM users WHERE id = $1', [editorId]);
   await pool.end();
@@ -48,8 +56,8 @@ if (!pool) {
     assert.equal(dryRun.dryRun, true);
 
     const absentAfterDryRun = await pool.query(
-      'SELECT count(*)::int AS count FROM vocabulary_words WHERE source_catalog = $1',
-      [SOURCE_CATALOG],
+      'SELECT count(*)::int AS count FROM vocabulary_words WHERE source_key = ANY($1::text[])',
+      [ITEM_SOURCE_KEYS],
     );
     assert.equal(absentAfterDryRun.rows[0].count, 0);
 
@@ -71,17 +79,17 @@ if (!pool) {
 
     const counts = await pool.query(
       `SELECT
-          (SELECT count(*)::int FROM vocabulary_words WHERE source_catalog = $1) AS items,
-          (SELECT count(*)::int FROM context_sentences WHERE source_catalog = $1) AS examples,
-          (SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1) AS resources,
-          (SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1 AND skill = 'listening' AND transcript_available = TRUE) AS exposed_listening_transcripts,
-          (SELECT COALESCE(sum(jsonb_array_length(questions)), 0)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1) AS questions,
-          (SELECT count(*)::int FROM curriculum_comprehension_resources resource CROSS JOIN LATERAL jsonb_array_elements(resource.questions) AS question(value) WHERE resource.source_catalog = $1 AND question.value ->> 'editorial_status' = 'pending_human_review') AS pending_questions,
-          (SELECT count(*)::int FROM vocabulary_words WHERE source_catalog = $1 AND publication_status = 'draft') AS draft_items,
-          (SELECT count(*)::int FROM vocabulary_words WHERE source_catalog = $1 AND publication_status = 'published') AS published_items,
-          (SELECT count(*)::int FROM context_sentences WHERE source_catalog = $1 AND publication_status = 'published') AS published_examples,
-          (SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1 AND publication_status = 'published') AS published_resources`,
-      [SOURCE_CATALOG],
+          (SELECT count(*)::int FROM vocabulary_words WHERE source_key = ANY($1::text[])) AS items,
+          (SELECT count(*)::int FROM context_sentences WHERE source_key = ANY($2::text[])) AS examples,
+          (SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_key = ANY($3::text[])) AS resources,
+          (SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_key = ANY($3::text[]) AND skill = 'listening' AND transcript_available = TRUE) AS exposed_listening_transcripts,
+          (SELECT COALESCE(sum(jsonb_array_length(questions)), 0)::int FROM curriculum_comprehension_resources WHERE source_key = ANY($3::text[])) AS questions,
+          (SELECT count(*)::int FROM curriculum_comprehension_resources resource CROSS JOIN LATERAL jsonb_array_elements(resource.questions) AS question(value) WHERE resource.source_key = ANY($3::text[]) AND question.value ->> 'editorial_status' = 'pending_human_review') AS pending_questions,
+          (SELECT count(*)::int FROM vocabulary_words WHERE source_key = ANY($1::text[]) AND publication_status = 'draft') AS draft_items,
+          (SELECT count(*)::int FROM vocabulary_words WHERE source_key = ANY($1::text[]) AND publication_status = 'published') AS published_items,
+          (SELECT count(*)::int FROM context_sentences WHERE source_key = ANY($2::text[]) AND publication_status = 'published') AS published_examples,
+          (SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_key = ANY($3::text[]) AND publication_status = 'published') AS published_resources`,
+      [ITEM_SOURCE_KEYS, EXAMPLE_SOURCE_KEYS, RESOURCE_SOURCE_KEYS],
     );
     assert.equal(counts.rows[0].items, catalog.lexical_items.length);
     assert.equal(counts.rows[0].examples, expectedExamples);
