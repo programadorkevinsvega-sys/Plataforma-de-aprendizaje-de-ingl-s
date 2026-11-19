@@ -187,7 +187,14 @@ export function auditRows(rows, { file = "unknown", expectedLevel = null } = {})
         { category: item.category, translation: item.spanish_translation },
       ])).values()],
       distinct_pronunciation_variants: new Set(items.map((item) =>
-        item.spanish_phonetic + "\u0000" + item.spanish_phonetic_natural)).size,
+        JSON.stringify([
+          item.spanish_phonetic,
+          item.spanish_phonetic_natural,
+          ...(item.context_sentences ?? []).map((sentence) => [
+            sentence.spanish_phonetic,
+            sentence.spanish_phonetic_natural,
+          ]),
+        ]) )).size,
     }));
 
   const duplicateSentenceGroups = groupBy(
