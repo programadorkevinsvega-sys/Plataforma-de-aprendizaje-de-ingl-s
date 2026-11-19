@@ -1,0 +1,88 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import test, { after } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import pg from 'pg';
+import { importLexicalCatalog } from '../import_lexical_catalog.mjs';
+
+const { Pool } = pg;
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const CATALOG_PATH = path.join(ROOT, 'crates/content-vocabulary-service/data/lexical_catalog.v2.json');
+const DATABASE_URL = process.env.DATABASE_URL;
+const bytes = readFileSync(CATALOG_PATH);
+const catalog = JSON.parse(bytes.toString('utf8'));
+const sha256 = createHash('sha256').update(bytes).digest('hex');
+const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, max: 4 }) : null;
+const SOURCE_CATALOG = 'devfluency.lexical-catalog.v2';
+
+after(async () => {
+  if (!pool) return;
+  await pool.query('DELETE FROM context_sentences WHERE source_catalog = $1', [SOURCE_CATALOG]);
+  await pool.query('DELETE FROM vocabulary_words WHERE source_catalog = $1', [SOURCE_CATALOG]);
+  await pool.query('DELETE FROM curriculum_comprehension_resources WHERE source_catalog = $1', [SOURCE_CATALOG]);
+  await pool.query('DELETE FROM lexical_catalog_imports WHERE catalog_key = $1', ['devfluency-lexical-catalog-v2']);
+  await pool.end();
+});
+
+if (!pool) {
+  test('lexical catalog importer integration requires DATABASE_URL', { skip: true }, () => {});
+} else {
+  test('imports lexical catalog v2 atomically, keeps it hidden, and is idempotent', async () => {
+    const dryRun = await importLexicalCatalog(pool, catalog, sha256, { apply: false });
+    assert.equal(dryRun.state, 'imported');
+    assert.equal(dryRun.applied, false);
+    assert.equal(dryRun.dryRun, true);
+
+    const absentAfterDryRun = await pool.query(
+      'SELECT count(*)::int AS count FROM vocabulary_words WHERE source_catalog = $1',
+      [SOURCE_CATALOG],
+    );
+    assert.equal(absentAfterDryRun.rows[0].count, 0);
+
+    const applied = await importLexicalCatalog(pool, catalog, sha256, { apply: true });
+    assert.equal(applied.state, 'imported');
+    assert.equal(applied.applied, true);
+    assert.equal(applied.lexicalItems, catalog.lexical_items.length);
+    assert.equal(applied.resources, catalog.comprehension_resources.length);
+
+    const expectedExamples = catalog.lexical_items.reduce(
+      (total, item) => total + (item.examples?.length ?? 0),
+      0,
+    );
+    assert.equal(applied.examples, expectedExamples);
+
+    const counts = await pool.query(
+      `SELECT
+          (SELECT count(*)::int FROM vocabulary_words WHERE source_catalog = $1) AS items,
+          (SELECT count(*)::int FROM context_sentences WHERE source_catalog = $1) AS examples,
+          (SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1) AS resources,
+          (SELECT count(*)::int FROM vocabulary_words WHERE source_catalog = $1 AND publication_status = 'draft') AS draft_items,
+          (SELECT count(*)::int FROM vocabulary_words WHERE source_catalog = $1 AND publication_status = 'published') AS published_items,
+          (SELECT count(*)::int FROM context_sentences WHERE source_catalog = $1 AND publication_status = 'published') AS published_examples,
+          (SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1 AND publication_status = 'published') AS published_resources`,
+      [SOURCE_CATALOG],
+    );
+    assert.equal(counts.rows[0].items, catalog.lexical_items.length);
+    assert.equal(counts.rows[0].examples, expectedExamples);
+    assert.equal(counts.rows[0].resources, catalog.comprehension_resources.length);
+    assert.equal(counts.rows[0].draft_items, catalog.lexical_items.length);
+    assert.equal(counts.rows[0].published_items, 0);
+    assert.equal(counts.rows[0].published_examples, 0);
+    assert.equal(counts.rows[0].published_resources, 0);
+
+    const ledger = await pool.query(
+      'SELECT lexical_items, examples, comprehension_resources FROM lexical_catalog_imports WHERE catalog_key = $1 AND content_sha256 = $2',
+      ['devfluency-lexical-catalog-v2', sha256],
+    );
+    assert.equal(ledger.rowCount, 1);
+    assert.equal(ledger.rows[0].lexical_items, catalog.lexical_items.length);
+    assert.equal(ledger.rows[0].examples, expectedExamples);
+    assert.equal(ledger.rows[0].comprehension_resources, catalog.comprehension_resources.length);
+
+    const duplicate = await importLexicalCatalog(pool, catalog, sha256, { apply: true });
+    assert.equal(duplicate.state, 'already_imported');
+    assert.equal(duplicate.applied, false);
+  });
+}
