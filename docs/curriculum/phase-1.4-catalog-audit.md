@@ -14,7 +14,7 @@ No se considera completada la subfase 1.4. No se crea ni se publica un paquete c
 
 ## Resultado de la auditoría
 
-| Catálogo | Registros actuales | Lemas únicos | Categorías | Campos fonéticos | Diferencias lenta/natural |
+| Catálogo | Registros actuales | Lemas únicos | Categorías | Pares lenta/natural | Diferencias lenta/natural |
 |---|---:|---:|---:|---:|---:|
 | A0 | 237 | 227 | 39 | 948 | 104 |
 | A1 | 469 | 469 | 53 | 1.876 | 83 |
@@ -27,7 +27,7 @@ A0 tenía 322 filas antes de la limpieza. Se retiraron **85 filas completamente 
 - A0 mantiene 10 grupos de lemas repetidos. Nueve pares (por ejemplo, **walk**, **run**, **sleep**, **call**, **cook**, **wash**, **buy**, **pay** y **give**) contienen la misma palabra, categoría, traducción y frases, pero difieren en la anotación de pronunciación natural. Se conservaron para revisión; no se eligió una variante arbitrariamente.
 - **clean** conserva dos sentidos: verbo (**limpiar**, categoría **actions_basic**) y adjetivo (**limpio**, categoría **descriptors_basic**). No son duplicados semánticos.
 - A0 contiene 59 grupos de frases inglesas repetidas (62 ocurrencias adicionales); A1 contiene 5 grupos (5 ocurrencias adicionales). La misma frase puede servir para practicar varios lemas, así que no se borró automáticamente.
-- Se identificaron 96 grupos de traducciones españolas repetidas en A0 y 2 en A1. Casos como **hi/hello → hola**, **bye/goodbye → adiós**, **sofa/couch → sofá** y **talk/speak → hablar** pueden ser sinónimos o equivalencias válidas, no errores por sí mismos.
+- Se identificaron 12 grupos de traducciones españolas repetidas en A0 y 2 en A1. Casos como **hi/hello → hola**, **bye/goodbye → adiós**, **sofa/couch → sofá** y **talk/speak → hablar** pueden ser sinónimos o equivalencias válidas, no errores por sí mismos.
 
 ### Categorías
 
@@ -35,7 +35,7 @@ A0 tiene 39 nombres de categoría y A1 tiene 53. Hay nomenclaturas que parecen r
 
 ### Pronunciación
 
-Todos los campos **spanish_phonetic** y **spanish_phonetic_natural** existentes se conservaron y se normalizaron a minúsculas, como exige la guía editorial. Tras esa normalización no quedan campos fonéticos con mayúsculas.
+Todos los valores de los campos **spanish_phonetic** y **spanish_phonetic_natural** existentes se conservaron y se normalizaron a minúsculas, como exige la guía editorial. Tras esa normalización no quedan campos fonéticos con mayúsculas.
 
 La diferencia entre lenta y natural es intencional en algunos elementos y puede ser legítima en otros. La auditoría cuenta las diferencias, pero **no certifica** que cada enlace, reducción o guía aproximada sea correcta. Deben revisarse especialmente las nueve variantes A0 conservadas y los casos donde la guía introduce un enlace o una reducción no respaldada por el texto inglés.
 
