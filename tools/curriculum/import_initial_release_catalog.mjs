@@ -112,8 +112,8 @@ export function composeInitialReleaseCatalog(catalog, release) {
 
   const report = auditCatalog(merged);
   if (!report.valid) {
-    const details = report.errors.map((error) => `${error.code} ${error.path}: ${error.message}`).join("\\n");
-    throw new Error(`Merged catalog failed strict audit:\\n${details}`);
+    const details = report.errors.map((error) => `${error.code} ${error.path}: ${error.message}`).join("\n");
+    throw new Error(`Merged catalog failed strict audit:\n${details}`);
   }
   return merged;
 }
@@ -129,13 +129,13 @@ function usage() {
     "No content is published by this command. Editorial approval and publication remain separate steps.",
     "Use --export-merged-catalog to prepare the exact catalog file consumed by the Listening TTS generator (no database connection).",
     "For database import, the actor must be provisioned in public.content_editors and DATABASE_URL must be configured.",
-  ].join("\\n");
+  ].join("\n");
 }
 
 async function main(argv) {
   const args = parseArgs(argv);
   if (args.help) {
-    process.stdout.write(usage() + "\\n");
+    process.stdout.write(usage() + "\n");
     return 0;
   }
   if (args.apply && args.exportCatalogPath) throw new Error("--export-merged-catalog cannot be combined with --apply.");
@@ -145,7 +145,7 @@ async function main(argv) {
   const catalog = JSON.parse(readFileSync(args.catalogPath, "utf8"));
   const release = JSON.parse(readFileSync(args.releasePath, "utf8"));
   const merged = composeInitialReleaseCatalog(catalog, release);
-  const mergedBytes = Buffer.from(JSON.stringify(merged, null, 2) + "\\n", "utf8");
+  const mergedBytes = Buffer.from(JSON.stringify(merged, null, 2) + "\n", "utf8");
   const contentSha256 = createHash("sha256").update(mergedBytes).digest("hex");
   if (args.exportCatalogPath) {
     mkdirSync(path.dirname(args.exportCatalogPath), { recursive: true });
@@ -157,7 +157,7 @@ async function main(argv) {
       examples: merged.lexical_items.reduce((total, item) => total + (item.examples?.length ?? 0), 0),
       comprehension_resources: merged.comprehension_resources.length,
       initial_release_resources: release.resources.map((resource) => resource.id),
-    }, null, 2) + "\\n");
+    }, null, 2) + "\n");
     return 0;
   }
   const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1, connectionTimeoutMillis: 5000 });
@@ -176,7 +176,7 @@ async function main(argv) {
         editorial_status: resource.editorial_status,
         audio_status: resource.audio?.status ?? "not_applicable",
       })),
-    }, null, 2) + "\\n");
+    }, null, 2) + "\n");
     return 0;
   } finally {
     await pool.end();
@@ -187,7 +187,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   main(process.argv.slice(2)).then(
     (code) => { process.exitCode = code; },
     (error) => {
-      process.stderr.write(`Initial curriculum import failed: ${error.stack ?? error.message}\\n`);
+      process.stderr.write(`Initial curriculum import failed: ${error.stack ?? error.message}\n`);
       process.exitCode = 1;
     },
   );
