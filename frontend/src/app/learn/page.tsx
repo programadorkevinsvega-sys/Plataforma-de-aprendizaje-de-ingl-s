@@ -210,7 +210,7 @@ export default function LearnPage() {
             </div>
 
             <div className="mt-5 rounded-xl bg-[#f4f1e7] p-6 text-center">
-              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">{LEXICAL_CATEGORIES.find((item) => item.id === currentWord.category)?.labelEs ?? currentWord.category}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">{LEXICAL_CATEGORIES.find((item) => item.id === currentWord.topic)?.labelEs ?? currentWord.topic}</p>
               <h3 className="mt-2 text-3xl font-extrabold">{currentWord.term}</h3>
               <p className="mt-2 text-sm font-semibold text-emerald-800">{currentWord.spanishTranslation}</p>
               {currentWord.definitionEnglish && <p className="mt-3 text-sm leading-6 text-slate-600">{currentWord.definitionEnglish}</p>}
