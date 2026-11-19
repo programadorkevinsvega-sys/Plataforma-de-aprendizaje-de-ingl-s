@@ -18,7 +18,7 @@ import { DashboardSummary, type MetricPoint } from '@/domain/entities/Progress'
 import { SrsCard, type SrsGrade, type SrsReviewOutcome } from '@/domain/entities/SrsCard'
 import { User, type AuthSession, type CefrLevel, type TargetRole } from '@/domain/entities/User'
 import { VocabularyWord, type ContextSentenceProps } from '@/domain/entities/VocabularyWord'
-import type { Lesson } from '@/domain/repositories/IContentRepository'
+import type { ComprehensionResource, ComprehensionQuestion } from '@/domain/repositories/IContentRepository'
 
 type Dto = Record<string, unknown>
 
@@ -126,6 +126,7 @@ function toSentences(dto: Dto, wordId: string): ContextSentenceProps[] {
         'es',
       ]),
       audioUrl: optStr(sentence, ['audio_url', 'audioUrl']),
+      pronunciationStatus: optStr(sentence, ['pronunciation_status', 'pronunciationStatus']),
     }),
   )
 }
@@ -151,16 +152,76 @@ export function toVocabularyWord(dto: Dto, index = 0): VocabularyWord {
     topic: optStr(dto, ['topic', 'category']),
     audioUrl: optStr(dto, ['audio_url', 'audioUrl']),
     sentences: toSentences(dto, id),
+    definitionEnglish: optStr(dto, ['definition_en', 'definitionEnglish']),
+    lexicalType: optStr(dto, ['lexical_type', 'lexicalType']),
+    tracks: list(dto, ['tracks']).map((track) => String(track)),
+    lexicalRegister: optStr(dto, ['lexical_register', 'lexicalRegister']),
+    editorialPriority: optStr(dto, ['editorial_priority', 'editorialPriority']),
+    usefulness: optStr(dto, ['usefulness']),
+    contextTags: list(dto, ['context_tags', 'contextTags']).map((tag) => String(tag)),
+    usageMode: optStr(dto, ['usage_mode', 'usageMode']),
+    pronunciationStatus: optStr(dto, ['pronunciation_status', 'pronunciationStatus']),
   })
 }
 
-export function toLesson(dto: Dto): Lesson {
+export function toComprehensionResource(dto: Dto): ComprehensionResource {
+  const rawQuestions = pick(dto, 'questions', 'questions_json')
+  let questionItems: unknown[] = Array.isArray(rawQuestions) ? rawQuestions : []
+  if (typeof rawQuestions === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(rawQuestions)
+      questionItems = Array.isArray(parsed) ? parsed : []
+    } catch {
+      questionItems = []
+    }
+  }
+
+  const questions: ComprehensionQuestion[] = questionItems.flatMap((item, index) => {
+    if (typeof item === 'string' && item.trim()) {
+      return [{ id: `question-${index + 1}`, prompt: item, options: [] }]
+    }
+    if (typeof item !== 'object' || item === null || Array.isArray(item)) return []
+    const question = item as Dto
+    const id = str(question, ['id', 'question_id'], fallbackId('question', index))
+    const prompt = str(question, ['prompt', 'question', 'question_text', 'stem', 'text'])
+    if (!prompt.trim()) return []
+    const optionValue = pick<unknown>(question, 'options', 'choices', 'answers')
+    const rawOptions = Array.isArray(optionValue) ? optionValue : []
+    const options = rawOptions.flatMap((option, optionIndex) => {
+      if (typeof option === 'string' && option.trim()) {
+        return [{ id: fallbackId(`${id}-option`, optionIndex), text: option }]
+      }
+      if (typeof option !== 'object' || option === null || Array.isArray(option)) return []
+      const optionDto = option as Dto
+      const text = str(optionDto, ['text', 'label', 'value', 'option_text'])
+      if (!text.trim()) return []
+      return [{
+        id: str(optionDto, ['id', 'option_id'], fallbackId(`${id}-option`, optionIndex)),
+        text,
+      }]
+    })
+    return [{ id, prompt, options }]
+  })
+
+  const skill = str(dto, ['skill']).toLowerCase() === 'listening' ? 'listening' : 'reading'
+  const track = str(dto, ['track']).toLowerCase() === 'technology' ? 'technology' : 'general'
   return {
-    id: str(dto, ['id', 'lesson_id', 'lessonId'], 'today'),
-    title: str(dto, ['title', 'name'], 'Lección de hoy'),
-    topic: str(dto, ['topic', 'category'], 'General'),
-    level: (str(dto, ['level', 'cefr_level'], 'A1').toUpperCase() || 'A1') as CefrLevel,
-    words: list(dto, ['words', 'vocabulary', 'items']).map(toVocabularyWord),
+    id: str(dto, ['id', 'resource_id']),
+    track,
+    cefrLevel: (str(dto, ['cefr_level', 'cefrLevel'], 'PRE_A1').toUpperCase() || 'PRE_A1') as CefrLevel,
+    skill,
+    title: str(dto, ['title']),
+    topic: str(dto, ['topic']),
+    content: skill === 'listening' ? '' : str(dto, ['content']),
+    wordCount: num(dto, ['word_count', 'wordCount']),
+    sentenceCount: num(dto, ['sentence_count', 'sentenceCount']),
+    estimatedMinutes: num(dto, ['estimated_minutes', 'estimatedMinutes']),
+    comprehensionFocus: str(dto, ['comprehension_focus', 'comprehensionFocus']),
+    lexicalTags: list(dto, ['lexical_tags', 'lexicalTags']).map((tag) => String(tag)),
+    transcriptAvailable: false,
+    audioUrl: optStr(dto, ['audio_url', 'audioUrl']),
+    audioStatus: str(dto, ['audio_status', 'audioStatus'], 'not_available'),
+    questions,
   }
 }
 

@@ -99,6 +99,34 @@ export default function DashboardPage() {
           ))}
         </section>
 
+        <section className="space-y-3" aria-labelledby="learning-areas-title">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">Tu espacio de aprendizaje</p>
+            <h2 id="learning-areas-title" className="text-xl font-extrabold">Continúa por área</h2>
+            <p className="mt-1 text-sm text-stone-600">Entra directamente al contenido curricular disponible y practica desde tu nivel.</p>
+          </div>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <Link href="/courses" className="glass-panel rounded-2xl border border-stone-200 p-5 transition-colors hover:border-emerald-700/40 hover:bg-emerald-50/30">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">01 · Currículo</span>
+              <strong className="mt-2 block text-base">Cursos y lecciones</strong>
+              <span className="mt-1 block text-xs leading-5 text-stone-600">Explora Inglés General y Tecnología, revisa objetivos y matrícula de cada versión.</span>
+              <span className="mt-4 block text-xs font-bold text-emerald-800">Abrir catálogo →</span>
+            </Link>
+            <Link href="/learn" className="glass-panel rounded-2xl border border-stone-200 p-5 transition-colors hover:border-emerald-700/40 hover:bg-emerald-50/30">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">02 · Práctica</span>
+              <strong className="mt-2 block text-base">Vocabulario y pronunciación</strong>
+              <span className="mt-1 block text-xs leading-5 text-stone-600">Filtra palabras publicadas por ruta, nivel y categoría; practica con ejemplos y audio inglés.</span>
+              <span className="mt-4 block text-xs font-bold text-emerald-800">Practicar ahora →</span>
+            </Link>
+            <Link href="/comprehension" className="glass-panel rounded-2xl border border-stone-200 p-5 transition-colors hover:border-emerald-700/40 hover:bg-emerald-50/30">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">03 · Comprensión</span>
+              <strong className="mt-2 block text-base">Reading y Listening</strong>
+              <span className="mt-1 block text-xs leading-5 text-stone-600">Abre lecturas y recursos de escucha aprobados, con preguntas y opciones sin revelar claves.</span>
+              <span className="mt-4 block text-xs font-bold text-emerald-800">Abrir biblioteca →</span>
+            </Link>
+          </div>
+        </section>
+
         <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
           <article className="glass-panel rounded-2xl p-5">
             <div className="flex items-center justify-between gap-3">

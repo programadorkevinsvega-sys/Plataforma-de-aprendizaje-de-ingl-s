@@ -4,7 +4,6 @@ import type {
   EditorialActionResult,
   EditorialVersionsFilter,
   EditorialVersionsPage,
-  EditorialVersionSummary,
   ImportCurriculumPackageInput,
   ImportCurriculumPackageResult,
   CurriculumCourseDetail,

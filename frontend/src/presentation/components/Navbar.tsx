@@ -12,6 +12,7 @@ const navItems = [
   { label: 'Inicio', href: '/dashboard' },
   { label: 'Cursos', href: '/courses' },
   { label: 'Práctica', href: '/learn' },
+  { label: 'Reading / Listening', href: '/comprehension' },
   { label: 'Repaso', href: '/srs' },
   { label: 'Evaluaciones', href: '/evaluations' },
   { label: 'Tutor IA', href: '/tutor' },

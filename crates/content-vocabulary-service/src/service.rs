@@ -181,19 +181,46 @@ impl ContentService for MyContentService {
             String,
             String,
             Option<String>,
+            Option<String>,
+            Option<String>,
+            Vec<String>,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Vec<String>,
+            Option<String>,
+            String,
         )> = sqlx::query_as(
             r#"SELECT id, word, spanish_phonetic, spanish_translation, category, level,
-                          spanish_phonetic_natural
-                     FROM vocabulary_words
-                    WHERE id = $1 AND publication_status = 'published'"#,
+                      spanish_phonetic_natural, definition_en, lexical_type, tracks,
+                      lexical_register, editorial_priority, usefulness, context_tags,
+                      usage_mode, pronunciation_status
+                 FROM vocabulary_words
+                WHERE id = $1 AND publication_status = 'published'"#,
         )
         .bind(word_id)
         .fetch_optional(self.pool.as_ref())
         .await
         .map_err(|_| Status::internal("No se pudo consultar el vocabulario publicado"))?;
 
-        let (id, word, phonetic, translation, category, level, phonetic_nat) =
-            word.ok_or_else(|| Status::not_found("Palabra publicada no encontrada"))?;
+        let (
+            id,
+            word,
+            phonetic,
+            translation,
+            category,
+            level,
+            phonetic_nat,
+            definition_en,
+            lexical_type,
+            tracks,
+            lexical_register,
+            editorial_priority,
+            usefulness,
+            context_tags,
+            usage_mode,
+            pronunciation_status,
+        ) = word.ok_or_else(|| Status::not_found("Palabra publicada no encontrada"))?;
 
         let sentences: Vec<(
             Uuid,
@@ -202,9 +229,10 @@ impl ContentService for MyContentService {
             String,
             Option<String>,
             Option<String>,
+            String,
         )> = sqlx::query_as(
             r#"SELECT id, english_text, spanish_phonetic, spanish_translation,
-                          audio_url, spanish_phonetic_natural
+                          audio_url, spanish_phonetic_natural, pronunciation_status
                      FROM context_sentences
                     WHERE word_id = $1 AND publication_status = 'published'
                     ORDER BY position NULLS LAST, created_at, id"#,
@@ -217,13 +245,16 @@ impl ContentService for MyContentService {
         let context_sentences = sentences
             .into_iter()
             .map(
-                |(sentence_id, english, slow, spanish, audio, natural)| ContextSentence {
-                    id: sentence_id.to_string(),
-                    english_text: english,
-                    spanish_phonetic: slow.unwrap_or_default(),
-                    spanish_translation: spanish,
-                    audio_url: audio.unwrap_or_default(),
-                    spanish_phonetic_natural: natural.unwrap_or_default(),
+                |(sentence_id, english, slow, spanish, audio, natural, pronunciation_status)| {
+                    ContextSentence {
+                        id: sentence_id.to_string(),
+                        english_text: english,
+                        spanish_phonetic: slow.unwrap_or_default(),
+                        spanish_translation: spanish,
+                        audio_url: audio.unwrap_or_default(),
+                        spanish_phonetic_natural: natural.unwrap_or_default(),
+                        pronunciation_status,
+                    }
                 },
             )
             .collect();
@@ -237,6 +268,15 @@ impl ContentService for MyContentService {
             level,
             context_sentences,
             spanish_phonetic_natural: phonetic_nat.unwrap_or_default(),
+            definition_en: definition_en.unwrap_or_default(),
+            lexical_type: lexical_type.unwrap_or_default(),
+            tracks,
+            lexical_register: lexical_register.unwrap_or_default(),
+            editorial_priority: editorial_priority.unwrap_or_default(),
+            usefulness: usefulness.unwrap_or_default(),
+            context_tags,
+            usage_mode: usage_mode.unwrap_or_default(),
+            pronunciation_status,
         }))
     }
 
@@ -272,6 +312,11 @@ impl ContentService for MyContentService {
             ));
         }
         let category = (!category.is_empty()).then_some(category);
+        let track = req.track.trim().to_ascii_lowercase();
+        if !track.is_empty() && !matches!(track.as_str(), "general" | "technology") {
+            return Err(Status::invalid_argument("track no es válido"));
+        }
+        let track = (!track.is_empty()).then_some(track);
         let user_uuid = if req.user_id.is_empty() {
             None
         } else {
@@ -298,8 +343,9 @@ impl ContentService for MyContentService {
                 WHERE word.publication_status = 'published'
                   AND ($1::TEXT IS NULL OR word.level = $1)
                   AND ($2::TEXT IS NULL OR word.category = $2)
+                  AND ($3::TEXT IS NULL OR $3 = ANY(word.tracks))
                   AND (
-                    $3::UUID IS NULL
+                    $4::UUID IS NULL
                     OR NOT EXISTS (
                         SELECT 1
                           FROM context_sentences AS sentence
@@ -307,12 +353,13 @@ impl ContentService for MyContentService {
                             ON progress.sentence_id = sentence.id
                          WHERE sentence.word_id = word.id
                            AND sentence.publication_status = 'published'
-                           AND progress.user_id = $3
+                           AND progress.user_id = $4
                     )
                   )"#,
         )
         .bind(level.as_deref())
         .bind(category.as_deref())
+        .bind(track.as_deref())
         .bind(user_uuid)
         .fetch_one(&mut *tx)
         .await
@@ -326,16 +373,28 @@ impl ContentService for MyContentService {
             String,
             String,
             Option<String>,
+            Option<String>,
+            Option<String>,
+            Vec<String>,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Vec<String>,
+            Option<String>,
+            String,
         )> = sqlx::query_as(
             r#"SELECT word.id, word.word, word.spanish_phonetic,
                       word.spanish_translation, word.category, word.level,
-                      word.spanish_phonetic_natural
+                      word.spanish_phonetic_natural, word.definition_en, word.lexical_type,
+                      word.tracks, word.lexical_register, word.editorial_priority,
+                      word.usefulness, word.context_tags, word.usage_mode, word.pronunciation_status
                  FROM vocabulary_words AS word
                 WHERE word.publication_status = 'published'
                   AND ($1::TEXT IS NULL OR word.level = $1)
                   AND ($2::TEXT IS NULL OR word.category = $2)
+                  AND ($3::TEXT IS NULL OR $3 = ANY(word.tracks))
                   AND (
-                    $3::UUID IS NULL
+                    $4::UUID IS NULL
                     OR NOT EXISTS (
                         SELECT 1
                           FROM context_sentences AS sentence
@@ -343,7 +402,7 @@ impl ContentService for MyContentService {
                             ON progress.sentence_id = sentence.id
                          WHERE sentence.word_id = word.id
                            AND sentence.publication_status = 'published'
-                           AND progress.user_id = $3
+                           AND progress.user_id = $4
                     )
                   )
                 ORDER BY
@@ -354,10 +413,11 @@ impl ContentService for MyContentService {
                   word.category,
                   word.word,
                   word.id
-                LIMIT $4 OFFSET $5"#,
+                LIMIT $5 OFFSET $6"#,
         )
         .bind(level.as_deref())
         .bind(category.as_deref())
+        .bind(track.as_deref())
         .bind(user_uuid)
         .bind(i64::from(limit))
         .bind(offset)
@@ -366,7 +426,25 @@ impl ContentService for MyContentService {
         .map_err(|_| Status::internal("No se pudo consultar el vocabulario publicado"))?;
 
         let mut result_words = Vec::with_capacity(words.len());
-        for (id, word, phonetic, translation, category, level, phonetic_nat) in words {
+        for (
+            id,
+            word,
+            phonetic,
+            translation,
+            category,
+            level,
+            phonetic_nat,
+            definition_en,
+            lexical_type,
+            tracks,
+            lexical_register,
+            editorial_priority,
+            usefulness,
+            context_tags,
+            usage_mode,
+            pronunciation_status,
+        ) in words
+        {
             let sentences: Vec<(
                 Uuid,
                 String,
@@ -374,9 +452,10 @@ impl ContentService for MyContentService {
                 String,
                 Option<String>,
                 Option<String>,
+                String,
             )> = sqlx::query_as(
                 r#"SELECT id, english_text, spanish_phonetic, spanish_translation,
-                          audio_url, spanish_phonetic_natural
+                          audio_url, spanish_phonetic_natural, pronunciation_status
                      FROM context_sentences
                     WHERE word_id = $1 AND publication_status = 'published'
                     ORDER BY position NULLS LAST, created_at, id"#,
@@ -389,13 +468,22 @@ impl ContentService for MyContentService {
             let context_sentences = sentences
                 .into_iter()
                 .map(
-                    |(sentence_id, english, slow, spanish, audio, natural)| ContextSentence {
+                    |(
+                        sentence_id,
+                        english,
+                        slow,
+                        spanish,
+                        audio,
+                        natural,
+                        pronunciation_status,
+                    )| ContextSentence {
                         id: sentence_id.to_string(),
                         english_text: english,
                         spanish_phonetic: slow.unwrap_or_default(),
                         spanish_translation: spanish,
                         audio_url: audio.unwrap_or_default(),
                         spanish_phonetic_natural: natural.unwrap_or_default(),
+                        pronunciation_status,
                     },
                 )
                 .collect();
@@ -409,6 +497,15 @@ impl ContentService for MyContentService {
                 level,
                 context_sentences,
                 spanish_phonetic_natural: phonetic_nat.unwrap_or_default(),
+                definition_en: definition_en.unwrap_or_default(),
+                lexical_type: lexical_type.unwrap_or_default(),
+                tracks,
+                lexical_register: lexical_register.unwrap_or_default(),
+                editorial_priority: editorial_priority.unwrap_or_default(),
+                usefulness: usefulness.unwrap_or_default(),
+                context_tags,
+                usage_mode: usage_mode.unwrap_or_default(),
+                pronunciation_status,
             });
         }
 

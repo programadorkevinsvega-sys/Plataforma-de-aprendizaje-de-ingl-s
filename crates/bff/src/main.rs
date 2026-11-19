@@ -10,8 +10,7 @@ mod user_handler;
 
 use auth_handler::{login_handler, me_handler, refresh_handler, register_handler};
 use content_handler::{
-    mark_word_complete_handler, synthesize_speech_handler, today_lesson_handler,
-    vocabulary_list_handler,
+    comprehension_resources_handler, synthesize_speech_handler, vocabulary_list_handler,
 };
 use curriculum_handler::{
     enroll_course_handler, get_curriculum_course_handler, import_curriculum_package_handler,
@@ -228,12 +227,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         // Legacy content / vocabulary
         .route("/api/v1/content/vocabulary", get(vocabulary_list_handler))
-        .route("/api/v1/content/lessons/today", get(today_lesson_handler))
-        .route("/api/v1/content/speech", post(synthesize_speech_handler))
         .route(
-            "/api/v1/content/vocabulary/:id/complete",
-            post(mark_word_complete_handler),
+            "/api/v1/content/comprehension-resources",
+            get(comprehension_resources_handler),
         )
+        .route("/api/v1/content/speech", post(synthesize_speech_handler))
         // SRS — Anki SM-2
         .route("/api/v1/srs/due", get(get_due_cards_handler))
         .route("/api/v1/srs/cards/:id/review", post(review_card_handler))
