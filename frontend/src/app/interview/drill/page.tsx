@@ -3,147 +3,182 @@
 import React, { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { Navbar } from '@/presentation/components/Navbar'
 import { getContainer } from '@/infrastructure/di/container'
 
 interface DrillExercise {
+  id: string
   title: string
+  instruction: string
   englishText: string
   spanishPhonetic: string
+  spanishTranslation: string
   targetSkill: string
 }
 
 function DrillContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const resultId = searchParams.get('id') || 'drill-1'
+  const resultId = searchParams.get('id')
   const [exercises, setExercises] = useState<DrillExercise[]>([])
   const [currentIdx, setCurrentIdx] = useState(0)
   const [phase, setPhase] = useState<'reading' | 'complete'>('reading')
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [duration, setDuration] = useState(20 * 60)
 
   useEffect(() => {
-    const container = getContainer()
-    container.useCases.getCurrentUser.execute().then((u) => {
-      if (!u) { router.push('/login'); return }
-      container.useCases.getWeaknessDrill.execute(resultId).then((drill) => {
-        setExercises(drill.steps.map((step) => ({
-          title: step.title || `Ejercicio ${step.id}`,
-          englishText: step.english ?? '',
-          spanishPhonetic: step.spanishPhonetics ?? '',
-          targetSkill: step.metric || 'Pronunciación',
-        })))
-        setLoading(false)
-      }).catch(() => {
-        setExercises([
-          { title: 'Ejercicio 1: Arquitectura Distribuida', englishText: 'We refactored the monolith into microservices to improve scalability.', spanishPhonetic: 'Güi rifáktord da mónolith íntu máikroservises tu imprúv skéilabiliti.', targetSkill: 'Pronunciación' },
-          { title: 'Ejercicio 2: Standup Meeting', englishText: 'I finished implementing the authentication feature yesterday and pushed to staging.', spanishPhonetic: 'Ai fínisht impliménting di otentikéishon fíchur yésterdei and pusht tu stéiying.', targetSkill: 'Fluidez' },
-          { title: 'Ejercicio 3: Code Review', englishText: 'Could you add unit tests for this edge case before merging the pull request?', spanishPhonetic: 'Kud yu ad yúnit tests for dis edy keis bifór méryng da pul rikuést?', targetSkill: 'Conversación' },
-        ])
-        setLoading(false)
-      })
+    let active = true
+    const load = async () => {
+      const container = getContainer()
+      const user = await container.useCases.getCurrentUser.execute()
+      if (!user) {
+        router.replace('/login')
+        return
+      }
+      if (!resultId) {
+        setError('No se encontró el identificador del resultado que originó este drill.')
+        return
+      }
+      const drill = await container.useCases.getWeaknessDrill.execute(resultId)
+      const steps = drill.steps.map((step) => ({
+        id: step.id,
+        title: step.title,
+        instruction: step.instruction,
+        englishText: step.english ?? '',
+        spanishPhonetic: step.spanishPhonetics ?? '',
+        spanishTranslation: step.spanishTranslation ?? '',
+        targetSkill: step.metric,
+      }))
+      if (!steps.length) {
+        setError('No hay ejercicios de refuerzo disponibles para este resultado.')
+        return
+      }
+      if (active) {
+        setExercises(steps)
+        setDuration(drill.totalMinutes * 60)
+      }
+    }
+    void load().catch((cause) => {
+      if (active) setError(cause instanceof Error ? cause.message : 'No se pudo cargar el drill.')
+    }).finally(() => {
+      if (active) setLoading(false)
     })
+    return () => { active = false }
   }, [resultId, router])
 
   useEffect(() => {
-    if (loading || phase === 'complete') return
-    const timer = setInterval(() => setDuration(d => d > 0 ? d - 1 : 0), 1000)
-    return () => clearInterval(timer)
-  }, [loading, phase])
+    if (loading || error || phase === 'complete' || duration <= 0) return
+    const timer = window.setInterval(() => setDuration((current) => Math.max(0, current - 1)), 1000)
+    return () => window.clearInterval(timer)
+  }, [duration, error, loading, phase])
 
-  const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`
+  const formatTime = (seconds: number) =>
+    Math.floor(seconds / 60).toString().padStart(2, '0') + ':' + (seconds % 60).toString().padStart(2, '0')
   const current = exercises[currentIdx]
+  const progress = exercises.length ? (currentIdx / exercises.length) * 100 : 0
 
   if (loading) return (
-    <div className="min-h-screen bg-[#0b0d13] flex items-center justify-center text-purple-400 font-mono text-sm">
-      ⚡ Preparando tu drill personalizado...
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <div className="flex flex-1 items-center justify-center text-sm">Preparando tus ejercicios de refuerzo…</div>
+    </div>
+  )
+
+  if (error || exercises.length === 0) return (
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <main className="flex flex-1 items-center justify-center p-6">
+        <section className="glass-panel max-w-lg rounded-2xl p-8 text-center">
+          <h1 className="text-xl font-bold">No hay un drill disponible</h1>
+          <p className="mt-2 text-sm">{error || 'No se encontraron pasos de refuerzo para este resultado.'}</p>
+          <Link href="/interview" className="btn-primary mt-5">Volver a la práctica</Link>
+        </section>
+      </main>
     </div>
   )
 
   if (phase === 'complete') return (
-    <div className="min-h-screen bg-[#0b0d13] flex items-center justify-center p-6 text-slate-100">
-      <div className="glass-panel p-10 rounded-3xl border border-purple-500/30 text-center max-w-md">
-        <div className="text-5xl mb-4">⚡</div>
-        <h1 className="text-2xl font-black text-white mb-2">¡Drill Completado!</h1>
-        <p className="text-slate-400 text-sm mb-6">Practicaste {exercises.length} ejercicios de refuerzo. Tu pronunciación mejorará con la práctica constante.</p>
-        <div className="grid grid-cols-2 gap-3">
-          <Link href="/interview" className="btn-primary text-center text-sm">Nueva Entrevista</Link>
-          <Link href="/dashboard" className="glass-panel p-3 rounded-xl border border-white/10 text-sm text-slate-300 text-center hover:border-white/20 transition-all">Dashboard</Link>
-        </div>
-      </div>
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <main className="flex flex-1 items-center justify-center p-6">
+        <section className="glass-panel max-w-md rounded-2xl p-8 text-center">
+          <div className="text-4xl">✓</div>
+          <h1 className="mt-3 text-2xl font-bold">Drill completado</h1>
+          <p className="mt-2 text-sm">Revisaste {exercises.length} ejercicios de refuerzo.</p>
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <Link href="/interview" className="btn-primary">Nueva práctica</Link>
+            <Link href="/dashboard" className="rounded-xl border border-stone-200 p-3 text-xs font-bold">Volver al inicio</Link>
+          </div>
+        </section>
+      </main>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-[#0b0d13] text-slate-100 flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-2xl space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-black text-white">⚡ Drill de Refuerzo</h1>
-            <p className="text-xs text-slate-400">Ejercicio {currentIdx + 1} de {exercises.length}</p>
-          </div>
-          <div className={`font-mono text-lg font-black ${duration < 300 ? 'text-rose-400' : 'text-purple-400'}`}>
-            ⏱ {formatTime(duration)}
-          </div>
-        </div>
-
-        <div className="w-full bg-slate-800 rounded-full h-1.5">
-          <div
-            className="bg-gradient-to-r from-purple-500 to-pink-500 h-1.5 rounded-full transition-all duration-500"
-            style={{ width: `${(currentIdx / exercises.length) * 100}%` }}
-          />
-        </div>
-
-        <div className="glass-panel p-8 rounded-3xl border border-purple-500/20 space-y-6">
-          <div className="flex items-center gap-2">
-            <span className="bg-purple-500/20 text-purple-300 text-xs font-bold px-3 py-1 rounded-full border border-purple-500/30">
-              🎯 {current?.targetSkill}
-            </span>
-            <span className="text-xs text-slate-500 font-medium">{current?.title}</span>
-          </div>
-
-          <div className="space-y-4">
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <main className="flex flex-1 flex-col items-center justify-center">
+        <div className="w-full max-w-2xl space-y-5">
+          <div className="flex items-center justify-between gap-4">
             <div>
-              <div className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2">🇺🇸 Lee en voz alta:</div>
-              <p className="text-xl font-bold text-white leading-relaxed">{current?.englishText}</p>
+              <h1 className="text-xl font-extrabold">Drill de refuerzo</h1>
+              <p className="text-xs">Ejercicio {currentIdx + 1} de {exercises.length}</p>
             </div>
-            <div className="border-t border-white/10 pt-4">
-              <div className="text-xs font-bold text-amber-400 uppercase tracking-widest mb-2">🔊 Así suena en español:</div>
-              <p className="text-lg text-amber-300 font-semibold">{current?.spanishPhonetic}</p>
-            </div>
+            <div className="font-mono text-lg font-bold">{formatTime(duration)}</div>
           </div>
 
-          <button
-            onClick={() => {
-              if (currentIdx + 1 >= exercises.length) {
-                setPhase('complete')
-              } else {
-                setCurrentIdx(i => i + 1)
-              }
-            }}
-            className="btn-primary w-full text-center"
-          >
-            {currentIdx + 1 >= exercises.length ? 'Finalizar Drill ✓' : 'Siguiente Ejercicio →'}
-          </button>
-        </div>
+          <div className="h-2 rounded-full bg-stone-200">
+            <div className="h-2 rounded-full bg-emerald-700 transition-all" style={{ width: progress + '%' }} />
+          </div>
 
-        <div className="text-center">
-          <Link href="/interview" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
-            ← Salir del drill
-          </Link>
+          <section className="glass-panel space-y-5 rounded-2xl p-6 sm:p-8">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">{current.targetSkill}</span>
+              <span className="text-xs">{current.title}</span>
+            </div>
+            {current.instruction && <p className="text-sm">{current.instruction}</p>}
+            {current.englishText && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide">Texto en inglés</p>
+                <p className="mt-2 text-xl font-bold leading-relaxed">{current.englishText}</p>
+              </div>
+            )}
+            {current.spanishPhonetic && (
+              <div className="rounded-xl bg-[#f4f1e7] p-4">
+                <p className="text-xs font-semibold">Guía fonética en español</p>
+                <p className="mt-2 text-base font-semibold">{current.spanishPhonetic}</p>
+              </div>
+            )}
+            {current.spanishTranslation && (
+              <div>
+                <p className="text-xs font-semibold">Traducción</p>
+                <p className="mt-1 text-sm">{current.spanishTranslation}</p>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (currentIdx + 1 >= exercises.length) setPhase('complete')
+                else setCurrentIdx((index) => index + 1)
+              }}
+              className="btn-primary w-full"
+            >
+              {currentIdx + 1 >= exercises.length ? 'Finalizar drill' : 'Siguiente ejercicio →'}
+            </button>
+          </section>
+          <div className="text-center">
+            <Link href="/interview" className="text-xs font-semibold text-stone-500">Salir del drill</Link>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   )
 }
 
 export default function InterviewDrillPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#0b0d13] flex items-center justify-center text-purple-400 font-mono text-sm">
-        ⚡ Cargando drill...
-      </div>
-    }>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-sm">Cargando drill…</div>}>
       <DrillContent />
     </Suspense>
   )

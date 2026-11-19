@@ -3,142 +3,94 @@
 import React, { Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { Navbar } from '@/presentation/components/Navbar'
 
 interface MetricScore {
   key: string
   label: string
-  score: number
+  score: number | null
   weight: number
-  emoji: string
 }
 
 function ResultContent() {
   const searchParams = useSearchParams()
-  const passed = searchParams.get('passed') === 'true'
-  const totalScore = parseFloat(searchParams.get('score') || '0')
-  const resultId = searchParams.get('id') || 'result-1'
+  const rawScore = searchParams.get('score')
+  const parsedScore = rawScore === null ? null : Number(rawScore)
+  const totalScore = parsedScore !== null && Number.isFinite(parsedScore) ? parsedScore : null
+  const passedParam = searchParams.get('passed')
+  const resultId = searchParams.get('id')
 
   const metrics: MetricScore[] = [
-    { key: 'listening', label: 'Listening', score: parseFloat(searchParams.get('listening') || '78'), weight: 20, emoji: '👂' },
-    { key: 'pronunciation', label: 'Pronunciación', score: parseFloat(searchParams.get('pronunciation') || '85'), weight: 20, emoji: '🗣️' },
-    { key: 'fluency', label: 'Fluidez', score: parseFloat(searchParams.get('fluency') || '72'), weight: 20, emoji: '🌊' },
-    { key: 'vocabulary', label: 'Vocabulario', score: parseFloat(searchParams.get('vocabulary') || '88'), weight: 15, emoji: '📖' },
-    { key: 'grammar', label: 'Gramática', score: parseFloat(searchParams.get('grammar') || '80'), weight: 10, emoji: '✍️' },
-    { key: 'conversation', label: 'Conversación', score: parseFloat(searchParams.get('conversation') || '76'), weight: 15, emoji: '💬' },
+    { key: 'listening', label: 'Listening', score: searchParams.has('listening') ? Number(searchParams.get('listening')) : null, weight: 20 },
+    { key: 'pronunciation', label: 'Pronunciación', score: searchParams.has('pronunciation') ? Number(searchParams.get('pronunciation')) : null, weight: 20 },
+    { key: 'fluency', label: 'Fluidez', score: searchParams.has('fluency') ? Number(searchParams.get('fluency')) : null, weight: 20 },
+    { key: 'vocabulary', label: 'Vocabulario', score: searchParams.has('vocabulary') ? Number(searchParams.get('vocabulary')) : null, weight: 15 },
+    { key: 'conversation', label: 'Conversación', score: searchParams.has('conversation') ? Number(searchParams.get('conversation')) : null, weight: 15 },
+    { key: 'grammar', label: 'Gramática', score: searchParams.has('grammar') ? Number(searchParams.get('grammar')) : null, weight: 10 },
   ]
 
-  const calculatedTotal = metrics.reduce((acc, m) => acc + (m.score * m.weight / 100), 0)
-  const displayTotal = totalScore || parseFloat(calculatedTotal.toFixed(1))
-  const displayPassed = passed || displayTotal >= 90
-
-  const weaknesses = metrics
-    .filter(m => m.score < 85)
-    .sort((a, b) => a.score - b.score)
-    .slice(0, 3)
+  const hasResult = totalScore !== null
+  const validMetrics = metrics.filter((metric) => metric.score !== null && Number.isFinite(metric.score))
+  const hasVerdict = passedParam === 'true' || passedParam === 'false'
+  const passed = passedParam === 'true'
 
   return (
-    <div className="min-h-screen bg-[#0b0d13] text-slate-100 p-6">
-      <div className="max-w-3xl mx-auto space-y-6">
-        {/* Header */}
-        <div className={`glass-panel p-8 rounded-3xl border text-center relative overflow-hidden ${displayPassed ? 'border-emerald-500/30' : 'border-rose-500/30'}`}>
-          <div className={`absolute -top-16 -right-16 w-48 h-48 rounded-full blur-3xl pointer-events-none ${displayPassed ? 'bg-emerald-500/10' : 'bg-rose-500/10'}`} />
-          <div className="relative z-10">
-            <div className="text-5xl mb-3">{displayPassed ? '🏆' : '📈'}</div>
-            <h1 className="text-3xl font-black text-white mb-1">
-              {displayPassed ? '¡Aprobado!' : 'Sigue Mejorando'}
-            </h1>
-            <div className={`text-5xl font-black mt-4 ${displayPassed ? 'text-emerald-400' : 'text-amber-400'}`}>
-              {displayTotal.toFixed(1)}%
-            </div>
-            <p className="text-slate-400 text-sm mt-2">
-              {displayPassed
-                ? 'Superaste el umbral mínimo de 90%'
-                : `Necesitas ${(90 - displayTotal).toFixed(1)}% más para superar el 90%`}
-            </p>
-          </div>
-        </div>
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <main className="max-w-4xl space-y-5">
+        <header>
+          <h1 className="text-3xl font-extrabold">Resultado de práctica</h1>
+          <p className="mt-1 text-sm">Revisa el feedback disponible de tu respuesta.</p>
+        </header>
 
-        {/* Métricas */}
-        <div className="glass-panel p-6 rounded-3xl border border-white/10">
-          <h2 className="text-lg font-black text-white mb-5">📊 Desglose por Métrica</h2>
-          <div className="space-y-3">
-            {metrics.map(m => (
-              <div key={m.key}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                    {m.emoji} {m.label}
-                    <span className="text-slate-500">({m.weight}%)</span>
-                  </span>
-                  <span className={`text-xs font-black ${m.score >= 90 ? 'text-emerald-400' : m.score >= 75 ? 'text-amber-400' : 'text-rose-400'}`}>
-                    {m.score.toFixed(0)}%
-                  </span>
-                </div>
-                <div className="w-full bg-slate-800 rounded-full h-2">
-                  <div
-                    className={`h-2 rounded-full transition-all duration-1000 ${m.score >= 90 ? 'bg-emerald-500' : m.score >= 75 ? 'bg-amber-500' : 'bg-rose-500'}`}
-                    style={{ width: `${m.score}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        {!hasResult ? (
+          <section className="glass-panel rounded-2xl p-8 text-center">
+            <h2 className="text-lg font-bold">No encontramos un resultado completo</h2>
+            <p className="mt-2 text-sm">Vuelve a la práctica y evalúa una respuesta para consultar su resultado.</p>
+            <Link href="/interview" className="btn-primary mt-5">Volver a la práctica</Link>
+          </section>
+        ) : (
+          <>
+            <section className="glass-panel rounded-2xl p-6 text-center">
+              <p className="text-xs font-semibold uppercase tracking-wide">Puntuación de esta evaluación</p>
+              <p className="mt-3 text-5xl font-extrabold">{totalScore.toFixed(1)}%</p>
+              {hasVerdict && <p className="mt-2 text-sm font-semibold">{passed ? 'Resultado aprobado' : 'Resultado por reforzar'}</p>}
+              <p className="mt-2 text-xs">Esta es la puntuación devuelta por la evaluación técnica, no un diagnóstico global CEFR.</p>
+            </section>
 
-        {/* Debilidades */}
-        {weaknesses.length > 0 && (
-          <div className="glass-panel p-6 rounded-3xl border border-amber-500/20">
-            <h2 className="text-lg font-black text-white mb-4">🎯 Áreas de Mejora Detectadas</h2>
-            <div className="space-y-3">
-              {weaknesses.map((w, i) => (
-                <div key={i} className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-bold text-amber-300">{w.label}</span>
-                    <span className="text-xs font-black text-amber-400">{w.score.toFixed(0)}%</span>
+            <section className="glass-panel rounded-2xl p-5">
+              <h2 className="text-lg font-bold">Desglose por métrica</h2>
+              <div className="mt-4 space-y-4">
+                {metrics.map((metric) => (
+                  <div key={metric.key}>
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <strong>{metric.label} <span className="font-normal text-xs">({metric.weight}%)</span></strong>
+                      <span className="text-xs">{metric.score === null || !Number.isFinite(metric.score) ? 'Sin dato' : metric.score.toFixed(1) + '%'}</span>
+                    </div>
+                    <div className="mt-2 h-2 rounded-full bg-stone-100">
+                      {metric.score !== null && Number.isFinite(metric.score) && <div className="h-2 rounded-full bg-emerald-700" style={{ width: Math.max(0, Math.min(100, metric.score)) + '%' }} />}
+                    </div>
                   </div>
-                  <p className="text-xs text-slate-400">Reforzar ejercicios de {w.label.toLowerCase()} en contexto conversacional técnico.</p>
-                </div>
-              ))}
-            </div>
-          </div>
+                ))}
+              </div>
+              {validMetrics.length < metrics.length && <p className="mt-4 text-xs">La fuente no proporcionó todas las métricas; las ausentes se muestran sin puntuación.</p>}
+            </section>
+          </>
         )}
 
-        {/* Acciones */}
-        <div className="grid grid-cols-2 gap-4">
-          <Link
-            href={`/interview/drill?id=${resultId}`}
-            className="glass-panel p-5 rounded-2xl border border-purple-500/30 hover:border-purple-500/60 transition-all text-center"
-          >
-            <div className="text-2xl mb-2">⚡</div>
-            <div className="text-sm font-bold text-white">Drill de Refuerzo</div>
-            <div className="text-xs text-slate-400 mt-1">20 min de práctica específica</div>
-          </Link>
-          <Link
-            href="/interview"
-            className="glass-panel p-5 rounded-2xl border border-cyan-500/30 hover:border-cyan-500/60 transition-all text-center"
-          >
-            <div className="text-2xl mb-2">🔄</div>
-            <div className="text-sm font-bold text-white">Nueva Entrevista</div>
-            <div className="text-xs text-slate-400 mt-1">Practica con otra pregunta</div>
-          </Link>
+        <div className="flex flex-wrap gap-3">
+          {resultId && <Link href={'/interview/drill?id=' + encodeURIComponent(resultId)} className="btn-primary">Ver ejercicios de refuerzo</Link>}
+          <Link href="/interview" className="rounded-xl border border-emerald-700/20 px-4 py-3 text-xs font-bold text-emerald-800">Nueva práctica</Link>
+          <Link href="/dashboard" className="rounded-xl border border-stone-200 px-4 py-3 text-xs font-bold">Volver al inicio</Link>
         </div>
-
-        <div className="text-center">
-          <Link href="/dashboard" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
-            ← Volver al Dashboard
-          </Link>
-        </div>
-      </div>
+      </main>
     </div>
   )
 }
 
 export default function InterviewResultPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#0b0d13] flex items-center justify-center text-emerald-400 font-mono text-sm">
-        📊 Cargando resultado...
-      </div>
-    }>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-sm text-slate-500">Cargando resultado…</div>}>
       <ResultContent />
     </Suspense>
   )

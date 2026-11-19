@@ -28,10 +28,10 @@ function progressTone(state: string): string {
   const tones: Record<string, string> = {
     not_enrolled: 'border-slate-500/20 bg-slate-500/10 text-slate-400',
     locked: 'border-amber-400/20 bg-amber-400/5 text-amber-200',
-    available: 'border-cyan-400/20 bg-cyan-400/10 text-cyan-200',
-    in_progress: 'border-sky-400/20 bg-sky-400/10 text-sky-200',
+    available: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200',
+    in_progress: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200',
     completed: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200',
-    mastered: 'border-violet-400/20 bg-violet-400/10 text-violet-200',
+    mastered: 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200',
   }
   return tones[state] ?? tones.locked
 }
@@ -136,14 +136,14 @@ export default function CurriculumCoursePage() {
         <main className="flex-1 min-w-0 p-5 sm:p-8 max-w-7xl space-y-7">
           <Link
             href="/courses"
-            className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 transition-colors hover:text-cyan-200"
+            className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 transition-colors hover:text-emerald-200"
           >
             <span aria-hidden="true">←</span>
             Volver al catálogo
           </Link>
 
           {loading && (
-            <div className="rounded-2xl border border-white/10 bg-slate-900/50 p-10 text-center text-sm text-cyan-300" aria-live="polite">
+            <div className="rounded-2xl border border-white/10 bg-slate-900/50 p-10 text-center text-sm text-emerald-300" aria-live="polite">
               Cargando estructura académica…
             </div>
           )}
@@ -152,7 +152,7 @@ export default function CurriculumCoursePage() {
             <div className="rounded-2xl border border-rose-500/30 bg-rose-950/20 p-6" role="alert">
               <h1 className="font-bold text-rose-200">No pudimos abrir este curso</h1>
               <p className="mt-2 text-sm leading-6 text-rose-100/70">{error}</p>
-              <Link href="/courses" className="mt-4 inline-block text-xs font-bold text-cyan-200 hover:text-cyan-100">
+              <Link href="/courses" className="mt-4 inline-block text-xs font-bold text-emerald-200 hover:text-emerald-100">
                 Regresar al catálogo
               </Link>
             </div>
@@ -161,10 +161,10 @@ export default function CurriculumCoursePage() {
           {!loading && !error && detail && (
             <>
               <header className="glass-panel relative overflow-hidden rounded-3xl border border-white/10 p-6 sm:p-8">
-                <div className="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-cyan-400/10 blur-3xl" />
+                <div className="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-emerald-400/10 blur-3xl" />
                 <div className="relative">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-cyan-200">
+                    <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-200">
                       {detail.course.trackCode === 'technology' ? 'Inglés tecnológico' : 'Inglés general'}
                     </span>
                     <span className="rounded-full border border-white/10 bg-slate-950/60 px-3 py-1 text-xs font-black text-white">
@@ -198,7 +198,7 @@ export default function CurriculumCoursePage() {
                       type="button"
                       onClick={() => void handleEnroll()}
                       disabled={enrolling || detail.course.enrolled}
-                      className="rounded-xl bg-cyan-400 px-5 py-3 text-xs font-extrabold text-slate-950 transition-colors hover:bg-cyan-300 disabled:cursor-not-allowed disabled:bg-emerald-400/20 disabled:text-emerald-200"
+                      className="rounded-xl bg-emerald-400 px-5 py-3 text-xs font-extrabold text-slate-950 transition-colors hover:bg-emerald-300 disabled:cursor-not-allowed disabled:bg-emerald-400/20 disabled:text-emerald-200"
                     >
                       {enrolling
                         ? 'Registrando matrícula…'
@@ -236,7 +236,7 @@ export default function CurriculumCoursePage() {
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-300">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">
                           Unidad {unit.position} {unit.theme ? `· ${unit.theme}` : ''}
                         </div>
                         <h3 className="mt-2 text-lg font-extrabold text-white">{unit.title}</h3>
@@ -259,7 +259,7 @@ export default function CurriculumCoursePage() {
                           className="rounded-2xl border border-white/10 bg-slate-950/45 p-4 sm:p-5"
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-violet-300">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">
                               Lección {lesson.position} · {lesson.lessonPattern}
                             </span>
                             <div className="flex flex-wrap items-center gap-2">
@@ -288,7 +288,7 @@ export default function CurriculumCoursePage() {
                               </div>
                               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800">
                                 <div
-                                  className="h-full rounded-full bg-cyan-400 transition-all"
+                                  className="h-full rounded-full bg-emerald-400 transition-all"
                                   style={{ width: `${Math.round(lesson.progress.requiredObjectives > 0 ? (lesson.progress.completedObjectives / lesson.progress.requiredObjectives) * 100 : 0)}%` }}
                                 />
                               </div>
@@ -298,7 +298,7 @@ export default function CurriculumCoursePage() {
                                 </p>
                               )}
                               {lesson.progress.state === 'available' && (
-                                <p className="mt-2 text-[10px] leading-5 text-cyan-100/70">
+                                <p className="mt-2 text-[10px] leading-5 text-emerald-100/70">
                                   Los prerrequisitos están satisfechos. Las actividades interactivas se habilitarán con el motor de ejercicios de Fase 2.
                                 </p>
                               )}
@@ -337,7 +337,7 @@ export default function CurriculumCoursePage() {
                             ) : (
                               <ol className="mt-3 space-y-3">
                                 {lesson.objectives.map((objective) => (
-                                  <li key={objective.id} className="border-l-2 border-cyan-400/30 pl-3">
+                                  <li key={objective.id} className="border-l-2 border-emerald-400/30 pl-3">
                                     <div className="flex flex-wrap items-center gap-2">
                                       <span className="text-xs font-bold text-slate-200">
                                         {objective.description}
@@ -354,7 +354,7 @@ export default function CurriculumCoursePage() {
                                         {objective.skills.map((skill) => (
                                           <span
                                             key={skill}
-                                            className="rounded-md border border-violet-400/15 bg-violet-400/5 px-2 py-1 text-[9px] font-semibold text-violet-200/80"
+                                            className="rounded-md border border-emerald-400/15 bg-emerald-400/5 px-2 py-1 text-[9px] font-semibold text-emerald-200/80"
                                           >
                                             {skillLabel(skill)}
                                           </span>
@@ -373,7 +373,7 @@ export default function CurriculumCoursePage() {
                 ))}
               </section>
 
-              <div className="rounded-2xl border border-cyan-400/15 bg-cyan-400/5 p-4 text-xs leading-6 text-cyan-100/70">
+              <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/5 p-4 text-xs leading-6 text-emerald-100/70">
                 El desbloqueo se calcula con evidencia persistida: palabras registradas como
                 aprendidas y revisiones SM-2 exitosas de las frases asociadas. El porcentaje
                 es una señal de práctica repetida (hasta tres revisiones exitosas por frase),

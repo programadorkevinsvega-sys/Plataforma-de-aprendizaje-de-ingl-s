@@ -3,129 +3,140 @@
 import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { Navbar } from '@/presentation/components/Navbar'
 import { getContainer } from '@/infrastructure/di/container'
-
-// Removed ACHIEVEMENTS mock
+import type { Achievement, DashboardSummary, LeaderboardEntry } from '@/domain/entities/Progress'
 
 export default function AchievementsPage() {
   const router = useRouter()
-  const [filter, setFilter] = useState<'Todos' | 'Desbloqueados' | 'En Progreso'>('Todos')
+  const [achievements, setAchievements] = useState<Achievement[]>([])
+  const [leaders, setLeaders] = useState<LeaderboardEntry[]>([])
+  const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [loading, setLoading] = useState(true)
-  const [achievements, setAchievements] = useState<import('@/domain/entities/Progress').Achievement[]>([])
 
   useEffect(() => {
+    let active = true
     const container = getContainer()
-    container.useCases.getCurrentUser.execute().then((u) => {
-      if (!u) { router.push('/login'); return }
-      container.useCases.getAchievements.execute().then(data => {
-        setAchievements(data)
-        setLoading(false)
-      }).catch(() => {
-        setLoading(false)
-      })
-    })
+    const load = async () => {
+      const user = await container.useCases.getCurrentUser.execute()
+      if (!user) {
+        router.replace('/login')
+        return
+      }
+      const [badges, ranking, dashboard] = await Promise.all([
+        container.useCases.getAchievements.execute().catch(() => []),
+        container.useCases.getLeaderboard.execute().catch(() => []),
+        container.useCases.getDashboardSummary.execute().catch(() => null),
+      ])
+      if (!active) return
+      setAchievements(badges)
+      setLeaders(ranking.map((entry) => ({ ...entry, isCurrentUser: entry.userId === user.id })))
+      setSummary(dashboard)
+    }
+    void load().catch(() => undefined).finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
   }, [router])
 
-  const filtered = achievements.filter(a => {
-    if (filter === 'Desbloqueados') return a.unlocked
-    if (filter === 'En Progreso') return !a.unlocked
-    return true
-  })
-
-  const unlockedCount = achievements.filter(a => a.unlocked).length
-
   if (loading) return (
-    <div className="min-h-screen bg-[#0b0d13] flex items-center justify-center text-yellow-400 font-mono text-sm">
-      🏆 Cargando Logros...
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <div className="flex flex-1 items-center justify-center text-sm">Cargando logros y motivación…</div>
     </div>
   )
 
+  const unlocked = achievements.filter((achievement) => achievement.unlocked)
+  const topLeaders = leaders.slice(0, 3)
+
   return (
-    <div className="min-h-screen bg-[#0b0d13] text-slate-100 p-6">
-      <div className="max-w-3xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="glass-panel p-8 rounded-3xl border border-yellow-500/20 relative overflow-hidden">
-          <div className="absolute -top-16 -right-16 w-48 h-48 bg-yellow-500/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="relative z-10 flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <h1 className="text-2xl font-black text-white">🏆 Logros & Badges</h1>
-              <p className="text-xs text-slate-400 mt-1">Tu progreso en el camino hacia el inglés técnico profesional</p>
-            </div>
-            <div className="glass-panel px-6 py-3 rounded-2xl border border-yellow-500/30 text-center">
-              <div className="text-2xl font-black text-yellow-400">{unlockedCount}/{achievements.length || 1}</div>
-              <div className="text-xs text-slate-400">Desbloqueados</div>
-            </div>
-          </div>
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <main className="space-y-5">
+        <header>
+          <h1 className="text-3xl font-extrabold">Logros y motivación</h1>
+          <p className="mt-1 text-sm">Misiones, rachas y clasificación.</p>
+        </header>
 
-          {/* Master progress bar */}
-          <div className="mt-4">
-            <div className="w-full bg-slate-800 rounded-full h-2">
-              <div
-                className="bg-gradient-to-r from-yellow-500 to-amber-400 h-2 rounded-full transition-all"
-                style={{ width: `${(unlockedCount / (achievements.length || 1)) * 100}%` }}
-              />
+        <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <article className="glass-panel rounded-2xl p-5">
+            <h2 className="text-lg font-bold">Misiones diarias</h2>
+            <div className="mt-4 rounded-xl bg-stone-50 p-5">
+              <p className="text-sm font-semibold">No hay misiones diarias configuradas.</p>
+              <p className="mt-1 text-xs">Cuando exista el planificador de misiones, aquí verás tareas, objetivos y avance diario.</p>
             </div>
-            <p className="text-xs text-slate-500 mt-1 text-right">{Math.round((unlockedCount / (achievements.length || 1)) * 100)}% completado</p>
-          </div>
-        </div>
+          </article>
+          <article className="glass-panel rounded-2xl p-5">
+            <h2 className="text-lg font-bold">Misiones semanales</h2>
+            <div className="mt-4 rounded-xl bg-stone-50 p-5">
+              <p className="text-sm font-semibold">No hay misiones semanales configuradas.</p>
+              <p className="mt-1 text-xs">Los objetivos semanales se mostrarán cuando el servicio de misiones esté conectado.</p>
+            </div>
+          </article>
+        </section>
 
-        {/* Filters */}
-        <div className="flex gap-2">
-          {(['Todos', 'Desbloqueados', 'En Progreso'] as const).map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all ${filter === f ? 'bg-yellow-500/20 border-yellow-500/40 text-yellow-300' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-500'}`}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
+        <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <article className="glass-panel rounded-2xl p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-bold">Racha y calendario</h2>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">{summary?.streakDays ?? 0} días actuales</span>
+            </div>
+            <div className="mt-4 grid grid-cols-7 gap-2" aria-label="Calendario de actividad no disponible">
+              {Array.from({ length: 35 }, (_, index) => (
+                <span key={index} className="aspect-square rounded-lg border border-stone-200 bg-stone-50" title="Sin detalle diario disponible" />
+              ))}
+            </div>
+            <p className="mt-3 text-xs">La plataforma conoce la racha actual, pero todavía no entrega el historial por fecha para pintar el calendario.</p>
+          </article>
 
-        {/* Achievement grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filtered.map(a => (
-            <div
-              key={a.id}
-              className={`glass-panel p-5 rounded-2xl border transition-all ${a.unlocked ? 'border-yellow-500/30 bg-yellow-500/5' : 'border-white/10 opacity-75'}`}
-            >
-              <div className="flex items-start gap-4">
-                <div className={`text-3xl w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${a.unlocked ? 'bg-yellow-500/20' : 'bg-slate-800 grayscale'}`}>
-                  {a.emoji}
+          <article className="glass-panel rounded-2xl p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-bold">Medallas</h2>
+              <span className="text-xs">{unlocked.length} obtenidas</span>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {achievements.slice(0, 6).map((achievement) => (
+                <div key={achievement.id} className="rounded-xl border border-stone-200 p-4 text-center">
+                  <span className={'mx-auto grid h-11 w-11 place-items-center rounded-full text-xl ' + (achievement.unlocked ? 'bg-emerald-50 text-emerald-800' : 'bg-stone-100 grayscale')}>{achievement.emoji || '★'}</span>
+                  <strong className="mt-2 block text-xs">{achievement.title}</strong>
+                  <span className="mt-1 block text-[10px]">{achievement.unlocked ? 'Obtenida' : 'Bloqueada'}</span>
+                  {!achievement.unlocked && <span className="mt-1 block text-[10px]">{achievement.progress}/{achievement.maxProgress}</span>}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`font-bold text-sm ${a.unlocked ? 'text-white' : 'text-slate-400'}`}>{a.title}</span>
-                    <span className="text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">{a.category}</span>
-                    {a.unlocked && <span className="text-[10px] text-yellow-400">✓ Desbloqueado</span>}
+              ))}
+              {achievements.length === 0 && <p className="col-span-full rounded-xl bg-stone-50 p-5 text-sm">No hay medallas definidas todavía.</p>}
+            </div>
+          </article>
+        </section>
+
+        <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <article className="glass-panel rounded-2xl p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-bold">Clasificación</h2>
+              <Link href="/leaderboard" className="text-xs font-bold text-emerald-800">Ver más →</Link>
+            </div>
+            <div className="mt-4 space-y-3">
+              {topLeaders.map((entry) => (
+                <div key={entry.userId} className="flex items-center gap-3">
+                  <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-50 text-sm font-extrabold text-emerald-800">{entry.rank}</span>
+                  <div className="min-w-0 flex-1">
+                    <strong className="block truncate text-sm">{entry.fullName}{entry.isCurrentUser ? ' · Tú' : ''}</strong>
+                    <span className="text-xs">{entry.xp.toLocaleString('es-CO')} XP</span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{a.description}</p>
-                  {!a.unlocked && (
-                    <div className="mt-2">
-                      <div className="flex justify-between text-[10px] text-slate-500 mb-1">
-                        <span>Progreso</span>
-                        <span>{a.progress}/{a.maxProgress}</span>
-                      </div>
-                      <div className="w-full bg-slate-800 rounded-full h-1.5">
-                        <div
-                          className="bg-gradient-to-r from-slate-500 to-slate-400 h-1.5 rounded-full"
-                          style={{ width: `${Math.min((a.progress / a.maxProgress) * 100, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
+                  {entry.isCurrentUser && <span className="rounded-full bg-blue-50 px-3 py-1 text-[10px] font-bold text-blue-800">Tu posición</span>}
                 </div>
-              </div>
+              ))}
+              {!topLeaders.length && <p className="rounded-xl bg-stone-50 p-4 text-xs">Todavía no hay clasificación disponible.</p>}
             </div>
-          ))}
-        </div>
+            <p className="mt-3 text-xs">La clasificación muestra los datos generales disponibles; no se calculan ligas ni temporadas.</p>
+          </article>
 
-        <div className="text-center pt-2">
-          <Link href="/dashboard" className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
-            ← Volver al Dashboard
-          </Link>
-        </div>
-      </div>
+          <article className="glass-panel rounded-2xl p-5">
+            <h2 className="text-lg font-bold">Historial de recompensas</h2>
+            <div className="mt-4 rounded-xl bg-stone-50 p-5">
+              <p className="text-sm font-semibold">Aún no hay un historial de recompensas disponible.</p>
+              <p className="mt-1 text-xs">Cuando el backend exponga los movimientos de XP y monedas, aparecerán aquí.</p>
+            </div>
+          </article>
+        </section>
+      </main>
     </div>
   )
 }
