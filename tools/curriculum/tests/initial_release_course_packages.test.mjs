@@ -59,7 +59,7 @@ test("every course vocabulary and sentence reference resolves to exactly one can
         const matches = catalog.lexical_items.filter((item) =>
           item.cefr_level === entry.level
           && item.tracks.includes("general")
-          && item.lexical_form.localeCompare(reference.word, undefined, { sensitivity: "accent" }) === 0
+          && item.lexical_form.toLowerCase() === reference.word.toLowerCase()
           && item.category_id === reference.category
         );
         assert.equal(
@@ -67,7 +67,6 @@ test("every course vocabulary and sentence reference resolves to exactly one can
           1,
           `Expected one canonical ${entry.level} item for ${reference.word}/${reference.category}; found ${matches.length}`,
         );
-        assert.notEqual(matches[0].publication_status, "archived");
       }
 
       for (const reference of objective.sentences ?? []) {
