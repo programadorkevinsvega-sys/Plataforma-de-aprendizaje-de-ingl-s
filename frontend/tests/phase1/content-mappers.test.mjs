@@ -62,8 +62,8 @@ test('reading resources map public questions and options without exposing answer
     questions_json: JSON.stringify([{
       id: 'q1',
       prompt: 'When does Maria start work?',
-      options: ['At eight', 'At nine'],
-      correct_answer: 'At nine',
+      options: [{ id: 'a', text: 'At eight' }, { id: 'b', text: 'At nine' }],
+      correct_option_id: 'b',
       rationale: 'The text states the time.',
     }]),
   })
@@ -74,9 +74,9 @@ test('reading resources map public questions and options without exposing answer
   assert.deepEqual(resource.questions, [{
     id: 'q1',
     prompt: 'When does Maria start work?',
-    options: ['At eight', 'At nine'],
+    options: [{ id: 'a', text: 'At eight' }, { id: 'b', text: 'At nine' }],
   }])
-  assert.equal('correct_answer' in resource.questions[0], false)
+  assert.equal('correct_option_id' in resource.questions[0], false)
 })
 
 test('listening resources never expose the transcript and text-only questions have empty options', () => {
