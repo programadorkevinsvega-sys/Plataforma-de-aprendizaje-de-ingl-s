@@ -1,12 +1,12 @@
 use crate::curriculum_package::{import_package, validate_package_json};
 use proto::content::content_service_server::ContentService;
 use proto::content::{
-    ContextSentence, CurriculumCourseSummary, CurriculumLesson, CurriculumLessonProgress,
+    ComprehensionResource, ContextSentence, CurriculumCourseSummary, CurriculumLesson, CurriculumLessonProgress,
     CurriculumObjective, CurriculumPrerequisite, CurriculumUnit, EditorialCourseVersionSummary,
     EnrollInCourseRequest, EnrollInCourseResponse, GetCurriculumCourseRequest,
     GetCurriculumCourseResponse, GetRandomInterviewQuestionRequest, GetVocabularyWordRequest,
     ImportCurriculumPackageRequest, ImportCurriculumPackageResponse, InterviewQuestionResponse,
-    ListCurriculumCoursesRequest, ListCurriculumCoursesResponse, ListEditorialVersionsRequest,
+    ListComprehensionResourcesRequest, ListComprehensionResourcesResponse, ListCurriculumCoursesRequest, ListCurriculumCoursesResponse, ListEditorialVersionsRequest,
     ListEditorialVersionsResponse, ListVocabularyWordsRequest, ListVocabularyWordsResponse,
     ManageEditorialVersionRequest, ManageEditorialVersionResponse, VocabularyWordResponse,
 };
@@ -59,6 +59,53 @@ fn validate_student_catalog_query(
         track: (!request.track_code.is_empty()).then(|| request.track_code.clone()),
         level: (!request.cefr_level.is_empty()).then(|| request.cefr_level.clone()),
         search: (!search.is_empty()).then_some(search),
+    })
+}
+
+
+struct ValidatedComprehensionQuery {
+    page: i32,
+    page_size: i32,
+    track: Option<String>,
+    level: Option<String>,
+    skill: Option<String>,
+}
+
+fn validate_comprehension_query(
+    request: &ListComprehensionResourcesRequest,
+) -> Result<ValidatedComprehensionQuery, &'static str> {
+    let page = if request.page <= 0 { 1 } else { request.page };
+    let page_size = if request.page_size <= 0 {
+        12
+    } else if request.page_size > 50 {
+        return Err("page_size no puede superar 50");
+    } else {
+        request.page_size
+    };
+    if !request.track.is_empty()
+        && !matches!(request.track.as_str(), "general" | "technology")
+    {
+        return Err("track no es válido");
+    }
+    if !request.cefr_level.is_empty()
+        && !matches!(
+            request.cefr_level.as_str(),
+            "PRE_A1" | "A1" | "A2" | "B1" | "B2" | "C1" | "C2"
+        )
+    {
+        return Err("cefr_level no es válido");
+    }
+    if !request.skill.is_empty()
+        && !matches!(request.skill.as_str(), "reading" | "listening")
+    {
+        return Err("skill no es válido");
+    }
+    Ok(ValidatedComprehensionQuery {
+        page,
+        page_size,
+        track: (!request.track.is_empty()).then(|| request.track.clone()),
+        level: (!request.cefr_level.is_empty()).then(|| request.cefr_level.clone()),
+        skill: (!request.skill.is_empty()).then(|| request.skill.clone()),
     })
 }
 
@@ -344,6 +391,162 @@ impl ContentService for MyContentService {
         Ok(Response::new(ListVocabularyWordsResponse {
             words: result_words,
             total: total.min(i64::from(i32::MAX)) as i32,
+        }))
+    }
+
+
+    async fn list_comprehension_resources(
+        &self,
+        request: Request<ListComprehensionResourcesRequest>,
+    ) -> Result<Response<ListComprehensionResourcesResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let filters =
+            validate_comprehension_query(request.get_ref()).map_err(Status::invalid_argument)?;
+        let offset = i64::from(filters.page - 1).saturating_mul(i64::from(filters.page_size));
+
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|_| Status::internal("No se pudo iniciar la consulta de recursos"))?;
+        common::set_current_user_id(&mut tx, user_id)
+            .await
+            .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
+
+        let total: i64 = sqlx::query_scalar(
+            r#"SELECT COUNT(*)
+                 FROM curriculum_comprehension_resources
+                WHERE publication_status = 'published'
+                  AND ($1::TEXT IS NULL OR track = $1)
+                  AND ($2::TEXT IS NULL OR cefr_level = $2)
+                  AND ($3::TEXT IS NULL OR skill = $3)"#,
+        )
+        .bind(filters.track.as_deref())
+        .bind(filters.level.as_deref())
+        .bind(filters.skill.as_deref())
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudieron contar los recursos publicados"))?;
+
+        let rows: Vec<(
+            String,
+            String,
+            String,
+            String,
+            String,
+            String,
+            String,
+            i32,
+            Option<i32>,
+            Option<i32>,
+            String,
+            Vec<String>,
+            bool,
+            Option<String>,
+            Option<String>,
+        )> = sqlx::query_as(
+            r#"SELECT
+                   id::TEXT,
+                   track,
+                   cefr_level,
+                   skill,
+                   title,
+                   topic,
+                   content,
+                   word_count,
+                   sentence_count,
+                   estimated_minutes,
+                   comprehension_focus,
+                   lexical_tags,
+                   transcript_available,
+                   CASE WHEN skill = 'listening'
+                        THEN audio_metadata ->> 'asset_url'
+                        ELSE NULL
+                   END,
+                   CASE WHEN skill = 'listening'
+                        THEN audio_metadata ->> 'status'
+                        ELSE 'not_applicable'
+                   END
+                 FROM curriculum_comprehension_resources
+                WHERE publication_status = 'published'
+                  AND ($1::TEXT IS NULL OR track = $1)
+                  AND ($2::TEXT IS NULL OR cefr_level = $2)
+                  AND ($3::TEXT IS NULL OR skill = $3)
+                ORDER BY
+                  CASE track WHEN 'general' THEN 1 ELSE 2 END,
+                  CASE cefr_level
+                    WHEN 'PRE_A1' THEN 1 WHEN 'A1' THEN 2 WHEN 'A2' THEN 3
+                    WHEN 'B1' THEN 4 WHEN 'B2' THEN 5 WHEN 'C1' THEN 6 ELSE 7
+                  END,
+                  CASE skill WHEN 'reading' THEN 1 ELSE 2 END,
+                  title,
+                  id
+                LIMIT $4 OFFSET $5"#,
+        )
+        .bind(filters.track.as_deref())
+        .bind(filters.level.as_deref())
+        .bind(filters.skill.as_deref())
+        .bind(i64::from(filters.page_size))
+        .bind(offset)
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudieron consultar los recursos publicados"))?;
+
+        let items = rows
+            .into_iter()
+            .map(
+                |(
+                    id,
+                    track,
+                    level,
+                    skill,
+                    title,
+                    topic,
+                    content,
+                    word_count,
+                    sentence_count,
+                    estimated_minutes,
+                    comprehension_focus,
+                    lexical_tags,
+                    transcript_available,
+                    audio_url,
+                    audio_status,
+                )| ComprehensionResource {
+                    id,
+                    track,
+                    cefr_level: level,
+                    skill,
+                    title,
+                    topic,
+                    content,
+                    word_count,
+                    sentence_count: sentence_count.unwrap_or_default(),
+                    estimated_minutes: estimated_minutes.unwrap_or_default(),
+                    comprehension_focus,
+                    lexical_tags,
+                    transcript_available,
+                    audio_url: audio_url.unwrap_or_default(),
+                    audio_status: audio_status.unwrap_or_else(|| "not_available".to_string()),
+                },
+            )
+            .collect();
+
+        tx.commit()
+            .await
+            .map_err(|_| Status::internal("No se pudo cerrar la consulta de recursos"))?;
+
+        let total_pages = if total == 0 {
+            0
+        } else {
+            ((total + i64::from(filters.page_size) - 1) / i64::from(filters.page_size))
+                .min(i64::from(i32::MAX)) as i32
+        };
+        Ok(Response::new(ListComprehensionResourcesResponse {
+            items,
+            total: total.min(i64::from(i32::MAX)) as i32,
+            page: filters.page,
+            page_size: filters.page_size,
+            total_pages,
         }))
     }
 
