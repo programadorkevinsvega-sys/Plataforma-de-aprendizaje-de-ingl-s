@@ -151,6 +151,15 @@ export function toVocabularyWord(dto: Dto, index = 0): VocabularyWord {
     topic: optStr(dto, ['topic', 'category']),
     audioUrl: optStr(dto, ['audio_url', 'audioUrl']),
     sentences: toSentences(dto, id),
+    definitionEnglish: optStr(dto, ['definition_en', 'definitionEnglish']),
+    lexicalType: optStr(dto, ['lexical_type', 'lexicalType']),
+    tracks: list(dto, ['tracks']).map((track) => String(track)),
+    lexicalRegister: optStr(dto, ['lexical_register', 'lexicalRegister']),
+    editorialPriority: optStr(dto, ['editorial_priority', 'editorialPriority']),
+    usefulness: optStr(dto, ['usefulness']),
+    contextTags: list(dto, ['context_tags', 'contextTags']).map((tag) => String(tag)),
+    usageMode: optStr(dto, ['usage_mode', 'usageMode']),
+    pronunciationStatus: optStr(dto, ['pronunciation_status', 'pronunciationStatus']),
   })
 }
 
