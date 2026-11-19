@@ -8,7 +8,7 @@ on:
       - .github/workflows/cargo-lock-refresh.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   refresh:
@@ -20,28 +20,22 @@ jobs:
       - name: Install stable Rust
         run: rustup toolchain install stable --profile minimal
 
-      - name: Resolve workspace lockfile
+      - name: Resolve and commit workspace lockfile
         run: |
           set -euo pipefail
           cargo tree --workspace --all-targets --target x86_64-unknown-linux-gnu
-          echo "---- Cargo.lock diff ----"
           git diff -- Cargo.lock
-          echo "---- changed files ----"
-          git status --short
-          test -n "$(git status --short -- Cargo.lock)" || {
-            echo "::error::Cargo resolution did not change Cargo.lock; inspect the lockfile mismatch."
+          git add Cargo.lock
+          if git diff --cached --quiet; then
+            echo "::error::Cargo resolution did not change Cargo.lock."
             exit 1
-          }
-          test -z "$(git status --short | grep -v '^.. Cargo.lock$' || true)" || {
+          fi
+          if [[ -n "$(git status --short | grep -v '^M  Cargo.lock$' || true)" ]]; then
             echo "::error::Unexpected files changed while resolving dependencies."
             git status --short
             exit 1
-          }
-
-      - name: Upload resolved Cargo.lock
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: resolved-cargo-lock
-          path: Cargo.lock
-          if-no-files-found: error
-          retention-days: 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "fix(deps): regenerate Cargo.lock for workspace targets"
+          git push origin HEAD:refs/heads/feat/phase-1.4-catalog-curation-audit
