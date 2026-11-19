@@ -67,38 +67,46 @@ function requireSingleRow(rows, description) {
   return rows[0].id;
 }
 
-async function resolveVocabularyId(client, reference) {
+async function resolveVocabularyId(client, reference, cefrLevel) {
   const result = await client.query(
     `SELECT id
        FROM vocabulary_words
-      WHERE lower(btrim(word)) = lower(btrim($1))
+      WHERE source_catalog = 'devfluency.lexical-catalog.v2'
+        AND publication_status <> 'archived'
+        AND level = $3
+        AND lower(btrim(word)) = lower(btrim($1))
         AND lower(btrim(category)) = lower(btrim($2))
       ORDER BY id
       LIMIT 2`,
-    [reference.word, reference.category],
+    [reference.word, reference.category, cefrLevel],
   );
 
   return requireSingleRow(
     result.rows,
-    `vocabulary word "${reference.word}" in category "${reference.category}"`,
+    `canonical ${cefrLevel} vocabulary word "${reference.word}" in category "${reference.category}"`,
   );
 }
 
-async function resolveSentenceId(client, reference) {
+async function resolveSentenceId(client, reference, cefrLevel) {
   const result = await client.query(
     `SELECT sentence.id
        FROM context_sentences AS sentence
        JOIN vocabulary_words AS word ON word.id = sentence.word_id
-      WHERE lower(btrim(word.word)) = lower(btrim($1))
+      WHERE sentence.source_catalog = 'devfluency.lexical-catalog.v2'
+        AND sentence.publication_status <> 'archived'
+        AND word.source_catalog = 'devfluency.lexical-catalog.v2'
+        AND word.publication_status <> 'archived'
+        AND word.level = $3
+        AND lower(btrim(word.word)) = lower(btrim($1))
         AND lower(btrim(sentence.english_text)) = lower(btrim($2))
       ORDER BY sentence.id
       LIMIT 2`,
-    [reference.word, reference.english_text],
+    [reference.word, reference.english_text, cefrLevel],
   );
 
   return requireSingleRow(
     result.rows,
-    `context sentence for "${reference.word}": "${reference.english_text}"`,
+    `canonical ${cefrLevel} context sentence for "${reference.word}": "${reference.english_text}"`,
   );
 }
 
@@ -289,7 +297,7 @@ async function insertPackage(client, data, packageSha256, actorUserId) {
     const objectiveId = objectiveIds.get(objective.code);
 
     for (const reference of objective.vocabulary ?? []) {
-      const vocabularyId = await resolveVocabularyId(client, reference);
+      const vocabularyId = await resolveVocabularyId(client, reference, data.version.cefr_level);
       await client.query(
         `INSERT INTO learning_objective_vocabulary (
             course_version_id, learning_objective_id, vocabulary_word_id, usage_mode, position
@@ -301,7 +309,7 @@ async function insertPackage(client, data, packageSha256, actorUserId) {
     }
 
     for (const reference of objective.sentences ?? []) {
-      const sentenceId = await resolveSentenceId(client, reference);
+      const sentenceId = await resolveSentenceId(client, reference, data.version.cefr_level);
       await client.query(
         `INSERT INTO learning_objective_sentences (
             course_version_id, learning_objective_id, context_sentence_id, usage_mode, position
