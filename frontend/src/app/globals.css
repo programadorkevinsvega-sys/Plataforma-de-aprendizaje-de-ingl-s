@@ -276,6 +276,11 @@ button.btn-primary {
   color: var(--fl-text) !important;
 }
 
+.fl-navbar + main .btn-primary,
+.fl-navbar + main [class*="bg-emerald-"][class~="text-white"] {
+  color: #ffffff !important;
+}
+
 .fl-navbar + main [class*="bg-slate-950"],
 .fl-navbar + main [class*="bg-slate-900"],
 .fl-navbar + main [class*="bg-slate-700"],
