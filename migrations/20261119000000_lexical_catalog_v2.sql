@@ -204,9 +204,8 @@ BEGIN
         END IF;
     END IF;
 
-    IF NEW.publication_status IS DISTINCT FROM
-       CASE WHEN TG_OP = 'INSERT' THEN 'draft' ELSE OLD.publication_status END
-       AND NEW.publication_status IN ('review', 'published', 'archived') THEN
+    IF (TG_OP = 'INSERT' AND NEW.publication_status <> 'draft')
+       OR (TG_OP = 'UPDATE' AND NEW.publication_status IS DISTINCT FROM OLD.publication_status) THEN
         IF NOT public.app_is_content_editor() THEN
             RAISE EXCEPTION 'A registered content editor is required to change lexical publication state'
                 USING ERRCODE = '42501';
@@ -236,7 +235,7 @@ BEGIN
             v_natural_guide := NULL;
         END IF;
 
-        IF v_editorial_status <> 'approved' THEN
+        IF v_editorial_status IS DISTINCT FROM 'approved' THEN
             RAISE EXCEPTION 'Lexical content requires explicit editorial approval before publication'
                 USING ERRCODE = '23514';
         END IF;
@@ -255,7 +254,7 @@ BEGIN
         IF TG_TABLE_NAME = 'curriculum_comprehension_resources'
            AND NEW.skill = 'listening'
            AND (
-             NEW.audio_metadata ->> 'status' <> 'approved'
+             NEW.audio_metadata ->> 'status' IS DISTINCT FROM 'approved'
              OR length(btrim(COALESCE(NEW.audio_metadata ->> 'asset_url', ''))) = 0
            ) THEN
             RAISE EXCEPTION 'Listening resources require a real approved audio asset before publication'
