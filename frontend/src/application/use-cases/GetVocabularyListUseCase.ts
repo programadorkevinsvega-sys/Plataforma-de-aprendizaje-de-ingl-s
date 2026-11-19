@@ -13,7 +13,7 @@ export class GetVocabularyListUseCase {
 
   async execute(query: VocabularyQuery = {}): Promise<VocabularyWord[]> {
     const words = await this.contentRepository.getVocabularyList(query)
-    // Regla de Oro: descartamos tarjetas que no cumplan el formato de 3 líneas.
+    // Descartamos ejemplos sin texto inglés o traducción; la guía fonética puede ser no requerida.
     return words.filter((word) =>
       word.sentences.every((sentence) => sentence.isPedagogicallyValid),
     )
