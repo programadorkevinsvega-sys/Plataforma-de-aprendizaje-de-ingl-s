@@ -38,7 +38,6 @@ test('los ejemplos compartidos se reportan para revisión, no se eliminan autom�
   assert.equal(report.valid, true);
   assert.ok(report.warnings.some(warning => warning.code === 'SHARED_EXAMPLE_ACROSS_ITEMS'));
 });
-});
 
 test('no admite claves de categoría heredadas ni nivel A0', () => {
   const catalog = readCatalog();
