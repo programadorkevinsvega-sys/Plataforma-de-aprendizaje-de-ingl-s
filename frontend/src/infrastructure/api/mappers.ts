@@ -183,9 +183,18 @@ export function toComprehensionResource(dto: Dto): ComprehensionResource {
     const question = item as Dto
     const prompt = str(question, ['prompt', 'question', 'question_text', 'stem', 'text'])
     if (!prompt.trim()) return []
+    const rawOptions = pick<unknown[]>(question, 'options', 'choices', 'answers') ?? []
+    const options = rawOptions.flatMap((option) => {
+      if (typeof option === 'string' && option.trim()) return [option]
+      if (typeof option !== 'object' || option === null || Array.isArray(option)) return []
+      const optionDto = option as Dto
+      const label = str(optionDto, ['text', 'label', 'value', 'option_text'])
+      return label.trim() ? [label] : []
+    })
     return [{
       id: str(question, ['id', 'question_id'], fallbackId('question', index)),
       prompt,
+      options,
     }]
   })
 
