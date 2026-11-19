@@ -7,6 +7,7 @@ import { Navbar } from '@/presentation/components/Navbar'
 import { getContainer } from '@/infrastructure/di/container'
 import type { VocabularyWord } from '@/domain/entities/VocabularyWord'
 import type { CefrLevel } from '@/domain/entities/User'
+import { LEXICAL_CATEGORIES } from '@/domain/entities/LexicalTaxonomy'
 
 const PAGE_SIZE = 20
 const LEVELS: { value: string; label: string }[] = [
@@ -31,6 +32,7 @@ export default function LearnPage() {
   const [xpToast, setXpToast] = useState(false)
   const [track, setTrack] = useState<'all' | 'general' | 'technology'>('all')
   const [level, setLevel] = useState<string>('all')
+  const [category, setCategory] = useState<string>('all')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
@@ -54,6 +56,7 @@ export default function LearnPage() {
           page,
           pageSize: PAGE_SIZE,
           track: track === 'all' ? undefined : track,
+          category: category === 'all' ? undefined : category,
           level: level as CefrLevel | 'all',
         })
         if (!active) return
@@ -70,7 +73,7 @@ export default function LearnPage() {
     }
     void load()
     return () => { active = false }
-  }, [level, page, router, track])
+  }, [category, level, page, router, track])
 
   const handlePlayAudio = async (englishText: string, rate?: string) => {
     if (!englishText || isPlayingAudio) return
@@ -168,7 +171,7 @@ export default function LearnPage() {
           <span className="rounded-full border border-stone-200 bg-stone-50 px-4 py-2 text-xs text-stone-500">Gramática, Writing y Speaking · Motor de actividades Fase 2</span>
         </nav>
 
-        <section className="grid grid-cols-1 gap-3 rounded-2xl border border-stone-200 bg-white p-4 sm:grid-cols-3" aria-label="Filtros de vocabulario">
+        <section className="grid grid-cols-1 gap-3 rounded-2xl border border-stone-200 bg-white p-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Filtros de vocabulario">
           <label className="text-xs font-semibold text-stone-600">
             Ruta
             <select value={track} onChange={(event) => { setTrack(event.target.value as typeof track); setPage(1) }} className="mt-2 w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm">
@@ -183,9 +186,16 @@ export default function LearnPage() {
               {LEVELS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
           </label>
+          <label className="text-xs font-semibold text-stone-600">
+            Categoría
+            <select value={category} onChange={(event) => { setCategory(event.target.value); setPage(1) }} className="mt-2 w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm">
+              <option value="all">Todas las categorías</option>
+              {LEXICAL_CATEGORIES.map((item) => <option key={item.id} value={item.id}>{item.labelEs}</option>)}
+            </select>
+          </label>
           <div className="flex items-end justify-between gap-3 text-xs text-stone-500">
             <span>{total} palabras publicadas · página {page}{totalPages > 0 ? ` de ${totalPages}` : ''}</span>
-            <button type="button" onClick={() => { setTrack('all'); setLevel('all'); setPage(1) }} className="font-bold text-emerald-800">Reiniciar</button>
+            <button type="button" onClick={() => { setTrack('all'); setLevel('all'); setCategory('all'); setPage(1) }} className="font-bold text-emerald-800">Reiniciar</button>
           </div>
         </section>
 
@@ -205,7 +215,20 @@ export default function LearnPage() {
               <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">{currentWord.category}</p>
               <h3 className="mt-2 text-3xl font-extrabold">{currentWord.term}</h3>
               <p className="mt-2 text-sm font-semibold text-emerald-800">{currentWord.spanishTranslation}</p>
+              {currentWord.definitionEnglish && <p className="mt-3 text-sm leading-6 text-slate-600">{currentWord.definitionEnglish}</p>}
+              <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+                {currentWord.lexicalType && <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-stone-600">{currentWord.lexicalType}</span>}
+                {currentWord.lexicalRegister && <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-stone-600">{currentWord.lexicalRegister}</span>}
+                {currentWord.usageMode && <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-stone-600">{currentWord.usageMode}</span>}
+              </div>
             </div>
+            {(currentWord.usefulness || currentWord.editorialPriority || currentWord.contextTags.length > 0) && (
+              <div className="mt-3 rounded-xl border border-stone-200 p-3">
+                {currentWord.usefulness && <p className="text-xs leading-5 text-stone-600"><strong>Utilidad:</strong> {currentWord.usefulness}</p>}
+                {currentWord.editorialPriority && <p className="mt-1 text-xs text-stone-600"><strong>Prioridad:</strong> {currentWord.editorialPriority}</p>}
+                {currentWord.contextTags.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{currentWord.contextTags.map((tag) => <span key={tag} className="rounded-lg bg-stone-100 px-2 py-1 text-[10px] text-stone-600">{tag}</span>)}</div>}
+              </div>
+            )}
 
             {currentWord.sentences.length > 0 && (
               <>
