@@ -245,22 +245,16 @@ impl ContentService for MyContentService {
         let context_sentences = sentences
             .into_iter()
             .map(
-                |(
-                    sentence_id,
-                    english,
-                    slow,
-                    spanish,
-                    audio,
-                    natural,
-                    pronunciation_status,
-                )| ContextSentence {
-                    id: sentence_id.to_string(),
-                    english_text: english,
-                    spanish_phonetic: slow.unwrap_or_default(),
-                    spanish_translation: spanish,
-                    audio_url: audio.unwrap_or_default(),
-                    spanish_phonetic_natural: natural.unwrap_or_default(),
-                    pronunciation_status,
+                |(sentence_id, english, slow, spanish, audio, natural, pronunciation_status)| {
+                    ContextSentence {
+                        id: sentence_id.to_string(),
+                        english_text: english,
+                        spanish_phonetic: slow.unwrap_or_default(),
+                        spanish_translation: spanish,
+                        audio_url: audio.unwrap_or_default(),
+                        spanish_phonetic_natural: natural.unwrap_or_default(),
+                        pronunciation_status,
+                    }
                 },
             )
             .collect();
@@ -449,7 +443,8 @@ impl ContentService for MyContentService {
             context_tags,
             usage_mode,
             pronunciation_status,
-        ) in words {
+        ) in words
+        {
             let sentences: Vec<(
                 Uuid,
                 String,
