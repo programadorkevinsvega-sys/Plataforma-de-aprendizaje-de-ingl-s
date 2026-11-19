@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { composeInitialReleaseCatalog } from "../import_initial_release_catalog.mjs";
 import { auditCatalog } from "../audit_lexical_catalog.mjs";
 
-const ROOT = path.resolve(import.meta.dirname ?? path.dirname(new URL(import.meta.url).pathname), "../../..");
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const CATALOG = path.join(ROOT, "crates/content-vocabulary-service/data/lexical_catalog.v2.json");
 const RELEASE = path.join(ROOT, "tools/curriculum/initial-release-comprehension.v1.json");
 
