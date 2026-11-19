@@ -71,7 +71,7 @@ test('creates exact single-word lemma matches and skips phrases without fuzzy ma
   const hello = proposal.matches.find(match => match.id === 'hello-word');
   assert.equal(hello.general.rank, 42);
   assert.equal(hello.spoken.rank, 9);
-  assert.equal(hello.general.source_sha256, 'e2d5f39a5b79c69d6e9b29b7d5b9d18b5d5d2e0bcd5b22e4f2dbd8c8c34a59a8');
+  assert.equal(hello.general.source_sha256, 'c6d0c3944dcf75fdae82b0bf055bf02c90e6a35bf7df439bacf671a119c7f828');
   assert.equal(hello.general.match_method, 'exact_modified_lemma');
   assert.match(proposal.summary.items_with_any_match.toString(), /^2$/);
 });
