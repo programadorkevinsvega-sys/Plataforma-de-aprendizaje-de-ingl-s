@@ -142,6 +142,9 @@ function validatedCoursePackage(root, packageRelativePath) {
 
 async function resolveEditor(pool, requestedEditorId) {
   if (requestedEditorId) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedEditorId)) {
+      throw new Error("CURRICULUM_EDITOR_USER_ID debe ser un UUID válido.");
+    }
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
@@ -412,7 +415,7 @@ async function main(argv) {
     idleTimeoutMillis: 1000,
   });
   try {
-    const editorId = await resolveEditor(pool, process.env.CURRICULUM_EDITOR_USER_ID ?? null);
+    const editorId = await resolveEditor(pool, process.env.CURRICULUM_EDITOR_USER_ID || null);
     const catalogResult = await importLexicalCatalog(pool, release.merged, release.catalogSha256, {
       apply: true,
       actorUserId: editorId,
