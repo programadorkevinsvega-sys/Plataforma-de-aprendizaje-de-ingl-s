@@ -265,7 +265,6 @@ test('editorial review rejects a negative decision without comments before calli
       decision: 'changes_requested',
       comments: '   ',
     }),
-    }),
     /requiere comentarios/,
   )
   assert.equal(calls.length, 0)
