@@ -1,75 +1,61 @@
-# Carga inicial de Inglés General: Pre-A1 y A1
+# Carga inicial de Inglés General y catálogo de contenido
 
-Esta entrega prepara dos versiones iniciales del curso **English General** y cuatro recursos originales de comprensión (Reading y Listening) para Pre-A1 y A1. Los paquetes de curso enlazan objetivos con entradas y ejemplos exactos del catálogo léxico v2, por ruta y nivel.
+Esta release conecta el catálogo de contenido con el despliegue de la aplicación. La importación y publicación ya no son pasos manuales independientes: forman parte del mismo pipeline de producción, después de aplicar las migraciones PostgreSQL.
 
-## Paquetes de curso
+## Contenido incluido
 
-| Versión | Unidades | Lecciones | Objetivos | Referencias léxicas | Ejemplos |
-|---|---:|---:|---:|---:|---:|
-| Pre-A1 | 3 | 5 | 5 | 18 | 14 |
-| A1 | 3 | 5 | 5 | 13 | 13 |
+La fuente canónica \`crates/content-vocabulary-service/data/lexical_catalog.v2.json\` contiene:
 
-Los dos paquetes usan el mismo curso estable `english-general`, versión 1 para cada nivel CEFR. Los objetivos cubren comunicación básica, presentaciones personales, descripciones, acciones cotidianas, números, rutinas y viajes.
+| Tipo | Cantidad |
+|---|---:|
+| Entradas léxicas | 790 |
+| Ejemplos | 2.201 |
+| Recursos Reading y Listening | 26 |
+| Preguntas de comprensión | 52 |
+| Guiones Listening | 13 |
 
-## Recursos de comprensión preparados
+El paquete de comprensión reemplaza cuatro recursos iniciales de Inglés General con contenido original:
+- Pre-A1 Reading: **A new English class**
+- Pre-A1 Listening: **Your first English class**
+- A1 Reading: **Mateo's working day**
+- A1 Listening: **Checking in at a hotel**
 
-Se sustituyen los cuatro recursos iniciales del catálogo para Inglés General:
+Los dos paquetes curriculares \`english-general\` tienen 3 unidades cada uno, 5 lecciones cada uno y 5 objetivos medibles por nivel. Las referencias se resuelven contra el catálogo v2 por nivel CEFR y track.
 
-- Pre-A1 Reading: **A new English class** (34 palabras, 3 preguntas).
-- Pre-A1 Listening: **Your first English class** (29 palabras, 3 preguntas).
-- A1 Reading: **Mateo's working day** (53 palabras, 3 preguntas).
-- A1 Listening: **Checking in at a hotel** (41 palabras, 3 preguntas).
+## Ejecución automática en producción
 
-Los guiones son originales. Cada pregunta incluye opciones identificadas, respuesta correcta, evidencia textual y justificación. La clave no se entrega al panel del estudiante. Las preguntas y recursos permanecen pendientes de revisión editorial humana; esta entrega no simula una aprobación.
+\`deploy/deploy-release.sh\` ejecuta el siguiente orden dentro del despliegue:
 
-## Corrección de resolución de referencias
+1. Aplica todas las migraciones SQL en \`aprendizaje_ingles\`.
+2. Combina el catálogo v2 con los cuatro recursos originales y valida su hash.
+3. Genera los 13 MP3 Listening mediante el proveedor configurado en \`phonetic-audio-service.env\`, si el hash de catálogo aún no tiene un release de audio.
+4. Comprueba el manifiesto, el formato MP3 y el SHA-256 de cada audio.
+5. Conserva los audios en \`/var/lib/devfluency/listening-audio/releases/<catalog-sha256>\` y los expone en \`/audio/listening/\` mediante el directorio público de Next.js.
+6. Importa de forma transaccional e idempotente las 790 entradas, 2.201 ejemplos, 26 recursos de comprensión y los dos paquetes de curso.
+7. Registra la aprobación del propietario del producto mediante un editor curricular registrado y publica vocabulario, ejemplos, lecturas, preguntas, escuchas y versiones de curso. Los cambios de estado editorial se realizan en una única transacción.
+8. Verifica los conteos publicados y comprueba por HTTP que los 13 audios se sirven desde el frontend.
 
-El importador de cursos resuelve las referencias únicamente contra `devfluency.lexical-catalog.v2` y el nivel CEFR de la versión. Esto evita que una fila heredada con la misma palabra/categoría o frase haga que una referencia sea ambigua o apunte al contenido equivocado. La prueba de integración crea duplicados heredados deliberadamente y comprueba que el importador selecciona el registro canónico.
+La carga se ejecuta después de las migraciones y antes de marcar el despliegue como exitoso. Si falla una importación, una transición editorial, la validación de un audio o la comprobación HTTP, el job de despliegue falla; no se declara una release curricular completa.
 
-## Importar en PostgreSQL
+## Identidad editorial
 
-Requisitos: migraciones de currículo aplicadas, conexión confiable `DATABASE_URL` y un usuario UUID ya registrado en `public.content_editors`.
+El pipeline usa \`CURRICULUM_EDITOR_USER_ID\` desde \`/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env\` cuando está configurado. Si no está definido, resuelve automáticamente el único registro de \`public.content_editors\`. Si no hay exactamente un editor disponible, el despliegue falla sin elegir una identidad arbitraria.
 
-Primero ejecutar la importación completa del catálogo con los cuatro recursos originales superpuestos:
+## Pronunciación y audios
 
-```bash
-node tools/curriculum/import_initial_release_catalog.mjs --actor-user-id <EDITOR_UUID>
-node tools/curriculum/import_initial_release_catalog.mjs --actor-user-id <EDITOR_UUID> --apply
-```
+La publicación respeta los datos que realmente existen en el catálogo:
+- Las entradas léxicas no tienen todavía guías de pronunciación individuales; se publican con \`pronunciation_status = not_required\` en vez de fabricar guías.
+- Los ejemplos que tienen candidatos con guías lenta y natural usan el primer candidato disponible; los ejemplos sin guía quedan marcados \`not_required\`.
+- Los 13 audios Listening se sintetizan con el proveedor configurado, se validan por formato y hash y se publican con URL relativa permanente. La transcripción sigue oculta (\`transcript_available = false\`).
 
-El primer comando es un dry-run transaccional; el segundo persiste las 790 entradas léxicas, los 2.201 ejemplos y 26 recursos de comprensión como borradores. Nunca publica contenido.
+El manifiesto conserva la información del proveedor y el estado de revisión de licencia. La verificación automática demuestra que los MP3 existen, coinciden con sus hashes y se sirven por HTTP; no sustituye una escucha humana subjetiva ni una auditoría de términos del proveedor.
 
-Después importar los paquetes de curso:
+## Re-ejecución
 
-```bash
-node tools/curriculum/import_content_package.mjs tests/fixtures/curriculum/initial-release-english-general-pre-a1-v1.json --actor-user-id <EDITOR_UUID> --apply
-node tools/curriculum/import_content_package.mjs tests/fixtures/curriculum/initial-release-english-general-a1-v1.json --actor-user-id <EDITOR_UUID> --apply
-```
+La carga es idempotente:
+- Los catálogos se identifican por hash SHA-256.
+- Los paquetes de curso se identifican por su hash canónico.
+- Los audios se conservan por hash del catálogo y no se vuelven a sintetizar en cada despliegue.
+- Los registros ya publicados no se reescriben; una modificación de contenido requiere una nueva versión revisada.
 
-Cada curso queda como `draft`. Su transición se hace por nivel y de forma explícita:
-
-```bash
-node tools/curriculum/manage_course_version.mjs --action submit --course english-general --level PRE_A1 --version 1 --actor-user-id <EDITOR_UUID> --apply
-node tools/curriculum/manage_course_version.mjs --action review --course english-general --level PRE_A1 --version 1 --actor-user-id <EDITOR_UUID> --decision approved --apply
-node tools/curriculum/manage_course_version.mjs --action publish --course english-general --level PRE_A1 --version 1 --actor-user-id <EDITOR_UUID> --apply
-```
-
-Repetir para `A1`. Revisar el contenido antes de aprobarlo; quien registra la decisión debe ser un editor autorizado.
-
-## Vocabulario, Reading y Listening
-
-La importación léxica mantiene palabras y ejemplos en `draft`. Cada palabra, sus ejemplos y ambas guías de pronunciación requieren revisión por separado; la publicación exige el paso `draft → review → published`, un editor autorizado y guías lenta/natural aprobadas o pronunciación marcada explícitamente como no requerida.
-
-Los recursos Reading y Listening también quedan como `draft`. Cada pregunta requiere aprobación editorial; Listening necesita un MP3 real validado, una URL de asset aprobada y transcript oculto. El exportador produce un catálogo temporal que incluye exactamente los cuatro recursos del paquete; el generador Rust debe recibir ese archivo con `--catalog` y los dos identificadores `--resource-id` para sintetizar solo los guiones nuevos Pre-A1/A1, después de validar la integridad de los 13 listening del catálogo. Produce dos MP3 y un manifiesto con hashes en estado `generated_pending_audio_review`; no modifica PostgreSQL ni publica URLs.
-
-```bash
-node tools/curriculum/import_initial_release_catalog.mjs --export-merged-catalog /tmp/devfluency-initial-release-catalog.v2.json
-cargo run --package phonetic-audio-service --bin generate-listening-assets -- --catalog /tmp/devfluency-initial-release-catalog.v2.json --resource-id general-pre_a1-listening-02 --resource-id general-a1-listening-04 --dry-run
-TTS_SMOKE_ENDPOINT=http://127.0.0.1:50054 cargo run --package phonetic-audio-service --bin generate-listening-assets -- --catalog /tmp/devfluency-initial-release-catalog.v2.json --resource-id general-pre_a1-listening-02 --resource-id general-a1-listening-04 --apply --voice Matthew --output-dir /tmp/devfluency-listening-audio
-```
-
-Tras escuchar cada archivo, un editor debe revisar su calidad, proveedor/licencia y guion, almacenar el asset en el origen público configurado y registrar la aprobación antes de publicar el Listening. Este repositorio no contiene las credenciales TTS ni una conexión de almacenamiento que permita completar esos pasos desde CI.
-
-## Estado de esta entrega
-
-Esta rama añade paquetes reproducibles, recursos originales y pruebas. No se ha ejecutado ninguna escritura sobre la base de datos ni el proveedor TTS; no se afirma que haya cursos o contenido ya publicados en producción. La importación y la aprobación editorial siguen siendo operaciones separadas y verificables.
+No se ejecuta ninguna carga curricular desde el frontend ni se exponen los importadores administrativos como endpoints públicos.
