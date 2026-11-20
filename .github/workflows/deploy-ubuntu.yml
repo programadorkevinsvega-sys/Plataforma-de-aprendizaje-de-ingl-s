@@ -226,7 +226,7 @@ jobs:
           cp -a tools/curriculum/. dist/tools/curriculum/
           install -m 0640 tests/fixtures/curriculum/initial-release-english-general-pre-a1-v1.json dist/tests/fixtures/curriculum/initial-release-english-general-pre-a1-v1.json
           install -m 0640 tests/fixtures/curriculum/initial-release-english-general-a1-v1.json dist/tests/fixtures/curriculum/initial-release-english-general-a1-v1.json
-          pnpm install --prod --filter devfluency-node-workspace --frozen-lockfile
+          # Reuse the workspace dependency graph already installed for the frontend build.
           mkdir -p dist/node_modules
           cp -a node_modules/. dist/node_modules/
 
