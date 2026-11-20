@@ -159,6 +159,9 @@ fi
 # Expose the persistent audio release through Next.js public assets. The media
 # files survive future immutable application releases and remain available at
 # the same relative URL stored in PostgreSQL.
+# Keep a convenience pointer to the newest audio release, but bind each
+# immutable application release directly to its matching catalogue hash. A
+# rollback to an older application release must also restore its exact audio.
 ln -sfn "$audio_release" "$audio_state_root/current.next"
 mv -Tf "$audio_state_root/current.next" "$audio_state_root/current"
 active_frontend_server="$(frontend_server_path "$release/frontend")"
@@ -169,7 +172,7 @@ if [[ -e "$frontend_public/audio/listening" && ! -L "$frontend_public/audio/list
   echo "Refusing to replace a non-symlink Listening asset directory in the release." >&2
   exit 1
 fi
-ln -sfn "$audio_state_root/current" "$frontend_public/audio/listening.next"
+ln -sfn "$audio_release" "$frontend_public/audio/listening.next"
 mv -Tf "$frontend_public/audio/listening.next" "$frontend_public/audio/listening"
 chown -h root:devfluency "$frontend_public/audio/listening"
 
