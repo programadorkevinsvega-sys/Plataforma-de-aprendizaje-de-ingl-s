@@ -11,7 +11,7 @@ La fuente canónica \`crates/content-vocabulary-service/data/lexical_catalog.v2.
 | Entradas léxicas | 790 |
 | Ejemplos | 2.201 |
 | Recursos Reading y Listening | 26 |
-| Preguntas de comprensión | 52 |
+| Preguntas de comprensión | 56 |
 | Guiones Listening | 13 |
 
 El paquete de comprensión reemplaza cuatro recursos iniciales de Inglés General con contenido original:
