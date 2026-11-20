@@ -258,12 +258,13 @@ test('editorial review rejects a negative decision without comments before calli
   const { http, calls } = createWorkflowHttp()
   const manage = new ManageCurriculumEditorialVersionUseCase(new BffCurriculumRepository(http))
 
-  await assert.rejects(
-    manage.execute({
+  assert.throws(
+    () => manage.execute({
       courseVersionId: versionId,
       action: 'review',
       decision: 'changes_requested',
       comments: '   ',
+    }),
     }),
     /requiere comentarios/,
   )
