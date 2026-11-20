@@ -67,6 +67,11 @@ function validateAudioManifest(assetDirectory, release) {
   }
 
   const expectedIds = new Set(release.listeningIds);
+  const listeningResources = new Map(
+    release.merged.comprehension_resources
+      .filter((resource) => resource.skill === "listening")
+      .map((resource) => [resource.id, resource]),
+  );
   const result = new Map();
   for (const asset of manifest.assets) {
     if (!expectedIds.has(asset.resource_id) || result.has(asset.resource_id)) {
@@ -77,6 +82,10 @@ function validateAudioManifest(assetDirectory, release) {
     }
     if (typeof asset.asset_file !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9._-]*\.mp3$/.test(asset.asset_file)) {
       throw new Error("Nombre de archivo MP3 no válido para " + asset.resource_id);
+    }
+    const sourceResource = listeningResources.get(asset.resource_id);
+    if (!sourceResource || asset.source_text_sha256 !== sha256(Buffer.from(sourceResource.content, "utf8"))) {
+      throw new Error("El hash del guion no coincide con el texto de Listening: " + asset.resource_id);
     }
     const audioPath = path.join(assetDirectory, asset.asset_file);
     const audio = readFileSync(audioPath);
