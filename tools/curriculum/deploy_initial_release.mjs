@@ -448,8 +448,21 @@ async function main(argv) {
     }, null, 2) + "\n");
     return;
   }
+  if (mode === "--verify-audio") {
+    if (argv.length !== 1) throw new Error("Uso: --verify-audio");
+    const assetDirectory = process.env.AUDIO_ASSET_DIR;
+    if (!assetDirectory) throw new Error("AUDIO_ASSET_DIR debe apuntar al release persistente de los audios.");
+    const release = releaseInputs(root);
+    const assets = validateAudioManifest(assetDirectory, release);
+    process.stdout.write(JSON.stringify({
+      state: "verified",
+      catalog_sha256: release.catalogSha256,
+      listening_assets: assets.size,
+    }, null, 2) + "\n");
+    return;
+  }
   if (mode !== "--publish" || argv.length !== 1) {
-    throw new Error("Uso: deploy-initial-curriculum --prepare-catalog <ruta> | --publish");
+    throw new Error("Uso: deploy-initial-curriculum --prepare-catalog <ruta> | --verify-audio | --publish");
   }
 
   const databaseUrl = process.env.DATABASE_URL;
