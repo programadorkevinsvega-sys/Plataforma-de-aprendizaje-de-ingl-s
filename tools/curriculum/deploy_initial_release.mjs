@@ -310,7 +310,7 @@ async function publishRelease(pool, editorId, release, audioAssets, { apply = tr
         "), '[]'::jsonb), " +
         "provenance = jsonb_set(COALESCE(resource.provenance, '{}'::jsonb), '{publication_approval}', $3::jsonb, true), " +
         "audio_metadata = CASE WHEN resource.skill = 'listening' " +
-          "THEN COALESCE(resource.audio_metadata, '{}'::jsonb) || ($4::jsonb -> resource.id::text) " +
+          "THEN COALESCE(resource.audio_metadata, '{}'::jsonb) || ($4::jsonb -> split_part(resource.source_key, ':', 3)) " +
           "ELSE resource.audio_metadata END, " +
         "publication_status = 'published', updated_at = CURRENT_TIMESTAMP " +
       "WHERE resource.source_catalog = $1 AND resource.catalog_hash = $2 AND resource.publication_status = 'review'",
