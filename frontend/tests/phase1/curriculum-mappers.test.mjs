@@ -213,3 +213,17 @@ test('package import mapper distinguishes dry-run from persisted draft', () => {
   assert.equal(applied.applied, true)
   assert.equal(applied.dryRun, false)
 })
+
+test('draft save mapper exposes revision number and content integrity hash', () => {
+  const saved = toSaveCurriculumDraftResult({
+    course_version_id: 'version-2',
+    updated_at: '2026-11-20 17:20:00+00',
+    revision_number: 3,
+    content_sha256: 'c'.repeat(64),
+  })
+
+  assert.equal(saved.courseVersionId, 'version-2')
+  assert.equal(saved.updatedAt, '2026-11-20 17:20:00+00')
+  assert.equal(saved.revisionNumber, 3)
+  assert.equal(saved.contentSha256, 'c'.repeat(64))
+})

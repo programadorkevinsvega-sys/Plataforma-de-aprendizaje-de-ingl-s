@@ -115,8 +115,8 @@ async function main() {
   const args = parseArgs(process.argv.slice(2))
   if (args.help) {
     process.stdout.write(
-      'Uso: DATABASE_URL=... node tools/curriculum/manage_content_editor.mjs --email cuenta@dominio.com --grant [--apply]\\n' +
-      'Sin --apply solo muestra el cambio y revierte la transacción. Usa --revoke para retirar el permiso.\\n',
+      'Uso: DATABASE_URL=... node tools/curriculum/manage_content_editor.mjs --email cuenta@dominio.com --grant [--apply]\n' +
+      'Sin --apply solo muestra el cambio y revierte la transacción. Usa --revoke para retirar el permiso.\n',
     )
     return
   }
@@ -129,16 +129,16 @@ async function main() {
   process.stdout.write(
     `${result.applied ? 'Aplicado' : 'Simulación'}: ${result.action} ${result.email} ` +
     `(${result.fullName}); permiso anterior=${result.wasEditor}, ` +
-    `permiso resultante=${result.willBeEditor}, cambio=${result.changed}\\n`,
+    `permiso resultante=${result.willBeEditor}, cambio=${result.changed}\n`,
   )
   if (!result.applied && result.changed) {
-    process.stdout.write('Repite el mismo comando con --apply para confirmar el cambio.\\n')
+    process.stdout.write('Repite el mismo comando con --apply para confirmar el cambio.\n')
   }
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
   main().catch((error) => {
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\\n`)
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`)
     process.exitCode = 1
   })
 }
