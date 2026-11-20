@@ -15,12 +15,12 @@ test("initial release combines all canonical lexical and comprehension content",
   assert.equal(release.lexicalItems, 790);
   assert.equal(release.examples, 2201);
   assert.equal(release.resources, 26);
-  assert.equal(release.questions, 52);
+  assert.equal(release.questions, 56);
   assert.equal(release.listeningIds.length, 13);
   assert.equal(release.merged.comprehension_resources.filter((item) => item.skill === "reading").length, 13);
 });
 
-test("Listening assets must match the release hash, include every script and pass MP3 SHA-256 checks", () => {
+test("Listening assets must match the release hash, include every script and pass MP3 SHA-256 checks", async () => {
   const release = releaseInputs(ROOT);
   const directory = mkdtempSync(path.join(os.tmpdir(), "devfluency-release-audio-"));
   try {
@@ -50,7 +50,7 @@ test("Listening assets must match the release hash, include every script and pas
       assets,
     }));
 
-    const verified = verifyInitialReleaseAudio(directory, release);
+    const verified = await verifyInitialReleaseAudio(directory, release);
     assert.equal(verified.size, 13);
     assert.equal(verified.get(release.listeningIds[0]).audio_review.status, "automated_integrity_verified");
     assert.match(verified.get(release.listeningIds[0]).asset_url, /^\/audio\/listening\/listening-01\.mp3$/);
@@ -59,7 +59,7 @@ test("Listening assets must match the release hash, include every script and pas
   }
 });
 
-test("Listening asset manifest rejects a different catalogue hash", () => {
+test("Listening asset manifest rejects a different catalogue hash", async () => {
   const release = releaseInputs(ROOT);
   const directory = mkdtempSync(path.join(os.tmpdir(), "devfluency-release-audio-invalid-"));
   try {
@@ -69,8 +69,8 @@ test("Listening asset manifest rejects a different catalogue hash", () => {
       source_catalog_sha256: "0".repeat(64),
       assets: [],
     }));
-    assert.throws(
-      () => verifyInitialReleaseAudio(directory, release),
+    await assert.rejects(
+      verifyInitialReleaseAudio(directory, release),
       /no corresponden al hash/,
     );
   } finally {
