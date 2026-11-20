@@ -11,3 +11,6 @@ uuid = { workspace = true }
 tracing = { workspace = true }
 jsonwebtoken = { workspace = true }
 tonic = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

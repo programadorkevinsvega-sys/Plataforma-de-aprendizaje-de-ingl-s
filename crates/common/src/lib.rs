@@ -1,3 +1,4 @@
+pub mod activity_contract;
 pub mod auth;
 pub mod error;
 pub mod rls;
