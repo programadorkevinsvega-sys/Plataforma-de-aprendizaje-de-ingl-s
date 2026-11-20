@@ -1728,7 +1728,7 @@ impl ContentService for MyContentService {
         .map_err(|error| match error {
             DraftEditError::Forbidden => {
                 Status::permission_denied("La cuenta no está registrada en content_editors")
-            },
+            }
             DraftEditError::NotFound => Status::not_found("Versión curricular no encontrada"),
             DraftEditError::Conflict(message) => Status::aborted(message),
             DraftEditError::Invalid(message) => Status::invalid_argument(message),
