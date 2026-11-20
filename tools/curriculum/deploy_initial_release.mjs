@@ -320,7 +320,7 @@ async function publishRelease(pool, editorId, release, audioAssets, { apply = tr
     const courseVersions = await client.query(
       "SELECT version.id, version.cefr_level, version.status " +
         "FROM course_versions AS version JOIN courses AS course ON course.id = version.course_id " +
-        "WHERE course.slug = 'english-general' AND version.cefr_level = ANY($1::text[]) " +
+        "WHERE course.slug = 'english-general' AND version.version_number = 1 AND version.cefr_level = ANY($1::text[]) " +
         "ORDER BY version.cefr_level FOR UPDATE OF version",
       [["PRE_A1", "A1"]],
     );
@@ -373,10 +373,10 @@ async function publishRelease(pool, editorId, release, audioAssets, { apply = tr
         "(SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1 AND catalog_hash = $2 AND publication_status = 'published') AS published_resources, " +
         "(SELECT COALESCE(sum(jsonb_array_length(questions)), 0)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1 AND catalog_hash = $2 AND publication_status = 'published') AS questions, " +
         "(SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1 AND catalog_hash = $2 AND publication_status = 'published' AND skill = 'listening' AND audio_metadata ->> 'status' = 'approved' AND length(btrim(COALESCE(audio_metadata ->> 'asset_url', ''))) > 0) AS listening_with_audio, " +
-        "(SELECT count(*)::int FROM course_versions AS version JOIN courses AS course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.cefr_level = ANY($3::text[]) AND version.status = 'published') AS published_courses, " +
-        "(SELECT count(*)::int FROM course_units AS unit JOIN course_versions AS version ON version.id = unit.course_version_id JOIN courses AS course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.cefr_level = ANY($3::text[])) AS units, " +
-        "(SELECT count(*)::int FROM course_lessons AS lesson JOIN course_versions AS version ON version.id = lesson.course_version_id JOIN courses AS course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.cefr_level = ANY($3::text[])) AS lessons, " +
-        "(SELECT count(*)::int FROM learning_objectives AS objective JOIN course_versions AS version ON version.id = objective.course_version_id JOIN courses AS course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.cefr_level = ANY($3::text[])) AS objectives",
+        "(SELECT count(*)::int FROM course_versions AS version JOIN courses AS course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.version_number = 1 AND version.cefr_level = ANY($3::text[]) AND version.status = 'published') AS published_courses, " +
+        "(SELECT count(*)::int FROM course_units AS unit JOIN course_versions AS version ON version.id = unit.course_version_id JOIN courses AS course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.version_number = 1 AND version.cefr_level = ANY($3::text[])) AS units, " +
+        "(SELECT count(*)::int FROM course_lessons AS lesson JOIN course_versions AS version ON version.id = lesson.course_version_id JOIN courses AS course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.version_number = 1 AND version.cefr_level = ANY($3::text[])) AS lessons, " +
+        "(SELECT count(*)::int FROM learning_objectives AS objective JOIN course_versions AS version ON version.id = objective.course_version_id JOIN courses AS course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.version_number = 1 AND version.cefr_level = ANY($3::text[])) AS objectives",
       [SOURCE_CATALOG, release.catalogSha256, ["PRE_A1", "A1"]],
     );
     const published = finalCounts.rows[0];
