@@ -112,6 +112,7 @@ export interface EditorialVersionSummary {
   latestComments: string
   latestReviewerId: string
   canPublish: boolean
+  updatedAt: string
 }
 
 export interface EditorialVersionsFilter {
@@ -143,6 +144,19 @@ export interface EditorialActionResult {
   nextStatus: EditorialVersionStatus
   reviewId: string
   reviewedAt: string
+}
+
+export interface SaveCurriculumDraftInput {
+  courseVersionId: string
+  expectedUpdatedAt: string
+  draftJson: string
+}
+
+export interface SaveCurriculumDraftResult {
+  courseVersionId: string
+  updatedAt: string
+  revisionNumber: number
+  contentSha256: string
 }
 
 export interface ImportCurriculumPackageInput {
@@ -180,5 +194,6 @@ export interface ICurriculumRepository {
   enroll(courseVersionId: string): Promise<CourseEnrollment>
   listEditorialVersions(filter: EditorialVersionsFilter): Promise<EditorialVersionsPage>
   manageEditorialVersion(input: EditorialActionInput): Promise<EditorialActionResult>
+  saveCurriculumDraft(input: SaveCurriculumDraftInput): Promise<SaveCurriculumDraftResult>
   importCurriculumPackage(input: ImportCurriculumPackageInput): Promise<ImportCurriculumPackageResult>
 }

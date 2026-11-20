@@ -2,9 +2,9 @@
 
 ## Estado y alcance
 
-Esta entrega amplía el catálogo estudiantil integrado en PR #81. Incorpora paginación y filtros en PostgreSQL, estados de lección calculados a partir de evidencia persistida, y una interfaz administrativa para importar paquetes, gestionar revisión y publicar versiones aprobadas.
+Esta entrega amplía el catálogo estudiantil integrado en PR #81. Incorpora paginación y filtros en PostgreSQL, estados de lección calculados a partir de evidencia persistida, y una interfaz administrativa para importar paquetes, gestionar revisión y publicar versiones aprobadas. El editor visual permite corregir los campos de una versión existente mientras continúe en `draft`, con control de concurrencia e historial de revisiones.
 
-No cierra la Fase 1.5 ni la Fase 1 completa. La UI todavía no ofrece edición campo a campo de una versión ya importada; los paquetes se corrigen como nuevos contenidos versionados, sin sobrescribir la misma versión. Tampoco se ha importado ni publicado contenido curricular real de negocio en producción.
+No cierra la Fase 1.5 ni la Fase 1 completa. Aún faltan pruebas de integración web para toda la cola editorial (paginación, filtros, permisos, importación y transiciones), provisionar una cuenta editorial real y ejecutar el flujo de extremo a extremo con esa cuenta.
 
 ## 1. Catálogo estudiantil: filtros y paginación reales
 
@@ -51,6 +51,7 @@ Endpoints del BFF:
 | GET | /api/v1/curriculum/editor/versions | Cola editorial paginada y filtrable por estado/búsqueda |
 | POST | /api/v1/curriculum/editor/import | Validación/previsualización o importación explícita de un paquete |
 | POST | /api/v1/curriculum/editor/versions/{course_version_id}/actions | Enviar a revisión, registrar decisión o publicar |
+| PUT | /api/v1/curriculum/editor/versions/{course_version_id}/draft | Guardar cambios campo a campo en una versión draft |
 
 ### Importación desde la web
 
@@ -70,6 +71,15 @@ El paquete admite máximo 1.5 MB. El importador rechaza claves JSON duplicadas, 
 
 La cola muestra el último comentario, decisión, huella del paquete y si el editor autenticado puede publicar.
 
+### Editor visual de borradores existentes
+
+- En una fila con estado `draft`, el editor puede abrir **Editar borrador** y modificar título/descripción del curso, título/tema/descripción/duración de unidades, título/descripción/duración de lecciones y descripción/criterios de éxito de objetivos.
+- Los IDs, códigos, posiciones, jerarquía unidad-lección, relaciones lección-objetivo, competencias, prerrequisitos y referencias léxicas/de frases se muestran como estructura protegida; el endpoint rechaza JSON que intente añadir, quitar, mover o reordenar esos elementos.
+- El BFF transmite el `updated_at` leído en la cola como token de concurrencia. Si otra persona guardó antes, la API devuelve conflicto HTTP 409 y obliga a recargar antes de volver a editar.
+- El servicio vuelve a comprobar `content_editors`, bloquea la fila padre `course_versions`, exige que el estado siga siendo `draft` y guarda los cambios en una sola transacción PostgreSQL.
+- Cada guardado material crea una fila append-only en `curriculum_draft_revisions`, con snapshot JSON y SHA-256. Repetir exactamente el último contenido no crea una revisión duplicada.
+- Al enviar la versión a `review`, la protección existente de PostgreSQL congela las filas hijas; un guardado concurrente no puede alterar una versión que ya haya entrado en revisión.
+
 ### Provisionamiento inicial de editores
 
 La tabla content_editors requiere que un administrador de plataforma registre explícitamente el UUID de la cuenta editorial mediante el procedimiento seguro de administración de base de datos. No se concede la capacidad desde el navegador ni automáticamente al primer usuario. Hasta ese provisionamiento, la pantalla mostrará acceso denegado (HTTP 403), aunque la ruta sea visible.
@@ -84,12 +94,11 @@ La tabla content_editors requiere que un administrador de plataforma registre ex
 
 ## 5. Pendientes explícitos
 
-1. Editor visual campo a campo para revisar y corregir una versión draft ya importada. Hoy el panel edita el paquete JSON antes de la primera importación y evita sobrescribir versiones existentes.
-2. Intentos y rúbricas del motor de actividades Fase 2 para que gramática, escritura, listening y speaking tengan progreso evaluado real, además de práctica de vocabulario/SRS.
-3. Curación editorial y expansión del catálogo (Subfase 1.4): calidad lingüística de traducciones, ejemplos, guías fonéticas y audios lento/natural.
-4. Cargar un paquete curricular real aprobado, con referencias que existan exactamente una vez en PostgreSQL; revisar y publicar mediante el flujo protegido.
-5. Provisionar al menos una cuenta editorial en content_editors mediante la operación administrativa segura.
-6. Pruebas automatizadas de integración para paginación/filtros, RLS editorial, workflow completo, importación web dry-run/apply y desbloqueo por evidencia en PostgreSQL.
+1. Pruebas de integración web para paginación, filtros, respuestas 403/409, importación dry-run/apply y transiciones editoriales completas, incluida la ruta PUT de edición visual.
+2. Provisionar al menos una cuenta autorizada en `content_editors` mediante la operación administrativa segura y ejecutar el flujo web con esa cuenta.
+3. Intentos y rúbricas del motor de actividades Fase 2 para que gramática, escritura, listening y speaking tengan progreso evaluado real, además de práctica de vocabulario/SRS.
+4. Curación editorial y expansión del catálogo (Subfase 1.4): calidad lingüística de traducciones, ejemplos, guías fonéticas y audios lento/natural.
+5. Cargar y validar el contenido real completo que corresponda a la siguiente publicación, con referencias exactas y decisiones editoriales humanas.
 
 El fixture tests/fixtures/curriculum/phase1_3_content_package_v1.json se utiliza únicamente para CI y validación de esquema. No es contenido real y no debe importarse ni publicarse en producción.
 
@@ -99,4 +108,5 @@ El fixture tests/fixtures/curriculum/phase1_3_content_package_v1.json se utiliza
 - El importador mantiene las transacciones atómicas; un fallo de referencia o de integridad revierte la importación completa.
 - Los endpoints editoriales devuelven 403 a cuentas que no estén en content_editors.
 - La publicación solo se realiza desde una versión review cuya última decisión sea approved por el mismo editor que publica.
+- La edición visual solo modifica versiones draft y registra snapshots inmutables; no existe una ruta para sobrescribir contenido en review/published.
 - No se ha ejecutado todavía una importación real en producción ni se declara ningún curso publicado por esta entrega.

@@ -7,7 +7,7 @@ use proto::content::{
     CurriculumCourseSummary, CurriculumLesson, CurriculumObjective, CurriculumPrerequisite,
     CurriculumUnit, EditorialCourseVersionSummary, EnrollInCourseRequest,
     GetCurriculumCourseRequest, ImportCurriculumPackageRequest, ListCurriculumCoursesRequest,
-    ListEditorialVersionsRequest, ManageEditorialVersionRequest,
+    ListEditorialVersionsRequest, ManageEditorialVersionRequest, UpdateCurriculumDraftRequest,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -149,6 +149,20 @@ pub struct EditorialActionBody {
     pub comments: Option<String>,
 }
 
+#[derive(Deserialize)]
+pub struct UpdateCurriculumDraftBody {
+    pub expected_updated_at: String,
+    pub draft_json: String,
+}
+
+#[derive(Serialize)]
+pub struct UpdateCurriculumDraftDto {
+    pub course_version_id: String,
+    pub updated_at: String,
+    pub revision_number: i32,
+    pub content_sha256: String,
+}
+
 #[derive(Serialize)]
 pub struct EditorialVersionDto {
     pub course_version_id: String,
@@ -165,6 +179,7 @@ pub struct EditorialVersionDto {
     pub latest_comments: String,
     pub latest_reviewer_id: String,
     pub can_publish: bool,
+    pub updated_at: String,
 }
 
 #[derive(Serialize)]
@@ -203,6 +218,7 @@ impl From<EditorialCourseVersionSummary> for EditorialVersionDto {
             latest_comments: version.latest_comments,
             latest_reviewer_id: version.latest_reviewer_id,
             can_publish: version.can_publish,
+            updated_at: version.updated_at,
         }
     }
 }
@@ -312,7 +328,7 @@ fn curriculum_error(error: tonic::Status, operation: &'static str) -> (StatusCod
             "CURRICULUM_INVALID_REQUEST",
             error.message(),
         ),
-        tonic::Code::FailedPrecondition | tonic::Code::AlreadyExists => (
+        tonic::Code::FailedPrecondition | tonic::Code::AlreadyExists | tonic::Code::Aborted => (
             StatusCode::CONFLICT,
             "CURRICULUM_STATE_CONFLICT",
             error.message(),
@@ -491,6 +507,53 @@ pub async fn import_curriculum_package_handler(
         sentence_references: response.sentence_references,
         applied: response.applied,
         dry_run: response.dry_run,
+    }))
+}
+
+/// PUT /api/v1/curriculum/editor/versions/:course_version_id/draft
+///
+/// Only field-level draft edits are accepted. The content service verifies the
+/// editor role, status, stale-write token and immutable academic structure.
+pub async fn update_curriculum_draft_handler(
+    State(mut state): State<AppState>,
+    headers: HeaderMap,
+    Path(course_version_id): Path<String>,
+    Json(body): Json<UpdateCurriculumDraftBody>,
+) -> Result<Json<UpdateCurriculumDraftDto>, (StatusCode, Json<Value>)> {
+    if body.draft_json.trim().is_empty()
+        || body.draft_json.len() > 1_500_000
+        || body.expected_updated_at.trim().is_empty()
+    {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "message": "El borrador está vacío, supera 1.5 MB o no incluye la versión esperada.",
+                "code": "CURRICULUM_DRAFT_INPUT_INVALID"
+            })),
+        ));
+    }
+
+    let user_id = validate_token_from_headers(&headers, &mut state).await?;
+    let mut request = tonic::Request::new(UpdateCurriculumDraftRequest {
+        user_id,
+        course_version_id,
+        expected_updated_at: body.expected_updated_at,
+        draft_json: body.draft_json,
+    });
+    attach_bearer_metadata(&headers, &mut request)?;
+
+    let mut client = state.content_client.clone();
+    let response = client
+        .update_curriculum_draft(request)
+        .await
+        .map_err(|error| curriculum_error(error, "update_curriculum_draft"))?
+        .into_inner();
+
+    Ok(Json(UpdateCurriculumDraftDto {
+        course_version_id: response.course_version_id,
+        updated_at: response.updated_at,
+        revision_number: response.revision_number,
+        content_sha256: response.content_sha256,
     }))
 }
 

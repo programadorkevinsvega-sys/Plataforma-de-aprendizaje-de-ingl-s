@@ -8,6 +8,7 @@ import {
   toEditorialActionResult,
   toEditorialVersionSummary,
   toImportCurriculumPackageResult,
+  toSaveCurriculumDraftResult,
 } from '../../src/infrastructure/api/curriculumMappers.ts'
 
 test('course summary maps canonical curriculum fields and enrollment state', () => {
@@ -152,12 +153,14 @@ test('editorial version mapper exposes immutable version and latest review state
     latest_comments: 'Ready to publish',
     latest_reviewer_id: 'editor-1',
     can_publish: true,
+    updated_at: '2026-11-20 17:17:00+00',
   })
 
   assert.equal(version.courseVersionId, 'version-2')
   assert.equal(version.status, 'review')
   assert.equal(version.latestDecision, 'approved')
   assert.equal(version.canPublish, true)
+  assert.equal(version.updatedAt, '2026-11-20 17:17:00+00')
   assert.equal(version.packageSha256.length, 64)
 })
 
@@ -209,4 +212,18 @@ test('package import mapper distinguishes dry-run from persisted draft', () => {
   })
   assert.equal(applied.applied, true)
   assert.equal(applied.dryRun, false)
+})
+
+test('draft save mapper exposes revision number and content integrity hash', () => {
+  const saved = toSaveCurriculumDraftResult({
+    course_version_id: 'version-2',
+    updated_at: '2026-11-20 17:20:00+00',
+    revision_number: 3,
+    content_sha256: 'c'.repeat(64),
+  })
+
+  assert.equal(saved.courseVersionId, 'version-2')
+  assert.equal(saved.updatedAt, '2026-11-20 17:20:00+00')
+  assert.equal(saved.revisionNumber, 3)
+  assert.equal(saved.contentSha256, 'c'.repeat(64))
 })

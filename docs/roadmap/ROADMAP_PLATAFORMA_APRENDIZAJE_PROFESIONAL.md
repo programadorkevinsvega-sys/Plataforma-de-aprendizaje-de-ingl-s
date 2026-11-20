@@ -448,7 +448,7 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 
 ### Subfase 1.5. APIs y administración
 
-**Avance incremental — catálogo estudiantil (PR #81) y APIs/administración web (PR en curso):** se conservan las rutas existentes, se expone el catálogo por versión inmutable y se incorporan filtros/paginación PostgreSQL, progreso de lecciones basado en evidencia persistida y una administración web protegida para importar paquetes, tramitar revisión y publicar. La implementación y sus límites están en [Catálogo curricular y administración editorial web](../curriculum/phase-1.5-student-catalog-integration.md).
+**Avance incremental — catálogo estudiantil (PR #81) y APIs/administración web:** se conservan las rutas existentes, se expone el catálogo por versión inmutable y se incorporan filtros/paginación PostgreSQL, progreso de lecciones basado en evidencia persistida y una administración web protegida para importar, editar borradores, tramitar revisión y publicar. La edición de borradores es transaccional, usa un token de concurrencia y conserva revisiones SHA-256 append-only. La implementación y sus límites están en [Catálogo curricular y administración editorial web](../curriculum/phase-1.5-student-catalog-integration.md).
 
 **Estado de lo implementado en la rama de trabajo:**
 - [x] Exponer catálogo de cursos, unidades y lecciones para estudiantes.
@@ -461,8 +461,9 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 - [x] Versionar contratos HTTP/gRPC y mantener intacto el recorrido legado `/learn`.
 
 **Pendientes para completar la subfase 1.5:**
-- [ ] Editor visual campo a campo de una versión `draft` ya importada. Por ahora la edición del paquete se realiza en JSON antes de crear la versión; no se sobrescribe una versión importada.
-- [ ] Pruebas de integración PostgreSQL para paginación, filtros, permisos editoriales, importación web y transiciones de extremo a extremo.
+- [x] Editor visual campo a campo de una versión `draft` ya importada, con guardado transaccional, validación de estructura inmutable, token de concurrencia e historial append-only con SHA-256.
+- [x] Prueba de integración PostgreSQL del guardado de borrador: revisión persistida, rechazo de escritura obsoleta y bloqueo tras entrar a `review`.
+- [ ] Pruebas de integración web para paginación, filtros, permisos editoriales, importación web y transiciones completas de extremo a extremo.
 - [ ] Validación automática del catálogo real completo y evidencia de su cobertura.
 - [ ] Provisionar una cuenta autorizada en `content_editors` y ejecutar el flujo web con esa cuenta.
 

@@ -6,6 +6,8 @@ import type {
   EditorialVersionsPage,
   ImportCurriculumPackageInput,
   ImportCurriculumPackageResult,
+  SaveCurriculumDraftInput,
+  SaveCurriculumDraftResult,
   CurriculumCourseDetail,
   CurriculumCourseListFilter,
   CurriculumCoursePage,
@@ -17,6 +19,7 @@ import {
   toEditorialActionResult,
   toEditorialVersionSummary,
   toImportCurriculumPackageResult,
+  toSaveCurriculumDraftResult,
   toCurriculumCourseDetail,
   toCurriculumCourseSummary,
 } from '@/infrastructure/api/curriculumMappers'
@@ -80,6 +83,23 @@ export class BffCurriculumRepository implements ICurriculumRepository {
       },
     )
     return toEditorialActionResult(response)
+  }
+
+  async saveCurriculumDraft(
+    input: SaveCurriculumDraftInput,
+  ): Promise<SaveCurriculumDraftResult> {
+    const response = await this.http.request<Dto>(
+      `/api/v1/curriculum/editor/versions/${encodeURIComponent(input.courseVersionId)}/draft`,
+      {
+        method: 'PUT',
+        body: {
+          expected_updated_at: input.expectedUpdatedAt,
+          draft_json: input.draftJson,
+        },
+        timeoutMs: 180_000,
+      },
+    )
+    return toSaveCurriculumDraftResult(response)
   }
 
   async importCurriculumPackage(
