@@ -1,7 +1,7 @@
 # Contrato de actividades v1.0
 
-**Estado:** contrato de dominio en implementación para la Subfase 2.1.  
-**Módulo:** `crates/common/src/activity_contract.rs` (`common::activity_contract`).  
+**Estado:** contrato de dominio en implementación para la Subfase 2.1.
+**Módulo:** `crates/common/src/activity_contract.rs` (`common::activity_contract`).
 **No incluye:** persistencia de actividades/intentos, endpoints, sesión de lección ni UI de ejercicios.
 
 ## 1. Separación de datos
