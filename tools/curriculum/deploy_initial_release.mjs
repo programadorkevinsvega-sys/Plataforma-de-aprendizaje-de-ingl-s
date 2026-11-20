@@ -217,7 +217,7 @@ async function resolveEditor(pool, requestedEditorId) {
   return provisionReleaseEditor(pool);
 }
 
-async function publishRelease(pool, editorId, release, audioAssets) {
+async function publishRelease(pool, editorId, release, audioAssets, { apply = true } = {}) {
   const client = await pool.connect();
   let transactionOpen = false;
   try {
@@ -394,13 +394,19 @@ async function publishRelease(pool, editorId, release, audioAssets) {
       throw new Error("La verificación final de publicación no coincide con el contenido esperado: " + JSON.stringify(published));
     }
 
-    await client.query("COMMIT");
+    if (apply) {
+      await client.query("COMMIT");
+    } else {
+      await client.query("ROLLBACK");
+    }
     transactionOpen = false;
     return {
       ...published,
       catalog_sha256: release.catalogSha256,
       listening_assets: audioAssets.size,
       published_levels: ["PRE_A1", "A1"],
+      applied: apply,
+      dry_run: !apply,
     };
   } catch (error) {
     if (transactionOpen) await client.query("ROLLBACK").catch(() => {});
@@ -418,8 +424,8 @@ export async function verifyInitialReleaseAudio(assetDirectory, release) {
   return validateAudioManifest(assetDirectory, release);
 }
 
-export async function publishInitialRelease(pool, editorId, release, audioAssets) {
-  return publishRelease(pool, editorId, release, audioAssets);
+export async function publishInitialRelease(pool, editorId, release, audioAssets, options = {}) {
+  return publishRelease(pool, editorId, release, audioAssets, options);
 }
 
 async function main(argv) {
