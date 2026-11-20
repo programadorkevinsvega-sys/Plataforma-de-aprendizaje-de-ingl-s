@@ -775,4 +775,3 @@ mod tests {
         pool.close().await;
     }
 }
-}
