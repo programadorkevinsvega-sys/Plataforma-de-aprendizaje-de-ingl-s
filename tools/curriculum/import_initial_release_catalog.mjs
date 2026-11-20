@@ -58,6 +58,12 @@ export function composeInitialReleaseCatalog(catalog, release) {
   if (!Array.isArray(release.resources) || release.resources.length !== EXPECTED_RESOURCE_IDS.size) {
     throw new Error(`The initial release must contain exactly ${EXPECTED_RESOURCE_IDS.size} comprehension resources.`);
   }
+  if (
+    release.metadata?.review_method !== "ai_assisted_language_and_curriculum_review"
+    || release.metadata?.human_review_before_public_launch !== true
+  ) {
+    throw new Error("The initial release is missing its explicit private-pilot review policy.");
+  }
 
   const replacements = new Map();
   for (const resource of release.resources) {
@@ -70,15 +76,20 @@ export function composeInitialReleaseCatalog(catalog, release) {
     if (!["reading", "listening"].includes(resource.skill)) {
       throw new Error(`Unsupported comprehension skill for resource: ${resource.id}`);
     }
-    if (resource.publication_status !== "draft" || resource.editorial_status !== "pending_editorial_and_level_review") {
-      throw new Error(`Initial comprehension resources must remain drafts pending editorial review: ${resource.id}`);
+    if (
+      resource.publication_status !== "draft"
+      || resource.editorial_status !== "approved"
+      || resource.provenance?.editorial_review?.review_method !== "ai_assisted_language_and_curriculum_review"
+      || resource.provenance?.editorial_review?.human_review_before_public_launch !== true
+    ) {
+      throw new Error(`Initial comprehension resource lacks its scoped private-pilot review record: ${resource.id}`);
     }
     if (!Array.isArray(resource.questions) || resource.questions.length < 3) {
       throw new Error(`Each initial comprehension resource requires at least three questions: ${resource.id}`);
     }
     for (const question of resource.questions) {
-      if (question.editorial_status !== "pending_human_review") {
-        throw new Error(`Question review cannot be auto-approved: ${resource.id}/${question.id}`);
+      if (question.editorial_status !== "approved") {
+        throw new Error(`Question is not included in the reviewed private-pilot release: ${resource.id}/${question.id}`);
       }
       const options = Array.isArray(question.options) ? question.options : [];
       if (!options.some((option) => option.id === question.correct_option_id)) {

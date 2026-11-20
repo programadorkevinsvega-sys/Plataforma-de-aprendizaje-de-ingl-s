@@ -67,7 +67,10 @@ export async function importLexicalCatalog(pool, catalog, contentSha256, { apply
     editorial_status: example.editorial_status ?? 'pending_linguistic_review',
     audio_url: approvedAudioUrl(example.audio),
     audio_metadata: example.audio ?? {},
-    provenance: { source_records: example.source_records ?? [] },
+    provenance: {
+      source_records: example.source_records ?? [],
+      editorial_review: example.editorial_review ?? null,
+    },
   })));
 
   const resources = catalog.comprehension_resources.map((resource) => ({

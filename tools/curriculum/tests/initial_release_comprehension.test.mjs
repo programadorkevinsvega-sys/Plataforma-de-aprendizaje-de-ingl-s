@@ -13,7 +13,7 @@ const CATALOG = path.join(ROOT, "crates/content-vocabulary-service/data/lexical_
 const RELEASE = path.join(ROOT, "tools/curriculum/initial-release-comprehension.v1.json");
 const IMPORTER = path.join(ROOT, "tools/curriculum/import_initial_release_catalog.mjs");
 
-test("initial Pre-A1/A1 comprehension release passes the canonical catalog audit and remains unpublished", () => {
+test("reviewed Pre-A1/A1 comprehension pilot passes audit and stays draft until deployment", () => {
   const catalog = JSON.parse(readFileSync(CATALOG, "utf8"));
   const release = JSON.parse(readFileSync(RELEASE, "utf8"));
   const merged = composeInitialReleaseCatalog(catalog, release);
@@ -24,7 +24,7 @@ test("initial Pre-A1/A1 comprehension release passes the canonical catalog audit
   assert.equal(report.summary.lexical_items, 790);
   assert.equal(report.summary.examples, 2201);
   assert.equal(report.summary.comprehension_questions, 56);
-  assert.equal(report.summary.pending_question_review, 56);
+  assert.equal(report.summary.pending_question_review, 44);
 
   for (const id of [
     "general-pre_a1-reading-01",
@@ -35,9 +35,12 @@ test("initial Pre-A1/A1 comprehension release passes the canonical catalog audit
     const resource = merged.comprehension_resources.find((item) => item.id === id);
     assert.ok(resource, `Missing initial comprehension resource ${id}`);
     assert.equal(resource.publication_status, "draft");
-    assert.equal(resource.editorial_status, "pending_editorial_and_level_review");
+    assert.equal(resource.editorial_status, "approved");
+    assert.equal(resource.provenance.editorial_review.review_method, "ai_assisted_language_and_curriculum_review");
+    assert.equal(resource.provenance.editorial_review.human_review_before_public_launch, true);
+    assert.equal(resource.publication_status, "draft");
     assert.equal(resource.questions.length, 3);
-    assert.ok(resource.questions.every((question) => question.editorial_status === "pending_human_review"));
+    assert.ok(resource.questions.every((question) => question.editorial_status === "approved"));
   }
 
   for (const resource of merged.comprehension_resources.filter((item) => item.skill === "listening" && [
@@ -50,12 +53,12 @@ test("initial Pre-A1/A1 comprehension release passes the canonical catalog audit
   }
 });
 
-test("initial release overlay rejects answer keys or editorial states that bypass human review", () => {
+test("initial release overlay rejects unreviewed questions and keeps audio pending", () => {
   const catalog = JSON.parse(readFileSync(CATALOG, "utf8"));
   const release = JSON.parse(readFileSync(RELEASE, "utf8"));
   const badQuestion = structuredClone(release);
-  badQuestion.resources[0].questions[0].editorial_status = "approved";
-  assert.throws(() => composeInitialReleaseCatalog(catalog, badQuestion), /cannot be auto-approved/);
+  badQuestion.resources[0].questions[0].editorial_status = "pending_human_review";
+  assert.throws(() => composeInitialReleaseCatalog(catalog, badQuestion), /not included in the reviewed private-pilot release/);
 
   const missingAudio = structuredClone(release);
   missingAudio.resources.find((resource) => resource.skill === "listening").audio.status = "approved";

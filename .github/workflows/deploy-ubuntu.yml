@@ -218,6 +218,18 @@ jobs:
           done
           install -m 0755 "$(command -v sqlx)" dist/bin/sqlx
           install -m 0755 target/release/tts-smoke-test dist/bin/tts-smoke-test
+          install -m 0755 target/release/generate-listening-assets dist/bin/generate-listening-assets
+
+          # Ship the importer source tree and its exact production-only pg runtime.
+          mkdir -p dist/crates/content-vocabulary-service/data dist/tools/curriculum dist/tests/fixtures/curriculum
+          install -m 0640 crates/content-vocabulary-service/data/lexical_catalog.v2.json dist/crates/content-vocabulary-service/data/lexical_catalog.v2.json
+          cp -a tools/curriculum/. dist/tools/curriculum/
+          install -m 0640 tests/fixtures/curriculum/initial-release-english-general-pre-a1-v1.json dist/tests/fixtures/curriculum/initial-release-english-general-pre-a1-v1.json
+          install -m 0640 tests/fixtures/curriculum/initial-release-english-general-a1-v1.json dist/tests/fixtures/curriculum/initial-release-english-general-a1-v1.json
+          # Reuse the workspace dependency graph already installed for the frontend build.
+          mkdir -p dist/node_modules
+          cp -a node_modules/. dist/node_modules/
+
           cp -a frontend/.next/standalone/. dist/frontend/
 
           # Next.js 16 in this pnpm workspace emits server.js beneath the
@@ -243,7 +255,7 @@ jobs:
           echo "Next.js standalone application root: $app_bundle_root"
           cp -a deploy/. dist/deploy/
           cp -a migrations dist/migrations
-          tar -czf devfluency-deploy-package.tar.gz -C dist bin frontend deploy migrations
+          tar -czf devfluency-deploy-package.tar.gz -C dist bin frontend deploy migrations crates tools tests node_modules
           sha256sum devfluency-deploy-package.tar.gz | awk '{print $1}' > devfluency-deploy-package.tar.gz.sha256
           test "$(wc -c < devfluency-deploy-package.tar.gz.sha256)" -eq 65
           echo "Deployment package SHA-256: $(cat devfluency-deploy-package.tar.gz.sha256)"
@@ -323,4 +335,4 @@ jobs:
           scp -o BatchMode=yes devfluency-deploy-package.tar.gz.sha256 \
             "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/$checksum"
           ssh -o BatchMode=yes "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "set -euo pipefail; package=/tmp/$package; checksum=/tmp/$checksum; expected=\$(cat \"\$checksum\"); [[ \"\$expected\" =~ ^[0-9a-f]{64}$ ]]; printf '%s  %s\\n' \"\$expected\" \"\$package\" | sha256sum --check; stage=/tmp/devfluency-${RELEASE_SHA}; mkdir -p \"\$stage\"; tar -xzf \"\$package\" -C \"\$stage\"; sudo bash \"\$stage/deploy/bootstrap-ubuntu.sh\"; tar -czf \"\$stage/release.tar.gz\" -C \"\$stage\" bin frontend migrations; sudo bash \"\$stage/deploy/deploy-release.sh\" '${RELEASE_SHA}' \"\$stage/release.tar.gz\"; rm -rf \"\$stage\" \"\$package\" \"\$checksum\""
+            "set -euo pipefail; package=/tmp/$package; checksum=/tmp/$checksum; expected=\$(cat \"\$checksum\"); [[ \"\$expected\" =~ ^[0-9a-f]{64}$ ]]; printf '%s  %s\\n' \"\$expected\" \"\$package\" | sha256sum --check; stage=/tmp/devfluency-${RELEASE_SHA}; mkdir -p \"\$stage\"; tar -xzf \"\$package\" -C \"\$stage\"; sudo bash \"\$stage/deploy/bootstrap-ubuntu.sh\"; tar -czf \"\$stage/release.tar.gz\" -C \"\$stage\" bin frontend deploy migrations crates tools tests node_modules; sudo bash \"\$stage/deploy/deploy-release.sh\" '${RELEASE_SHA}' \"\$stage/release.tar.gz\"; rm -rf \"\$stage\" \"\$package\" \"\$checksum\""

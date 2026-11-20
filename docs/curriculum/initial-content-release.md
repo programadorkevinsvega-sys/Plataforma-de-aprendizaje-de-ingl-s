@@ -1,75 +1,69 @@
-# Carga inicial de Inglés General: Pre-A1 y A1
+# Carga inicial de Inglés General y catálogo de contenido
 
-Esta entrega prepara dos versiones iniciales del curso **English General** y cuatro recursos originales de comprensión (Reading y Listening) para Pre-A1 y A1. Los paquetes de curso enlazan objetivos con entradas y ejemplos exactos del catálogo léxico v2, por ruta y nivel.
+Esta release incorpora la importación curricular al despliegue automatizado. Las migraciones PostgreSQL, la carga idempotente, la generación de audio y la publicación del primer curso se ejecutan desde el mismo release de CI/CD.
 
-## Paquetes de curso
+## Catálogo completo y publicación piloto
 
-| Versión | Unidades | Lecciones | Objetivos | Referencias léxicas | Ejemplos |
-|---|---:|---:|---:|---:|---:|
-| Pre-A1 | 3 | 5 | 5 | 18 | 14 |
-| A1 | 3 | 5 | 5 | 13 | 13 |
+La fuente canónica `crates/content-vocabulary-service/data/lexical_catalog.v2.json` contiene 790 entradas léxicas, 2.201 ejemplos y 26 recursos de comprensión (13 Reading y 13 Listening). El pipeline importa el catálogo completo, pero la publicación inicial está limitada a lo que realmente consume English General v1 en Pre-A1 y A1.
 
-Los dos paquetes usan el mismo curso estable `english-general`, versión 1 para cada nivel CEFR. Los objetivos cubren comunicación básica, presentaciones personales, descripciones, acciones cotidianas, números, rutinas y viajes.
+| Contenido | Importado | Publicado en el piloto |
+|---|---:|---:|
+| Entradas léxicas | 790 | 30 |
+| Ejemplos contextuales | 2.201 | 26 |
+| Recursos Reading/Listening | 26 | 4 |
+| Preguntas | 56 | 12 |
+| Audios Listening | — | 2 |
 
-## Recursos de comprensión preparados
+Los 760 términos restantes, 2.175 ejemplos y 22 recursos permanecen en borrador y no son visibles para estudiantes. También permanecen ocultos los niveles A2–C2 y el contenido de la ruta Technology, salvo las referencias exactas que pertenezcan al alcance explícito del curso inicial.
 
-Se sustituyen los cuatro recursos iniciales del catálogo para Inglés General:
+Los cuatro recursos originales del piloto son:
+- Pre-A1 Reading: **A new English class**
+- Pre-A1 Listening: **Your first English class**
+- A1 Reading: **Mateo's working day**
+- A1 Listening: **Checking in at a hotel**
 
-- Pre-A1 Reading: **A new English class** (34 palabras, 3 preguntas).
-- Pre-A1 Listening: **Your first English class** (29 palabras, 3 preguntas).
-- A1 Reading: **Mateo's working day** (53 palabras, 3 preguntas).
-- A1 Listening: **Checking in at a hotel** (41 palabras, 3 preguntas).
+Los dos paquetes `english-general` incluyen 3 unidades, 5 lecciones y 5 objetivos medibles por nivel (6 unidades, 10 lecciones y 10 objetivos en total). La importación mantiene las referencias de vocabulario y ejemplos vinculadas por nivel CEFR y categoría.
 
-Los guiones son originales. Cada pregunta incluye opciones identificadas, respuesta correcta, evidencia textual y justificación. La clave no se entrega al panel del estudiante. Las preguntas y recursos permanecen pendientes de revisión editorial humana; esta entrega no simula una aprobación.
+## Revisión del contenido y límites del piloto
 
-## Corrección de resolución de referencias
+El pipeline aplica una revisión asistida por IA y comprobaciones deterministas solamente a los 30 términos y 26 ejemplos referenciados por los dos paquetes iniciales, y a los cuatro recursos de comprensión con sus 12 preguntas. Se comprueban correspondencia de nivel, naturalidad básica, opciones correctas y evidencia textual. La procedencia de esa revisión queda registrada en el catálogo y en PostgreSQL.
 
-El importador de cursos resuelve las referencias únicamente contra `devfluency.lexical-catalog.v2` y el nivel CEFR de la versión. Esto evita que una fila heredada con la misma palabra/categoría o frase haga que una referencia sea ambigua o apunte al contenido equivocado. La prueba de integración crea duplicados heredados deliberadamente y comprueba que el importador selecciona el registro canónico.
+Esto habilita un **piloto privado para validación personal**, no una certificación editorial de producción:
+- Las guías fonéticas en español son aproximaciones didácticas, no transcripción IPA.
+- Las notas de articulación de /θ/ siguen requiriendo validación especializada.
+- No se afirma que un hablante nativo o docente haya revisado el material.
+- Los dos audios se generan con el proveedor TTS configurado, pero deben escucharse y aprobarse manualmente antes de un lanzamiento público.
+- Las condiciones/licencia del proveedor TTS deben revisarse por separado.
 
-## Importar en PostgreSQL
+Todo el contenido no referenciado por English General v1 queda pendiente y oculto; no se aprueba por el mero hecho de estar importado.
 
-Requisitos: migraciones de currículo aplicadas, conexión confiable `DATABASE_URL` y un usuario UUID ya registrado en `public.content_editors`.
+## Ejecución automática en producción
 
-Primero ejecutar la importación completa del catálogo con los cuatro recursos originales superpuestos:
+`deploy/deploy-release.sh` ejecuta el siguiente orden:
 
-```bash
-node tools/curriculum/import_initial_release_catalog.mjs --actor-user-id <EDITOR_UUID>
-node tools/curriculum/import_initial_release_catalog.mjs --actor-user-id <EDITOR_UUID> --apply
-```
+1. Aplica todas las migraciones SQL en `aprendizaje_ingles`.
+2. Combina el catálogo v2 con los cuatro recursos iniciales y aplica el manifiesto de revisión limitado al curso inicial.
+3. Importa de forma transaccional e idempotente las 790 entradas, 2.201 ejemplos y 26 recursos como contenido de catálogo.
+4. Importa los dos paquetes de curso English General v1 (Pre-A1 y A1).
+5. Genera únicamente los dos MP3 Listening iniciales con el proveedor configurado en `phonetic-audio-service.env`.
+6. Comprueba el manifiesto, los hashes SHA-256, la cabecera MP3 y el guion fuente; almacena los audios bajo `/var/lib/devfluency/listening-audio/releases/<catalog-sha256>`.
+7. Enlaza cada release de frontend a su propio directorio de audio, para que un rollback restaure también los recursos multimedia correspondientes.
+8. Reinicia los servicios, comprueba HTTP de la aplicación y verifica que ambos MP3 son accesibles por la ruta pública.
+9. Publica en una única transacción únicamente los 30 términos, 26 ejemplos, cuatro recursos, 12 preguntas y dos audios del alcance inicial, y las dos versiones de curso.
+10. Verifica los conteos publicados y que el resto del catálogo continúa oculto.
 
-El primer comando es un dry-run transaccional; el segundo persiste las 790 entradas léxicas, los 2.201 ejemplos y 26 recursos de comprensión como borradores. Nunca publica contenido.
+La publicación sucede después de las migraciones, la generación y la comprobación HTTP de los recursos. Si falla una importación, una transición editorial, la validación de un audio, una comprobación HTTP o la publicación, el despliegue falla y revierte la versión de aplicación; los registros no publicados permanecen como borradores.
 
-Después importar los paquetes de curso:
+## Identidad editorial y seguridad
 
-```bash
-node tools/curriculum/import_content_package.mjs tests/fixtures/curriculum/initial-release-english-general-pre-a1-v1.json --actor-user-id <EDITOR_UUID> --apply
-node tools/curriculum/import_content_package.mjs tests/fixtures/curriculum/initial-release-english-general-a1-v1.json --actor-user-id <EDITOR_UUID> --apply
-```
+El pipeline usa `CURRICULUM_EDITOR_USER_ID` desde `/etc/apps/plataforma-aprendizaje/plataforma-aprendizaje.env` cuando está configurado. Si no está definido, crea/resuelve una identidad de servicio dedicada y la registra como editor curricular. Esa identidad técnica no tiene una contraseña de usuario utilizable; solo firma la operación automatizada dentro del permiso de editor.
 
-Cada curso queda como `draft`. Su transición se hace por nivel y de forma explícita:
+## Re-ejecución
 
-```bash
-node tools/curriculum/manage_course_version.mjs --action submit --course english-general --level PRE_A1 --version 1 --actor-user-id <EDITOR_UUID> --apply
-node tools/curriculum/manage_course_version.mjs --action review --course english-general --level PRE_A1 --version 1 --actor-user-id <EDITOR_UUID> --decision approved --apply
-node tools/curriculum/manage_course_version.mjs --action publish --course english-general --level PRE_A1 --version 1 --actor-user-id <EDITOR_UUID> --apply
-```
+La carga es idempotente:
+- Los catálogos y audios se identifican por hash SHA-256.
+- Los paquetes de curso se identifican por su hash canónico.
+- Los audios no se vuelven a sintetizar si el manifiesto corresponde al hash del release y todos los MP3 superan las comprobaciones.
+- Los registros publicados no se reescriben; una modificación posterior requiere una nueva versión revisada.
 
-Repetir para `A1`. Revisar el contenido antes de aprobarlo; quien registra la decisión debe ser un editor autorizado.
-
-## Vocabulario, Reading y Listening
-
-La importación léxica mantiene palabras y ejemplos en `draft`. Cada palabra, sus ejemplos y ambas guías de pronunciación requieren revisión por separado; la publicación exige el paso `draft → review → published`, un editor autorizado y guías lenta/natural aprobadas o pronunciación marcada explícitamente como no requerida.
-
-Los recursos Reading y Listening también quedan como `draft`. Cada pregunta requiere aprobación editorial; Listening necesita un MP3 real validado, una URL de asset aprobada y transcript oculto. El exportador produce un catálogo temporal que incluye exactamente los cuatro recursos del paquete; el generador Rust debe recibir ese archivo con `--catalog` y los dos identificadores `--resource-id` para sintetizar solo los guiones nuevos Pre-A1/A1, después de validar la integridad de los 13 listening del catálogo. Produce dos MP3 y un manifiesto con hashes en estado `generated_pending_audio_review`; no modifica PostgreSQL ni publica URLs.
-
-```bash
-node tools/curriculum/import_initial_release_catalog.mjs --export-merged-catalog /tmp/devfluency-initial-release-catalog.v2.json
-cargo run --package phonetic-audio-service --bin generate-listening-assets -- --catalog /tmp/devfluency-initial-release-catalog.v2.json --resource-id general-pre_a1-listening-02 --resource-id general-a1-listening-04 --dry-run
-TTS_SMOKE_ENDPOINT=http://127.0.0.1:50054 cargo run --package phonetic-audio-service --bin generate-listening-assets -- --catalog /tmp/devfluency-initial-release-catalog.v2.json --resource-id general-pre_a1-listening-02 --resource-id general-a1-listening-04 --apply --voice Matthew --output-dir /tmp/devfluency-listening-audio
-```
-
-Tras escuchar cada archivo, un editor debe revisar su calidad, proveedor/licencia y guion, almacenar el asset en el origen público configurado y registrar la aprobación antes de publicar el Listening. Este repositorio no contiene las credenciales TTS ni una conexión de almacenamiento que permita completar esos pasos desde CI.
-
-## Estado de esta entrega
-
-Esta rama añade paquetes reproducibles, recursos originales y pruebas. No se ha ejecutado ninguna escritura sobre la base de datos ni el proveedor TTS; no se afirma que haya cursos o contenido ya publicados en producción. La importación y la aprobación editorial siguen siendo operaciones separadas y verificables.
+No se ejecuta ninguna carga desde el frontend ni se exponen los importadores administrativos como endpoints públicos.

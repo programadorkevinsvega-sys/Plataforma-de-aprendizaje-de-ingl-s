@@ -9,7 +9,7 @@ LEGACY_CONFIG="/etc/devfluency/devfluency.env"
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
-apt-get install -y --no-install-recommends ca-certificates curl tar
+apt-get install -y --no-install-recommends ca-certificates curl tar python3
 
 NODE_REQUIRED_VERSION="26.13.1"
 INSTALLED_NODE_VERSION="$(node -p 'process.versions.node' 2>/dev/null || true)"

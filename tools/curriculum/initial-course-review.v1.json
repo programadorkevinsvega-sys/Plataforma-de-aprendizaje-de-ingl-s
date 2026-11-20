@@ -1,0 +1,577 @@
+{
+  "format": "devfluency.initial-course-content-review",
+  "schema_version": 1,
+  "metadata": {
+    "reviewed_at": "2026-11-19",
+    "review_method": "ai_assisted_language_and_curriculum_review",
+    "review_scope": "Only lexical items and examples referenced by English General Pre-A1 v1 and A1 v1.",
+    "authorization": "Owner-requested private pilot content release for personal validation.",
+    "human_review_status": "required_before_public_launch",
+    "pronunciation_policy": "Spanish phonetic guides are learner-facing approximations, not IPA or a substitute for listening and speaking practice.",
+    "limitations": [
+      "No claim of native-speaker or human speech-specialist approval is made.",
+      "Pronunciation sound notes for /θ/ remain specialist-review items; the Spanish z is only a visual approximation.",
+      "All unreferenced examples, advanced levels, and Technology content remain pending and hidden."
+    ]
+  },
+  "terms": [
+    {
+      "id": "lex-a1-daily_routines-shower-0231",
+      "cefr_level": "A1",
+      "lexical_form": "shower",
+      "category_id": "daily_routines",
+      "meaning_es": "ducharse/ducha",
+      "spanish_guide_slow": "sháuer",
+      "spanish_guide_natural": "sháuer"
+    },
+    {
+      "id": "lex-a1-daily_routines-wake-0230",
+      "cefr_level": "A1",
+      "lexical_form": "wake",
+      "category_id": "daily_routines",
+      "meaning_es": "despertar",
+      "spanish_guide_slow": "uéik",
+      "spanish_guide_natural": "uéik"
+    },
+    {
+      "id": "lex-a1-descriptions_emotions-happy-0261",
+      "cefr_level": "A1",
+      "lexical_form": "happy",
+      "category_id": "descriptions_emotions",
+      "meaning_es": "feliz",
+      "spanish_guide_slow": "jápi",
+      "spanish_guide_natural": "jápi"
+    },
+    {
+      "id": "lex-a1-descriptions_emotions-tired-0264",
+      "cefr_level": "A1",
+      "lexical_form": "tired",
+      "category_id": "descriptions_emotions",
+      "meaning_es": "cansado/a",
+      "spanish_guide_slow": "táierd",
+      "spanish_guide_natural": "táierd"
+    },
+    {
+      "id": "lex-a1-grammar_functions-live-0229",
+      "cefr_level": "A1",
+      "lexical_form": "live",
+      "category_id": "grammar_functions",
+      "meaning_es": "vivir",
+      "spanish_guide_slow": "liv",
+      "spanish_guide_natural": "liv"
+    },
+    {
+      "id": "lex-a1-nature_environment-cold-0257",
+      "cefr_level": "A1",
+      "lexical_form": "cold",
+      "category_id": "nature_environment",
+      "meaning_es": "frío",
+      "spanish_guide_slow": "kóuld",
+      "spanish_guide_natural": "kóuld"
+    },
+    {
+      "id": "lex-a1-nature_environment-hot-0256",
+      "cefr_level": "A1",
+      "lexical_form": "hot",
+      "category_id": "nature_environment",
+      "meaning_es": "caliente/calor",
+      "spanish_guide_slow": "jat",
+      "spanish_guide_natural": "jat"
+    },
+    {
+      "id": "lex-a1-transport_travel-airport-0247",
+      "cefr_level": "A1",
+      "lexical_form": "airport",
+      "category_id": "transport_travel",
+      "meaning_es": "aeropuerto",
+      "spanish_guide_slow": "érport",
+      "spanish_guide_natural": "érport"
+    },
+    {
+      "id": "lex-a1-transport_travel-hotel-0250",
+      "cefr_level": "A1",
+      "lexical_form": "hotel",
+      "category_id": "transport_travel",
+      "meaning_es": "hotel",
+      "spanish_guide_slow": "jóutél",
+      "spanish_guide_natural": "jóutél"
+    },
+    {
+      "id": "lex-a1-transport_travel-map-0251",
+      "cefr_level": "A1",
+      "lexical_form": "map",
+      "category_id": "transport_travel",
+      "meaning_es": "mapa",
+      "spanish_guide_slow": "map",
+      "spanish_guide_natural": "map"
+    },
+    {
+      "id": "lex-a1-transport_travel-passport-0253",
+      "cefr_level": "A1",
+      "lexical_form": "passport",
+      "category_id": "transport_travel",
+      "meaning_es": "pasaporte",
+      "spanish_guide_slow": "pásport",
+      "spanish_guide_natural": "pásport"
+    },
+    {
+      "id": "lex-a1-transport_travel-ticket-0248",
+      "cefr_level": "A1",
+      "lexical_form": "ticket",
+      "category_id": "transport_travel",
+      "meaning_es": "boleto/pasaje",
+      "spanish_guide_slow": "tíket",
+      "spanish_guide_natural": "tíket"
+    },
+    {
+      "id": "lex-pre_a1-actions_movement-drink-0033",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "drink",
+      "category_id": "actions_movement",
+      "meaning_es": "beber",
+      "spanish_guide_slow": "drínk",
+      "spanish_guide_natural": "drínk"
+    },
+    {
+      "id": "lex-pre_a1-actions_movement-eat-0032",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "eat",
+      "category_id": "actions_movement",
+      "meaning_es": "comer",
+      "spanish_guide_slow": "íit",
+      "spanish_guide_natural": "íit"
+    },
+    {
+      "id": "lex-pre_a1-actions_movement-go-0034",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "go",
+      "category_id": "actions_movement",
+      "meaning_es": "ir",
+      "spanish_guide_slow": "góu",
+      "spanish_guide_natural": "góu"
+    },
+    {
+      "id": "lex-pre_a1-actions_movement-stop-0035",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "stop",
+      "category_id": "actions_movement",
+      "meaning_es": "parar",
+      "spanish_guide_slow": "stáp",
+      "spanish_guide_natural": "stáp"
+    },
+    {
+      "id": "lex-pre_a1-descriptions_emotions-good-0024",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "good",
+      "category_id": "descriptions_emotions",
+      "meaning_es": "bueno/bien",
+      "spanish_guide_slow": "gud",
+      "spanish_guide_natural": "gud"
+    },
+    {
+      "id": "lex-pre_a1-descriptions_emotions-happy-0028",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "happy",
+      "category_id": "descriptions_emotions",
+      "meaning_es": "feliz",
+      "spanish_guide_slow": "jápi",
+      "spanish_guide_natural": "jápi"
+    },
+    {
+      "id": "lex-pre_a1-descriptions_emotions-sad-0029",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "sad",
+      "category_id": "descriptions_emotions",
+      "meaning_es": "triste",
+      "spanish_guide_slow": "sád",
+      "spanish_guide_natural": "sád"
+    },
+    {
+      "id": "lex-pre_a1-personal_identity-friend-0008",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "friend",
+      "category_id": "personal_identity",
+      "meaning_es": "amigo/a",
+      "spanish_guide_slow": "frend",
+      "spanish_guide_natural": "frend"
+    },
+    {
+      "id": "lex-pre_a1-personal_identity-name-0007",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "name",
+      "category_id": "personal_identity",
+      "meaning_es": "nombre",
+      "spanish_guide_slow": "néim",
+      "spanish_guide_natural": "néim"
+    },
+    {
+      "id": "lex-pre_a1-social_communication-bye-0001",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "bye",
+      "category_id": "social_communication",
+      "meaning_es": "adiós",
+      "spanish_guide_slow": "bái",
+      "spanish_guide_natural": "bái"
+    },
+    {
+      "id": "lex-pre_a1-social_communication-hi-0000",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "hi",
+      "category_id": "social_communication",
+      "meaning_es": "hola",
+      "spanish_guide_slow": "jái",
+      "spanish_guide_natural": "jái"
+    },
+    {
+      "id": "lex-pre_a1-social_communication-no-0003",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "no",
+      "category_id": "social_communication",
+      "meaning_es": "no",
+      "spanish_guide_slow": "nóu",
+      "spanish_guide_natural": "nóu"
+    },
+    {
+      "id": "lex-pre_a1-social_communication-please-0004",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "please",
+      "category_id": "social_communication",
+      "meaning_es": "por favor",
+      "spanish_guide_slow": "plís",
+      "spanish_guide_natural": "plís"
+    },
+    {
+      "id": "lex-pre_a1-social_communication-thanks-0005",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "thanks",
+      "category_id": "social_communication",
+      "meaning_es": "gracias",
+      "spanish_guide_slow": "zánks",
+      "spanish_guide_natural": "zánks"
+    },
+    {
+      "id": "lex-pre_a1-social_communication-yes-0002",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "yes",
+      "category_id": "social_communication",
+      "meaning_es": "sí",
+      "spanish_guide_slow": "iés",
+      "spanish_guide_natural": "iés"
+    },
+    {
+      "id": "lex-pre_a1-time_numbers-one-0021",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "one",
+      "category_id": "time_numbers",
+      "meaning_es": "uno",
+      "spanish_guide_slow": "uán",
+      "spanish_guide_natural": "uán"
+    },
+    {
+      "id": "lex-pre_a1-time_numbers-three-0023",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "three",
+      "category_id": "time_numbers",
+      "meaning_es": "tres",
+      "spanish_guide_slow": "zrí",
+      "spanish_guide_natural": "zrí"
+    },
+    {
+      "id": "lex-pre_a1-time_numbers-two-0022",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "two",
+      "category_id": "time_numbers",
+      "meaning_es": "dos",
+      "spanish_guide_slow": "tú",
+      "spanish_guide_natural": "tú"
+    }
+  ],
+  "examples": [
+    {
+      "item_id": "lex-a1-daily_routines-shower-0231",
+      "source_key": "v2:example:lex-a1-daily_routines-shower-0231:1",
+      "cefr_level": "A1",
+      "lexical_form": "shower",
+      "position": 1,
+      "english_text": "I take a shower.",
+      "spanish_translation": "Me tomo una ducha.",
+      "spanish_guide_slow": "ái téik a sháuer.",
+      "spanish_guide_natural": "ái téikə sháuer."
+    },
+    {
+      "item_id": "lex-a1-daily_routines-wake-0230",
+      "source_key": "v2:example:lex-a1-daily_routines-wake-0230:1",
+      "cefr_level": "A1",
+      "lexical_form": "wake",
+      "position": 1,
+      "english_text": "I wake up early.",
+      "spanish_translation": "Me despierto temprano.",
+      "spanish_guide_slow": "ái uéik ap érli.",
+      "spanish_guide_natural": "ái uéikap érli."
+    },
+    {
+      "item_id": "lex-a1-descriptions_emotions-happy-0261",
+      "source_key": "v2:example:lex-a1-descriptions_emotions-happy-0261:1",
+      "cefr_level": "A1",
+      "lexical_form": "happy",
+      "position": 1,
+      "english_text": "I am very happy.",
+      "spanish_translation": "Estoy muy feliz.",
+      "spanish_guide_slow": "ái am véri jápi.",
+      "spanish_guide_natural": "áiəm véri jápi."
+    },
+    {
+      "item_id": "lex-a1-descriptions_emotions-tired-0264",
+      "source_key": "v2:example:lex-a1-descriptions_emotions-tired-0264:1",
+      "cefr_level": "A1",
+      "lexical_form": "tired",
+      "position": 1,
+      "english_text": "I am so tired.",
+      "spanish_translation": "Estoy muy cansado.",
+      "spanish_guide_slow": "ái am sóu táierd.",
+      "spanish_guide_natural": "áiəm sóu táierd."
+    },
+    {
+      "item_id": "lex-a1-grammar_functions-live-0229",
+      "source_key": "v2:example:lex-a1-grammar_functions-live-0229:1",
+      "cefr_level": "A1",
+      "lexical_form": "live",
+      "position": 1,
+      "english_text": "I live in a small apartment.",
+      "spanish_translation": "Vivo en un apartamento pequeño.",
+      "spanish_guide_slow": "ái liv in a smól apártment.",
+      "spanish_guide_natural": "ái livinə smól apártment."
+    },
+    {
+      "item_id": "lex-a1-nature_environment-cold-0257",
+      "source_key": "v2:example:lex-a1-nature_environment-cold-0257:1",
+      "cefr_level": "A1",
+      "lexical_form": "cold",
+      "position": 1,
+      "english_text": "It is very cold.",
+      "spanish_translation": "Hace mucho frío.",
+      "spanish_guide_slow": "it iz véri kóuld.",
+      "spanish_guide_natural": "its véri kóuld."
+    },
+    {
+      "item_id": "lex-a1-nature_environment-hot-0256",
+      "source_key": "v2:example:lex-a1-nature_environment-hot-0256:1",
+      "cefr_level": "A1",
+      "lexical_form": "hot",
+      "position": 1,
+      "english_text": "It is very hot.",
+      "spanish_translation": "Hace mucho calor.",
+      "spanish_guide_slow": "it iz véri jat.",
+      "spanish_guide_natural": "its véri jat."
+    },
+    {
+      "item_id": "lex-a1-transport_travel-airport-0247",
+      "source_key": "v2:example:lex-a1-transport_travel-airport-0247:1",
+      "cefr_level": "A1",
+      "lexical_form": "airport",
+      "position": 1,
+      "english_text": "I go to the airport.",
+      "spanish_translation": "Voy al aeropuerto.",
+      "spanish_guide_slow": "ái góu tu dhi érport.",
+      "spanish_guide_natural": "ái góu tə dhi érport."
+    },
+    {
+      "item_id": "lex-a1-transport_travel-hotel-0250",
+      "source_key": "v2:example:lex-a1-transport_travel-hotel-0250:1",
+      "cefr_level": "A1",
+      "lexical_form": "hotel",
+      "position": 1,
+      "english_text": "We sleep in a hotel.",
+      "spanish_translation": "Dormimos en un hotel.",
+      "spanish_guide_slow": "uí slíip in a jóutél.",
+      "spanish_guide_natural": "uí slíipinə jóutél."
+    },
+    {
+      "item_id": "lex-a1-transport_travel-map-0251",
+      "source_key": "v2:example:lex-a1-transport_travel-map-0251:1",
+      "cefr_level": "A1",
+      "lexical_form": "map",
+      "position": 1,
+      "english_text": "Look at the map.",
+      "spanish_translation": "Mira el mapa.",
+      "spanish_guide_slow": "lúk at de map.",
+      "spanish_guide_natural": "lúkət de map."
+    },
+    {
+      "item_id": "lex-a1-transport_travel-passport-0253",
+      "source_key": "v2:example:lex-a1-transport_travel-passport-0253:1",
+      "cefr_level": "A1",
+      "lexical_form": "passport",
+      "position": 1,
+      "english_text": "I need my passport.",
+      "spanish_translation": "Necesito mi pasaporte.",
+      "spanish_guide_slow": "ái níid mái pásport.",
+      "spanish_guide_natural": "ái níid mái pásport."
+    },
+    {
+      "item_id": "lex-a1-transport_travel-ticket-0248",
+      "source_key": "v2:example:lex-a1-transport_travel-ticket-0248:1",
+      "cefr_level": "A1",
+      "lexical_form": "ticket",
+      "position": 1,
+      "english_text": "I have a ticket.",
+      "spanish_translation": "Tengo un boleto.",
+      "spanish_guide_slow": "ái jav a tíket.",
+      "spanish_guide_natural": "ái javə tíket."
+    },
+    {
+      "item_id": "lex-pre_a1-actions_movement-drink-0033",
+      "source_key": "v2:example:lex-pre_a1-actions_movement-drink-0033:1",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "drink",
+      "position": 1,
+      "english_text": "I drink water.",
+      "spanish_translation": "Bebo agua.",
+      "spanish_guide_slow": "ái drínk uóter.",
+      "spanish_guide_natural": "ái drínk uórer."
+    },
+    {
+      "item_id": "lex-pre_a1-actions_movement-eat-0032",
+      "source_key": "v2:example:lex-pre_a1-actions_movement-eat-0032:1",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "eat",
+      "position": 1,
+      "english_text": "I eat an apple.",
+      "spanish_translation": "Como una manzana.",
+      "spanish_guide_slow": "ái ít an ápol.",
+      "spanish_guide_natural": "ái ítan ápol."
+    },
+    {
+      "item_id": "lex-pre_a1-actions_movement-go-0034",
+      "source_key": "v2:example:lex-pre_a1-actions_movement-go-0034:1",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "go",
+      "position": 1,
+      "english_text": "I go home.",
+      "spanish_translation": "Voy a casa.",
+      "spanish_guide_slow": "ái góu jóum.",
+      "spanish_guide_natural": "ái góu jóum."
+    },
+    {
+      "item_id": "lex-pre_a1-descriptions_emotions-good-0024",
+      "source_key": "v2:example:lex-pre_a1-descriptions_emotions-good-0024:1",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "good",
+      "position": 1,
+      "english_text": "Very good.",
+      "spanish_translation": "Muy bien.",
+      "spanish_guide_slow": "vé-ri gud.",
+      "spanish_guide_natural": "véri gud."
+    },
+    {
+      "item_id": "lex-pre_a1-descriptions_emotions-happy-0028",
+      "source_key": "v2:example:lex-pre_a1-descriptions_emotions-happy-0028:1",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "happy",
+      "position": 1,
+      "english_text": "I am happy.",
+      "spanish_translation": "Estoy feliz.",
+      "spanish_guide_slow": "ái am jápi.",
+      "spanish_guide_natural": "áiəm jápi."
+    },
+    {
+      "item_id": "lex-pre_a1-descriptions_emotions-sad-0029",
+      "source_key": "v2:example:lex-pre_a1-descriptions_emotions-sad-0029:1",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "sad",
+      "position": 1,
+      "english_text": "Don't be sad.",
+      "spanish_translation": "No estés triste.",
+      "spanish_guide_slow": "dóunt bi sád.",
+      "spanish_guide_natural": "dóunt bi sád."
+    },
+    {
+      "item_id": "lex-pre_a1-personal_identity-friend-0008",
+      "source_key": "v2:example:lex-pre_a1-personal_identity-friend-0008:1",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "friend",
+      "position": 1,
+      "english_text": "He is my friend.",
+      "spanish_translation": "Él es mi amigo.",
+      "spanish_guide_slow": "jí iz mái frend.",
+      "spanish_guide_natural": "jíz mái frend."
+    },
+    {
+      "item_id": "lex-pre_a1-personal_identity-name-0007",
+      "source_key": "v2:example:lex-pre_a1-personal_identity-name-0007:1",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "name",
+      "position": 1,
+      "english_text": "My name is Bob.",
+      "spanish_translation": "Mi nombre es Bob.",
+      "spanish_guide_slow": "mái néim iz bab.",
+      "spanish_guide_natural": "mái néimiz bab."
+    },
+    {
+      "item_id": "lex-pre_a1-social_communication-bye-0001",
+      "source_key": "v2:example:lex-pre_a1-social_communication-bye-0001:1",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "bye",
+      "position": 1,
+      "english_text": "Bye, see you.",
+      "spanish_translation": "Adiós, nos vemos.",
+      "spanish_guide_slow": "bái, sí iú.",
+      "spanish_guide_natural": "bái, síyu."
+    },
+    {
+      "item_id": "lex-pre_a1-social_communication-hi-0000",
+      "source_key": "v2:example:lex-pre_a1-social_communication-hi-0000:1",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "hi",
+      "position": 1,
+      "english_text": "Hi, I am Tom.",
+      "spanish_translation": "Hola, soy Tom.",
+      "spanish_guide_slow": "jái, ái am tám.",
+      "spanish_guide_natural": "jái, áim tám."
+    },
+    {
+      "item_id": "lex-pre_a1-social_communication-thanks-0005",
+      "source_key": "v2:example:lex-pre_a1-social_communication-thanks-0005:1",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "thanks",
+      "position": 1,
+      "english_text": "Thanks a lot.",
+      "spanish_translation": "Muchas gracias.",
+      "spanish_guide_slow": "zánks a lát.",
+      "spanish_guide_natural": "zánksalát."
+    },
+    {
+      "item_id": "lex-pre_a1-time_numbers-one-0021",
+      "source_key": "v2:example:lex-pre_a1-time_numbers-one-0021:1",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "one",
+      "position": 1,
+      "english_text": "I have one cat.",
+      "spanish_translation": "Tengo un gato.",
+      "spanish_guide_slow": "ái jav uán kát.",
+      "spanish_guide_natural": "ái jav uán kát."
+    },
+    {
+      "item_id": "lex-pre_a1-time_numbers-three-0023",
+      "source_key": "v2:example:lex-pre_a1-time_numbers-three-0023:1",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "three",
+      "position": 1,
+      "english_text": "Three girls.",
+      "spanish_translation": "Tres niñas.",
+      "spanish_guide_slow": "zrí guérlz.",
+      "spanish_guide_natural": "zrí guérlz."
+    },
+    {
+      "item_id": "lex-pre_a1-time_numbers-two-0022",
+      "source_key": "v2:example:lex-pre_a1-time_numbers-two-0022:1",
+      "cefr_level": "PRE_A1",
+      "lexical_form": "two",
+      "position": 1,
+      "english_text": "I have two dogs.",
+      "spanish_translation": "Tengo dos perros.",
+      "spanish_guide_slow": "ái jav tú dogz.",
+      "spanish_guide_natural": "ái jav tú dogz."
+    }
+  ]
+}

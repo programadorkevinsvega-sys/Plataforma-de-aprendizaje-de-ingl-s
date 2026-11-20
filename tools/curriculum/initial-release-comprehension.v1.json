@@ -5,7 +5,9 @@
     "author": "DevFluency curriculum team",
     "authored_at": "2026-11-19",
     "license": "original",
-    "review_policy": "Drafts only until a registered editor confirms text, CEFR suitability, distractors and answer evidence."
+    "review_policy": "AI-assisted editorial, CEFR and answer-evidence review completed for this private English General Pre-A1/A1 pilot only. Human teacher/native-speaker validation and subjective review of generated audio remain required before public launch.",
+    "review_method": "ai_assisted_language_and_curriculum_review",
+    "human_review_before_public_launch": true
   },
   "resources": [
     {
@@ -15,7 +17,7 @@
       "skill": "reading",
       "title": "A new English class",
       "topic": "Introductions and the classroom",
-      "content": "Hello. My name is Ana. I am from Colombia. I live in Medellin. I study English. I like music and coffee. My friend Leo is in my class. We say hello to our teacher.",
+      "content": "Hello. My name is Ana. I am from Colombia. I live in Medellín. I study English. I like music and coffee. My friend Leo is in my class. We say hello to our teacher.",
       "sentence_count": 8,
       "estimated_minutes": 2,
       "difficulty_profile": {
@@ -40,12 +42,26 @@
         "asset_url": null,
         "status": "not_applicable"
       },
-      "editorial_status": "pending_editorial_and_level_review",
+      "editorial_status": "approved",
       "publication_status": "draft",
       "provenance": {
         "origin": "initial_release_original_v1",
         "license": "original",
-        "authored_by": "DevFluency curriculum team"
+        "authored_by": "DevFluency curriculum team",
+        "editorial_review": {
+          "review_method": "ai_assisted_language_and_curriculum_review",
+          "reviewed_at": "2026-11-19",
+          "review_scope": "Private pilot: English General Pre-A1/A1 v1 only",
+          "checks": [
+            "CEFR suitability",
+            "naturalness and comprehensibility",
+            "answer options",
+            "exact source evidence",
+            "word count"
+          ],
+          "human_review_before_public_launch": true,
+          "audio_review": "Not performed yet; generated audio still requires human listening review."
+        }
       },
       "questions": [
         {
@@ -69,7 +85,7 @@
           "correct_option_id": "a",
           "rationale": "Ana introduces herself in the second sentence.",
           "evidence": "My name is Ana.",
-          "editorial_status": "pending_human_review"
+          "editorial_status": "approved"
         },
         {
           "id": "q2",
@@ -92,7 +108,7 @@
           "correct_option_id": "b",
           "rationale": "Ana says where she is from.",
           "evidence": "I am from Colombia.",
-          "editorial_status": "pending_human_review"
+          "editorial_status": "approved"
         },
         {
           "id": "q3",
@@ -115,7 +131,7 @@
           "correct_option_id": "c",
           "rationale": "The text names Leo as her friend and classmate.",
           "evidence": "My friend Leo is in my class.",
-          "editorial_status": "pending_human_review"
+          "editorial_status": "approved"
         }
       ],
       "word_count": 34
@@ -127,8 +143,8 @@
       "skill": "listening",
       "title": "Your first English class",
       "topic": "Greetings and classroom instructions",
-      "content": "Teacher: Good morning. Are you new here?\nStudent: Yes. My name is Ana.\nTeacher: Welcome, Ana. What class are you in?\nStudent: English class.\nTeacher: Great. Please sit here.",
-      "sentence_count": 9,
+      "content": "Good morning. My name is Ana. I am new here. I am in English class. I sit here. Thank you.",
+      "sentence_count": 6,
       "estimated_minutes": 2,
       "difficulty_profile": {
         "pattern": "short_repeated_classroom_exchange",
@@ -157,18 +173,32 @@
         "provider": "configured_tts_provider",
         "playback_control_must_remain_hidden_until_asset_exists": true
       },
-      "editorial_status": "pending_editorial_and_level_review",
+      "editorial_status": "approved",
       "publication_status": "draft",
       "provenance": {
         "origin": "initial_release_original_v1",
         "license": "original",
-        "authored_by": "DevFluency curriculum team"
+        "authored_by": "DevFluency curriculum team",
+        "editorial_review": {
+          "review_method": "ai_assisted_language_and_curriculum_review",
+          "reviewed_at": "2026-11-19",
+          "review_scope": "Private pilot: English General Pre-A1/A1 v1 only",
+          "checks": [
+            "CEFR suitability",
+            "naturalness and comprehensibility",
+            "answer options",
+            "exact source evidence",
+            "word count"
+          ],
+          "human_review_before_public_launch": true,
+          "audio_review": "Not performed yet; generated audio still requires human listening review."
+        }
       },
       "questions": [
         {
           "id": "q1",
           "type": "multiple_choice",
-          "prompt": "What is the student's name?",
+          "prompt": "What is the speaker's name?",
           "options": [
             {
               "id": "a",
@@ -186,12 +216,12 @@
           "correct_option_id": "a",
           "rationale": "The student gives her name.",
           "evidence": "My name is Ana.",
-          "editorial_status": "pending_human_review"
+          "editorial_status": "approved"
         },
         {
           "id": "q2",
           "type": "multiple_choice",
-          "prompt": "Which class is the student in?",
+          "prompt": "Which class is Ana in?",
           "options": [
             {
               "id": "a",
@@ -208,34 +238,34 @@
           ],
           "correct_option_id": "b",
           "rationale": "The student directly answers the teacher's question.",
-          "evidence": "English class.",
-          "editorial_status": "pending_human_review"
+          "evidence": "I am in English class.",
+          "editorial_status": "approved"
         },
         {
           "id": "q3",
           "type": "multiple_choice",
-          "prompt": "What does the teacher ask the student to do?",
+          "prompt": "Where does Ana sit?",
           "options": [
             {
               "id": "a",
-              "text": "Open a book"
+              "text": "At home"
             },
             {
               "id": "b",
-              "text": "Go home"
+              "text": "Here"
             },
             {
               "id": "c",
-              "text": "Sit here"
+              "text": "At the library"
             }
           ],
-          "correct_option_id": "c",
+          "correct_option_id": "b",
           "rationale": "The teacher gives a short classroom instruction.",
-          "evidence": "Please sit here.",
-          "editorial_status": "pending_human_review"
+          "evidence": "I sit here.",
+          "editorial_status": "approved"
         }
       ],
-      "word_count": 29
+      "word_count": 20
     },
     {
       "id": "general-a1-reading-03",
@@ -271,12 +301,26 @@
         "asset_url": null,
         "status": "not_applicable"
       },
-      "editorial_status": "pending_editorial_and_level_review",
+      "editorial_status": "approved",
       "publication_status": "draft",
       "provenance": {
         "origin": "initial_release_original_v1",
         "license": "original",
-        "authored_by": "DevFluency curriculum team"
+        "authored_by": "DevFluency curriculum team",
+        "editorial_review": {
+          "review_method": "ai_assisted_language_and_curriculum_review",
+          "reviewed_at": "2026-11-19",
+          "review_scope": "Private pilot: English General Pre-A1/A1 v1 only",
+          "checks": [
+            "CEFR suitability",
+            "naturalness and comprehensibility",
+            "answer options",
+            "exact source evidence",
+            "word count"
+          ],
+          "human_review_before_public_launch": true,
+          "audio_review": "Not performed yet; generated audio still requires human listening review."
+        }
       },
       "questions": [
         {
@@ -300,7 +344,7 @@
           "correct_option_id": "b",
           "rationale": "The text says that he takes the bus.",
           "evidence": "He takes the bus and starts work at eight.",
-          "editorial_status": "pending_human_review"
+          "editorial_status": "approved"
         },
         {
           "id": "q2",
@@ -323,7 +367,7 @@
           "correct_option_id": "a",
           "rationale": "The text describes his activity after work.",
           "evidence": "After work, he studies English for twenty minutes.",
-          "editorial_status": "pending_human_review"
+          "editorial_status": "approved"
         },
         {
           "id": "q3",
@@ -346,7 +390,7 @@
           "correct_option_id": "c",
           "rationale": "The final sentence states the day.",
           "evidence": "On Fridays, he meets a friend at a café.",
-          "editorial_status": "pending_human_review"
+          "editorial_status": "approved"
         }
       ],
       "word_count": 53
@@ -358,8 +402,8 @@
       "skill": "listening",
       "title": "Checking in at a hotel",
       "topic": "Travel and accommodation",
-      "content": "Clerk: Good afternoon. Can I help you?\nCustomer: Yes, I have a reservation.\nClerk: What is your name?\nCustomer: Mateo Ruiz.\nClerk: How many nights are you staying?\nCustomer: Two nights.\nClerk: Breakfast is from seven to ten.\nCustomer: Thank you.",
-      "sentence_count": 9,
+      "content": "Good afternoon. My name is Mateo Ruiz. I have a reservation. I am staying for two nights. Breakfast is from seven to ten. Thank you.",
+      "sentence_count": 6,
       "estimated_minutes": 3,
       "difficulty_profile": {
         "pattern": "short_service_encounter_with_numbers",
@@ -388,12 +432,26 @@
         "provider": "configured_tts_provider",
         "playback_control_must_remain_hidden_until_asset_exists": true
       },
-      "editorial_status": "pending_editorial_and_level_review",
+      "editorial_status": "approved",
       "publication_status": "draft",
       "provenance": {
         "origin": "initial_release_original_v1",
         "license": "original",
-        "authored_by": "DevFluency curriculum team"
+        "authored_by": "DevFluency curriculum team",
+        "editorial_review": {
+          "review_method": "ai_assisted_language_and_curriculum_review",
+          "reviewed_at": "2026-11-19",
+          "review_scope": "Private pilot: English General Pre-A1/A1 v1 only",
+          "checks": [
+            "CEFR suitability",
+            "naturalness and comprehensibility",
+            "answer options",
+            "exact source evidence",
+            "word count"
+          ],
+          "human_review_before_public_launch": true,
+          "audio_review": "Not performed yet; generated audio still requires human listening review."
+        }
       },
       "questions": [
         {
@@ -417,7 +475,7 @@
           "correct_option_id": "a",
           "rationale": "The customer answers the clerk's question about his name.",
           "evidence": "Mateo Ruiz.",
-          "editorial_status": "pending_human_review"
+          "editorial_status": "approved"
         },
         {
           "id": "q2",
@@ -439,8 +497,8 @@
           ],
           "correct_option_id": "b",
           "rationale": "The customer gives the length of his stay.",
-          "evidence": "Two nights.",
-          "editorial_status": "pending_human_review"
+          "evidence": "two nights.",
+          "editorial_status": "approved"
         },
         {
           "id": "q3",
@@ -463,10 +521,10 @@
           "correct_option_id": "c",
           "rationale": "The clerk states the breakfast time range.",
           "evidence": "Breakfast is from seven to ten.",
-          "editorial_status": "pending_human_review"
+          "editorial_status": "approved"
         }
       ],
-      "word_count": 41
+      "word_count": 25
     }
   ]
 }
