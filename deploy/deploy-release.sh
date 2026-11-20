@@ -127,14 +127,10 @@ if [[ ! -s "$audio_release/listening-audio-manifest.v1.json" ]]; then
   tts_provider="$(sed -n 's/^TTS_PROVIDER=//p' "$AUDIO_CONFIG" | tail -n 1)"
   tts_provider="${tts_provider#\"}"
   tts_provider="${tts_provider%\"}"
-  tts_provider="${tts_provider#\\'}"
-  tts_provider="${tts_provider%\\'}"
   tts_provider="${tts_provider:-aws}"
   tts_smoke_endpoint="$(sed -n 's/^PHONETIC_SERVICE_GRPC_URL=//p' "$APP_CONFIG" | tail -n 1)"
   tts_smoke_endpoint="${tts_smoke_endpoint#\"}"
   tts_smoke_endpoint="${tts_smoke_endpoint%\"}"
-  tts_smoke_endpoint="${tts_smoke_endpoint#\\'}"
-  tts_smoke_endpoint="${tts_smoke_endpoint%\\'}"
   tts_smoke_endpoint="${tts_smoke_endpoint:-http://127.0.0.1:50054}"
   echo "Generating all Listening assets with provider '$tts_provider'."
   TTS_PROVIDER="$tts_provider" TTS_SMOKE_ENDPOINT="$tts_smoke_endpoint" \
@@ -168,8 +164,6 @@ chown -h root:devfluency "$frontend_public/audio/listening"
 curriculum_editor_id="$(sed -n 's/^CURRICULUM_EDITOR_USER_ID=//p' "$APP_CONFIG" | tail -n 1)"
 curriculum_editor_id="${curriculum_editor_id#\"}"
 curriculum_editor_id="${curriculum_editor_id%\"}"
-curriculum_editor_id="${curriculum_editor_id#\\'}"
-curriculum_editor_id="${curriculum_editor_id%\\'}"
 echo "Importing and publishing the approved initial curriculum in aprendizaje_ingles."
 DATABASE_URL="$database_url" AUDIO_ASSET_DIR="$audio_release" \
   CURRICULUM_RELEASE_ROOT="$release" CURRICULUM_EDITOR_USER_ID="$curriculum_editor_id" \
