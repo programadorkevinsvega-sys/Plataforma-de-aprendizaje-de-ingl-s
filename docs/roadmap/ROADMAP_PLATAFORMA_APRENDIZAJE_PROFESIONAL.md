@@ -502,6 +502,8 @@ Construir un motor reutilizable que permita presentar actividades diferentes baj
 - [ ] Definir límites de tiempo y número de intentos cuando el diseño pedagógico lo requiera.
 - [ ] Versionar el formato de actividades.
 
+**Implementación inicial en rama de trabajo:** el contrato tipado se está desarrollando en `crates/common/src/activity_contract.rs`, con definición privada, proyección segura para estudiante, validación por tipo de respuesta, crédito parcial, políticas de feedback, límites, versiones e invariantes de medición. La aceptación de esta subfase queda condicionada a CI verde y revisión del contrato; todavía no incluye persistencia de intentos, endpoints, sesiones ni UI (subfases 2.2–2.4).
+
 ### Subfase 2.2. Tipos de ejercicio
 
 Implementar como mínimo:
