@@ -140,6 +140,51 @@ function validatedCoursePackage(root, packageRelativePath) {
   return { data, packageSha256: report.sha256 };
 }
 
+async function provisionReleaseEditor(pool) {
+  const client = await pool.connect();
+  let transactionOpen = false;
+  try {
+    await client.query("BEGIN");
+    transactionOpen = true;
+    const inserted = await client.query(
+      "INSERT INTO public.users (email, password_hash, full_name, target_role, current_level) " +
+        "VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO NOTHING",
+      [
+        "curriculum-release@system.devfluency.invalid",
+        "not-a-login-hash",
+        "Curriculum Release Service",
+        "SYSTEM",
+        "A1",
+      ],
+    );
+    const user = await client.query(
+      "SELECT id::text FROM public.users WHERE email = $1 FOR UPDATE",
+      ["curriculum-release@system.devfluency.invalid"],
+    );
+    if (user.rowCount !== 1) {
+      throw new Error("No se pudo resolver la identidad estable del servicio de publicación curricular.");
+    }
+    const editorId = user.rows[0].id;
+    await client.query(
+      "INSERT INTO public.content_editors (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
+      [editorId],
+    );
+    await client.query("SELECT set_config('app.current_user_id', $1, true)", [editorId]);
+    const authorization = await client.query("SELECT app_is_content_editor() AS allowed");
+    if (authorization.rows[0]?.allowed !== true) {
+      throw new Error("No se pudo provisionar el editor técnico dedicado a la publicación curricular.");
+    }
+    await client.query("COMMIT");
+    transactionOpen = false;
+    return editorId;
+  } catch (error) {
+    if (transactionOpen) await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function resolveEditor(pool, requestedEditorId) {
   if (requestedEditorId) {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedEditorId)) {
@@ -160,16 +205,7 @@ async function resolveEditor(pool, requestedEditorId) {
     }
   }
 
-  const result = await pool.query(
-    "SELECT user_id::text FROM public.content_editors ORDER BY granted_at DESC, user_id LIMIT 2",
-  );
-  if (result.rowCount !== 1) {
-    throw new Error(
-      "La publicación requiere exactamente un editor curricular registrado o CURRICULUM_EDITOR_USER_ID configurado; encontrados: "
-      + result.rowCount + ".",
-    );
-  }
-  return result.rows[0].user_id;
+  return provisionReleaseEditor(pool);
 }
 
 async function publishRelease(pool, editorId, release, audioAssets) {
@@ -241,8 +277,8 @@ async function publishRelease(pool, editorId, release, audioAssets) {
         "spanish_phonetic = COALESCE(NULLIF(sentence.spanish_phonetic, ''), NULLIF(sentence.pronunciation_candidates -> 0 ->> 'slow_guide', '')), " +
         "spanish_phonetic_natural = COALESCE(NULLIF(sentence.spanish_phonetic_natural, ''), NULLIF(sentence.pronunciation_candidates -> 0 ->> 'natural_guide', '')), " +
         "pronunciation_status = CASE " +
-          "WHEN length(btrim(COALESCE(sentence.spanish_phonetic, sentence.pronunciation_candidates -> 0 ->> 'slow_guide', ''))) > 0 " +
-            "AND length(btrim(COALESCE(sentence.spanish_phonetic_natural, sentence.pronunciation_candidates -> 0 ->> 'natural_guide', ''))) > 0 THEN 'approved' " +
+          "WHEN length(btrim(COALESCE(NULLIF(sentence.spanish_phonetic, ''), sentence.pronunciation_candidates -> 0 ->> 'slow_guide', ''))) > 0 " +
+            "AND length(btrim(COALESCE(NULLIF(sentence.spanish_phonetic_natural, ''), sentence.pronunciation_candidates -> 0 ->> 'natural_guide', ''))) > 0 THEN 'approved' " +
           "ELSE 'not_required' END, " +
         "pronunciation_candidates = CASE " +
           "WHEN length(btrim(COALESCE(sentence.pronunciation_candidates -> 0 ->> 'slow_guide', ''))) > 0 " +
@@ -296,7 +332,7 @@ async function publishRelease(pool, editorId, release, audioAssets) {
       if (version.status !== "published") {
         const latestReview = await client.query(
           "SELECT reviewer_id::text, decision FROM course_version_reviews " +
-            "WHERE course_version_id = $1 ORDER BY reviewed_at DESC, id DESC LIMIT 1",
+            "WHERE course_version_id = $1 ORDER BY review_order DESC LIMIT 1",
           [version.id],
         );
         if (
