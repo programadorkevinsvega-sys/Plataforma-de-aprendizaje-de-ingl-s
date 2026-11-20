@@ -314,18 +314,22 @@ if (!pool) {
     assert.equal(publication.lessons, 10);
     assert.equal(publication.objectives, 10);
 
-    const publishedReferences = await pool.query(
+    const verificationClient = await pool.connect();
+    try {
+      await verificationClient.query("BEGIN");
+      await verificationClient.query("SELECT set_config('app.current_user_id', $1, true)", [editorId]);
+      const publishedReferences = await verificationClient.query(
       `SELECT
          (SELECT count(*)::int FROM learning_objective_vocabulary) AS vocabulary_references,
          (SELECT count(*)::int FROM learning_objective_sentences) AS sentence_references,
          (SELECT count(*)::int FROM course_versions version JOIN courses course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.status = 'draft' AND version.cefr_level = ANY($1::text[])) AS draft_levels`,
       [['PRE_A1', 'A1']],
     );
-    assert.equal(publishedReferences.rows[0].draft_levels, 2);
-    assert.equal(publishedReferences.rows[0].vocabulary_references, 31);
-    assert.equal(publishedReferences.rows[0].sentence_references, 27);
+      assert.equal(publishedReferences.rows[0].draft_levels, 2);
+      assert.equal(publishedReferences.rows[0].vocabulary_references, 31);
+      assert.equal(publishedReferences.rows[0].sentence_references, 27);
 
-    const studentResources = await pool.query(
+      const studentResources = await verificationClient.query(
       `SELECT skill, publication_status, transcript_available,
               jsonb_array_length(questions)::int AS questions,
               questions -> 0 ? 'correct_option_id' AS exposes_answer
@@ -334,10 +338,15 @@ if (!pool) {
         ORDER BY source_key`,
       [RESOURCE_SOURCE_KEYS],
     );
-    assert.equal(studentResources.rowCount, 26);
-    assert.ok(studentResources.rows.every((row) => row.publication_status === 'draft'));
-    assert.ok(studentResources.rows.filter((row) => row.skill === 'listening').every((row) => row.transcript_available === false));
-    assert.ok(studentResources.rows.every((row) => row.exposes_answer === true));
+      assert.equal(studentResources.rowCount, 26);
+      assert.ok(studentResources.rows.every((row) => row.publication_status === 'draft'));
+      assert.ok(studentResources.rows.filter((row) => row.skill === 'listening').every((row) => row.transcript_available === false));
+      assert.ok(studentResources.rows.every((row) => row.exposes_answer === true));
+
+      await verificationClient.query("ROLLBACK");
+    } finally {
+      verificationClient.release();
+    }
 
     const republished = await publishInitialRelease(pool, editorId, release, audioAssets, { apply: false });
     assert.equal(republished.published_courses, 2);
