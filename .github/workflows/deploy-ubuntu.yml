@@ -220,14 +220,15 @@ jobs:
           install -m 0755 target/release/tts-smoke-test dist/bin/tts-smoke-test
           install -m 0755 target/release/generate-listening-assets dist/bin/generate-listening-assets
 
-          # Ship the exact canonical curriculum inputs and a self-contained Node importer.
+          # Ship the importer source tree and its exact production-only pg runtime.
           mkdir -p dist/crates/content-vocabulary-service/data dist/tools/curriculum dist/tests/fixtures/curriculum
           install -m 0640 crates/content-vocabulary-service/data/lexical_catalog.v2.json dist/crates/content-vocabulary-service/data/lexical_catalog.v2.json
-          install -m 0640 tools/curriculum/initial-release-comprehension.v1.json dist/tools/curriculum/initial-release-comprehension.v1.json
-          install -m 0640 tools/curriculum/validate_content_package.py dist/tools/curriculum/validate_content_package.py
+          cp -a tools/curriculum/. dist/tools/curriculum/
           install -m 0640 tests/fixtures/curriculum/initial-release-english-general-pre-a1-v1.json dist/tests/fixtures/curriculum/initial-release-english-general-pre-a1-v1.json
           install -m 0640 tests/fixtures/curriculum/initial-release-english-general-a1-v1.json dist/tests/fixtures/curriculum/initial-release-english-general-a1-v1.json
-          pnpm --dir frontend exec esbuild ../tools/curriculum/deploy_initial_release.mjs --bundle --packages=bundle --platform=node --format=esm --target=node26 --outfile=../dist/bin/deploy-initial-curriculum.mjs
+          pnpm install --prod --filter devfluency-node-workspace --frozen-lockfile
+          mkdir -p dist/node_modules
+          cp -a node_modules/. dist/node_modules/
 
           cp -a frontend/.next/standalone/. dist/frontend/
 
@@ -254,7 +255,7 @@ jobs:
           echo "Next.js standalone application root: $app_bundle_root"
           cp -a deploy/. dist/deploy/
           cp -a migrations dist/migrations
-          tar -czf devfluency-deploy-package.tar.gz -C dist bin frontend deploy migrations crates tools tests
+          tar -czf devfluency-deploy-package.tar.gz -C dist bin frontend deploy migrations crates tools tests node_modules
           sha256sum devfluency-deploy-package.tar.gz | awk '{print $1}' > devfluency-deploy-package.tar.gz.sha256
           test "$(wc -c < devfluency-deploy-package.tar.gz.sha256)" -eq 65
           echo "Deployment package SHA-256: $(cat devfluency-deploy-package.tar.gz.sha256)"
