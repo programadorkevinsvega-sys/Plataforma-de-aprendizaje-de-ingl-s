@@ -1,19 +1,21 @@
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import test, { after, before } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { importLexicalCatalog } from '../import_lexical_catalog.mjs';
+import { importCurriculumPackage } from '../import_content_package.mjs';
+import { publishInitialRelease, releaseInputs, resolveInitialReleaseEditor } from '../deploy_initial_release.mjs';
 
 const { Pool } = pg;
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
-const CATALOG_PATH = path.join(ROOT, 'crates/content-vocabulary-service/data/lexical_catalog.v2.json');
 const DATABASE_URL = process.env.DATABASE_URL;
-const bytes = readFileSync(CATALOG_PATH);
-const catalog = JSON.parse(bytes.toString('utf8'));
-const sha256 = createHash('sha256').update(bytes).digest('hex');
+const release = releaseInputs(ROOT);
+const catalog = release.merged;
+const sha256 = release.catalogSha256;
 const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL, max: 4 }) : null;
 const SOURCE_CATALOG = 'devfluency.lexical-catalog.v2';
 const ITEM_SOURCE_KEYS = catalog.lexical_items.map((item) => `v2:item:${item.id}`);
@@ -21,19 +23,44 @@ const EXAMPLE_SOURCE_KEYS = catalog.lexical_items.flatMap((item) =>
   (item.examples ?? []).map((example) => `v2:example:${item.id}:${example.position}`),
 );
 const RESOURCE_SOURCE_KEYS = catalog.comprehension_resources.map((resource) => `v2:resource:${resource.id}`);
-const editorId = randomUUID();
+let editorId = null;
 
 before(async () => {
   if (!pool) return;
-  await pool.query(
-    'INSERT INTO users (id, email, password_hash, full_name) VALUES ($1, $2, $3, $4)',
-    [editorId, `${editorId}@lexical-catalog-test.invalid`, 'ci-test-password-hash', 'CI Lexical Catalog Editor'],
+  editorId = await resolveInitialReleaseEditor(pool);
+  const serviceIdentity = await pool.query(
+    "SELECT email, password_hash FROM users WHERE id = $1",
+    [editorId],
   );
-  await pool.query('INSERT INTO content_editors (user_id) VALUES ($1)', [editorId]);
+  assert.equal(serviceIdentity.rows[0].email, "curriculum-release@system.devfluency.invalid");
+  assert.equal(serviceIdentity.rows[0].password_hash, "not-a-login-hash");
 });
 
 after(async () => {
   if (!pool) return;
+  const versions = await pool.query(
+    "SELECT version.id FROM course_versions AS version JOIN courses AS course ON course.id = version.course_id WHERE course.slug = 'english-general'",
+  );
+  const versionIds = versions.rows.map((row) => row.id);
+  if (versionIds.length > 0) {
+    for (const table of [
+      "course_enrollments",
+      "course_version_reviews",
+      "lesson_prerequisites",
+      "lesson_learning_objectives",
+      "learning_objective_sentences",
+      "learning_objective_vocabulary",
+      "learning_objective_skills",
+      "course_lessons",
+      "learning_objectives",
+      "course_units",
+      "curriculum_content_package_imports",
+    ]) {
+      await pool.query(`DELETE FROM ${table} WHERE course_version_id = ANY($1::uuid[])`, [versionIds]);
+    }
+    await pool.query("DELETE FROM course_versions WHERE id = ANY($1::uuid[])", [versionIds]);
+  }
+  await pool.query("DELETE FROM courses WHERE slug = 'english-general'");
   await pool.query('DELETE FROM context_sentences WHERE source_key = ANY($1::text[])', [EXAMPLE_SOURCE_KEYS]);
   await pool.query('DELETE FROM vocabulary_words WHERE source_key = ANY($1::text[])', [ITEM_SOURCE_KEYS]);
   await pool.query('DELETE FROM curriculum_comprehension_resources WHERE source_key = ANY($1::text[])', [RESOURCE_SOURCE_KEYS]);
@@ -233,5 +260,86 @@ if (!pool) {
     const duplicate = await importLexicalCatalog(pool, catalog, sha256, { apply: true, actorUserId: editorId });
     assert.equal(duplicate.state, 'already_imported');
     assert.equal(duplicate.applied, false);
+
+    const packages = [
+      {
+        path: 'tests/fixtures/curriculum/initial-release-english-general-pre-a1-v1.json',
+        level: 'PRE_A1',
+      },
+      {
+        path: 'tests/fixtures/curriculum/initial-release-english-general-a1-v1.json',
+        level: 'A1',
+      },
+    ];
+    for (const entry of packages) {
+      const packagePath = path.join(ROOT, entry.path);
+      const validation = spawnSync(
+        'python3',
+        [path.join(ROOT, 'tools/curriculum/validate_content_package.py'), packagePath, '--json'],
+        { cwd: ROOT, encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 },
+      );
+      assert.equal(validation.status, 0, validation.stderr || validation.stdout);
+      const validated = JSON.parse(validation.stdout);
+      const packageData = JSON.parse(readFileSync(packagePath, 'utf8'));
+      assert.equal(packageData.version.cefr_level, entry.level);
+      const imported = await importCurriculumPackage(
+        pool,
+        packageData,
+        validated.sha256,
+        { apply: true, actorUserId: editorId },
+      );
+      assert.ok(['imported', 'already_imported'].includes(imported.state));
+    }
+
+    const audioAssets = new Map(release.listeningIds.map((resourceId) => [
+      resourceId,
+      {
+        status: 'approved',
+        asset_url: `/audio/listening/${resourceId}.mp3`,
+        format: 'mp3',
+        audio_sha256: 'a'.repeat(64),
+        audio_review: { status: 'owner_approved' },
+        license_review: { status: 'provider_terms_not_assessed' },
+      },
+    ]));
+    const publication = await publishInitialRelease(pool, editorId, release, audioAssets);
+    assert.equal(publication.published_items, 790);
+    assert.equal(publication.published_examples, 2201);
+    assert.equal(publication.published_resources, 26);
+    assert.equal(publication.questions, 52);
+    assert.equal(publication.listening_with_audio, 13);
+    assert.equal(publication.published_courses, 2);
+    assert.equal(publication.units, 6);
+    assert.equal(publication.lessons, 10);
+    assert.equal(publication.objectives, 10);
+
+    const publishedReferences = await pool.query(
+      `SELECT
+         (SELECT count(*)::int FROM learning_objective_vocabulary) AS vocabulary_references,
+         (SELECT count(*)::int FROM learning_objective_sentences) AS sentence_references,
+         (SELECT count(*)::int FROM course_versions version JOIN courses course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.status = 'published' AND version.cefr_level = ANY($1::text[])) AS published_levels`,
+      [['PRE_A1', 'A1']],
+    );
+    assert.equal(publishedReferences.rows[0].published_levels, 2);
+    assert.equal(publishedReferences.rows[0].vocabulary_references, 31);
+    assert.equal(publishedReferences.rows[0].sentence_references, 27);
+
+    const studentResources = await pool.query(
+      `SELECT skill, publication_status, transcript_available,
+              jsonb_array_length(questions)::int AS questions,
+              questions -> 0 ? 'correct_option_id' AS exposes_answer
+         FROM curriculum_comprehension_resources
+        WHERE source_key = ANY($1::text[])
+        ORDER BY source_key`,
+      [RESOURCE_SOURCE_KEYS],
+    );
+    assert.equal(studentResources.rowCount, 26);
+    assert.ok(studentResources.rows.every((row) => row.publication_status === 'published'));
+    assert.ok(studentResources.rows.filter((row) => row.skill === 'listening').every((row) => row.transcript_available === false));
+    assert.ok(studentResources.rows.every((row) => row.exposes_answer === true));
+
+    const republished = await publishInitialRelease(pool, editorId, release, audioAssets);
+    assert.equal(republished.published_courses, 2);
+    assert.equal(republished.published_items, 790);
   });
 }
