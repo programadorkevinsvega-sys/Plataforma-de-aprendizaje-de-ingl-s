@@ -285,6 +285,11 @@ impl ActivityDefinition {
         if self.schema_version != ACTIVITY_SCHEMA_VERSION {
             return Err(ActivityContractError::UnsupportedSchemaVersion);
         }
+        if self.activity_id.is_nil() || self.course_version_id.is_nil() || self.lesson_id.is_nil() {
+            return Err(ActivityContractError::Invalid(
+                "activityId, courseVersionId y lessonId deben ser UUID válidos y no nulos".into()
+            ));
+        }
         if self.activity_version == 0 {
             return Err(ActivityContractError::Invalid("activityVersion debe ser mayor que cero".into()));
         }
@@ -464,7 +469,7 @@ impl ActivityDefinition {
             ActivityModality::Spoken => {
                 if exercise_type != ActivityType::GuidedDialogue
                     || !has_skill(LearningSkill::Speaking)
-                    || !matches!(self.evaluation, EvaluationPolicy::Rubric { .. })
+                    || !matches!(&self.evaluation, EvaluationPolicy::Rubric { .. })
                     || self.limits.max_audio_duration_seconds.is_none()
                 {
                     return Err(ActivityContractError::Invalid(
@@ -563,6 +568,9 @@ impl ActivityDefinition {
         }
         if submission.activity_id != self.activity_id || submission.activity_version != self.activity_version {
             return Err(ActivityContractError::ActivityVersionMismatch);
+        }
+        if submission.idempotency_key.is_nil() {
+            return Err(ActivityContractError::Invalid("idempotencyKey no puede ser nulo".into()));
         }
         if submission.active_duration_ms == 0 || submission.active_duration_ms > MAX_ACTIVE_DURATION_MS {
             return Err(ActivityContractError::Invalid("activeDurationMs debe estar entre 1 ms y 12 horas".into()));
