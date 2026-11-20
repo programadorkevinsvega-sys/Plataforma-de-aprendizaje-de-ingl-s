@@ -26,7 +26,7 @@ const COURSE_PACKAGES = [
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const readJson = (file) => JSON.parse(readFileSync(file, "utf8"));
 
-function releaseInputs(root) {
+export function releaseInputs(root) {
   const catalog = readJson(path.join(root, "crates/content-vocabulary-service/data/lexical_catalog.v2.json"));
   const release = readJson(path.join(root, "tools/curriculum/initial-release-comprehension.v1.json"));
   const merged = composeInitialReleaseCatalog(catalog, release);
