@@ -118,7 +118,17 @@ catalog_sha256="$(sha256sum "$merged_catalog" | awk '{print $1}')"
 audio_state_root="/var/lib/devfluency/listening-audio"
 audio_release="$audio_state_root/releases/$catalog_sha256"
 install -d -o root -g devfluency -m 0750 "$audio_state_root/releases"
-if [[ ! -s "$audio_release/listening-audio-manifest.v1.json" ]]; then
+audio_release_valid=false
+if [[ -s "$audio_release/listening-audio-manifest.v1.json" ]]; then
+  if AUDIO_ASSET_DIR="$audio_release" CURRICULUM_RELEASE_ROOT="$release" \
+    node "$release/tools/curriculum/deploy_initial_release.mjs" --verify-audio; then
+    audio_release_valid=true
+  else
+    echo "Existing Listening audio release is incomplete or mismatched; regenerating it."
+  fi
+fi
+
+if [[ "$audio_release_valid" != "true" ]]; then
   # A previous interrupted copy is not a valid release; discard only this
   # hash-scoped incomplete directory and synthesize it again.
   if [[ -e "$audio_release" ]]; then
