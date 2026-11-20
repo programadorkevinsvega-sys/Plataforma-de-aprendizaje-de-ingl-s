@@ -24,7 +24,7 @@ function createFakeDatabase({ user = registeredUser, initiallyEditor = false } =
       if (normalized.includes('FROM public.users')) {
         return { rows: user ? [user] : [], rowCount: user ? 1 : 0 }
       }
-      if (normalized.includes('FROM public.content_editors')) {
+      if (normalized.startsWith('SELECT 1 FROM public.content_editors')) {
         return { rows: state.isEditor ? [{ '?column?': 1 }] : [], rowCount: state.isEditor ? 1 : 0 }
       }
       if (normalized.startsWith('INSERT INTO public.content_editors')) {
