@@ -128,7 +128,8 @@ if (!pool) {
     assert.equal(counts.rows[0].published_examples, 0);
     assert.equal(counts.rows[0].published_resources, 0);
 
-    const listeningPayloadSourceKey = `v2:resource:${catalog.comprehension_resources.find((resource) => resource.skill === 'listening').id}`;
+    const listeningResource = catalog.comprehension_resources.find((resource) => resource.skill === 'listening');
+    const listeningPayloadSourceKey = `v2:resource:${listeningResource.id}`;
     const studentPayload = await pool.query(
       `SELECT
           CASE WHEN skill = 'listening' AND NOT transcript_available THEN '' ELSE content END AS student_content,
@@ -146,7 +147,7 @@ if (!pool) {
     assert.equal(studentPayload.rowCount, 1);
     assert.equal(studentPayload.rows[0].student_content, '');
     const publicQuestions = JSON.parse(studentPayload.rows[0].questions_json);
-    assert.equal(publicQuestions.length, 2);
+    assert.equal(publicQuestions.length, listeningResource.questions.length);
     for (const question of publicQuestions) {
       assert.ok(question.prompt);
       assert.ok(Array.isArray(question.options));
