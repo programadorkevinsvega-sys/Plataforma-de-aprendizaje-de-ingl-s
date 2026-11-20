@@ -521,7 +521,7 @@ pub async fn save_curriculum_draft(
 
 #[cfg(test)]
 mod tests {
-    use super::parse_draft;
+    use super::{parse_draft, save_curriculum_draft, DraftEditError};
     use serde_json::json;
     use uuid::Uuid;
 
