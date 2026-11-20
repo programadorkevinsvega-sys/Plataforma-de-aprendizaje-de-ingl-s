@@ -106,10 +106,10 @@ function validateAudioManifest(assetDirectory, release) {
       source_text_sha256: asset.source_text_sha256,
       generated_at: manifest.generated_at,
       audio_review: {
-        status: "owner_approved",
+        status: "automated_integrity_verified",
         reviewed_by: null,
         reviewed_at: null,
-        notes: "La aprobación expresa del propietario cubre este bloque inicial; el archivo pasó validación MP3, SHA-256 y síntesis real del proveedor configurado.",
+        notes: "El archivo pasó síntesis real del proveedor configurado, validación de cabecera MP3, hash SHA-256 y coincidencia del guion fuente; no sustituye una escucha humana subjetiva.",
       },
       license_review: {
         status: "provider_terms_not_assessed",
