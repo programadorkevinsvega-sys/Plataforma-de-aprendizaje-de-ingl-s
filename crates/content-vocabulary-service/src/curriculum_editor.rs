@@ -84,7 +84,9 @@ fn validate_text(
     allow_empty: bool,
 ) -> Result<(), DraftEditError> {
     if !allow_empty && value.trim().is_empty() {
-        return Err(DraftEditError::Invalid(format!("{field} no puede estar vacío")));
+        return Err(DraftEditError::Invalid(format!(
+            "{field} no puede estar vacío"
+        )));
     }
     if value.chars().count() > max_chars {
         return Err(DraftEditError::Invalid(format!(
@@ -114,9 +116,8 @@ fn parse_draft(raw: &str) -> Result<(DraftDocument, serde_json::Value, String), 
             "El borrador está vacío o supera el límite de 1.5 MB".to_string(),
         ));
     }
-    let draft: DraftDocument = serde_json::from_str(raw).map_err(|error| {
-        DraftEditError::Invalid(format!("JSON de borrador inválido: {error}"))
-    })?;
+    let draft: DraftDocument = serde_json::from_str(raw)
+        .map_err(|error| DraftEditError::Invalid(format!("JSON de borrador inválido: {error}")))?;
     validate_text(&draft.title, "title", 200, false)?;
     validate_text(&draft.description, "description", 6000, true)?;
     if draft.units.is_empty() || draft.units.len() > MAX_UNITS {
@@ -147,7 +148,10 @@ fn parse_draft(raw: &str) -> Result<(DraftDocument, serde_json::Value, String), 
             6000,
             true,
         )?;
-        validate_minutes(unit.estimated_minutes, &format!("{unit_path}.estimatedMinutes"))?;
+        validate_minutes(
+            unit.estimated_minutes,
+            &format!("{unit_path}.estimatedMinutes"),
+        )?;
         if unit.lessons.is_empty() {
             return Err(DraftEditError::Invalid(format!(
                 "La unidad {} debe conservar al menos una lección",
@@ -224,8 +228,9 @@ fn parse_draft(raw: &str) -> Result<(DraftDocument, serde_json::Value, String), 
 
     let snapshot = serde_json::to_value(&draft)
         .map_err(|_| DraftEditError::Invalid("No se pudo normalizar el borrador".to_string()))?;
-    let bytes = serde_json::to_vec(&draft)
-        .map_err(|_| DraftEditError::Invalid("No se pudo calcular la huella del borrador".to_string()))?;
+    let bytes = serde_json::to_vec(&draft).map_err(|_| {
+        DraftEditError::Invalid("No se pudo calcular la huella del borrador".to_string())
+    })?;
     let content_sha256 = format!("{:x}", Sha256::digest(bytes));
     Ok((draft, snapshot, content_sha256))
 }
@@ -274,7 +279,8 @@ pub async fn save_curriculum_draft(
     }
     if current_updated_at != expected_updated_at {
         return Err(DraftEditError::Conflict(
-            "El borrador fue actualizado por otra persona. Recarga la versión antes de guardar".to_string(),
+            "El borrador fue actualizado por otra persona. Recarga la versión antes de guardar"
+                .to_string(),
         ));
     }
 
@@ -309,7 +315,10 @@ pub async fn save_curriculum_draft(
     let mut stored_lessons_by_unit = HashMap::<Uuid, Vec<Uuid>>::new();
     let mut lesson_unit_by_id = HashMap::<Uuid, Uuid>::new();
     for (lesson_id, unit_id, _) in stored_lessons {
-        stored_lessons_by_unit.entry(unit_id).or_default().push(lesson_id);
+        stored_lessons_by_unit
+            .entry(unit_id)
+            .or_default()
+            .push(lesson_id);
         lesson_unit_by_id.insert(lesson_id, unit_id);
     }
 
@@ -323,7 +332,10 @@ pub async fn save_curriculum_draft(
     let mut stored_objectives_by_lesson = HashMap::<Uuid, Vec<Uuid>>::new();
     let mut stored_objective_ids = HashSet::<Uuid>::new();
     for (lesson_id, objective_id) in stored_objective_links {
-        stored_objectives_by_lesson.entry(lesson_id).or_default().push(objective_id);
+        stored_objectives_by_lesson
+            .entry(lesson_id)
+            .or_default()
+            .push(objective_id);
         stored_objective_ids.insert(objective_id);
     }
 
@@ -336,7 +348,10 @@ pub async fn save_curriculum_draft(
             .iter()
             .map(|lesson| parse_id(&lesson.id, "lessons.id"))
             .collect::<Result<_, _>>()?;
-        let stored_for_unit = stored_lessons_by_unit.get(&unit_id).cloned().unwrap_or_default();
+        let stored_for_unit = stored_lessons_by_unit
+            .get(&unit_id)
+            .cloned()
+            .unwrap_or_default();
         if submitted_for_unit != stored_for_unit {
             return Err(DraftEditError::Invalid(format!(
                 "No se puede mover, agregar, quitar ni reordenar lecciones en la unidad {}",
@@ -348,7 +363,8 @@ pub async fn save_curriculum_draft(
             let lesson_id = parse_id(&lesson.id, "lessons.id")?;
             if lesson_unit_by_id.get(&lesson_id) != Some(&unit_id) {
                 return Err(DraftEditError::Invalid(
-                    "La relación entre unidades y lecciones no puede cambiarse desde este editor".to_string(),
+                    "La relación entre unidades y lecciones no puede cambiarse desde este editor"
+                        .to_string(),
                 ));
             }
             submitted_lesson_ids.insert(lesson_id);
@@ -433,21 +449,21 @@ pub async fn save_curriculum_draft(
             .map_err(|_| DraftEditError::Database)?;
             if updated.rows_affected() != 1 {
                 return Err(DraftEditError::Conflict(
-                    "La lección cambió durante el guardado; vuelve a cargar el borrador".to_string(),
+                    "La lección cambió durante el guardado; vuelve a cargar el borrador"
+                        .to_string(),
                 ));
             }
         }
     }
 
     let mut objective_updates = HashMap::<Uuid, DraftObjective>::new();
-    for objective in draft.units.iter()
+    for objective in draft
+        .units
+        .iter()
         .flat_map(|unit| unit.lessons.iter())
         .flat_map(|lesson| lesson.objectives.iter())
     {
-        objective_updates.insert(
-            parse_id(&objective.id, "objectives.id")?,
-            objective.clone(),
-        );
+        objective_updates.insert(parse_id(&objective.id, "objectives.id")?, objective.clone());
     }
     for (objective_id, objective) in objective_updates {
         let updated = sqlx::query(
@@ -564,10 +580,12 @@ mod tests {
     fn rejects_duplicate_unit_ids() {
         let mut draft = valid_draft();
         let first = draft["units"][0].clone();
-        draft["units"].as_array_mut().expect("units array").push(first);
+        draft["units"]
+            .as_array_mut()
+            .expect("units array")
+            .push(first);
         assert!(parse_draft(&draft.to_string()).is_err());
     }
-
 
     #[tokio::test]
     async fn postgres_save_is_versioned_rejects_stale_writes_and_freezes_review() {
@@ -668,13 +686,12 @@ mod tests {
         .expect("link required objective");
         seed.commit().await.expect("commit seed transaction");
 
-        let expected_updated_at: String = sqlx::query_scalar(
-            "SELECT updated_at::TEXT FROM course_versions WHERE id = $1",
-        )
-        .bind(version_id)
-        .fetch_one(&pool)
-        .await
-        .expect("read initial optimistic token");
+        let expected_updated_at: String =
+            sqlx::query_scalar("SELECT updated_at::TEXT FROM course_versions WHERE id = $1")
+                .bind(version_id)
+                .fetch_one(&pool)
+                .await
+                .expect("read initial optimistic token");
         let draft = serde_json::json!({
             "title": "Edited title",
             "description": "Edited description",
@@ -710,15 +727,9 @@ mod tests {
         assert!(matches!(structural_edit, Err(DraftEditError::Invalid(_))));
 
         let raw = draft.to_string();
-        let saved = save_curriculum_draft(
-            &pool,
-            actor_id,
-            version_id,
-            &expected_updated_at,
-            &raw,
-        )
-        .await
-        .expect("save initial visual revision");
+        let saved = save_curriculum_draft(&pool, actor_id, version_id, &expected_updated_at, &raw)
+            .await
+            .expect("save initial visual revision");
         assert_eq!(saved.revision_number, 1);
         assert_eq!(saved.content_sha256.len(), 64);
 
@@ -756,13 +767,12 @@ mod tests {
         .execute(&pool)
         .await
         .expect("submit complete draft for review");
-        let review_updated_at: String = sqlx::query_scalar(
-            "SELECT updated_at::TEXT FROM course_versions WHERE id = $1",
-        )
-        .bind(version_id)
-        .fetch_one(&pool)
-        .await
-        .expect("read review token");
+        let review_updated_at: String =
+            sqlx::query_scalar("SELECT updated_at::TEXT FROM course_versions WHERE id = $1")
+                .bind(version_id)
+                .fetch_one(&pool)
+                .await
+                .expect("read review token");
         let frozen = save_curriculum_draft(
             &pool,
             actor_id,

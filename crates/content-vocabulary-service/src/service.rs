@@ -1726,15 +1726,15 @@ impl ContentService for MyContentService {
         )
         .await
         .map_err(|error| match error {
-            DraftEditError::Forbidden => Status::permission_denied(
-                "La cuenta no está registrada en content_editors",
-            ),
+            DraftEditError::Forbidden => {
+                Status::permission_denied("La cuenta no está registrada en content_editors")
+            },
             DraftEditError::NotFound => Status::not_found("Versión curricular no encontrada"),
             DraftEditError::Conflict(message) => Status::aborted(message),
             DraftEditError::Invalid(message) => Status::invalid_argument(message),
-            DraftEditError::Database => Status::internal(
-                "No se pudo guardar el borrador curricular",
-            ),
+            DraftEditError::Database => {
+                Status::internal("No se pudo guardar el borrador curricular")
+            }
         })?;
 
         Ok(Response::new(UpdateCurriculumDraftResponse {
