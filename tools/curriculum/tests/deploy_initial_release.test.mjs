@@ -52,7 +52,7 @@ test("Listening assets must match the release hash, include every script and pas
 
     const verified = verifyInitialReleaseAudio(directory, release);
     assert.equal(verified.size, 13);
-    assert.equal(verified.get(release.listeningIds[0]).status, "approved");
+    assert.equal(verified.get(release.listeningIds[0]).audio_review.status, "automated_integrity_verified");
     assert.match(verified.get(release.listeningIds[0]).asset_url, /^\/audio\/listening\/listening-01\.mp3$/);
   } finally {
     rmSync(directory, { recursive: true, force: true });
