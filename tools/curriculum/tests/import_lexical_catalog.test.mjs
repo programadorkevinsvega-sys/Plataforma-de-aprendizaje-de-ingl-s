@@ -121,8 +121,8 @@ if (!pool) {
     assert.equal(counts.rows[0].examples, expectedExamples);
     assert.equal(counts.rows[0].resources, catalog.comprehension_resources.length);
     assert.equal(counts.rows[0].exposed_listening_transcripts, 0);
-    assert.equal(counts.rows[0].questions, 52);
-    assert.equal(counts.rows[0].pending_questions, 52);
+    assert.equal(counts.rows[0].questions, 56);
+    assert.equal(counts.rows[0].pending_questions, 56);
     assert.equal(counts.rows[0].draft_items, catalog.lexical_items.length);
     assert.equal(counts.rows[0].published_items, 0);
     assert.equal(counts.rows[0].published_examples, 0);
@@ -307,7 +307,7 @@ if (!pool) {
     assert.equal(publication.published_items, 790);
     assert.equal(publication.published_examples, 2201);
     assert.equal(publication.published_resources, 26);
-    assert.equal(publication.questions, 52);
+    assert.equal(publication.questions, 56);
     assert.equal(publication.listening_with_audio, 13);
     assert.equal(publication.published_courses, 2);
     assert.equal(publication.units, 6);
