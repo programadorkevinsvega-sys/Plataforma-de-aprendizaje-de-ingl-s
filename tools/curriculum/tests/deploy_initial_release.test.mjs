@@ -27,12 +27,13 @@ test("Listening assets must match the release hash, include every script and pas
     const audio = Buffer.from("ID3\u0004\u0000\u0000\u0000\u0000\u0000\u0010", "binary");
     const assets = release.listeningIds.map((resourceId, index) => {
       const assetFile = "listening-" + String(index + 1).padStart(2, "0") + ".mp3";
+      const sourceResource = release.merged.comprehension_resources.find((resource) => resource.id === resourceId);
       writeFileSync(path.join(directory, assetFile), audio);
       return {
         resource_id: resourceId,
         asset_file: assetFile,
         audio_sha256: hash(audio),
-        source_text_sha256: "a".repeat(64),
+        source_text_sha256: hash(Buffer.from(sourceResource.content, "utf8")),
         provider: "cloudflare",
         model: "@cf/deepgram/aura-2-en",
         voice: "Matthew",
