@@ -301,7 +301,9 @@ if (!pool) {
         license_review: { status: 'provider_terms_not_assessed' },
       },
     ]));
-    const publication = await publishInitialRelease(pool, editorId, release, audioAssets);
+    const publication = await publishInitialRelease(pool, editorId, release, audioAssets, { apply: false });
+    assert.equal(publication.applied, false);
+    assert.equal(publication.dry_run, true);
     assert.equal(publication.published_items, 790);
     assert.equal(publication.published_examples, 2201);
     assert.equal(publication.published_resources, 26);
@@ -316,10 +318,10 @@ if (!pool) {
       `SELECT
          (SELECT count(*)::int FROM learning_objective_vocabulary) AS vocabulary_references,
          (SELECT count(*)::int FROM learning_objective_sentences) AS sentence_references,
-         (SELECT count(*)::int FROM course_versions version JOIN courses course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.status = 'published' AND version.cefr_level = ANY($1::text[])) AS published_levels`,
+         (SELECT count(*)::int FROM course_versions version JOIN courses course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.status = 'draft' AND version.cefr_level = ANY($1::text[])) AS draft_levels`,
       [['PRE_A1', 'A1']],
     );
-    assert.equal(publishedReferences.rows[0].published_levels, 2);
+    assert.equal(publishedReferences.rows[0].draft_levels, 2);
     assert.equal(publishedReferences.rows[0].vocabulary_references, 31);
     assert.equal(publishedReferences.rows[0].sentence_references, 27);
 
@@ -333,11 +335,11 @@ if (!pool) {
       [RESOURCE_SOURCE_KEYS],
     );
     assert.equal(studentResources.rowCount, 26);
-    assert.ok(studentResources.rows.every((row) => row.publication_status === 'published'));
+    assert.ok(studentResources.rows.every((row) => row.publication_status === 'draft'));
     assert.ok(studentResources.rows.filter((row) => row.skill === 'listening').every((row) => row.transcript_available === false));
     assert.ok(studentResources.rows.every((row) => row.exposes_answer === true));
 
-    const republished = await publishInitialRelease(pool, editorId, release, audioAssets);
+    const republished = await publishInitialRelease(pool, editorId, release, audioAssets, { apply: false });
     assert.equal(republished.published_courses, 2);
     assert.equal(republished.published_items, 790);
   });
