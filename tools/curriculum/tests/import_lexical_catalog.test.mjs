@@ -320,8 +320,18 @@ if (!pool) {
       await verificationClient.query("SELECT set_config('app.current_user_id', $1, true)", [editorId]);
       const publishedReferences = await verificationClient.query(
       `SELECT
-         (SELECT count(*)::int FROM learning_objective_vocabulary) AS vocabulary_references,
-         (SELECT count(*)::int FROM learning_objective_sentences) AS sentence_references,
+         (SELECT count(*)::int
+            FROM learning_objective_vocabulary reference
+            JOIN learning_objectives objective ON objective.id = reference.learning_objective_id
+            JOIN course_versions version ON version.id = objective.course_version_id
+            JOIN courses course ON course.id = version.course_id
+           WHERE course.slug = 'english-general' AND version.cefr_level = ANY($1::text[])) AS vocabulary_references,
+         (SELECT count(*)::int
+            FROM learning_objective_sentences reference
+            JOIN learning_objectives objective ON objective.id = reference.learning_objective_id
+            JOIN course_versions version ON version.id = objective.course_version_id
+            JOIN courses course ON course.id = version.course_id
+           WHERE course.slug = 'english-general' AND version.cefr_level = ANY($1::text[])) AS sentence_references,
          (SELECT count(*)::int FROM course_versions version JOIN courses course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.status = 'draft' AND version.cefr_level = ANY($1::text[])) AS draft_levels`,
       [['PRE_A1', 'A1']],
     );
