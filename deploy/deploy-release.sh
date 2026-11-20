@@ -58,7 +58,8 @@ done
 test -x "$stage/bin/sqlx"
 test -x "$stage/bin/tts-smoke-test"
 test -x "$stage/bin/generate-listening-assets"
-test -s "$stage/bin/deploy-initial-curriculum.mjs"
+test -s "$stage/tools/curriculum/deploy_initial_release.mjs"
+test -e "$stage/node_modules/pg"
 test -s "$stage/crates/content-vocabulary-service/data/lexical_catalog.v2.json"
 test -s "$stage/tools/curriculum/initial-release-comprehension.v1.json"
 test -s "$stage/tests/fixtures/curriculum/initial-release-english-general-pre-a1-v1.json"
@@ -111,16 +112,17 @@ echo "Database migrations completed successfully."
 # separate manual VM operation. The catalogue hash keys immutable audio assets.
 echo "Preparing the initial English General Pre-A1/A1 curriculum release."
 merged_catalog="/tmp/devfluency-initial-catalog-${sha}.json"
-CURRICULUM_RELEASE_ROOT="$release" node "$release/bin/deploy-initial-curriculum.mjs" --prepare-catalog "$merged_catalog"
+CURRICULUM_RELEASE_ROOT="$release" node "$release/tools/curriculum/deploy_initial_release.mjs" --prepare-catalog "$merged_catalog"
 catalog_sha256="$(sha256sum "$merged_catalog" | awk '{print $1}')"
 
 audio_state_root="/var/lib/devfluency/listening-audio"
 audio_release="$audio_state_root/releases/$catalog_sha256"
 install -d -o root -g devfluency -m 0750 "$audio_state_root/releases"
 if [[ ! -s "$audio_release/listening-audio-manifest.v1.json" ]]; then
+  # A previous interrupted copy is not a valid release; discard only this
+  # hash-scoped incomplete directory and synthesize it again.
   if [[ -e "$audio_release" ]]; then
-    echo "Incomplete immutable Listening audio release exists at $audio_release." >&2
-    exit 1
+    rm -rf -- "$audio_release"
   fi
   audio_generation_stage="$(mktemp -d /tmp/devfluency-audio-generation.XXXXXX)"
   audio_output="$audio_generation_stage/assets"
@@ -167,7 +169,7 @@ curriculum_editor_id="${curriculum_editor_id%\"}"
 echo "Importing and publishing the approved initial curriculum in aprendizaje_ingles."
 DATABASE_URL="$database_url" AUDIO_ASSET_DIR="$audio_release" \
   CURRICULUM_RELEASE_ROOT="$release" CURRICULUM_EDITOR_USER_ID="$curriculum_editor_id" \
-  node "$release/bin/deploy-initial-curriculum.mjs" --publish
+  node "$release/tools/curriculum/deploy_initial_release.mjs" --publish
 echo "Initial curriculum import, editorial publication and database verification succeeded."
 
 restart_stack() {
