@@ -256,13 +256,13 @@ async function publishRelease(pool, editorId, release, audioAssets, { apply = tr
     );
     await client.query(
       "UPDATE context_sentences SET publication_status = 'review' " +
-      "WHERE source_catalog = $1 AND publication_status = 'draft'",
-      [SOURCE_CATALOG],
+      "WHERE source_catalog = $1 AND catalog_hash = $2 AND publication_status = 'draft'",
+      [SOURCE_CATALOG, release.catalogSha256],
     );
     await client.query(
       "UPDATE curriculum_comprehension_resources SET publication_status = 'review', updated_at = CURRENT_TIMESTAMP " +
-      "WHERE source_catalog = $1 AND publication_status = 'draft'",
-      [SOURCE_CATALOG],
+      "WHERE source_catalog = $1 AND catalog_hash = $2 AND publication_status = 'draft'",
+      [SOURCE_CATALOG, release.catalogSha256],
     );
 
     const approval = JSON.stringify({
@@ -295,10 +295,10 @@ async function publishRelease(pool, editorId, release, audioAssets, { apply = tr
           "THEN jsonb_set(sentence.pronunciation_candidates, '{0,status}', '\"approved\"'::jsonb, true) " +
           "ELSE sentence.pronunciation_candidates END, " +
         "editorial_status = 'approved', " +
-        "provenance = jsonb_set(COALESCE(sentence.provenance, '{}'::jsonb), '{publication_approval}', $2::jsonb, true), " +
+        "provenance = jsonb_set(COALESCE(sentence.provenance, '{}'::jsonb), '{publication_approval}', $3::jsonb, true), " +
         "publication_status = 'published' " +
-      "WHERE sentence.source_catalog = $1 AND sentence.publication_status = 'review'",
-      [SOURCE_CATALOG, approval],
+      "WHERE sentence.source_catalog = $1 AND sentence.catalog_hash = $2 AND sentence.publication_status = 'review'",
+      [SOURCE_CATALOG, release.catalogSha256, approval],
     );
 
     await client.query(
