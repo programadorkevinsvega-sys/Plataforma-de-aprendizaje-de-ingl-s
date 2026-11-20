@@ -163,15 +163,6 @@ ln -sfn "$audio_state_root/current" "$frontend_public/audio/listening.next"
 mv -Tf "$frontend_public/audio/listening.next" "$frontend_public/audio/listening"
 chown -h root:devfluency "$frontend_public/audio/listening"
 
-curriculum_editor_id="$(sed -n 's/^CURRICULUM_EDITOR_USER_ID=//p' "$APP_CONFIG" | tail -n 1)"
-curriculum_editor_id="${curriculum_editor_id#\"}"
-curriculum_editor_id="${curriculum_editor_id%\"}"
-echo "Importing and publishing the approved initial curriculum in aprendizaje_ingles."
-DATABASE_URL="$database_url" AUDIO_ASSET_DIR="$audio_release" \
-  CURRICULUM_RELEASE_ROOT="$release" CURRICULUM_EDITOR_USER_ID="$curriculum_editor_id" \
-  node "$release/tools/curriculum/deploy_initial_release.mjs" --publish
-echo "Initial curriculum import, editorial publication and database verification succeeded."
-
 restart_stack() {
   local service
   for service in auth-identity-service content-vocabulary-service ai-evaluator-service phonetic-audio-service srs-engine-service gamification-progress-service bff; do
@@ -273,4 +264,16 @@ if ! TTS_PROVIDER="$tts_provider" TTS_SMOKE_ENDPOINT="$tts_smoke_endpoint" "$rel
   rollback
 fi
 
-echo "Platform deployment $sha passed HTTP and functional TTS health checks."
+# Publish only after the new frontend is live and every generated audio URL is
+# reachable through its public route. The editorial transaction stays atomic.
+curriculum_editor_id="$(sed -n 's/^CURRICULUM_EDITOR_USER_ID=//p' "$APP_CONFIG" | tail -n 1)"
+curriculum_editor_id="${curriculum_editor_id#\"}"
+curriculum_editor_id="${curriculum_editor_id%\"}"
+if ! DATABASE_URL="$database_url" AUDIO_ASSET_DIR="$audio_release" \
+  CURRICULUM_RELEASE_ROOT="$release" CURRICULUM_EDITOR_USER_ID="$curriculum_editor_id" \
+  node "$release/tools/curriculum/deploy_initial_release.mjs" --publish; then
+  echo "Initial curriculum import/publication failed; rolling back the application release." >&2
+  rollback
+fi
+echo "Initial curriculum import, editorial publication and database verification succeeded."
+echo "Platform deployment $sha passed HTTP, TTS and curriculum publication checks."
