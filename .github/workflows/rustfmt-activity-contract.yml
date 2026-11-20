@@ -1,0 +1,55 @@
+name: Normalize activity contract formatting
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - 'crates/common/src/activity_contract.rs'
+      - '.github/workflows/rustfmt-activity-contract.yml'
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  format:
+    name: Format and dispatch full CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR source branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Install stable rustfmt
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt
+          rustup default stable
+
+      - name: Normalize source and remove this temporary workflow
+        env:
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          rustfmt --edition 2021 crates/common/src/activity_contract.rs
+          git rm .github/workflows/rustfmt-activity-contract.yml
+          git add crates/common/src/activity_contract.rs
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "style(activity): apply rustfmt to activity contract"
+            git push origin "HEAD:$HEAD_BRANCH"
+          fi
+
+          # GITHUB_TOKEN pushes do not trigger normal push/PR workflows.
+          # Explicit workflow_dispatch runs the repository's full CI classifier.
+          curl --fail-with-body --silent --show-error \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/dispatches" \
+            -d '{"ref":"'"$HEAD_BRANCH"'"}'
