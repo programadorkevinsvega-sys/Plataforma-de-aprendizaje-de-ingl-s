@@ -231,10 +231,10 @@ async function publishRelease(pool, editorId, release, audioAssets, { apply = tr
 
     const sourceCounts = await client.query(
       "SELECT " +
-        "(SELECT count(*)::int FROM vocabulary_words WHERE source_catalog = $1 AND publication_status <> 'archived') AS items, " +
-        "(SELECT count(*)::int FROM context_sentences WHERE source_catalog = $1 AND publication_status <> 'archived') AS examples, " +
-        "(SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1 AND publication_status <> 'archived') AS resources",
-      [SOURCE_CATALOG],
+        "(SELECT count(*)::int FROM vocabulary_words WHERE source_catalog = $1 AND catalog_hash = $2 AND publication_status <> 'archived') AS items, " +
+        "(SELECT count(*)::int FROM context_sentences WHERE source_catalog = $1 AND catalog_hash = $2 AND publication_status <> 'archived') AS examples, " +
+        "(SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1 AND catalog_hash = $2 AND publication_status <> 'archived') AS resources",
+      [SOURCE_CATALOG, release.catalogSha256],
     );
     const counts = sourceCounts.rows[0];
     if (
@@ -251,8 +251,8 @@ async function publishRelease(pool, editorId, release, audioAssets, { apply = tr
 
     await client.query(
       "UPDATE vocabulary_words SET publication_status = 'review' " +
-      "WHERE source_catalog = $1 AND publication_status = 'draft'",
-      [SOURCE_CATALOG],
+      "WHERE source_catalog = $1 AND catalog_hash = $2 AND publication_status = 'draft'",
+      [SOURCE_CATALOG, release.catalogSha256],
     );
     await client.query(
       "UPDATE context_sentences SET publication_status = 'review' " +
@@ -273,12 +273,12 @@ async function publishRelease(pool, editorId, release, audioAssets, { apply = tr
     await client.query(
       "UPDATE vocabulary_words SET " +
         "publication_status = 'published', " +
-        "editorial_metadata = jsonb_set(jsonb_set(COALESCE(editorial_metadata, '{}'::jsonb), '{editorial_status}', '\"approved\"'::jsonb, true), '{publication_approval}', $2::jsonb, true), " +
+        "editorial_metadata = jsonb_set(jsonb_set(COALESCE(editorial_metadata, '{}'::jsonb), '{editorial_status}', '\"approved\"'::jsonb, true), '{publication_approval}', $3::jsonb, true), " +
         "pronunciation_status = CASE " +
           "WHEN length(btrim(COALESCE(spanish_phonetic, ''))) > 0 AND length(btrim(COALESCE(spanish_phonetic_natural, ''))) > 0 THEN 'approved' " +
           "ELSE 'not_required' END " +
-      "WHERE source_catalog = $1 AND publication_status = 'review'",
-      [SOURCE_CATALOG, approval],
+      "WHERE source_catalog = $1 AND catalog_hash = $2 AND publication_status = 'review'",
+      [SOURCE_CATALOG, release.catalogSha256, approval],
     );
 
     await client.query(
@@ -308,13 +308,13 @@ async function publishRelease(pool, editorId, release, audioAssets, { apply = tr
           "SELECT jsonb_agg(jsonb_set(question.value, '{editorial_status}', '\"approved\"'::jsonb, true) ORDER BY question.ordinality) " +
           "FROM jsonb_array_elements(resource.questions) WITH ORDINALITY AS question(value, ordinality)" +
         "), '[]'::jsonb), " +
-        "provenance = jsonb_set(COALESCE(resource.provenance, '{}'::jsonb), '{publication_approval}', $2::jsonb, true), " +
+        "provenance = jsonb_set(COALESCE(resource.provenance, '{}'::jsonb), '{publication_approval}', $3::jsonb, true), " +
         "audio_metadata = CASE WHEN resource.skill = 'listening' " +
-          "THEN COALESCE(resource.audio_metadata, '{}'::jsonb) || ($3::jsonb -> resource.id::text) " +
+          "THEN COALESCE(resource.audio_metadata, '{}'::jsonb) || ($4::jsonb -> resource.id::text) " +
           "ELSE resource.audio_metadata END, " +
         "publication_status = 'published', updated_at = CURRENT_TIMESTAMP " +
-      "WHERE resource.source_catalog = $1 AND resource.publication_status = 'review'",
-      [SOURCE_CATALOG, approval, JSON.stringify(Object.fromEntries(audioAssets))],
+      "WHERE resource.source_catalog = $1 AND resource.catalog_hash = $2 AND resource.publication_status = 'review'",
+      [SOURCE_CATALOG, release.catalogSha256, approval, JSON.stringify(Object.fromEntries(audioAssets))],
     );
 
     const courseVersions = await client.query(
@@ -368,16 +368,16 @@ async function publishRelease(pool, editorId, release, audioAssets, { apply = tr
 
     const finalCounts = await client.query(
       "SELECT " +
-        "(SELECT count(*)::int FROM vocabulary_words WHERE source_catalog = $1 AND publication_status = 'published') AS published_items, " +
-        "(SELECT count(*)::int FROM context_sentences WHERE source_catalog = $1 AND publication_status = 'published') AS published_examples, " +
-        "(SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1 AND publication_status = 'published') AS published_resources, " +
-        "(SELECT COALESCE(sum(jsonb_array_length(questions)), 0)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1 AND publication_status = 'published') AS questions, " +
-        "(SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1 AND publication_status = 'published' AND skill = 'listening' AND audio_metadata ->> 'status' = 'approved' AND length(btrim(COALESCE(audio_metadata ->> 'asset_url', ''))) > 0) AS listening_with_audio, " +
-        "(SELECT count(*)::int FROM course_versions AS version JOIN courses AS course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.cefr_level = ANY($2::text[]) AND version.status = 'published') AS published_courses, " +
-        "(SELECT count(*)::int FROM course_units AS unit JOIN course_versions AS version ON version.id = unit.course_version_id JOIN courses AS course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.cefr_level = ANY($2::text[])) AS units, " +
-        "(SELECT count(*)::int FROM course_lessons AS lesson JOIN course_versions AS version ON version.id = lesson.course_version_id JOIN courses AS course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.cefr_level = ANY($2::text[])) AS lessons, " +
-        "(SELECT count(*)::int FROM learning_objectives AS objective JOIN course_versions AS version ON version.id = objective.course_version_id JOIN courses AS course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.cefr_level = ANY($2::text[])) AS objectives",
-      [SOURCE_CATALOG, ["PRE_A1", "A1"]],
+        "(SELECT count(*)::int FROM vocabulary_words WHERE source_catalog = $1 AND catalog_hash = $2 AND publication_status = 'published') AS published_items, " +
+        "(SELECT count(*)::int FROM context_sentences WHERE source_catalog = $1 AND catalog_hash = $2 AND publication_status = 'published') AS published_examples, " +
+        "(SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1 AND catalog_hash = $2 AND publication_status = 'published') AS published_resources, " +
+        "(SELECT COALESCE(sum(jsonb_array_length(questions)), 0)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1 AND catalog_hash = $2 AND publication_status = 'published') AS questions, " +
+        "(SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_catalog = $1 AND catalog_hash = $2 AND publication_status = 'published' AND skill = 'listening' AND audio_metadata ->> 'status' = 'approved' AND length(btrim(COALESCE(audio_metadata ->> 'asset_url', ''))) > 0) AS listening_with_audio, " +
+        "(SELECT count(*)::int FROM course_versions AS version JOIN courses AS course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.cefr_level = ANY($3::text[]) AND version.status = 'published') AS published_courses, " +
+        "(SELECT count(*)::int FROM course_units AS unit JOIN course_versions AS version ON version.id = unit.course_version_id JOIN courses AS course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.cefr_level = ANY($3::text[])) AS units, " +
+        "(SELECT count(*)::int FROM course_lessons AS lesson JOIN course_versions AS version ON version.id = lesson.course_version_id JOIN courses AS course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.cefr_level = ANY($3::text[])) AS lessons, " +
+        "(SELECT count(*)::int FROM learning_objectives AS objective JOIN course_versions AS version ON version.id = objective.course_version_id JOIN courses AS course ON course.id = version.course_id WHERE course.slug = 'english-general' AND version.cefr_level = ANY($3::text[])) AS objectives",
+      [SOURCE_CATALOG, release.catalogSha256, ["PRE_A1", "A1"]],
     );
     const published = finalCounts.rows[0];
     if (
