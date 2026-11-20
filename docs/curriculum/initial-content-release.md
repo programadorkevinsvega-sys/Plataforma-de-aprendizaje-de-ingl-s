@@ -35,7 +35,7 @@ Los dos paquetes curriculares \`english-general\` tienen 3 unidades cada uno, 5 
 7. Registra la aprobación del propietario del producto mediante un editor curricular registrado y publica vocabulario, ejemplos, lecturas, preguntas, escuchas y versiones de curso. Los cambios de estado editorial se realizan en una única transacción.
 8. Verifica los conteos publicados y comprueba por HTTP que los 13 audios se sirven desde el frontend.
 
-La carga se ejecuta después de las migraciones y antes de marcar el despliegue como exitoso. Si falla una importación, una transición editorial, la validación de un audio o la comprobación HTTP, el job de despliegue falla; no se declara una release curricular completa.
+La carga se ejecuta después de las migraciones, cuando la nueva versión de la aplicación ya está activa y se han comprobado por HTTP todos los MP3. Solo entonces se realiza la publicación final. Si falla una importación, una transición editorial, la validación de un audio, una comprobación HTTP o la publicación, el despliegue falla y revierte la versión de aplicación; las importaciones incompletas permanecen ocultas como borradores.
 
 ## Identidad editorial
 
