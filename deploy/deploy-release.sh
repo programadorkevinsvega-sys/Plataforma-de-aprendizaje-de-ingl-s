@@ -252,7 +252,7 @@ if ! curl --connect-timeout 2 -fsS "http://$BFF_HTTP_PROBE_HOST:$BFF_HTTP_PROBE_
 fi
 
 while IFS= read -r audio_file; do
-  [[ "$audio_file" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*\\.mp3$ ]] || rollback
+  [[ "$audio_file" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*\.mp3$ ]] || rollback
   curl --connect-timeout 3 -fsS "http://$BFF_HTTP_PROBE_HOST:3000/audio/listening/$audio_file" -o /dev/null || {
     echo "Listening asset is not publicly served by the frontend: $audio_file." >&2
     rollback
