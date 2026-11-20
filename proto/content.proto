@@ -13,6 +13,7 @@ service ContentService {
   rpc ListEditorialVersions (ListEditorialVersionsRequest) returns (ListEditorialVersionsResponse);
   rpc ManageEditorialVersion (ManageEditorialVersionRequest) returns (ManageEditorialVersionResponse);
   rpc ImportCurriculumPackage (ImportCurriculumPackageRequest) returns (ImportCurriculumPackageResponse);
+  rpc UpdateCurriculumDraft (UpdateCurriculumDraftRequest) returns (UpdateCurriculumDraftResponse);
 }
 
 message ContextSentence {
@@ -245,6 +246,7 @@ message EditorialCourseVersionSummary {
   string latest_comments = 12;
   string latest_reviewer_id = 13;
   bool can_publish = 14;
+  string updated_at = 15;
 }
 
 message ManageEditorialVersionRequest {
@@ -282,4 +284,18 @@ message ImportCurriculumPackageResponse {
   int32 sentence_references = 8;
   bool applied = 9;
   bool dry_run = 10;
+}
+
+message UpdateCurriculumDraftRequest {
+  string user_id = 1;
+  string course_version_id = 2;
+  string expected_updated_at = 3;
+  string draft_json = 4;
+}
+
+message UpdateCurriculumDraftResponse {
+  string course_version_id = 1;
+  string updated_at = 2;
+  int32 revision_number = 3;
+  string content_sha256 = 4;
 }

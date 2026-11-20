@@ -8,6 +8,7 @@ import {
   toEditorialActionResult,
   toEditorialVersionSummary,
   toImportCurriculumPackageResult,
+  toSaveCurriculumDraftResult,
 } from '../../src/infrastructure/api/curriculumMappers.ts'
 
 test('course summary maps canonical curriculum fields and enrollment state', () => {
@@ -152,12 +153,14 @@ test('editorial version mapper exposes immutable version and latest review state
     latest_comments: 'Ready to publish',
     latest_reviewer_id: 'editor-1',
     can_publish: true,
+    updated_at: '2026-11-20 17:17:00+00',
   })
 
   assert.equal(version.courseVersionId, 'version-2')
   assert.equal(version.status, 'review')
   assert.equal(version.latestDecision, 'approved')
   assert.equal(version.canPublish, true)
+  assert.equal(version.updatedAt, '2026-11-20 17:17:00+00')
   assert.equal(version.packageSha256.length, 64)
 })
 

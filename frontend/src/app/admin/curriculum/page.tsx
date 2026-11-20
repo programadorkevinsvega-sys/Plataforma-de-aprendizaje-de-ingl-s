@@ -15,6 +15,7 @@ import type {
   EditorialVersionSummary,
   EditorialVersionsPage,
   ImportCurriculumPackageResult,
+  CurriculumCourseDetail,
 } from '@/domain/repositories/ICurriculumRepository'
 
 const PAGE_SIZE = 10
@@ -61,6 +62,12 @@ export default function CurriculumAdminPage() {
   const [reviewComments, setReviewComments] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
+  const [draftEditor, setDraftEditor] = useState<CurriculumCourseDetail | null>(null)
+  const [draftEditorVersionId, setDraftEditorVersionId] = useState<string | null>(null)
+  const [draftExpectedUpdatedAt, setDraftExpectedUpdatedAt] = useState('')
+  const [draftBusy, setDraftBusy] = useState(false)
+  const [draftError, setDraftError] = useState<string | null>(null)
+  const [draftMessage, setDraftMessage] = useState<string | null>(null)
 
   const loadVersions = useCallback(async (): Promise<EditorialVersionsPage> => {
     const container = getContainer()
@@ -212,6 +219,136 @@ export default function CurriculumAdminPage() {
       )
     } finally {
       setActiveVersionId(null)
+    }
+  }
+
+  const handleStartDraftEdit = async (version: EditorialVersionSummary) => {
+    if (version.status !== 'draft' || activeVersionId || draftBusy) return
+    setDraftBusy(true)
+    setDraftError(null)
+    setDraftMessage(null)
+    setDraftEditor(null)
+    setDraftEditorVersionId(null)
+    try {
+      const detail = await getContainer().useCases.getCurriculumCourse.execute(version.courseVersionId)
+      setDraftEditor(detail)
+      setDraftEditorVersionId(version.courseVersionId)
+      setDraftExpectedUpdatedAt(version.updatedAt)
+    } catch (cause) {
+      setDraftError(cause instanceof Error ? cause.message : 'No se pudo cargar el borrador curricular.')
+    } finally {
+      setDraftBusy(false)
+    }
+  }
+
+  const closeDraftEditor = () => {
+    if (draftBusy) return
+    setDraftEditor(null)
+    setDraftEditorVersionId(null)
+    setDraftExpectedUpdatedAt('')
+    setDraftError(null)
+    setDraftMessage(null)
+  }
+
+  const updateDraftCourse = (patch: Partial<CurriculumCourseDetail['course']>) => {
+    setDraftEditor((current) => current
+      ? { ...current, course: { ...current.course, ...patch } }
+      : current)
+  }
+
+  const updateDraftUnit = (
+    unitId: string,
+    patch: { title?: string; theme?: string; description?: string; estimatedMinutes?: number },
+  ) => {
+    setDraftEditor((current) => current
+      ? {
+          ...current,
+          units: current.units.map((unit) =>
+            unit.id === unitId ? { ...unit, ...patch } : unit,
+          ),
+        }
+      : current)
+  }
+
+  const updateDraftLesson = (
+    lessonId: string,
+    patch: { title?: string; description?: string; estimatedMinutes?: number },
+  ) => {
+    setDraftEditor((current) => current
+      ? {
+          ...current,
+          units: current.units.map((unit) => ({
+            ...unit,
+            lessons: unit.lessons.map((lesson) =>
+              lesson.id === lessonId ? { ...lesson, ...patch } : lesson,
+            ),
+          })),
+        }
+      : current)
+  }
+
+  const updateDraftObjective = (
+    objectiveId: string,
+    patch: { description?: string; successCriteria?: string },
+  ) => {
+    setDraftEditor((current) => current
+      ? {
+          ...current,
+          units: current.units.map((unit) => ({
+            ...unit,
+            lessons: unit.lessons.map((lesson) => ({
+              ...lesson,
+              objectives: lesson.objectives.map((objective) =>
+                objective.id === objectiveId ? { ...objective, ...patch } : objective,
+              ),
+            })),
+          })),
+        }
+      : current)
+  }
+
+  const handleSaveDraft = async () => {
+    if (!draftEditor || !draftEditorVersionId || !draftExpectedUpdatedAt || draftBusy) return
+    setDraftBusy(true)
+    setDraftError(null)
+    setDraftMessage(null)
+    try {
+      const draftJson = JSON.stringify({
+        title: draftEditor.course.title,
+        description: draftEditor.course.description,
+        units: draftEditor.units.map((unit) => ({
+          id: unit.id,
+          title: unit.title,
+          theme: unit.theme,
+          description: unit.description,
+          estimatedMinutes: unit.estimatedMinutes > 0 ? unit.estimatedMinutes : null,
+          lessons: unit.lessons.map((lesson) => ({
+            id: lesson.id,
+            title: lesson.title,
+            description: lesson.description,
+            estimatedMinutes: lesson.estimatedMinutes > 0 ? lesson.estimatedMinutes : null,
+            objectives: lesson.objectives.map((objective) => ({
+              id: objective.id,
+              description: objective.description,
+              successCriteria: objective.successCriteria,
+            })),
+          })),
+        })),
+      })
+      const result = await getContainer().useCases.saveCurriculumDraft.execute({
+        courseVersionId: draftEditorVersionId,
+        expectedUpdatedAt: draftExpectedUpdatedAt,
+        draftJson,
+      })
+      setDraftMessage(`Borrador guardado · revisión ${result.revisionNumber} · SHA-256 ${result.contentSha256.slice(0, 16)}`)
+      setDraftEditor(null)
+      setDraftEditorVersionId(null)
+      await mutate()
+    } catch (cause) {
+      setDraftError(cause instanceof Error ? cause.message : 'No se pudo guardar el borrador curricular.')
+      await mutate()
+    } finally {
+      setDraftBusy(false)
     }
   }
 
@@ -462,6 +599,16 @@ export default function CurriculumAdminPage() {
                     {actionMessage}
                   </p>
                 )}
+                {draftError && !draftEditor && (
+                  <p className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-3 text-xs text-rose-200" role="alert">
+                    {draftError}
+                  </p>
+                )}
+                {draftMessage && !draftEditor && (
+                  <p className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs text-emerald-200" role="status">
+                    {draftMessage}
+                  </p>
+                )}
 
                 {versions.length === 0 && (
                   <div className="rounded-2xl border border-white/10 bg-slate-900/40 p-8 text-center text-sm text-slate-400">
@@ -525,6 +672,122 @@ export default function CurriculumAdminPage() {
                           </div>
                         )}
 
+                        {draftEditorVersionId === version.courseVersionId && draftEditor && (
+                          <section className="space-y-5 rounded-2xl border border-violet-400/20 bg-violet-400/[0.03] p-4 sm:p-5" aria-label="Editor visual de borrador">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <h4 className="text-sm font-extrabold text-white">Editor visual del borrador</h4>
+                                <p className="mt-1 text-[10px] leading-5 text-slate-400">
+                                  Solo puedes editar texto y duración. IDs, códigos, orden, competencias, referencias y prerrequisitos permanecen bloqueados.
+                                </p>
+                              </div>
+                              <span className="rounded-full border border-violet-300/20 px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-violet-200">
+                                Draft · guardado con control de concurrencia
+                              </span>
+                            </div>
+
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <label className="block sm:col-span-2">
+                                <span className="mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-500">Título del curso</span>
+                                <input value={draftEditor.course.title} onChange={(event) => updateDraftCourse({ title: event.target.value })} maxLength={200} className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2.5 text-xs text-white outline-none focus:border-violet-400/50" />
+                              </label>
+                              <label className="block sm:col-span-2">
+                                <span className="mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-500">Descripción del curso</span>
+                                <textarea value={draftEditor.course.description} onChange={(event) => updateDraftCourse({ description: event.target.value })} rows={2} maxLength={6000} className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2.5 text-xs leading-5 text-white outline-none focus:border-violet-400/50" />
+                              </label>
+                            </div>
+
+                            <div className="space-y-4">
+                              {draftEditor.units.map((unit) => (
+                                <section key={unit.id} className="space-y-3 rounded-xl border border-white/10 bg-slate-950/50 p-4">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <h5 className="text-xs font-extrabold text-violet-100">Unidad {unit.position} · {unit.theme}</h5>
+                                    <span className="font-mono text-[9px] text-slate-600">{unit.id.slice(0, 8)}</span>
+                                  </div>
+                                  <div className="grid gap-3 sm:grid-cols-2">
+                                    <label className="block">
+                                      <span className="mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-500">Título</span>
+                                      <input value={unit.title} maxLength={200} onChange={(event) => updateDraftUnit(unit.id, { title: event.target.value })} className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-violet-400/50" />
+                                    </label>
+                                    <label className="block">
+                                      <span className="mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-500">Tema</span>
+                                      <input value={unit.theme} maxLength={120} onChange={(event) => updateDraftUnit(unit.id, { theme: event.target.value })} className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-violet-400/50" />
+                                    </label>
+                                    <label className="block sm:col-span-2">
+                                      <span className="mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-500">Descripción</span>
+                                      <textarea value={unit.description} rows={2} maxLength={6000} onChange={(event) => updateDraftUnit(unit.id, { description: event.target.value })} className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-xs leading-5 text-white outline-none focus:border-violet-400/50" />
+                                    </label>
+                                    <label className="block max-w-xs">
+                                      <span className="mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-500">Duración estimada · minutos</span>
+                                      <input type="number" min={1} max={2400} value={unit.estimatedMinutes || ''} onChange={(event) => updateDraftUnit(unit.id, { estimatedMinutes: event.target.value === '' ? 0 : Number(event.target.value) })} className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-violet-400/50" />
+                                    </label>
+                                  </div>
+
+                                  <div className="space-y-3 border-l border-violet-400/20 pl-3">
+                                    {unit.lessons.map((lesson) => (
+                                      <section key={lesson.id} className="space-y-3 rounded-lg border border-white/5 bg-white/[0.02] p-3">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                          <h6 className="text-[11px] font-bold text-cyan-100">Lección {lesson.position} · {lesson.lessonCode}</h6>
+                                          <span className="font-mono text-[9px] text-slate-600">{lesson.id.slice(0, 8)}</span>
+                                        </div>
+                                        <div className="grid gap-3 sm:grid-cols-2">
+                                          <label className="block sm:col-span-2">
+                                            <span className="mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-500">Título</span>
+                                            <input value={lesson.title} maxLength={200} onChange={(event) => updateDraftLesson(lesson.id, { title: event.target.value })} className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-cyan-400/50" />
+                                          </label>
+                                          <label className="block sm:col-span-2">
+                                            <span className="mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-500">Descripción</span>
+                                            <textarea value={lesson.description} rows={2} maxLength={6000} onChange={(event) => updateDraftLesson(lesson.id, { description: event.target.value })} className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-xs leading-5 text-white outline-none focus:border-cyan-400/50" />
+                                          </label>
+                                          <label className="block max-w-xs">
+                                            <span className="mb-1 block text-[9px] font-bold uppercase tracking-wider text-slate-500">Duración · minutos</span>
+                                            <input type="number" min={1} max={2400} value={lesson.estimatedMinutes || ''} onChange={(event) => updateDraftLesson(lesson.id, { estimatedMinutes: event.target.value === '' ? 0 : Number(event.target.value) })} className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-cyan-400/50" />
+                                          </label>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                          <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Objetivos vinculados · estructura protegida</div>
+                                          {lesson.objectives.map((objective) => (
+                                            <div key={objective.id} className="grid gap-2 rounded-lg border border-white/5 bg-slate-950/80 p-3">
+                                              <div className="flex flex-wrap justify-between gap-2">
+                                                <span className="text-[10px] font-bold text-slate-300">{objective.objectiveCode}</span>
+                                                <span className="font-mono text-[9px] text-slate-600">{objective.id.slice(0, 8)} · {objective.skills.join(', ')}</span>
+                                              </div>
+                                              <label className="block">
+                                                <span className="mb-1 block text-[9px] text-slate-500">Descripción del objetivo</span>
+                                                <textarea value={objective.description} rows={2} maxLength={2000} onChange={(event) => updateDraftObjective(objective.id, { description: event.target.value })} className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-cyan-400/50" />
+                                              </label>
+                                              <label className="block">
+                                                <span className="mb-1 block text-[9px] text-slate-500">Criterio de éxito</span>
+                                                <textarea value={objective.successCriteria} rows={2} maxLength={4000} onChange={(event) => updateDraftObjective(objective.id, { successCriteria: event.target.value })} className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-xs text-white outline-none focus:border-cyan-400/50" />
+                                              </label>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </section>
+                                    ))}
+                                  </div>
+                                </section>
+                              ))}
+                            </div>
+
+                            {draftError && (
+                              <p className="rounded-lg border border-rose-400/20 bg-rose-400/5 p-3 text-xs text-rose-200" role="alert">{draftError}</p>
+                            )}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button type="button" onClick={() => void handleSaveDraft()} disabled={draftBusy} className="rounded-xl bg-violet-400 px-4 py-2.5 text-[10px] font-extrabold text-slate-950 hover:bg-violet-300 disabled:opacity-40">
+                                {draftBusy ? 'Guardando revisión…' : 'Guardar cambios del borrador'}
+                              </button>
+                              <button type="button" onClick={closeDraftEditor} disabled={draftBusy} className="rounded-xl border border-white/10 px-4 py-2.5 text-[10px] font-bold text-slate-300 hover:bg-white/5 disabled:opacity-40">
+                                Cancelar
+                              </button>
+                            </div>
+                            <p className="text-[9px] leading-4 text-slate-600">
+                              El guardado es transaccional y crea una revisión inmutable. Si otra persona modificó la versión o fue enviada a revisión, tendrás que recargar antes de volver a editar.
+                            </p>
+                          </section>
+                        )}
+
                         {version.status === 'review' && (
                           <div className="space-y-3 rounded-xl border border-white/10 bg-slate-950/40 p-3">
                             <label className="block">
@@ -582,7 +845,17 @@ export default function CurriculumAdminPage() {
                           {version.status === 'draft' && (
                             <button
                               type="button"
-                              disabled={Boolean(activeVersionId)}
+                              disabled={draftBusy || Boolean(activeVersionId) || draftEditorVersionId === version.courseVersionId}
+                              onClick={() => void handleStartDraftEdit(version)}
+                              className="rounded-xl border border-violet-300/25 bg-violet-400/10 px-4 py-2.5 text-[10px] font-extrabold text-violet-100 hover:bg-violet-400/20 disabled:opacity-40"
+                            >
+                              {draftBusy && !draftEditorVersionId ? 'Cargando borrador…' : 'Editar borrador'}
+                            </button>
+                          )}
+                          {version.status === 'draft' && (
+                            <button
+                              type="button"
+                              disabled={Boolean(activeVersionId) || draftBusy || draftEditorVersionId === version.courseVersionId}
                               onClick={() => void handleEditorialAction(version, 'submit')}
                               className="rounded-xl bg-violet-400 px-4 py-2.5 text-[10px] font-extrabold text-slate-950 hover:bg-violet-300 disabled:opacity-40"
                             >

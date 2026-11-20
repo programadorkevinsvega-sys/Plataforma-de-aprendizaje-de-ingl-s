@@ -4,6 +4,7 @@ import type {
   EditorialDecision,
   EditorialVersionStatus,
   ImportCurriculumPackageResult,
+  SaveCurriculumDraftResult,
   EditorialVersionSummary,
   CurriculumCourseDetail,
   CurriculumCourseSummary,
@@ -204,6 +205,16 @@ export function toEditorialVersionSummary(dto: Dto): EditorialVersionSummary {
     latestComments: stringValue(dto, ['latest_comments', 'latestComments']),
     latestReviewerId: stringValue(dto, ['latest_reviewer_id', 'latestReviewerId']),
     canPublish: booleanValue(dto, ['can_publish', 'canPublish']),
+    updatedAt: stringValue(dto, ['updated_at', 'updatedAt']),
+  }
+}
+
+export function toSaveCurriculumDraftResult(dto: Dto): SaveCurriculumDraftResult {
+  return {
+    courseVersionId: stringValue(dto, ['course_version_id', 'courseVersionId']),
+    updatedAt: stringValue(dto, ['updated_at', 'updatedAt']),
+    revisionNumber: numberValue(dto, ['revision_number', 'revisionNumber']),
+    contentSha256: stringValue(dto, ['content_sha256', 'contentSha256']),
   }
 }
 

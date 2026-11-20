@@ -4,6 +4,8 @@ import type {
   EditorialActionResult,
   ImportCurriculumPackageInput,
   ImportCurriculumPackageResult,
+  SaveCurriculumDraftInput,
+  SaveCurriculumDraftResult,
   EditorialVersionsFilter,
   EditorialVersionsPage,
   CurriculumCourseDetail,
@@ -61,6 +63,32 @@ export class ManageCurriculumEditorialVersionUseCase {
       }
     }
     return this.repository.manageEditorialVersion(input)
+  }
+}
+
+export class SaveCurriculumDraftUseCase {
+  constructor(private readonly repository: ICurriculumRepository) {}
+
+  execute(input: SaveCurriculumDraftInput): Promise<SaveCurriculumDraftResult> {
+    if (!input.courseVersionId.trim() || !input.expectedUpdatedAt.trim()) {
+      throw new Error('La versión y su marca de actualización esperada son obligatorias')
+    }
+    if (!input.draftJson.trim()) {
+      throw new Error('El borrador visual está vacío')
+    }
+    if (new TextEncoder().encode(input.draftJson).byteLength > 1_500_000) {
+      throw new Error('El borrador visual supera el límite de 1.5 MB')
+    }
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(input.draftJson)
+    } catch {
+      throw new Error('El borrador visual no contiene JSON válido')
+    }
+    if (typeof parsed !== 'object' || parsed === null || !Array.isArray((parsed as { units?: unknown }).units)) {
+      throw new Error('El borrador visual no contiene una estructura curricular válida')
+    }
+    return this.repository.saveCurriculumDraft(input)
   }
 }
 

@@ -1,3 +1,4 @@
+use crate::curriculum_editor::{save_curriculum_draft, DraftEditError};
 use crate::curriculum_package::{import_package, validate_package_json};
 use proto::content::content_service_server::ContentService;
 use proto::content::{
@@ -10,7 +11,8 @@ use proto::content::{
     ListComprehensionResourcesResponse, ListCurriculumCoursesRequest,
     ListCurriculumCoursesResponse, ListEditorialVersionsRequest, ListEditorialVersionsResponse,
     ListVocabularyWordsRequest, ListVocabularyWordsResponse, ManageEditorialVersionRequest,
-    ManageEditorialVersionResponse, VocabularyWordResponse,
+    ManageEditorialVersionResponse, UpdateCurriculumDraftRequest, UpdateCurriculumDraftResponse,
+    VocabularyWordResponse,
 };
 use sqlx::PgPool;
 use std::collections::HashMap;
@@ -1361,6 +1363,7 @@ impl ContentService for MyContentService {
             Option<String>,
             Option<String>,
             Option<String>,
+            String,
             bool,
         )> = sqlx::query_as(
             r#"SELECT
@@ -1377,6 +1380,7 @@ impl ContentService for MyContentService {
                    latest.decision,
                    latest.comments,
                    latest.reviewer_id::TEXT,
+                   version.updated_at::TEXT,
                    COALESCE(
                        version.status = 'review'
                        AND latest.decision = 'approved'
@@ -1435,6 +1439,7 @@ impl ContentService for MyContentService {
                     latest_decision,
                     latest_comments,
                     latest_reviewer_id,
+                    updated_at,
                     can_publish,
                 )| EditorialCourseVersionSummary {
                     course_version_id: version_id,
@@ -1451,6 +1456,7 @@ impl ContentService for MyContentService {
                     latest_comments: latest_comments.unwrap_or_default(),
                     latest_reviewer_id: latest_reviewer_id.unwrap_or_default(),
                     can_publish,
+                    updated_at,
                 },
             )
             .collect();
@@ -1700,6 +1706,42 @@ impl ContentService for MyContentService {
             sentence_references: result.counts.sentence_references,
             applied: result.applied,
             dry_run: result.dry_run,
+        }))
+    }
+
+    async fn update_curriculum_draft(
+        &self,
+        request: Request<UpdateCurriculumDraftRequest>,
+    ) -> Result<Response<UpdateCurriculumDraftResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let req = request.into_inner();
+        let course_version_id = Uuid::parse_str(&req.course_version_id)
+            .map_err(|_| Status::invalid_argument("course_version_id inválido"))?;
+        let result = save_curriculum_draft(
+            self.pool.as_ref(),
+            user_id,
+            course_version_id,
+            &req.expected_updated_at,
+            &req.draft_json,
+        )
+        .await
+        .map_err(|error| match error {
+            DraftEditError::Forbidden => Status::permission_denied(
+                "La cuenta no está registrada en content_editors",
+            ),
+            DraftEditError::NotFound => Status::not_found("Versión curricular no encontrada"),
+            DraftEditError::Conflict(message) => Status::aborted(message),
+            DraftEditError::Invalid(message) => Status::invalid_argument(message),
+            DraftEditError::Database => Status::internal(
+                "No se pudo guardar el borrador curricular",
+            ),
+        })?;
+
+        Ok(Response::new(UpdateCurriculumDraftResponse {
+            course_version_id: result.course_version_id,
+            updated_at: result.updated_at,
+            revision_number: result.revision_number,
+            content_sha256: result.content_sha256,
         }))
     }
 

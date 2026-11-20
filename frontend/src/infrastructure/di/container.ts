@@ -19,6 +19,7 @@ import {
   GetCurriculumEditorialVersionsUseCase,
   ImportCurriculumContentPackageUseCase,
   ManageCurriculumEditorialVersionUseCase,
+  SaveCurriculumDraftUseCase,
 } from '@/application/use-cases/CurriculumUseCases'
 import { GetDashboardSummaryUseCase } from '@/application/use-cases/GetDashboardSummaryUseCase'
 import { GetLeaderboardUseCase } from '@/application/use-cases/GetLeaderboardUseCase'
@@ -81,6 +82,7 @@ export interface Container {
     getCurriculumEditorialVersions: GetCurriculumEditorialVersionsUseCase
     manageCurriculumEditorialVersion: ManageCurriculumEditorialVersionUseCase
     importCurriculumContentPackage: ImportCurriculumContentPackageUseCase
+    saveCurriculumDraft: SaveCurriculumDraftUseCase
     synthesizeSpeech: SynthesizeSpeechUseCase
     getInterviewQuestion: GetInterviewQuestionUseCase
     evaluateAnswer: EvaluateExamAnswerUseCase
@@ -131,6 +133,7 @@ function build(): Container {
       getCurriculumEditorialVersions: new GetCurriculumEditorialVersionsUseCase(curriculum),
       manageCurriculumEditorialVersion: new ManageCurriculumEditorialVersionUseCase(curriculum),
       importCurriculumContentPackage: new ImportCurriculumContentPackageUseCase(curriculum),
+      saveCurriculumDraft: new SaveCurriculumDraftUseCase(curriculum),
       synthesizeSpeech: new SynthesizeSpeechUseCase(content),
       getInterviewQuestion: new GetInterviewQuestionUseCase(evaluator),
       evaluateAnswer: new EvaluateExamAnswerUseCase(evaluator),

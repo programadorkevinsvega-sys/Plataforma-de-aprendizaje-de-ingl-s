@@ -1,3 +1,4 @@
+mod curriculum_editor;
 mod curriculum_package;
 mod service;
 

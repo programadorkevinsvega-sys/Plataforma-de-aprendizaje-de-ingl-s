@@ -9,11 +9,13 @@ editor_registry_migration="migrations/20261118020000_curriculum_content_editors.
 review_order_migration="migrations/20261118030000_curriculum_review_order.sql"
 publication_integrity_migration="migrations/20261118040000_curriculum_publication_completeness.sql"
 lexical_catalog_migration="migrations/20261119000000_lexical_catalog_v2.sql"
+draft_editor_migration="migrations/20261120010000_curriculum_draft_revisions.sql"
 curriculum_assertions="tests/db/phase1_2_curriculum_assertions.sql"
 importer_assertions="tests/db/phase1_3_importer_assertions.sql"
 lexical_catalog_assertions="tests/db/phase1_4_lexical_catalog_assertions.sql"
+draft_editor_assertions="tests/db/phase1_5_draft_editor_assertions.sql"
 
-for required_file in "$curriculum_migration" "$importer_migration" "$export_visibility_migration" "$editor_registry_migration" "$review_order_migration" "$publication_integrity_migration" "$lexical_catalog_migration" "$curriculum_assertions" "$importer_assertions" "$lexical_catalog_assertions"; do
+for required_file in "$curriculum_migration" "$importer_migration" "$export_visibility_migration" "$editor_registry_migration" "$review_order_migration" "$publication_integrity_migration" "$lexical_catalog_migration" "$draft_editor_migration" "$curriculum_assertions" "$importer_assertions" "$lexical_catalog_assertions" "$draft_editor_assertions"; do
   [[ -s "$required_file" ]] || { echo "Missing curriculum migration/assertion: $required_file" >&2; exit 1; }
 done
 
@@ -41,7 +43,7 @@ done
 
 echo "Reconstructing the pre-curriculum schema, then applying Fase 1.2 and Fase 1.3 migrations."
 for file in migrations/*.sql; do
-  [[ "$file" == "$curriculum_migration" || "$file" == "$importer_migration" || "$file" == "$export_visibility_migration" || "$file" == "$editor_registry_migration" || "$file" == "$review_order_migration" || "$file" == "$publication_integrity_migration" || "$file" == "$lexical_catalog_migration" ]] && continue
+  [[ "$file" == "$curriculum_migration" || "$file" == "$importer_migration" || "$file" == "$export_visibility_migration" || "$file" == "$editor_registry_migration" || "$file" == "$review_order_migration" || "$file" == "$publication_integrity_migration" || "$file" == "$lexical_catalog_migration" || "$file" == "$draft_editor_migration" ]] && continue
   psql "$upgrade_database_url" --set ON_ERROR_STOP=1 --file "$file"
 done
 psql "$upgrade_database_url" --set ON_ERROR_STOP=1 --file "$curriculum_migration"
@@ -51,15 +53,18 @@ psql "$upgrade_database_url" --set ON_ERROR_STOP=1 --file "$editor_registry_migr
 psql "$upgrade_database_url" --set ON_ERROR_STOP=1 --file "$review_order_migration"
 psql "$upgrade_database_url" --set ON_ERROR_STOP=1 --file "$publication_integrity_migration"
 psql "$upgrade_database_url" --set ON_ERROR_STOP=1 --file "$lexical_catalog_migration"
+psql "$upgrade_database_url" --set ON_ERROR_STOP=1 --file "$draft_editor_migration"
 
 echo "Checking the fresh database."
 psql "$fresh_database_url" --set ON_ERROR_STOP=1 --file "$curriculum_assertions"
 psql "$fresh_database_url" --set ON_ERROR_STOP=1 --file "$importer_assertions"
 psql "$fresh_database_url" --set ON_ERROR_STOP=1 --file "$lexical_catalog_assertions"
+psql "$fresh_database_url" --set ON_ERROR_STOP=1 --file "$draft_editor_assertions"
 
 echo "Checking the upgraded database."
 psql "$upgrade_database_url" --set ON_ERROR_STOP=1 --file "$curriculum_assertions"
 psql "$upgrade_database_url" --set ON_ERROR_STOP=1 --file "$importer_assertions"
 psql "$upgrade_database_url" --set ON_ERROR_STOP=1 --file "$lexical_catalog_assertions"
+psql "$upgrade_database_url" --set ON_ERROR_STOP=1 --file "$draft_editor_assertions"
 
-echo "Phase 1.2, 1.3 and 1.4 migration tests passed for fresh and upgraded schemas."
+echo "Phase 1.2 through 1.5 migration tests passed for fresh and upgraded schemas."
