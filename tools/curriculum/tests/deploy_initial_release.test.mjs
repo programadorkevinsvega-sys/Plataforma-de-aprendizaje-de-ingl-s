@@ -10,14 +10,20 @@ import { releaseInputs, verifyInitialReleaseAudio } from "../deploy_initial_rele
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
-test("initial release combines all canonical lexical and comprehension content", () => {
+test("initial release imports the full catalog but publishes only course-linked Pre-A1/A1 content", () => {
   const release = releaseInputs(ROOT);
   assert.equal(release.lexicalItems, 790);
   assert.equal(release.examples, 2201);
-  assert.equal(release.resources, 26);
-  assert.equal(release.questions, 56);
-  assert.equal(release.listeningIds.length, 13);
+  assert.equal(release.catalogResources, 26);
+  assert.equal(release.resources, 4);
+  assert.equal(release.questions, 12);
+  assert.equal(release.publishableLexicalItems, 30);
+  assert.equal(release.publishableExamples, 26);
+  assert.equal(release.initialResourceIds.length, 4);
+  assert.equal(release.listeningIds.length, 2);
   assert.equal(release.merged.comprehension_resources.filter((item) => item.skill === "reading").length, 13);
+  assert.equal(release.initialLexicalSourceKeys.length, 30);
+  assert.equal(release.initialExampleSourceKeys.length, 26);
 });
 
 test("Listening assets must match the release hash, include every script and pass MP3 SHA-256 checks", async () => {
@@ -51,7 +57,7 @@ test("Listening assets must match the release hash, include every script and pas
     }));
 
     const verified = await verifyInitialReleaseAudio(directory, release);
-    assert.equal(verified.size, 13);
+    assert.equal(verified.size, 2);
     assert.equal(verified.get(release.listeningIds[0]).audio_review.status, "automated_integrity_verified");
     assert.match(verified.get(release.listeningIds[0]).asset_url, /^\/audio\/listening\/listening-01\.mp3$/);
   } finally {

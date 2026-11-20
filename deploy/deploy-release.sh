@@ -144,9 +144,11 @@ if [[ "$audio_release_valid" != "true" ]]; then
   tts_smoke_endpoint="${tts_smoke_endpoint#\"}"
   tts_smoke_endpoint="${tts_smoke_endpoint%\"}"
   tts_smoke_endpoint="${tts_smoke_endpoint:-http://127.0.0.1:50054}"
-  echo "Generating all Listening assets with provider '$tts_provider'."
+  echo "Generating the two initial English General Pre-A1/A1 Listening assets with provider '$tts_provider'."
   TTS_PROVIDER="$tts_provider" TTS_SMOKE_ENDPOINT="$tts_smoke_endpoint" \
-    "$release/bin/generate-listening-assets" --catalog "$merged_catalog" --apply --output-dir "$audio_output"
+    "$release/bin/generate-listening-assets" --catalog "$merged_catalog" --apply --output-dir "$audio_output" \
+      --resource-id general-pre_a1-listening-02 \
+      --resource-id general-a1-listening-04
   install -d -o root -g devfluency -m 0750 "$audio_release"
   cp -a "$audio_output/." "$audio_release/"
   chown -R root:devfluency "$audio_release"

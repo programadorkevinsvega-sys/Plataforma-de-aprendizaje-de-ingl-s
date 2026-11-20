@@ -111,6 +111,7 @@ if (!pool) {
           (SELECT count(*)::int FROM curriculum_comprehension_resources WHERE source_key = ANY($3::text[]) AND skill = 'listening' AND transcript_available = TRUE) AS exposed_listening_transcripts,
           (SELECT COALESCE(sum(jsonb_array_length(questions)), 0)::int FROM curriculum_comprehension_resources WHERE source_key = ANY($3::text[])) AS questions,
           (SELECT count(*)::int FROM curriculum_comprehension_resources resource CROSS JOIN LATERAL jsonb_array_elements(resource.questions) AS question(value) WHERE resource.source_key = ANY($3::text[]) AND question.value ->> 'editorial_status' = 'pending_human_review') AS pending_questions,
+          (SELECT count(*)::int FROM curriculum_comprehension_resources resource CROSS JOIN LATERAL jsonb_array_elements(resource.questions) AS question(value) WHERE resource.source_key = ANY($3::text[]) AND question.value ->> 'editorial_status' = 'approved') AS approved_questions,
           (SELECT count(*)::int FROM vocabulary_words WHERE source_key = ANY($1::text[]) AND publication_status = 'draft') AS draft_items,
           (SELECT count(*)::int FROM vocabulary_words WHERE source_key = ANY($1::text[]) AND publication_status = 'published') AS published_items,
           (SELECT count(*)::int FROM context_sentences WHERE source_key = ANY($2::text[]) AND publication_status = 'published') AS published_examples,
@@ -122,7 +123,8 @@ if (!pool) {
     assert.equal(counts.rows[0].resources, catalog.comprehension_resources.length);
     assert.equal(counts.rows[0].exposed_listening_transcripts, 0);
     assert.equal(counts.rows[0].questions, 56);
-    assert.equal(counts.rows[0].pending_questions, 56);
+    assert.equal(counts.rows[0].pending_questions, 44);
+    assert.equal(counts.rows[0].approved_questions, 12);
     assert.equal(counts.rows[0].draft_items, catalog.lexical_items.length);
     assert.equal(counts.rows[0].published_items, 0);
     assert.equal(counts.rows[0].published_examples, 0);
@@ -158,8 +160,12 @@ if (!pool) {
     }
 
     const client = await pool.connect();
-    const firstSourceKey = `v2:item:${catalog.lexical_items[0].id}`;
-    const listeningSourceKey = `v2:resource:${catalog.comprehension_resources.find((resource) => resource.skill === 'listening').id}`;
+    const unreviewedItem = catalog.lexical_items.find((item) =>
+      !release.initialLexicalSourceKeys.includes(`v2:item:${item.id}`),
+    );
+    assert.ok(unreviewedItem);
+    const firstSourceKey = `v2:item:${unreviewedItem.id}`;
+    const listeningSourceKey = `v2:resource:${release.listeningIds[0]}`;
     try {
       await client.query('BEGIN');
       await assert.rejects(
@@ -213,7 +219,11 @@ if (!pool) {
       );
       await client.query('ROLLBACK');
 
-      const readingSourceKey = `v2:resource:${catalog.comprehension_resources.find((resource) => resource.skill === 'reading').id}`;
+      const unreviewedReadingResource = catalog.comprehension_resources.find((resource) =>
+        resource.skill === 'reading' && !release.initialResourceIds.includes(resource.id),
+      );
+      assert.ok(unreviewedReadingResource);
+      const readingSourceKey = `v2:resource:${unreviewedReadingResource.id}`;
       await client.query('BEGIN');
       await client.query("SELECT set_config('app.current_user_id', $1, true)", [editorId]);
       await client.query(
@@ -305,11 +315,11 @@ if (!pool) {
     const publication = await publishInitialRelease(pool, editorId, release, audioAssets, { apply: false });
     assert.equal(publication.applied, false);
     assert.equal(publication.dry_run, true);
-    assert.equal(publication.published_items, 790);
-    assert.equal(publication.published_examples, 2201);
-    assert.equal(publication.published_resources, 26);
-    assert.equal(publication.questions, 56);
-    assert.equal(publication.listening_with_audio, 13);
+    assert.equal(publication.published_items, 30);
+    assert.equal(publication.published_examples, 26);
+    assert.equal(publication.published_resources, 4);
+    assert.equal(publication.questions, 12);
+    assert.equal(publication.listening_with_audio, 2);
     assert.equal(publication.published_courses, 2);
     assert.equal(publication.units, 6);
     assert.equal(publication.lessons, 10);
@@ -361,6 +371,6 @@ if (!pool) {
 
     const republished = await publishInitialRelease(pool, editorId, release, audioAssets, { apply: false });
     assert.equal(republished.published_courses, 2);
-    assert.equal(republished.published_items, 790);
+    assert.equal(republished.published_items, 30);
   });
 }
