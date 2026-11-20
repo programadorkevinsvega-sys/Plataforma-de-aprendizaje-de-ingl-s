@@ -392,7 +392,9 @@ impl ActivityDefinition {
             return Err(ActivityContractError::UnsupportedSchemaVersion);
         }
         if self.activity_id.is_nil() || self.course_version_id.is_nil() || self.lesson_id.is_nil() {
-            return Err(invalid("activityId, courseVersionId and lessonId must be non-null UUIDs"));
+            return Err(invalid(
+                "activityId, courseVersionId and lessonId must be non-null UUIDs",
+            ));
         }
         if self.activity_version == 0 {
             return Err(invalid("activityVersion must be greater than zero"));
@@ -402,7 +404,9 @@ impl ActivityDefinition {
                 byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-' || byte == b'.'
             })
         {
-            return Err(invalid("activityCode must use lowercase letters, digits, dot or hyphen"));
+            return Err(invalid(
+                "activityCode must use lowercase letters, digits, dot or hyphen",
+            ));
         }
         require_text(&self.title, "title", 160)?;
         require_text(&self.instructions, "instructions", 2000)?;
@@ -426,16 +430,30 @@ impl ActivityDefinition {
             || self.limits.max_hints as usize > self.hints.len()
             || self.limits.max_hints as usize > MAX_ACTIVITY_HINTS
         {
-            return Err(invalid("maxHints exceeds available hints or the eight-hint limit"));
+            return Err(invalid(
+                "maxHints exceeds available hints or the eight-hint limit",
+            ));
         }
-        if self.limits.time_limit_seconds.is_some_and(|seconds| !(5..=7200).contains(&seconds)) {
+        if self
+            .limits
+            .time_limit_seconds
+            .is_some_and(|seconds| !(5..=7200).contains(&seconds))
+        {
             return Err(invalid("timeLimitSeconds must be between 5 and 7200"));
         }
-        if self.limits.max_audio_duration_seconds.is_some_and(|seconds| !(1..=600).contains(&seconds)) {
+        if self
+            .limits
+            .max_audio_duration_seconds
+            .is_some_and(|seconds| !(1..=600).contains(&seconds))
+        {
             return Err(invalid("maxAudioDurationSeconds must be between 1 and 600"));
         }
-        if self.modality == ActivityModality::Spoken && self.limits.max_audio_duration_seconds.is_none() {
-            return Err(invalid("spoken activities require a maximum audio duration"));
+        if self.modality == ActivityModality::Spoken
+            && self.limits.max_audio_duration_seconds.is_none()
+        {
+            return Err(invalid(
+                "spoken activities require a maximum audio duration",
+            ));
         }
         Ok(())
     }
@@ -455,16 +473,29 @@ impl ActivityDefinition {
 
     fn validate_exercise(&self) -> Result<(), ActivityContractError> {
         match &self.exercise {
-            ExerciseSpec::MultipleChoice { prompt, options, correct_option_ids, allow_multiple } => {
+            ExerciseSpec::MultipleChoice {
+                prompt,
+                options,
+                correct_option_ids,
+                allow_multiple,
+            } => {
                 require_text(prompt, "exercise.prompt", 1000)?;
                 validate_options(options, correct_option_ids, *allow_multiple)?;
             }
-            ExerciseSpec::Translation { prompt, source_text, accepted_answers, .. } => {
+            ExerciseSpec::Translation {
+                prompt,
+                source_text,
+                accepted_answers,
+                ..
+            } => {
                 require_text(prompt, "exercise.prompt", 1000)?;
                 require_text(source_text, "exercise.sourceText", 1000)?;
                 validate_accepted_answers(accepted_answers)?;
             }
-            ExerciseSpec::FillBlank { prompt_template, gaps } => {
+            ExerciseSpec::FillBlank {
+                prompt_template,
+                gaps,
+            } => {
                 require_text(prompt_template, "exercise.promptTemplate", 2000)?;
                 if gaps.is_empty() || gaps.len() > 20 {
                     return Err(invalid("fill_blank requires 1 to 20 gaps"));
@@ -478,7 +509,11 @@ impl ActivityDefinition {
                     validate_accepted_answers(&gap.accepted_answers)?;
                 }
             }
-            ExerciseSpec::WordOrder { prompt, tokens, expected_token_order } => {
+            ExerciseSpec::WordOrder {
+                prompt,
+                tokens,
+                expected_token_order,
+            } => {
                 require_text(prompt, "exercise.prompt", 1000)?;
                 if !(2..=30).contains(&tokens.len()) {
                     return Err(invalid("word_order requires 2 to 30 tokens"));
@@ -487,23 +522,44 @@ impl ActivityDefinition {
                 ensure_unique(expected_token_order.iter().copied(), "expectedTokenOrder")?;
                 let token_ids: HashSet<_> = tokens.iter().map(|token| token.token_id).collect();
                 if token_ids.len() != expected_token_order.len()
-                    || expected_token_order.iter().any(|id| !token_ids.contains(id))
+                    || expected_token_order
+                        .iter()
+                        .any(|id| !token_ids.contains(id))
                 {
-                    return Err(invalid("expectedTokenOrder must contain every token exactly once"));
+                    return Err(invalid(
+                        "expectedTokenOrder must contain every token exactly once",
+                    ));
                 }
                 for token in tokens {
                     require_text(&token.text, "token.text", 80)?;
                 }
             }
-            ExerciseSpec::Matching { prompt, left_items, right_items, correct_pairs } => {
+            ExerciseSpec::Matching {
+                prompt,
+                left_items,
+                right_items,
+                correct_pairs,
+            } => {
                 require_text(prompt, "exercise.prompt", 1000)?;
                 if !(2..=20).contains(&left_items.len()) || !(2..=20).contains(&right_items.len()) {
                     return Err(invalid("matching requires 2 to 20 items on each side"));
                 }
-                ensure_unique(left_items.iter().map(|item| item.item_id), "leftItems.itemId")?;
-                ensure_unique(right_items.iter().map(|item| item.item_id), "rightItems.itemId")?;
-                ensure_unique(correct_pairs.iter().map(|pair| pair.left_id), "correctPairs.leftId")?;
-                ensure_unique(correct_pairs.iter().map(|pair| pair.right_id), "correctPairs.rightId")?;
+                ensure_unique(
+                    left_items.iter().map(|item| item.item_id),
+                    "leftItems.itemId",
+                )?;
+                ensure_unique(
+                    right_items.iter().map(|item| item.item_id),
+                    "rightItems.itemId",
+                )?;
+                ensure_unique(
+                    correct_pairs.iter().map(|pair| pair.left_id),
+                    "correctPairs.leftId",
+                )?;
+                ensure_unique(
+                    correct_pairs.iter().map(|pair| pair.right_id),
+                    "correctPairs.rightId",
+                )?;
                 let left: HashSet<_> = left_items.iter().map(|item| item.item_id).collect();
                 let right: HashSet<_> = right_items.iter().map(|item| item.item_id).collect();
                 if correct_pairs.len() != left.len()
@@ -511,7 +567,9 @@ impl ActivityDefinition {
                         !left.contains(&pair.left_id) || !right.contains(&pair.right_id)
                     })
                 {
-                    return Err(invalid("correctPairs must link each left item to a valid right item"));
+                    return Err(invalid(
+                        "correctPairs must link each left item to a valid right item",
+                    ));
                 }
                 for item in left_items.iter().chain(right_items.iter()) {
                     require_text(&item.text, "matchItem.text", 240)?;
@@ -521,7 +579,10 @@ impl ActivityDefinition {
                 require_text(prompt, "exercise.prompt", 1000)?;
                 validate_questions(questions)?;
             }
-            ExerciseSpec::Dictation { prompt, accepted_transcripts } => {
+            ExerciseSpec::Dictation {
+                prompt,
+                accepted_transcripts,
+            } => {
                 require_text(prompt, "exercise.prompt", 1000)?;
                 validate_accepted_answers(accepted_transcripts)?;
             }
@@ -529,26 +590,48 @@ impl ActivityDefinition {
                 require_text(passage, "exercise.passage", 12000)?;
                 validate_questions(questions)?;
             }
-            ExerciseSpec::GrammarTransformation { prompt, source_sentence, accepted_answers }
-            | ExerciseSpec::ErrorCorrection { prompt, source_sentence, accepted_answers } => {
+            ExerciseSpec::GrammarTransformation {
+                prompt,
+                source_sentence,
+                accepted_answers,
+            }
+            | ExerciseSpec::ErrorCorrection {
+                prompt,
+                source_sentence,
+                accepted_answers,
+            } => {
                 require_text(prompt, "exercise.prompt", 1000)?;
                 require_text(source_sentence, "exercise.sourceSentence", 1000)?;
                 validate_accepted_answers(accepted_answers)?;
             }
-            ExerciseSpec::OpenWriting { prompt, min_words, max_words } => {
+            ExerciseSpec::OpenWriting {
+                prompt,
+                min_words,
+                max_words,
+            } => {
                 require_text(prompt, "exercise.prompt", 2000)?;
                 if *min_words == 0 || max_words < min_words || *max_words > 1500 {
-                    return Err(invalid("open_writing requires minWords > 0 and maxWords <= 1500"));
+                    return Err(invalid(
+                        "open_writing requires minWords > 0 and maxWords <= 1500",
+                    ));
                 }
             }
-            ExerciseSpec::GuidedDialogue { scenario, opening_prompt, max_turns } => {
+            ExerciseSpec::GuidedDialogue {
+                scenario,
+                opening_prompt,
+                max_turns,
+            } => {
                 require_text(scenario, "exercise.scenario", 2000)?;
                 require_text(opening_prompt, "exercise.openingPrompt", 1000)?;
                 if !(2..=20).contains(max_turns) {
                     return Err(invalid("guided_dialogue.maxTurns must be between 2 and 20"));
                 }
             }
-            ExerciseSpec::VocabularyRecall { prompt, accepted_answers, .. } => {
+            ExerciseSpec::VocabularyRecall {
+                prompt,
+                accepted_answers,
+                ..
+            } => {
                 require_text(prompt, "exercise.prompt", 1000)?;
                 validate_accepted_answers(accepted_answers)?;
             }
@@ -559,7 +642,10 @@ impl ActivityDefinition {
     fn validate_modality(&self) -> Result<(), ActivityContractError> {
         let exercise_type = self.exercise.activity_type();
         let has_skill = |skill| self.skills.contains(&skill);
-        let has_audio = self.stimulus.as_ref().is_some_and(ActivityStimulus::has_audio);
+        let has_audio = self
+            .stimulus
+            .as_ref()
+            .is_some_and(ActivityStimulus::has_audio);
 
         match self.modality {
             ActivityModality::Listening => {
@@ -580,7 +666,9 @@ impl ActivityDefinition {
                     || !matches!(&self.evaluation, EvaluationPolicy::Rubric { .. })
                     || self.limits.max_audio_duration_seconds.is_none()
                 {
-                    return Err(invalid("spoken requires guided_dialogue, speaking skill, rubric and audio limit"));
+                    return Err(invalid(
+                        "spoken requires guided_dialogue, speaking skill, rubric and audio limit",
+                    ));
                 }
             }
             ActivityModality::Written => {
@@ -600,21 +688,29 @@ impl ActivityDefinition {
                 if exercise_type != ActivityType::VocabularyRecall
                     || !matches!(&self.evaluation, EvaluationPolicy::UnscoredPractice)
                 {
-                    return Err(invalid("practice is reserved for unscored vocabulary_recall"));
+                    return Err(invalid(
+                        "practice is reserved for unscored vocabulary_recall",
+                    ));
                 }
             }
         }
 
-        if matches!(exercise_type, ActivityType::ListeningComprehension | ActivityType::Dictation)
-            && !has_audio
+        if matches!(
+            exercise_type,
+            ActivityType::ListeningComprehension | ActivityType::Dictation
+        ) && !has_audio
         {
-            return Err(invalid("listening and dictation require a real audio asset"));
+            return Err(invalid(
+                "listening and dictation require a real audio asset",
+            ));
         }
         if exercise_type == ActivityType::OpenWriting
             && (!has_skill(LearningSkill::Writing)
                 || !matches!(&self.evaluation, EvaluationPolicy::Rubric { .. }))
         {
-            return Err(invalid("open_writing requires writing skill and versioned rubric"));
+            return Err(invalid(
+                "open_writing requires writing skill and versioned rubric",
+            ));
         }
         Ok(())
     }
@@ -626,16 +722,26 @@ impl ActivityDefinition {
                     return Err(invalid("maxPoints must be greater than zero"));
                 }
             }
-            EvaluationPolicy::Rubric { rubric_code, rubric_version, max_points, criteria } => {
+            EvaluationPolicy::Rubric {
+                rubric_code,
+                rubric_version,
+                max_points,
+                criteria,
+            } => {
                 require_text(rubric_code, "rubricCode", 80)?;
                 if *rubric_version == 0 || *max_points == 0 || criteria.is_empty() {
                     return Err(invalid("rubric requires version, points and criteria"));
                 }
                 ensure_unique(
-                    criteria.iter().map(|criterion| criterion.criterion_code.as_str()),
+                    criteria
+                        .iter()
+                        .map(|criterion| criterion.criterion_code.as_str()),
                     "criteria.criterionCode",
                 )?;
-                let sum: u32 = criteria.iter().map(|criterion| criterion.max_points as u32).sum();
+                let sum: u32 = criteria
+                    .iter()
+                    .map(|criterion| criterion.max_points as u32)
+                    .sum();
                 if sum != *max_points as u32 {
                     return Err(invalid("rubric criteria points must sum to maxPoints"));
                 }
@@ -643,7 +749,9 @@ impl ActivityDefinition {
                     require_text(&criterion.criterion_code, "criterionCode", 80)?;
                     require_text(&criterion.description, "criterionDescription", 500)?;
                     if criterion.max_points == 0 || !self.skills.contains(&criterion.skill) {
-                        return Err(invalid("each rubric criterion needs positive points and an activity skill"));
+                        return Err(invalid(
+                            "each rubric criterion needs positive points and an activity skill",
+                        ));
                     }
                 }
             }
@@ -682,22 +790,33 @@ impl ActivityDefinition {
         }
     }
 
-    pub fn validate_submission(&self, submission: &ActivitySubmission) -> Result<(), ActivityContractError> {
+    pub fn validate_submission(
+        &self,
+        submission: &ActivitySubmission,
+    ) -> Result<(), ActivityContractError> {
         if submission.schema_version != ACTIVITY_SCHEMA_VERSION {
             return Err(ActivityContractError::UnsupportedSchemaVersion);
         }
-        if submission.activity_id != self.activity_id || submission.activity_version != self.activity_version {
+        if submission.activity_id != self.activity_id
+            || submission.activity_version != self.activity_version
+        {
             return Err(ActivityContractError::ActivityVersionMismatch);
         }
         if submission.idempotency_key.is_nil() {
             return Err(invalid("idempotencyKey cannot be nil"));
         }
-        if submission.active_duration_ms == 0 || submission.active_duration_ms > MAX_ACTIVE_DURATION_MS {
-            return Err(invalid("activeDurationMs must be between 1 ms and 12 hours"));
+        if submission.active_duration_ms == 0
+            || submission.active_duration_ms > MAX_ACTIVE_DURATION_MS
+        {
+            return Err(invalid(
+                "activeDurationMs must be between 1 ms and 12 hours",
+            ));
         }
-        if self.limits.time_limit_seconds.is_some_and(|seconds| {
-            submission.active_duration_ms > seconds as u64 * 1000
-        }) {
+        if self
+            .limits
+            .time_limit_seconds
+            .is_some_and(|seconds| submission.active_duration_ms > seconds as u64 * 1000)
+        {
             return Err(invalid("submission exceeds the activity time limit"));
         }
         ensure_unique(submission.hints_used.iter().copied(), "hintsUsed")?;
@@ -710,7 +829,11 @@ impl ActivityDefinition {
             .take(self.limits.max_hints as usize)
             .map(|hint| hint.hint_id)
             .collect();
-        if submission.hints_used.iter().any(|hint| !allowed.contains(hint)) {
+        if submission
+            .hints_used
+            .iter()
+            .any(|hint| !allowed.contains(hint))
+        {
             return Err(invalid("hintsUsed contains an unavailable hint"));
         }
         validate_answer(&self.exercise, &self.limits, &submission.answer)
@@ -723,16 +846,23 @@ fn validate_options(
     allow_multiple: bool,
 ) -> Result<(), ActivityContractError> {
     if !(2..=MAX_ACTIVITY_OPTIONS).contains(&options.len()) {
-        return Err(invalid(format!("a question requires 2 to {MAX_ACTIVITY_OPTIONS} options")));
+        return Err(invalid(format!(
+            "a question requires 2 to {MAX_ACTIVITY_OPTIONS} options"
+        )));
     }
-    ensure_unique(options.iter().map(|option| option.option_id), "options.optionId")?;
+    ensure_unique(
+        options.iter().map(|option| option.option_id),
+        "options.optionId",
+    )?;
     ensure_unique(correct.iter().copied(), "correctOptionIds")?;
     let allowed: HashSet<_> = options.iter().map(|option| option.option_id).collect();
     if correct.is_empty()
         || correct.iter().any(|id| !allowed.contains(id))
         || (!allow_multiple && correct.len() != 1)
     {
-        return Err(invalid("correctOptionIds must refer to existing options and respect allowMultiple"));
+        return Err(invalid(
+            "correctOptionIds must refer to existing options and respect allowMultiple",
+        ));
     }
     for option in options {
         require_text(&option.text, "option.text", 500)?;
@@ -742,9 +872,14 @@ fn validate_options(
 
 fn validate_questions(questions: &[ChoiceQuestion]) -> Result<(), ActivityContractError> {
     if questions.is_empty() || questions.len() > MAX_ACTIVITY_QUESTIONS {
-        return Err(invalid(format!("a comprehension activity requires 1 to {MAX_ACTIVITY_QUESTIONS} questions")));
+        return Err(invalid(format!(
+            "a comprehension activity requires 1 to {MAX_ACTIVITY_QUESTIONS} questions"
+        )));
     }
-    ensure_unique(questions.iter().map(|question| question.question_id), "questions.questionId")?;
+    ensure_unique(
+        questions.iter().map(|question| question.question_id),
+        "questions.questionId",
+    )?;
     for question in questions {
         require_text(&question.prompt, "question.prompt", 1000)?;
         validate_options(
@@ -796,9 +931,17 @@ impl From<&ActivityStimulus> for StudentStimulus {
     fn from(value: &ActivityStimulus) -> Self {
         match value {
             ActivityStimulus::Text { text } => Self::Text { text: text.clone() },
-            ActivityStimulus::Audio { asset_id, .. } => Self::Audio { asset_id: *asset_id },
-            ActivityStimulus::Image { asset_id } => Self::Image { asset_id: *asset_id },
-            ActivityStimulus::TextAndAudio { text, audio_asset_id, .. } => Self::TextAndAudio {
+            ActivityStimulus::Audio { asset_id, .. } => Self::Audio {
+                asset_id: *asset_id,
+            },
+            ActivityStimulus::Image { asset_id } => Self::Image {
+                asset_id: *asset_id,
+            },
+            ActivityStimulus::TextAndAudio {
+                text,
+                audio_asset_id,
+                ..
+            } => Self::TextAndAudio {
                 text: text.clone(),
                 audio_asset_id: *audio_asset_id,
             },
@@ -899,17 +1042,30 @@ impl From<&ChoiceQuestion> for StudentChoiceQuestion {
 impl From<&ExerciseSpec> for StudentExercise {
     fn from(value: &ExerciseSpec) -> Self {
         match value {
-            ExerciseSpec::MultipleChoice { prompt, options, allow_multiple, .. } => Self::MultipleChoice {
+            ExerciseSpec::MultipleChoice {
+                prompt,
+                options,
+                allow_multiple,
+                ..
+            } => Self::MultipleChoice {
                 prompt: prompt.clone(),
                 options: options.clone(),
                 allow_multiple: *allow_multiple,
             },
-            ExerciseSpec::Translation { prompt, source_text, direction, .. } => Self::Translation {
+            ExerciseSpec::Translation {
+                prompt,
+                source_text,
+                direction,
+                ..
+            } => Self::Translation {
                 prompt: prompt.clone(),
                 source_text: source_text.clone(),
                 direction: direction.clone(),
             },
-            ExerciseSpec::FillBlank { prompt_template, gaps } => Self::FillBlank {
+            ExerciseSpec::FillBlank {
+                prompt_template,
+                gaps,
+            } => Self::FillBlank {
                 prompt_template: prompt_template.clone(),
                 gap_ids: gaps.iter().map(|gap| gap.gap_id).collect(),
             },
@@ -917,39 +1073,71 @@ impl From<&ExerciseSpec> for StudentExercise {
                 prompt: prompt.clone(),
                 tokens: tokens.clone(),
             },
-            ExerciseSpec::Matching { prompt, left_items, right_items, .. } => Self::Matching {
+            ExerciseSpec::Matching {
+                prompt,
+                left_items,
+                right_items,
+                ..
+            } => Self::Matching {
                 prompt: prompt.clone(),
                 left_items: left_items.clone(),
                 right_items: right_items.clone(),
             },
-            ExerciseSpec::ListeningComprehension { prompt, questions } => Self::ListeningComprehension {
+            ExerciseSpec::ListeningComprehension { prompt, questions } => {
+                Self::ListeningComprehension {
+                    prompt: prompt.clone(),
+                    questions: questions.iter().map(StudentChoiceQuestion::from).collect(),
+                }
+            }
+            ExerciseSpec::Dictation { prompt, .. } => Self::Dictation {
                 prompt: prompt.clone(),
-                questions: questions.iter().map(StudentChoiceQuestion::from).collect(),
             },
-            ExerciseSpec::Dictation { prompt, .. } => Self::Dictation { prompt: prompt.clone() },
-            ExerciseSpec::ReadingComprehension { passage, questions } => Self::ReadingComprehension {
-                passage: passage.clone(),
-                questions: questions.iter().map(StudentChoiceQuestion::from).collect(),
-            },
-            ExerciseSpec::GrammarTransformation { prompt, source_sentence, .. } => Self::GrammarTransformation {
+            ExerciseSpec::ReadingComprehension { passage, questions } => {
+                Self::ReadingComprehension {
+                    passage: passage.clone(),
+                    questions: questions.iter().map(StudentChoiceQuestion::from).collect(),
+                }
+            }
+            ExerciseSpec::GrammarTransformation {
+                prompt,
+                source_sentence,
+                ..
+            } => Self::GrammarTransformation {
                 prompt: prompt.clone(),
                 source_sentence: source_sentence.clone(),
             },
-            ExerciseSpec::ErrorCorrection { prompt, source_sentence, .. } => Self::ErrorCorrection {
+            ExerciseSpec::ErrorCorrection {
+                prompt,
+                source_sentence,
+                ..
+            } => Self::ErrorCorrection {
                 prompt: prompt.clone(),
                 source_sentence: source_sentence.clone(),
             },
-            ExerciseSpec::OpenWriting { prompt, min_words, max_words } => Self::OpenWriting {
+            ExerciseSpec::OpenWriting {
+                prompt,
+                min_words,
+                max_words,
+            } => Self::OpenWriting {
                 prompt: prompt.clone(),
                 min_words: *min_words,
                 max_words: *max_words,
             },
-            ExerciseSpec::GuidedDialogue { scenario, opening_prompt, max_turns } => Self::GuidedDialogue {
+            ExerciseSpec::GuidedDialogue {
+                scenario,
+                opening_prompt,
+                max_turns,
+            } => Self::GuidedDialogue {
                 scenario: scenario.clone(),
                 opening_prompt: opening_prompt.clone(),
                 max_turns: *max_turns,
             },
-            ExerciseSpec::VocabularyRecall { prompt, vocabulary_word_id, direction, .. } => Self::VocabularyRecall {
+            ExerciseSpec::VocabularyRecall {
+                prompt,
+                vocabulary_word_id,
+                direction,
+                ..
+            } => Self::VocabularyRecall {
                 prompt: prompt.clone(),
                 vocabulary_word_id: *vocabulary_word_id,
                 direction: direction.clone(),
@@ -973,12 +1161,24 @@ pub struct ActivitySubmission {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum StudentAnswer {
-    SelectedOptions { option_ids: Vec<Uuid> },
-    Text { value: String },
-    GapAnswers { answers: Vec<GapAnswer> },
-    OrderedTokens { token_ids: Vec<Uuid> },
-    Matching { pairs: Vec<MatchPair> },
-    QuestionChoices { answers: Vec<QuestionChoiceAnswer> },
+    SelectedOptions {
+        option_ids: Vec<Uuid>,
+    },
+    Text {
+        value: String,
+    },
+    GapAnswers {
+        answers: Vec<GapAnswer>,
+    },
+    OrderedTokens {
+        token_ids: Vec<Uuid>,
+    },
+    Matching {
+        pairs: Vec<MatchPair>,
+    },
+    QuestionChoices {
+        answers: Vec<QuestionChoiceAnswer>,
+    },
     SpokenAudio {
         audio_upload_id: Uuid,
         audio_duration_ms: u32,
@@ -1007,22 +1207,28 @@ fn validate_answer(
 ) -> Result<(), ActivityContractError> {
     match (exercise, answer) {
         (
-            ExerciseSpec::MultipleChoice { options, allow_multiple, .. },
+            ExerciseSpec::MultipleChoice {
+                options,
+                allow_multiple,
+                ..
+            },
             StudentAnswer::SelectedOptions { option_ids },
         ) => validate_selected_options(options, *allow_multiple, option_ids),
         (
             ExerciseSpec::Translation { .. }
-                | ExerciseSpec::Dictation { .. }
-                | ExerciseSpec::GrammarTransformation { .. }
-                | ExerciseSpec::ErrorCorrection { .. }
-                | ExerciseSpec::VocabularyRecall { .. },
+            | ExerciseSpec::Dictation { .. }
+            | ExerciseSpec::GrammarTransformation { .. }
+            | ExerciseSpec::ErrorCorrection { .. }
+            | ExerciseSpec::VocabularyRecall { .. },
             StudentAnswer::Text { value },
         ) => require_text(value, "answer.value", 5000),
         (ExerciseSpec::FillBlank { gaps, .. }, StudentAnswer::GapAnswers { answers }) => {
             ensure_unique(answers.iter().map(|answer| answer.gap_id), "answers.gapId")?;
             let allowed: HashSet<_> = gaps.iter().map(|gap| gap.gap_id).collect();
             if answers.len() > gaps.len()
-                || answers.iter().any(|answer| !allowed.contains(&answer.gap_id))
+                || answers
+                    .iter()
+                    .any(|answer| !allowed.contains(&answer.gap_id))
             {
                 return Err(invalid("gapAnswers contains an unknown or duplicate gap"));
             }
@@ -1036,22 +1242,33 @@ fn validate_answer(
         (ExerciseSpec::WordOrder { tokens, .. }, StudentAnswer::OrderedTokens { token_ids }) => {
             ensure_unique(token_ids.iter().copied(), "answer.tokenIds")?;
             let allowed: HashSet<_> = tokens.iter().map(|token| token.token_id).collect();
-            if token_ids.len() != allowed.len()
-                || token_ids.iter().any(|id| !allowed.contains(id))
+            if token_ids.len() != allowed.len() || token_ids.iter().any(|id| !allowed.contains(id))
             {
-                return Err(invalid("orderedTokens must contain every available token exactly once"));
+                return Err(invalid(
+                    "orderedTokens must contain every available token exactly once",
+                ));
             }
             Ok(())
         }
-        (ExerciseSpec::Matching { left_items, right_items, .. }, StudentAnswer::Matching { pairs }) => {
+        (
+            ExerciseSpec::Matching {
+                left_items,
+                right_items,
+                ..
+            },
+            StudentAnswer::Matching { pairs },
+        ) => {
             ensure_unique(pairs.iter().map(|pair| pair.left_id), "answer.pairs.leftId")?;
-            ensure_unique(pairs.iter().map(|pair| pair.right_id), "answer.pairs.rightId")?;
+            ensure_unique(
+                pairs.iter().map(|pair| pair.right_id),
+                "answer.pairs.rightId",
+            )?;
             let left: HashSet<_> = left_items.iter().map(|item| item.item_id).collect();
             let right: HashSet<_> = right_items.iter().map(|item| item.item_id).collect();
             if pairs.len() > left.len()
-                || pairs.iter().any(|pair| {
-                    !left.contains(&pair.left_id) || !right.contains(&pair.right_id)
-                })
+                || pairs
+                    .iter()
+                    .any(|pair| !left.contains(&pair.left_id) || !right.contains(&pair.right_id))
             {
                 return Err(invalid("matching contains unknown items or too many pairs"));
             }
@@ -1059,10 +1276,13 @@ fn validate_answer(
         }
         (
             ExerciseSpec::ListeningComprehension { questions, .. }
-                | ExerciseSpec::ReadingComprehension { questions, .. },
+            | ExerciseSpec::ReadingComprehension { questions, .. },
             StudentAnswer::QuestionChoices { answers },
         ) => {
-            ensure_unique(answers.iter().map(|answer| answer.question_id), "answers.questionId")?;
+            ensure_unique(
+                answers.iter().map(|answer| answer.question_id),
+                "answers.questionId",
+            )?;
             let map: std::collections::HashMap<_, _> = questions
                 .iter()
                 .map(|question| (question.question_id, question))
@@ -1083,19 +1303,29 @@ fn validate_answer(
             Ok(())
         }
         (
-            ExerciseSpec::OpenWriting { min_words, max_words, .. },
+            ExerciseSpec::OpenWriting {
+                min_words,
+                max_words,
+                ..
+            },
             StudentAnswer::Text { value },
         ) => {
             require_text(value, "answer.value", 12000)?;
             let words = value.split_whitespace().count();
             if words < *min_words as usize || words > *max_words as usize {
-                return Err(invalid(format!("open_writing requires {min_words} to {max_words} words")));
+                return Err(invalid(format!(
+                    "open_writing requires {min_words} to {max_words} words"
+                )));
             }
             Ok(())
         }
         (
             ExerciseSpec::GuidedDialogue { .. },
-            StudentAnswer::SpokenAudio { audio_upload_id, audio_duration_ms, transcript },
+            StudentAnswer::SpokenAudio {
+                audio_upload_id,
+                audio_duration_ms,
+                transcript,
+            },
         ) => {
             if audio_upload_id.is_nil() {
                 return Err(invalid("audioUploadId cannot be nil"));
@@ -1106,7 +1336,10 @@ fn validate_answer(
             if *audio_duration_ms == 0 || *audio_duration_ms > max_seconds * 1000 {
                 return Err(invalid("audioDurationMs exceeds the activity limit"));
             }
-            if transcript.as_ref().is_some_and(|value| value.chars().count() > 12000) {
+            if transcript
+                .as_ref()
+                .is_some_and(|value| value.chars().count() > 12000)
+            {
                 return Err(invalid("optional transcript allows up to 12000 characters"));
             }
             Ok(())
@@ -1126,7 +1359,9 @@ fn validate_selected_options(
         || selected.iter().any(|id| !allowed.contains(id))
         || (!allow_multiple && selected.len() != 1)
     {
-        return Err(invalid("optionIds do not match available options or selection policy"));
+        return Err(invalid(
+            "optionIds do not match available options or selection policy",
+        ));
     }
     Ok(())
 }
@@ -1196,16 +1431,22 @@ impl ActivityAttemptResult {
                     || !score.normalized_score.is_finite()
                     || !(0.0..=100.0).contains(&score.normalized_score)
                 {
-                    return Err(invalid("score must respect points and normalized range 0..100"));
+                    return Err(invalid(
+                        "score must respect points and normalized range 0..100",
+                    ));
                 }
             }
             (AttemptState::PendingReview | AttemptState::NotMeasured, None) => {}
             _ => {
-                return Err(invalid("evaluated requires score; pending_review/not_measured cannot have one"));
+                return Err(invalid(
+                    "evaluated requires score; pending_review/not_measured cannot have one",
+                ));
             }
         }
         ensure_unique(
-            self.skill_measurements.iter().map(|measurement| measurement.skill),
+            self.skill_measurements
+                .iter()
+                .map(|measurement| measurement.skill),
             "skillMeasurements.skill",
         )?;
         for measurement in &self.skill_measurements {
@@ -1214,7 +1455,9 @@ impl ActivityAttemptResult {
                     if score.is_finite() && (0.0..=100.0).contains(&score) => {}
                 (MeasurementState::NotMeasured, None) => {}
                 _ => {
-                    return Err(invalid("measured requires score 0..100; not_measured requires null score"));
+                    return Err(invalid(
+                        "measured requires score 0..100; not_measured requires null score",
+                    ));
                 }
             }
         }
@@ -1363,7 +1606,9 @@ mod tests {
             correct_option_ids: vec![id(12)],
             allow_multiple: false,
         };
-        assert!(base_definition(exercise, ActivityModality::Written).validate().is_err());
+        assert!(base_definition(exercise, ActivityModality::Written)
+            .validate()
+            .is_err());
     }
 
     #[test]
