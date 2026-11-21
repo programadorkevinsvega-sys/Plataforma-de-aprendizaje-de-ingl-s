@@ -336,6 +336,18 @@ impl GamificationService for MyGamificationService {
             ));
         }
 
+        sqlx::query(
+            r#"INSERT INTO user_stats (
+                   user_id, xp, streak_days, coins, words_learned, sentences_mastered
+               )
+               VALUES ($1, 0, 0, 50, 0, 0)
+               ON CONFLICT (user_id) DO NOTHING"#,
+        )
+        .bind(user_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudieron inicializar las estadísticas del estudiante"))?;
+
         let applied: Option<Uuid> = sqlx::query_scalar(
             r#"INSERT INTO lesson_completion_reward_events (
                    user_id, lesson_id, course_version_id, source_session_id
