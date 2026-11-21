@@ -1756,8 +1756,8 @@ mod tests {
             Value::from(i64::from(i32::MAX) + 1);
         let raw = serde_json::to_string(&activity_package)
             .expect("serialize activity version overflow package");
-        let error = validate_package_json(&raw)
-            .expect_err("activity version overflow must be rejected");
+        let error =
+            validate_package_json(&raw).expect_err("activity version overflow must be rejected");
         assert!(error.contains("rango INTEGER"));
     }
 
