@@ -1277,6 +1277,31 @@ pub async fn import_package(
             .await
             .map_err(|_| format!("No se pudo insertar la lección {code}"))?;
             lesson_ids.insert(code.to_string(), lesson_id);
+            for (index, objective_code) in lesson["objective_codes"]
+                .as_array()
+                .ok_or("objective_codes debe ser un arreglo")?
+                .iter()
+                .enumerate()
+            {
+                let objective_code = objective_code.as_str().ok_or("objective_code inválido")?;
+                let objective_id = *objective_ids
+                    .get(objective_code)
+                    .ok_or("Referencia a objetivo inexistente")?;
+                sqlx::query(
+                    r#"INSERT INTO lesson_learning_objectives (
+                           course_version_id, lesson_id, learning_objective_id, position, is_required
+                       )
+                       VALUES ($1, $2, $3, $4, TRUE)"#,
+                )
+                .bind(course_version_id)
+                .bind(lesson_id)
+                .bind(objective_id)
+                .bind((index + 1) as i32)
+                .execute(&mut *tx)
+                .await
+                .map_err(|_| format!("No se pudo asociar el objetivo {objective_code} a {code}"))?;
+            }
+
             for (activity_index, activity_package) in lesson
                 .get("activities")
                 .and_then(Value::as_array)
@@ -1345,30 +1370,6 @@ pub async fn import_package(
                     .await
                     .map_err(|_| format!("No se pudo asociar el objetivo de {activity_code}"))?;
                 }
-            }
-            for (index, objective_code) in lesson["objective_codes"]
-                .as_array()
-                .ok_or("objective_codes debe ser un arreglo")?
-                .iter()
-                .enumerate()
-            {
-                let objective_code = objective_code.as_str().ok_or("objective_code inválido")?;
-                let objective_id = *objective_ids
-                    .get(objective_code)
-                    .ok_or("Referencia a objetivo inexistente")?;
-                sqlx::query(
-                    r#"INSERT INTO lesson_learning_objectives (
-                           course_version_id, lesson_id, learning_objective_id, position, is_required
-                       )
-                       VALUES ($1, $2, $3, $4, TRUE)"#,
-                )
-                .bind(course_version_id)
-                .bind(lesson_id)
-                .bind(objective_id)
-                .bind((index + 1) as i32)
-                .execute(&mut *tx)
-                .await
-                .map_err(|_| format!("No se pudo asociar el objetivo {objective_code} a {code}"))?;
             }
         }
     }
