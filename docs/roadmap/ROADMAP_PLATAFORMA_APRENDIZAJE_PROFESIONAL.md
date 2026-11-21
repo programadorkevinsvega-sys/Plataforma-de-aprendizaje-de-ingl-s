@@ -450,7 +450,7 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 
 **Avance incremental — catálogo estudiantil (PR #81) y APIs/administración web:** se conservan las rutas existentes, se expone el catálogo por versión inmutable y se incorporan filtros/paginación PostgreSQL, progreso de lecciones basado en evidencia persistida y una administración web protegida para importar, editar borradores, tramitar revisión y publicar. La edición de borradores es transaccional, usa un token de concurrencia y conserva revisiones SHA-256 append-only. La implementación y sus límites están en [Catálogo curricular y administración editorial web](../curriculum/phase-1.5-student-catalog-integration.md).
 
-**Estado de lo implementado en la rama de trabajo:**
+**Estado integrado en `main` (PR #81, #82, #94, #96 y #97):**
 - [x] Exponer catálogo de cursos, unidades y lecciones para estudiantes.
 - [x] Exponer detalle por versión exacta, objetivos, competencias y prerrequisitos.
 - [x] Exponer estado de desbloqueo calculado con eventos de vocabulario y revisiones SRS persistidas.
@@ -467,6 +467,7 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 - [x] Suite E2E visual en Chromium integrada a CI: login requerido, 403 visible, paginación, búsqueda, filtros, importación, edición del borrador, revisión, aprobación y publicación (BFF simulado para determinismo).
 - [x] Auditoría automática completa del catálogo fuente en CI: 790 entradas, 2.201 ejemplos, 26 recursos Reading/Listening y 52 preguntas; la auditoría no convierte ítems pendientes en contenido aprobado/publicado.
 - [ ] Ejecutar el smoke test HTTP en staging y registrar el recorrido con una cuenta editorial humana real y otra sin permisos.
+- [x] Añadir workflow manual protegido `Curriculum staging admin acceptance`: exige ejecución desde `main`, confirmación explícita y GitHub Environment `staging`; consume únicamente credenciales del entorno de staging. No despliega infraestructura ni permite usar producción.
 - [ ] Completar la aceptación visual en el entorno desplegado con las cuentas reales, incluida la comprobación posterior a revocar el permiso editorial.
 
 **Límite de progreso:** el desbloqueo usa eventos de palabras completadas y repetición SM-2 exitosa sobre frases. La cobertura SM-2 es práctica/retención, no una calificación general de competencia. La evaluación de gramática, escritura, listening y speaking con intentos y rúbricas pertenece al motor de actividades de Fase 2.
