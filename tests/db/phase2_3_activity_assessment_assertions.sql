@@ -162,7 +162,25 @@ $$;
 -- Also exercise real SELECT/INSERT isolation as a non-owner, non-bypass role.
 CREATE ROLE phase23_rls_probe NOLOGIN NOSUPERUSER NOBYPASSRLS;
 GRANT USAGE ON SCHEMA public TO phase23_rls_probe;
-GRANT USAGE ON SCHEMA pg_temp TO phase23_rls_probe;
+DO $
+DECLARE
+    temp_schema_name TEXT;
+BEGIN
+    SELECT nspname
+    INTO temp_schema_name
+    FROM pg_namespace
+    WHERE oid = pg_my_temp_schema();
+
+    IF temp_schema_name IS NULL THEN
+        RAISE EXCEPTION 'temporary schema was not initialized for RLS probe';
+    END IF;
+
+    EXECUTE format(
+        'GRANT USAGE ON SCHEMA %I TO phase23_rls_probe',
+        temp_schema_name
+    );
+END
+$;
 GRANT SELECT ON phase23_assessment_ids TO phase23_rls_probe;
 GRANT SELECT, INSERT ON activity_attempt_results TO phase23_rls_probe;
 SET LOCAL ROLE phase23_rls_probe;
