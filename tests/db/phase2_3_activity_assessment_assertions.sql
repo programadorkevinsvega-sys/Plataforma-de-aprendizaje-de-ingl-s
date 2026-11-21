@@ -162,7 +162,7 @@ $$;
 -- Also exercise real SELECT/INSERT isolation as a non-owner, non-bypass role.
 CREATE ROLE phase23_rls_probe NOLOGIN NOSUPERUSER NOBYPASSRLS;
 GRANT USAGE ON SCHEMA public TO phase23_rls_probe;
-DO $
+DO $$
 DECLARE
     temp_schema_name TEXT;
 BEGIN
@@ -180,7 +180,7 @@ BEGIN
         temp_schema_name
     );
 END
-$;
+$$;
 GRANT SELECT ON phase23_assessment_ids TO phase23_rls_probe;
 GRANT SELECT, INSERT ON activity_attempt_results TO phase23_rls_probe;
 SET LOCAL ROLE phase23_rls_probe;
