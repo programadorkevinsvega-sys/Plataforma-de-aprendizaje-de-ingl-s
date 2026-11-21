@@ -298,7 +298,7 @@ pub fn pending_acoustic_review(
     Ok(result)
 }
 
-fn unscored_practice_result(activity: &ActivityDefinition)  -> ActivityAttemptResult {
+fn unscored_practice_result(activity: &ActivityDefinition) -> ActivityAttemptResult {
     ActivityAttemptResult {
         schema_version: activity.schema_version.clone(),
         attempt_id: Uuid::new_v4(),
