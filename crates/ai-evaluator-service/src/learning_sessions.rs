@@ -241,7 +241,7 @@ pub async fn start_lesson_session(
              FROM lesson_sessions
             WHERE user_id = $1
               AND lesson_id = $2
-              AND status = 'in_progress'
+              AND status IN ('in_progress', 'pending_review')
             ORDER BY last_activity_at DESC, id DESC
             LIMIT 1
             FOR UPDATE"#,
@@ -658,7 +658,7 @@ pub async fn commit_lesson_activity_attempt(
         return Err(Status::data_loss("La versión evaluada no coincide con la actividad publicada"));
     }
     let should_retry_activity = parsed_result.state == AttemptState::Evaluated
-        && parsed_result.score.as_ref().is_some_and(|score| score.normalized_score < 1.0)
+        && parsed_result.score.as_ref().is_some_and(|score| score.normalized_score < 100.0)
         && attempt_number < i32::from(activity_definition.limits.max_attempts);
 
     let status = match parsed_result.state {
@@ -704,7 +704,7 @@ pub async fn commit_lesson_activity_attempt(
         .bind(attempt_id)
         .bind(course_version_id)
         .bind(lesson_id)
-        .bind(score.normalized_score)
+        .bind(score.normalized_score / 100.0)
         .bind(activity_id)
         .execute(&mut *tx)
         .await
@@ -799,15 +799,39 @@ pub async fn commit_lesson_activity_attempt(
     .map_err(|error| db_unavailable(error, "advance_lesson_session"))?;
 
     if next_state == "completed" {
-        let mastery_score: f64 = sqlx::query_scalar(
-            "SELECT COALESCE(AVG(normalized_score)::DOUBLE PRECISION, 0.0) FROM activity_objective_evidence WHERE session_id = $1 AND user_id = $2",
-        )
-        .bind(session_id)
-        .bind(user_id)
-        .fetch_one(&mut *tx)
-        .await
-        .map_err(|error| db_unavailable(error, "calculate_lesson_mastery"))?;
-        let outcome = if mastery_score >= 0.8 { "mastered" } else { "completed" };
+        let (required_objectives, evidenced_objectives, mastery_score): (i64, i64, f64) =
+            sqlx::query_as(
+                r#"SELECT
+                       COUNT(*)::BIGINT,
+                       COUNT(latest.learning_objective_id)::BIGINT,
+                       COALESCE(AVG(latest.normalized_score)::DOUBLE PRECISION, 0.0)
+                   FROM lesson_learning_objectives required
+                   LEFT JOIN LATERAL (
+                       SELECT evidence.learning_objective_id, evidence.normalized_score
+                         FROM activity_objective_evidence evidence
+                        WHERE evidence.session_id = $1
+                          AND evidence.user_id = $2
+                          AND evidence.learning_objective_id = required.learning_objective_id
+                        ORDER BY evidence.recorded_at DESC, evidence.id DESC
+                        LIMIT 1
+                   ) latest ON TRUE
+                  WHERE required.lesson_id = $3
+                    AND required.is_required = TRUE"#,
+            )
+            .bind(session_id)
+            .bind(user_id)
+            .bind(lesson_id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|error| db_unavailable(error, "calculate_lesson_mastery"))?;
+        let outcome = if required_objectives > 0
+            && evidenced_objectives == required_objectives
+            && mastery_score >= 0.8
+        {
+            "mastered"
+        } else {
+            "completed"
+        };
         let enrollment_id: Uuid = sqlx::query_scalar(
             "SELECT enrollment_id FROM lesson_sessions WHERE id = $1 AND user_id = $2",
         )

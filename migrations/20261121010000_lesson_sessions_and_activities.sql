@@ -95,7 +95,7 @@ CREATE INDEX IF NOT EXISTS idx_lesson_sessions_user_recent
 CREATE INDEX IF NOT EXISTS idx_lesson_sessions_lesson_status
     ON lesson_sessions(user_id, lesson_id, status, last_activity_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_lesson_sessions_one_active_per_user_lesson
-    ON lesson_sessions(user_id, lesson_id) WHERE status = 'in_progress';
+    ON lesson_sessions(user_id, lesson_id) WHERE status IN ('in_progress', 'pending_review');
 
 CREATE TABLE IF NOT EXISTS lesson_session_activity_attempts (
     reservation_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
