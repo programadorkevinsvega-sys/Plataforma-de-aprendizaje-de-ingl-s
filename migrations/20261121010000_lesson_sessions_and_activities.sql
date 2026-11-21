@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS curriculum_lesson_activities (
     CONSTRAINT uq_lesson_activity_code_version UNIQUE (lesson_id, activity_code, activity_version),
     CONSTRAINT uq_lesson_activity_position UNIQUE (lesson_id, position),
     CONSTRAINT uq_lesson_activity_id_course UNIQUE (activity_id, course_version_id),
+    CONSTRAINT uq_lesson_activity_full_identity UNIQUE (activity_id, course_version_id, lesson_id),
     CONSTRAINT fk_lesson_activity_lesson_version
         FOREIGN KEY (lesson_id, course_version_id)
         REFERENCES course_lessons(id, course_version_id) ON DELETE RESTRICT,
@@ -37,8 +38,8 @@ CREATE TABLE IF NOT EXISTS lesson_activity_objectives (
     position INTEGER NOT NULL CHECK (position > 0),
     PRIMARY KEY (activity_id, learning_objective_id),
     CONSTRAINT uq_lesson_activity_objective_position UNIQUE (activity_id, position),
-    FOREIGN KEY (activity_id, course_version_id)
-        REFERENCES curriculum_lesson_activities(activity_id, course_version_id) ON DELETE RESTRICT,
+    FOREIGN KEY (activity_id, course_version_id, lesson_id)
+        REFERENCES curriculum_lesson_activities(activity_id, course_version_id, lesson_id) ON DELETE RESTRICT,
     FOREIGN KEY (learning_objective_id, course_version_id)
         REFERENCES learning_objectives(id, course_version_id) ON DELETE RESTRICT
 );
@@ -62,9 +63,10 @@ CREATE TABLE IF NOT EXISTS lesson_sessions (
     completed_at TIMESTAMPTZ,
     CONSTRAINT uq_lesson_session_user_start_key UNIQUE (user_id, start_idempotency_key),
     CONSTRAINT uq_lesson_session_id_user UNIQUE (id, user_id),
-    CONSTRAINT fk_lesson_session_enrollment_user
-        FOREIGN KEY (enrollment_id, user_id)
-        REFERENCES course_enrollments(id, user_id) ON DELETE RESTRICT,
+    CONSTRAINT uq_lesson_session_full_identity UNIQUE (id, user_id, lesson_id, course_version_id),
+    CONSTRAINT fk_lesson_session_enrollment_user_version
+        FOREIGN KEY (enrollment_id, user_id, course_version_id)
+        REFERENCES course_enrollments(id, user_id, course_version_id) ON DELETE RESTRICT,
     CONSTRAINT fk_lesson_session_lesson_version
         FOREIGN KEY (lesson_id, course_version_id)
         REFERENCES course_lessons(id, course_version_id) ON DELETE RESTRICT,
@@ -85,6 +87,8 @@ CREATE INDEX IF NOT EXISTS idx_lesson_sessions_user_recent
     ON lesson_sessions(user_id, last_activity_at DESC);
 CREATE INDEX IF NOT EXISTS idx_lesson_sessions_lesson_status
     ON lesson_sessions(user_id, lesson_id, status, last_activity_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_lesson_sessions_one_active_per_user_lesson
+    ON lesson_sessions(user_id, lesson_id) WHERE status = 'in_progress';
 
 CREATE TABLE IF NOT EXISTS lesson_session_activity_attempts (
     reservation_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -108,10 +112,8 @@ CREATE TABLE IF NOT EXISTS lesson_session_activity_attempts (
     CONSTRAINT uq_lesson_session_attempt_reservation_user UNIQUE (reservation_id, user_id),
     FOREIGN KEY (session_id, user_id)
         REFERENCES lesson_sessions(id, user_id) ON DELETE RESTRICT,
-    FOREIGN KEY (activity_id, course_version_id)
-        REFERENCES curriculum_lesson_activities(activity_id, course_version_id) ON DELETE RESTRICT,
-    FOREIGN KEY (lesson_id, course_version_id)
-        REFERENCES course_lessons(id, course_version_id) ON DELETE RESTRICT,
+    FOREIGN KEY (activity_id, course_version_id, lesson_id)
+        REFERENCES curriculum_lesson_activities(activity_id, course_version_id, lesson_id) ON DELETE RESTRICT,
     CONSTRAINT ck_session_attempt_result_state CHECK (
         (state = 'processing' AND result_json IS NULL AND assessment_attempt_id IS NULL AND completed_at IS NULL)
         OR
@@ -137,7 +139,7 @@ CREATE TABLE IF NOT EXISTS activity_objective_evidence (
     course_version_id UUID NOT NULL,
     lesson_id UUID NOT NULL,
     learning_objective_id UUID NOT NULL,
-    normalized_score NUMERIC(6,5) NOT NULL CHECK (normalized_score BETWEEN 0 AND 1),
+    normalized_score REAL NOT NULL CHECK (normalized_score BETWEEN 0 AND 1),
     recorded_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_activity_objective_attempt UNIQUE (user_id, assessment_attempt_id, learning_objective_id),
     FOREIGN KEY (session_id, user_id)
@@ -149,6 +151,12 @@ CREATE TABLE IF NOT EXISTS activity_objective_evidence (
 );
 CREATE INDEX IF NOT EXISTS idx_activity_objective_evidence_user_objective
     ON activity_objective_evidence(user_id, learning_objective_id, recorded_at DESC);
+
+-- Extend enrollment and session identity keys so a session cannot reference
+-- a different course version's enrollment, lesson, or activity.
+ALTER TABLE course_enrollments
+    ADD CONSTRAINT uq_course_enrollment_id_user_version
+    UNIQUE (id, user_id, course_version_id);
 
 -- A lesson may grant its completion reward only once per learner, regardless of retries.
 CREATE TABLE IF NOT EXISTS lesson_completion_reward_events (
@@ -162,8 +170,8 @@ CREATE TABLE IF NOT EXISTS lesson_completion_reward_events (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_lesson_reward_user_lesson UNIQUE (user_id, lesson_id),
     CONSTRAINT uq_lesson_reward_user_session UNIQUE (user_id, source_session_id),
-    FOREIGN KEY (source_session_id, user_id)
-        REFERENCES lesson_sessions(id, user_id) ON DELETE RESTRICT,
+    FOREIGN KEY (source_session_id, user_id, lesson_id, course_version_id)
+        REFERENCES lesson_sessions(id, user_id, lesson_id, course_version_id) ON DELETE RESTRICT,
     FOREIGN KEY (lesson_id, course_version_id)
         REFERENCES course_lessons(id, course_version_id) ON DELETE RESTRICT
 );
@@ -269,6 +277,66 @@ $$;
 CREATE TRIGGER trg_curriculum_lesson_activity_immutable
     BEFORE UPDATE OR DELETE ON curriculum_lesson_activities
     FOR EACH ROW EXECUTE FUNCTION guard_curriculum_lesson_activity_immutable();
+
+CREATE OR REPLACE FUNCTION guard_lesson_session_attempt_transition()
+RETURNS TRIGGER LANGUAGE plpgsql AS $
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        RAISE EXCEPTION 'Lesson session attempts are immutable evidence'
+            USING ERRCODE = '55000';
+    END IF;
+    IF OLD.state <> 'processing' OR NEW.state = 'processing'
+       OR NEW.reservation_id IS DISTINCT FROM OLD.reservation_id
+       OR NEW.session_id IS DISTINCT FROM OLD.session_id
+       OR NEW.user_id IS DISTINCT FROM OLD.user_id
+       OR NEW.course_version_id IS DISTINCT FROM OLD.course_version_id
+       OR NEW.lesson_id IS DISTINCT FROM OLD.lesson_id
+       OR NEW.activity_id IS DISTINCT FROM OLD.activity_id
+       OR NEW.activity_version IS DISTINCT FROM OLD.activity_version
+       OR NEW.attempt_number IS DISTINCT FROM OLD.attempt_number
+       OR NEW.idempotency_key IS DISTINCT FROM OLD.idempotency_key
+       OR NEW.submission_json IS DISTINCT FROM OLD.submission_json
+       OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+        RAISE EXCEPTION 'A reserved attempt may only transition once from processing to a final state'
+            USING ERRCODE = '55000';
+    END IF;
+    RETURN NEW;
+END
+$;
+CREATE TRIGGER trg_lesson_session_attempt_transition
+    BEFORE UPDATE OR DELETE ON lesson_session_activity_attempts
+    FOR EACH ROW EXECUTE FUNCTION guard_lesson_session_attempt_transition();
+
+COMMENT ON TABLE curriculum_lesson_activities IS
+    'Private, immutable, versioned activity definitions. Never serialize definition_json to the student-facing API.';
+COMMENT ON TABLE lesson_sessions IS
+    'Recoverable learner sessions with server-owned position, duration and completion state.';
+COMMENT ON TABLE lesson_session_activity_attempts IS
+    'Reserved, idempotent activity submissions linked to persisted assessment evidence.';
+COMMENT ON TABLE activity_objective_evidence IS
+    'Objective-level academic evidence derived only from validated evaluated attempts.';
+COMMENT ON TABLE lesson_completion_reward_events IS
+    'Idempotent lesson completion reward ledger; one academic completion reward per user and lesson.';
+
+
+ALTER TABLE lesson_session_activity_attempts
+    ADD CONSTRAINT fk_lesson_session_attempt_assessment_result
+    FOREIGN KEY (assessment_attempt_id)
+    REFERENCES activity_attempt_results(attempt_id) ON DELETE RESTRICT;
+
+CREATE OR REPLACE FUNCTION guard_lesson_evidence_append_only()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE EXCEPTION 'Learning session evidence is append-only'
+        USING ERRCODE = '55000';
+END
+$$;
+CREATE TRIGGER trg_activity_objective_evidence_append_only
+    BEFORE UPDATE OR DELETE ON activity_objective_evidence
+    FOR EACH ROW EXECUTE FUNCTION guard_lesson_evidence_append_only();
+CREATE TRIGGER trg_lesson_completion_reward_events_append_only
+    BEFORE UPDATE OR DELETE ON lesson_completion_reward_events
+    FOR EACH ROW EXECUTE FUNCTION guard_lesson_evidence_append_only();
 
 COMMENT ON TABLE curriculum_lesson_activities IS
     'Private, immutable, versioned activity definitions. Never serialize definition_json to the student-facing API.';
