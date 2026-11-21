@@ -52,8 +52,8 @@ pub struct SubmitLessonActivityDto {
     pub reward_pending: bool,
 }
 
-#[derive(Serialize)]
-struct SessionErrorDto {
+#[derive(Debug, Serialize)]
+pub struct SessionErrorDto {
     code: &'static str,
     message: &'static str,
 }

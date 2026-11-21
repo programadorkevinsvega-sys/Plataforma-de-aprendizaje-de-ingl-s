@@ -155,7 +155,7 @@ async fn session_snapshot_in_transaction(
             tracing::error!(session_id = %id, position, "Session points to a missing published activity");
             Status::data_loss("La sesión apunta a una actividad publicada inexistente")
         })?;
-        let activity = decode_activity(&raw, &definition_sha256, course_version_id, lesson_id)?;
+        let activity = decode_activity(raw, &definition_sha256, course_version_id, lesson_id)?;
         let view = activity.to_student_view();
         student_activity_json = serde_json::to_string(&view)
             .map_err(|_| Status::internal("No se pudo preparar la actividad para el estudiante"))?;
@@ -516,7 +516,7 @@ pub async fn begin_lesson_activity_attempt(
         .map_err(|error| db_unavailable(error, "load_replayed_activity_definition"))?
         .ok_or_else(|| Status::data_loss("La actividad del intento idempotente ya no existe"))?;
         let replay_activity = decode_activity(
-            &existing_definition.0,
+            existing_definition.0,
             &existing_definition.1,
             course_version_id,
             lesson_id,
@@ -569,7 +569,7 @@ pub async fn begin_lesson_activity_attempt(
     let (raw_definition, definition_sha256) = current_activity
         .ok_or_else(|| Status::data_loss("La posición actual no tiene actividad publicada"))?;
     let activity = decode_activity(
-        &raw_definition,
+        raw_definition,
         &definition_sha256,
         course_version_id,
         lesson_id,
