@@ -4,6 +4,7 @@ package ai_evaluator;
 
 service AIEvaluatorService {
   rpc EvaluateExamAnswer (EvaluateExamAnswerRequest) returns (EvaluateExamAnswerResponse);
+  rpc EvaluateLearningActivity (EvaluateLearningActivityRequest) returns (EvaluateLearningActivityResponse);
   rpc GenerateTargetedDrill (GenerateTargetedDrillRequest) returns (GenerateTargetedDrillResponse);
 }
 
@@ -30,6 +31,17 @@ message EvaluateExamAnswerResponse {
   float total_score = 7;
   bool passed = 8;
   repeated DetectedWeakness detected_weaknesses = 9;
+}
+
+message EvaluateLearningActivityRequest {
+  string user_id = 1;
+  string activity_definition_json = 2;
+  string submission_json = 3;
+}
+
+message EvaluateLearningActivityResponse {
+  string result_json = 1;
+  bool idempotent_replay = 2;
 }
 
 message GenerateTargetedDrillRequest {

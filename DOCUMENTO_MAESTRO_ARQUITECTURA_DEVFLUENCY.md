@@ -143,17 +143,20 @@ El nivel del estudiante debe estimarse mediante evidencias académicas, no por X
 - La Subfase 1.3 quedó completada técnicamente el 2026-11-18: contrato JSON canónico v1 y validador offline (PR #75), importador PostgreSQL transaccional/idempotente (PR #77), exportador relacional verificable y CLI editorial (PR #78), y validación de integridad al publicar más congelación del contenido durante revisión (PR #79). Las cuatro PR están fusionadas en `main`.
 - El modelo persistido de cursos incluye Course/CourseVersion, Unit, Lesson, LearningObjective, Skill y relaciones, ledger de paquetes, registro de editores e historial append-only de revisión. PostgreSQL valida completitud académica al publicar.
 - El ciclo técnico de Subfase 1.3 pasó las pruebas de CI #308/#309 y las migraciones se desplegaron mediante Deploy Ubuntu/systemd #46. El acta de aceptación está en [aceptación técnica de la Subfase 1.3](docs/curriculum/phase-1.3-acceptance.md).
-- El catálogo estudiantil de PR #81 y el avance web de Subfase 1.5 añaden `/courses`, `/courses/{course_version_id}`, filtros/paginación, progreso por evidencia y administración editorial protegida. Continúa pendiente la edición visual campo a campo de borradores.
+- El catálogo estudiantil y la Subfase 1.5 están integrados en main (PR #81, #82, #94, #96 y #97): catálogo, filtros/paginación, progreso por evidencia, administración editorial y editor visual campo a campo con historial. La aceptación manual con cuentas editoriales reales permanece pendiente; no existe staging.
 
-**Estado y límites verificables de Subfase 1.4 en PR #90 (rama abierta, no fusionada):**
-- Las 790 unidades tienen revisión editorial pendiente. De ellas, 709 son candidatos unigrama para cotejo exacto con NGSL/NGSL-Spoken y 81 expresiones multi-palabra no aplican a listas unigramas. Los 709 rangos continúan null; el cruce aún no se ha ejecutado con los CSV oficiales. NGSL usa lemas modificados, por lo que el rango es agregado por lema y no por sentido/POS.
-- De los 2.201 ejemplos, 2.115 tienen guías candidatas pendientes de validación; 86 expresiones nuevas aún no tienen candidata fonética.
-- Los 13 recursos reading y 13 listening siguen en draft. No existe audio listening real aprobado. El generador ya existe, pero no se ha ejecutado desde esta PR porque necesita el proveedor TTS del entorno; las 52 preguntas siguen pendientes de revisión humana.
-- La cobertura General se distribuye en 237 PRE_A1, 462 A1, 7 A2, 7 B1, 7 B2, 6 C1 y 6 C2; es muy inferior al presupuesto léxico interno acumulado, especialmente desde A2.
-- La revisión humana de traducciones, naturalidad, nivel, registro y pronunciación no puede reemplazarse por validaciones estructurales. La importación v2 no publica contenido ni se ha ejecutado en VM desde esta PR.
-- La CI de la rama corrigió un error sintáctico en el test del auditor; la ejecución completa del último commit debe terminar verde antes de aceptar la integración técnica.
+**Estado y límites verificables de Subfase 1.4 (PR #90, #92 y #93 integradas en main):**
 
-La Subfase 1.4 permanece EN CURSO. El inventario, los criterios, la distribución por nivel y los comandos de importación se documentan en [auditoría del catálogo v2](docs/curriculum/phase-1.4-catalog-audit.md) y su implementación está en [PR #90](https://github.com/programadorkevinsvega-sys/Plataforma-de-aprendizaje-de-ingl-s/pull/90). No se debe marcar completa hasta terminar la curación editorial, cobertura léxica, cotejo de frecuencias que se decida utilizar, guías fonéticas, audios reales y validación en staging.
+La Subfase 1.4 se cerró para el alcance de la primera liberación piloto el 2026-11-20. La fuente contiene 790 unidades, 2.201 ejemplos, 26 categorías y 26 recursos graduados. CI/CD importó el catálogo y publicó una selección privada controlada: 30 términos, 26 ejemplos, 4 recursos, 12 preguntas y 2 audios Listening en English General PRE_A1 y A1. Los otros 760 términos y recursos no incluidos en la selección continúan ocultos; no deben presentarse como aprobados ni publicados.
+
+**Backlog posterior al piloto (no reabre el alcance aceptado):**
+- Revisión humana de traducciones, naturalidad, registro, nivel, categoría gramatical y ejemplos de las 790 unidades.
+- Cotejo reproducible de los 709 candidatos unigramas con NGSL/NGSL-Spoken; las 81 expresiones multi-palabra no se equiparan a lemas de esas listas. No hay rangos de frecuencia publicados sin cotejo verificable.
+- Aprobación editorial/fonética de las guías lenta y natural; no convertir automáticamente ortografía en guía de pronunciación.
+- Ampliación de la cobertura General desde A2 y desarrollo de la ruta Tecnología A1–C2.
+- Revisión humana de las 52 preguntas y generación/escucha de los 13 audios Listening restantes; solo 2 audios forman parte del piloto publicado.
+
+La infraestructura y la primera selección privada están integradas y desplegadas. La curación completa del catálogo sigue pendiente como backlog posterior al piloto. No existe un entorno staging configurado; no se debe ejecutar en producción el smoke test editorial que crea y publica un curso de aceptación.
 
 ### 3.3. Arquitectura objetivo del contenido
 
@@ -266,15 +269,20 @@ El BFF recibe una respuesta textual. Aunque el cuerpo tiene un campo audio_base6
 
 La interfaz de entrevista muestra la pregunta escrita, permite escucharla por TTS y admite respuesta hablada o escrita. El resultado de la grabación se convierte en transcripción y la evaluación posterior utiliza la respuesta textual.
 
-El evaluador actual recibe target_level, pero el parámetro no se utiliza en el cálculo/prompt efectivo. El prompt de Bedrock infiere listening, pronunciación y fluidez desde el texto. Por tanto:
+El evaluador heredado de entrevistas recibe target_level, pero el parámetro no se utiliza en el cálculo/prompt efectivo. Su prompt de Bedrock infiere listening, pronunciación y fluidez desde el texto. Por tanto, esa salida heredada no es una medición válida de esas competencias y no se debe reutilizar como evaluador general de actividades curriculares.
+
+La Subfase 2.3 se implementa mediante un motor separado para actividades versionadas: corrección determinista según equivalencias y normalizaciones explícitas, rúbricas de escritura con salida IA validada, registro append-only de intentos y claves idempotentes por usuario. La definición privada y la respuesta se mantienen en backend; la integración HTTP con una sesión curricular se realizará en 2.4.
 
 - Una transcripción no demuestra cómo se pronunciaron los fonemas.
 - El texto no contiene pausas, ritmo ni continuidad acústica.
 - Una respuesta relevante a una pregunta visible no demuestra que el estudiante comprendió un audio.
 - La modalidad escrita no debe producir puntuaciones de pronunciación o fluidez oral.
-- El resultado actual de seis métricas no debe tratarse como una evaluación válida de todas esas competencias.
+- El resultado heredado de seis métricas no debe tratarse como una evaluación válida de todas esas competencias.
+- El evaluador curricular inicial mantiene las respuestas habladas en pending_review y sus métricas acústicas en not_measured hasta contar con evaluación sobre el audio real.
 
-### 6.2. Modalidad escrita objetivo
+### 6.2. Modalidad escrita objetivo e implementación inicial
+
+El motor curricular de 2.3 admite evaluación de respuestas escritas abiertas con rúbricas versionadas y salida de IA validada criterio por criterio. La puntuación total se calcula en Rust desde los puntos aceptados; el modelo no puede alterar la identidad/versionado de la rúbrica ni exceder sus límites. Esta primera implementación no equivale todavía a una calibración académica contra evaluadores humanos.
 
 La modalidad escrita utiliza como evidencia el texto del estudiante y evalúa dimensiones justificadas por texto, según la consigna y el nivel:
 
@@ -286,6 +294,8 @@ La modalidad escrita utiliza como evidencia el texto del estudiante y evalúa di
 No asigna notas de pronunciación ni de fluidez oral. Las métricas no medidas se representan como not_measured o not_applicable; nunca como cero por defecto.
 
 ### 6.3. Modalidad hablada objetivo
+
+En la implementación curricular de 2.3, un envío hablado queda pendiente de revisión y no recibe puntuación de pronunciación ni fluidez. La medición hablada seguirá pendiente hasta conectar evidencia acústica real, consentimiento/retención y una rúbrica calibrada.
 
 La modalidad hablada utiliza la grabación real y su transcripción:
 
@@ -299,7 +309,7 @@ Las rúbricas y los resultados de escrito y hablado deben mantenerse separados. 
 
 ### 6.4. Comprensión auditiva
 
-Listening requiere actividades específicas cuyo estímulo principal sea un audio y cuyas respuestas demuestren comprensión. No debe revelarse la transcripción antes de responder. La visibilidad del texto de la pregunta debe tenerse en cuenta para no confundir lectura con escucha.
+El contrato y el evaluador de actividades admiten listening comprehension y dictado con estímulo de audio; las respuestas cerradas se corrigen con las claves explícitas de la versión publicada. Listening requiere actividades específicas cuyo estímulo principal sea un audio y cuyas respuestas demuestren comprensión. No debe revelarse la transcripción antes de responder. La visibilidad del texto de la pregunta debe tenerse en cuenta para no confundir lectura con escucha.
 
 ### 6.5. Separación enseñanza/evaluación
 
