@@ -467,6 +467,7 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 - [x] Suite E2E visual en Chromium integrada a CI: login requerido, 403 visible, paginación, búsqueda, filtros, importación, edición del borrador, revisión, aprobación y publicación (BFF simulado para determinismo).
 - [x] Auditoría automática completa del catálogo fuente en CI: 790 entradas, 2.201 ejemplos, 26 recursos Reading/Listening y 52 preguntas; la auditoría no convierte ítems pendientes en contenido aprobado/publicado.
 - [ ] Ejecutar el smoke test HTTP en staging y registrar el recorrido con una cuenta editorial humana real y otra sin permisos.
+- [x] Añadir aceptación productiva de solo lectura para el caso sin staging: logins reales, 403 de no-editor, cola editorial, catálogo y detalle publicado; sin escrituras curriculares.
 - [x] Añadir workflow manual protegido `Curriculum staging admin acceptance`: exige ejecución desde `main`, confirmación explícita y GitHub Environment `staging`; consume únicamente credenciales del entorno de staging. No despliega infraestructura ni permite usar producción.
 - [ ] Completar la aceptación visual en el entorno desplegado con las cuentas reales, incluida la comprobación posterior a revocar el permiso editorial.
 
