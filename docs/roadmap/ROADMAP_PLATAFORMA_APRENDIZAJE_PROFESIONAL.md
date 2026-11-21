@@ -463,13 +463,14 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 **Pendientes para completar la subfase 1.5:**
 - [x] Editor visual campo a campo de una versión `draft` ya importada, con guardado transaccional, validación de estructura inmutable, token de concurrencia e historial append-only con SHA-256.
 - [x] Prueba de integración PostgreSQL del guardado de borrador: revisión persistida, rechazo de escritura obsoleta y bloqueo tras entrar a `review`.
-- [ ] Pruebas de integración web para paginación, filtros, permisos editoriales, importación web y transiciones completas de extremo a extremo.
+- [x] Implementar un smoke test de aceptación HTTP que recorre el BFF desplegado con dos cuentas reales: 403, dry-run, importación, edición, conflicto 409, cambios solicitados, aprobación, publicación, catálogo estudiantil y bloqueo posterior a publicar. Su ejecución contra staging sigue pendiente.
+- [ ] Pruebas E2E visuales del navegador para paginación, filtros, formularios, permisos editoriales e interacción completa de la administración.
+- [ ] Ejecutar el smoke test en staging y registrar evidencia de una cuenta editorial real y otra sin permisos.
 - [ ] Validación automática del catálogo real completo y evidencia de su cobertura.
-- [ ] Provisionar una cuenta autorizada en `content_editors` y ejecutar el flujo web con esa cuenta.
 
 **Límite de progreso:** el desbloqueo usa eventos de palabras completadas y repetición SM-2 exitosa sobre frases. La cobertura SM-2 es práctica/retención, no una calificación general de competencia. La evaluación de gramática, escritura, listening y speaking con intentos y rúbricas pertenece al motor de actividades de Fase 2.
 
-**Contenido real:** todavía no se ha cargado ni publicado un paquete curricular real de negocio en producción. El fixture de CI no es contenido de producción. Para completar la carga se requiere un paquete aprobado, referencias de vocabulario/frases existentes y únicas, y un editor provisionado; la importación web lo guardará como borrador y la aprobación/publicación se hará por separado.
+**Contenido real — release piloto (PR #93):** la carga inicial ya se ejecuta desde CI/CD y el despliegue de producción terminó correctamente. Se importaron 790 entradas léxicas, 2.201 ejemplos y 26 recursos de comprensión; la publicación privada inicial quedó limitada a 30 términos, 26 ejemplos, 4 recursos, 12 preguntas y 2 audios Listening. Se publicaron las dos versiones English General PRE_A1 y A1, con 6 unidades, 10 lecciones y 10 objetivos en total. Los 760 términos y el resto de recursos no incluidos en el piloto permanecen ocultos. Esta publicación es un piloto privado para validación personal, no una certificación editorial para lanzamiento público: las guías fonéticas siguen requiriendo revisión especializada y los audios/licencias TTS requieren escucha y validación manual. La evidencia detallada está en [Carga inicial de Inglés General y catálogo de contenido](../curriculum/initial-content-release.md).
 
 ### Pruebas y aceptación
 
@@ -479,7 +480,8 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 - [x] Pruebas de publicación y versionado en PostgreSQL/CI existentes.
 - [x] Pruebas de permisos editor/estudiante y RLS del modelo editorial en PostgreSQL.
 - [x] Pruebas unitarias frontend para mapeadores de paginación/progreso/acciones/importación.
-- [ ] Pruebas de integración de las nuevas rutas web/gRPC y transacciones de importación desde PostgreSQL.
+- [ ] Ejecutar contra staging las pruebas HTTP reales de las rutas BFF/gRPC y las transacciones de importación PostgreSQL, con cuentas de editor y estudiante.
+- [ ] Pruebas E2E del navegador sobre la experiencia visual de administración.
 - [ ] Validación automática del catálogo completo y carga editorial de negocio.
 - [x] Ninguna lección publicada carece de objetivo requerido y criterio de finalización; PostgreSQL lo bloquea y CI prueba el rechazo.
 
@@ -495,14 +497,14 @@ Construir un motor reutilizable que permita presentar actividades diferentes baj
 
 ### Subfase 2.1. Contrato de actividad
 
-- [ ] Definir un contrato común de actividad: estímulo, instrucciones, opciones, respuesta esperada, pistas y explicación.
-- [ ] Definir validación de entrada y salida por tipo de ejercicio.
-- [ ] Definir soporte de puntuación parcial donde aplique.
-- [ ] Definir retroalimentación inmediata y explicación posterior.
-- [ ] Definir límites de tiempo y número de intentos cuando el diseño pedagógico lo requiera.
-- [ ] Versionar el formato de actividades.
+- [x] Definir un contrato común de actividad: estímulo, instrucciones, opciones, respuesta esperada, pistas y explicación.
+- [x] Definir validación de entrada y salida por tipo de ejercicio.
+- [x] Definir soporte de puntuación parcial donde aplique.
+- [x] Definir retroalimentación inmediata y explicación posterior.
+- [x] Definir límites de tiempo y número de intentos cuando el diseño pedagógico lo requiera.
+- [x] Versionar el formato de actividades.
 
-**Implementación inicial en rama de trabajo:** el contrato tipado se está desarrollando en `crates/common/src/activity_contract.rs`, con definición privada, proyección segura para estudiante, validación por tipo de respuesta, crédito parcial, políticas de feedback, límites, versiones e invariantes de medición. La aceptación de esta subfase queda condicionada a CI verde y revisión del contrato; todavía no incluye persistencia de intentos, endpoints, sesiones ni UI (subfases 2.2–2.4).
+**Aceptación (PR #95):** el contrato está integrado en `main` y CI quedó verde para el commit `8244928b22b6fe2482d0f57350d30224939bbd5c`. Incluye definición privada de actividad, proyección segura para estudiante, 13 tipos de ejercicio tipados, modalidades diferenciadas, validación de respuesta, puntuación parcial, políticas de feedback, límites, idempotencia y referencia a la versión exacta del contenido. La compilación y las pruebas Rust pasan. La subfase 2.1 queda aceptada en su alcance de contrato; no incluye persistencia de intentos, endpoints, sesiones ni UI, que corresponden a las siguientes subfases.
 
 ### Subfase 2.2. Tipos de ejercicio
 

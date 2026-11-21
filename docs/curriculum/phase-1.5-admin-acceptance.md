@@ -11,6 +11,45 @@ La CI ejecuta dos niveles complementarios:
 
 Estas pruebas automatizadas usan datos aislados de CI. No sustituyen el recorrido visual en el navegador desplegado.
 
+El test `tools/curriculum/tests/acceptance_smoke.test.mjs` verifica en CI la secuencia y las protecciones del smoke test ejecutable. Para recorrer el BFF desplegado y PostgreSQL del entorno real se dispone de `tools/curriculum/acceptance-smoke.mjs`; este último requiere dos cuentas reales y se ejecuta de forma explícita, nunca desde CI ni desde el despliegue.
+
+## Smoke test HTTP en staging con cuentas reales
+
+El script realiza un recorrido real contra el origen del BFF: login de editor y estudiante, denegación 403 del estudiante, dry-run sin persistencia, importación como borrador, edición con revisión SHA-256, rechazo de una escritura obsoleta (409), solicitud de cambios, reenvío, aprobación, publicación, aparición en el catálogo del estudiante y rechazo de edición después de publicar.
+
+**Preparación:**
+
+1. Despliega primero la versión de la aplicación en un entorno staging con las migraciones al día.
+2. Registra dos usuarios mediante la aplicación: uno que será editor y otro que seguirá siendo estudiante.
+3. Concede `content_editors` únicamente al primero, usando el procedimiento de la sección siguiente.
+4. Ejecuta el script desde la raíz del repositorio. No habilites trazas de shell (`set -x`) ni guardes las contraseñas en archivos versionados.
+
+Ejemplo Bash, solicitando las contraseñas de forma interactiva:
+
+```bash
+export CURRICULUM_ACCEPTANCE_ENV=staging
+export CURRICULUM_API_BASE_URL='https://<origen-bff-staging>'
+
+read -r -p 'Correo del editor: ' CURRICULUM_EDITOR_EMAIL
+read -r -s -p 'Contraseña del editor: ' CURRICULUM_EDITOR_PASSWORD
+printf '\n'
+read -r -p 'Correo del estudiante sin permisos: ' CURRICULUM_NON_EDITOR_EMAIL
+read -r -s -p 'Contraseña del estudiante: ' CURRICULUM_NON_EDITOR_PASSWORD
+printf '\n'
+export CURRICULUM_EDITOR_EMAIL CURRICULUM_EDITOR_PASSWORD
+export CURRICULUM_NON_EDITOR_EMAIL CURRICULUM_NON_EDITOR_PASSWORD
+
+node tools/curriculum/acceptance-smoke.mjs
+
+unset CURRICULUM_EDITOR_PASSWORD CURRICULUM_NON_EDITOR_PASSWORD
+```
+
+El paquete por defecto es `tests/fixtures/curriculum/initial-release-english-general-pre-a1-v1.json`. Puede sustituirse con `CURRICULUM_ACCEPTANCE_PACKAGE`. El script exige HTTPS y `CURRICULUM_ACCEPTANCE_ENV=staging`, y bloquea el host de producción conocido `app-ingles.jnmtortas.com`.
+
+**Efecto persistente:** para demostrar la publicación, el script crea un curso con slug único `staging-acceptance-<id>` y lo deja publicado en el catálogo de staging. No elimina ese curso al terminar; conserva la evidencia para inspección. No lo ejecutes en producción. El script no concede ni revoca permisos: eso se administra por separado.
+
+Este smoke test valida la integración HTTP real, pero no reemplaza la comprobación visual de paginación, controles, formularios y estados de la página `/admin/curriculum`. El recorrido manual que sigue continúa siendo obligatorio.
+
 ## Habilitar una cuenta existente
 
 Primero registra la cuenta mediante el flujo normal de registro de la aplicación. La herramienta no crea usuarios ni gestiona contraseñas; solo concede o revoca la capacidad editorial de una cuenta existente.
