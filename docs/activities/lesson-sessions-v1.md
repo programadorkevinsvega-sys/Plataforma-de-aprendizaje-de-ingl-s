@@ -1,6 +1,6 @@
 # Sesiones de lección v1
 
-**Subfase:** 2.4 — Sesiones de lección  
+**Subfase:** 2.4 — Sesiones de lección
 **Estado:** implementación en revisión; CI y aceptación manual pendientes.
 
 ## Objetivo
