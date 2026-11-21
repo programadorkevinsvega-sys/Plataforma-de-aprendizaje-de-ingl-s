@@ -35,22 +35,20 @@ impl MyAIEvaluatorService {
                 tracing::error!(error = %error, "Could not establish assessment RLS context");
                 Status::internal("Could not establish assessment data isolation")
             })?;
-        let existing = sqlx::query_as::<
-            _,
-            (serde_json::Value, serde_json::Value, serde_json::Value),
-        >(
-            "SELECT activity_definition_json, submission_json, result_json
+        let existing =
+            sqlx::query_as::<_, (serde_json::Value, serde_json::Value, serde_json::Value)>(
+                "SELECT activity_definition_json, submission_json, result_json
              FROM activity_attempt_results
              WHERE user_id = $1 AND idempotency_key = $2",
-        )
-        .bind(user_id)
-        .bind(idempotency_key)
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(|error| {
-            tracing::error!(error = %error, "Could not read idempotent activity result");
-            Status::internal("Could not read the saved assessment result")
-        })?;
+            )
+            .bind(user_id)
+            .bind(idempotency_key)
+            .fetch_optional(&mut *transaction)
+            .await
+            .map_err(|error| {
+                tracing::error!(error = %error, "Could not read idempotent activity result");
+                Status::internal("Could not read the saved assessment result")
+            })?;
         transaction.commit().await.map_err(|error| {
             tracing::error!(error = %error, "Could not close assessment idempotency transaction");
             Status::internal("Could not close assessment data transaction")
@@ -118,8 +116,7 @@ impl AiEvaluatorService for MyAIEvaluatorService {
         common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let req = request.into_inner();
 
-        if req.activity_definition_json.len() > 512 * 1024
-            || req.submission_json.len() > 256 * 1024
+        if req.activity_definition_json.len() > 512 * 1024 || req.submission_json.len() > 256 * 1024
         {
             return Err(Status::resource_exhausted(
                 "Activity definition or submission exceeds the allowed size",
@@ -143,12 +140,14 @@ impl AiEvaluatorService for MyAIEvaluatorService {
         })?;
         activity
             .validate_submission(&submission)
-            .map_err(|error| match error {
+            .map_err(|error| {
+                match error {
                 error @ (common::activity_contract::ActivityContractError::ActivityVersionMismatch
                 | common::activity_contract::ActivityContractError::UnsupportedSchemaVersion) => {
                     Status::failed_precondition(error.to_string())
                 }
                 _ => Status::invalid_argument(format!("activity submission rejected: {error}")),
+            }
             })?;
 
         let activity_json = serde_json::to_value(&activity)
@@ -166,8 +165,9 @@ impl AiEvaluatorService for MyAIEvaluatorService {
                 ));
             }
             return Ok(Response::new(EvaluateLearningActivityResponse {
-                result_json: serde_json::to_string(&stored_result)
-                    .map_err(|_| Status::internal("Could not encode the saved assessment result"))?,
+                result_json: serde_json::to_string(&stored_result).map_err(|_| {
+                    Status::internal("Could not encode the saved assessment result")
+                })?,
                 idempotent_replay: true,
             }));
         }

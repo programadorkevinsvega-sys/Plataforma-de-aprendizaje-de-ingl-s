@@ -58,15 +58,16 @@ pub fn evaluate_deterministic(
 
     let outcomes = deterministic_item_outcomes(activity, submission, normalizations)?;
     if outcomes.is_empty() {
-        return Err(invalid("deterministic evaluation produced no scoreable items"));
+        return Err(invalid(
+            "deterministic evaluation produced no scoreable items",
+        ));
     }
 
     let raw_points = score_items(&outcomes, max_points, partial_credit);
     let penalty = hint_penalty(activity, submission);
     let earned_points = raw_points.saturating_sub(penalty);
     let normalized_score = normalize_score(earned_points, max_points);
-    let all_correct = outcomes.iter().all(|outcome| *outcome >= 1.0)
-        && earned_points == max_points;
+    let all_correct = outcomes.iter().all(|outcome| *outcome >= 1.0) && earned_points == max_points;
     let correct_answer = if activity.feedback.reveal_correct_answer_after_submission {
         revealed_answer(&activity.exercise)
     } else {
@@ -127,7 +128,9 @@ pub fn apply_rubric_evaluation(
     if activity.modality != crate::activity_contract::ActivityModality::Written
         || !matches!(&activity.exercise, ExerciseSpec::OpenWriting { .. })
     {
-        return Err(invalid("rubric scoring is reserved for written open_writing activities"));
+        return Err(invalid(
+            "rubric scoring is reserved for written open_writing activities",
+        ));
     }
 
     let (rubric_code, rubric_version, max_points, criteria) = match &activity.evaluation {
@@ -141,7 +144,9 @@ pub fn apply_rubric_evaluation(
     };
 
     if output.rubric_code != *rubric_code || output.rubric_version != rubric_version {
-        return Err(invalid("AI rubric identity does not match the published rubric version"));
+        return Err(invalid(
+            "AI rubric identity does not match the published rubric version",
+        ));
     }
     if output.criterion_scores.len() != criteria.len()
         || output.summary.trim().is_empty()
@@ -149,7 +154,9 @@ pub fn apply_rubric_evaluation(
         || output.explanation.trim().is_empty()
         || output.explanation.chars().count() > 4000
     {
-        return Err(invalid("AI rubric output is incomplete or exceeds feedback limits"));
+        return Err(invalid(
+            "AI rubric output is incomplete or exceeds feedback limits",
+        ));
     }
 
     let expected: HashMap<&str, &RubricCriterion> = criteria
@@ -167,7 +174,9 @@ pub fn apply_rubric_evaluation(
 
     for score in &output.criterion_scores {
         if !seen.insert(score.criterion_code.as_str()) {
-            return Err(invalid("AI rubric output contains duplicate criterion codes"));
+            return Err(invalid(
+                "AI rubric output contains duplicate criterion codes",
+            ));
         }
         let criterion = expected
             .get(score.criterion_code.as_str())
@@ -176,7 +185,9 @@ pub fn apply_rubric_evaluation(
             || score.feedback.trim().is_empty()
             || score.feedback.chars().count() > 1200
         {
-            return Err(invalid("AI rubric criterion score or feedback is outside its limits"));
+            return Err(invalid(
+                "AI rubric criterion score or feedback is outside its limits",
+            ));
         }
         raw_earned += score.earned_points as u32;
         if let Some(total) = skill_totals
@@ -189,7 +200,9 @@ pub fn apply_rubric_evaluation(
     }
 
     if seen.len() != expected.len() || raw_earned > max_points as u32 {
-        return Err(invalid("AI rubric output does not cover the exact published criteria"));
+        return Err(invalid(
+            "AI rubric output does not cover the exact published criteria",
+        ));
     }
 
     let earned_points = (raw_earned as u16).saturating_sub(hint_penalty(activity, submission));
@@ -221,7 +234,9 @@ pub fn apply_rubric_evaluation(
         .join("\n");
     let explanation = format!("{}\n\n{}", output.explanation, criterion_feedback);
     if explanation.chars().count() > 4000 {
-        return Err(invalid("combined rubric explanation exceeds 4000 characters"));
+        return Err(invalid(
+            "combined rubric explanation exceeds 4000 characters",
+        ));
     }
 
     let result = ActivityAttemptResult {
@@ -344,20 +359,16 @@ fn deterministic_item_outcomes(
             },
             StudentAnswer::Text { value },
         ) => vec![text_matches(value, accepted_answers, normalizations) as u8 as f32],
-        (
-            ExerciseSpec::FillBlank { gaps, .. },
-            StudentAnswer::GapAnswers { answers },
-        ) => {
+        (ExerciseSpec::FillBlank { gaps, .. }, StudentAnswer::GapAnswers { answers }) => {
             let provided: HashMap<Uuid, &str> = answers
                 .iter()
                 .map(|answer| (answer.gap_id, answer.value.as_str()))
                 .collect();
             gaps.iter()
                 .map(|gap| {
-                    provided
-                        .get(&gap.gap_id)
-                        .is_some_and(|value| text_matches(value, &gap.accepted_answers, normalizations))
-                        as u8 as f32
+                    provided.get(&gap.gap_id).is_some_and(|value| {
+                        text_matches(value, &gap.accepted_answers, normalizations)
+                    }) as u8 as f32
                 })
                 .collect()
         }
@@ -373,12 +384,18 @@ fn deterministic_item_outcomes(
             .map(|(index, expected)| (token_ids.get(index) == Some(expected)) as u8 as f32)
             .collect(),
         (
-            ExerciseSpec::Matching { left_items, correct_pairs, .. },
+            ExerciseSpec::Matching {
+                left_items,
+                correct_pairs,
+                ..
+            },
             StudentAnswer::Matching { pairs },
         ) => left_items
             .iter()
             .map(|left| {
-                let expected = correct_pairs.iter().find(|pair| pair.left_id == left.item_id);
+                let expected = correct_pairs
+                    .iter()
+                    .find(|pair| pair.left_id == left.item_id);
                 let actual = pairs.iter().find(|pair| pair.left_id == left.item_id);
                 (expected == actual) as u8 as f32
             })
@@ -446,11 +463,7 @@ fn normalize_text(value: &str, normalizations: &[TextNormalization]) -> String {
     normalized
 }
 
-fn score_items(
-    outcomes: &[f32],
-    max_points: u16,
-    policy: &PartialCreditPolicy,
-) -> u16 {
+fn score_items(outcomes: &[f32], max_points: u16, policy: &PartialCreditPolicy) -> u16 {
     if outcomes.is_empty() {
         return 0;
     }
@@ -473,7 +486,11 @@ fn score_items(
                     let item_points = base + if (index as u16) < remainder { 1 } else { 0 };
                     let ratio = match policy {
                         PartialCreditPolicy::PerItem => {
-                            if *outcome >= 1.0 { 1.0 } else { 0.0 }
+                            if *outcome >= 1.0 {
+                                1.0
+                            } else {
+                                0.0
+                            }
                         }
                         PartialCreditPolicy::Proportional => outcome.clamp(0.0, 1.0),
                         PartialCreditPolicy::None => unreachable!(),
@@ -490,7 +507,9 @@ fn hint_penalty(activity: &ActivityDefinition, submission: &ActivitySubmission) 
         .hints_used
         .iter()
         .filter_map(|hint_id| activity.hints.iter().find(|hint| hint.hint_id == *hint_id))
-        .fold(0u16, |total, hint| total.saturating_add(hint.penalty_points))
+        .fold(0u16, |total, hint| {
+            total.saturating_add(hint.penalty_points)
+        })
 }
 
 fn normalize_score(earned: u16, possible: u16) -> f32 {
@@ -515,16 +534,22 @@ fn revealed_answer(exercise: &ExerciseSpec) -> Option<String> {
                 .collect::<Vec<_>>()
                 .join(" / "),
         ),
-        ExerciseSpec::Translation { accepted_answers, .. }
+        ExerciseSpec::Translation {
+            accepted_answers, ..
+        }
         | ExerciseSpec::Dictation {
             accepted_transcripts: accepted_answers,
             ..
         }
-        | ExerciseSpec::GrammarTransformation { accepted_answers, .. }
-        | ExerciseSpec::ErrorCorrection { accepted_answers, .. }
-        | ExerciseSpec::VocabularyRecall { accepted_answers, .. } => {
-            accepted_answers.first().cloned()
+        | ExerciseSpec::GrammarTransformation {
+            accepted_answers, ..
         }
+        | ExerciseSpec::ErrorCorrection {
+            accepted_answers, ..
+        }
+        | ExerciseSpec::VocabularyRecall {
+            accepted_answers, ..
+        } => accepted_answers.first().cloned(),
         ExerciseSpec::FillBlank {
             prompt_template,
             gaps,
@@ -607,9 +632,9 @@ mod tests {
     use super::*;
     use crate::activity_contract::{
         ActivityHint, ActivityLimits, ActivityModality, ActivityOption, ActivityStimulus,
-        CefrLevel, FeedbackPolicy, FeedbackTiming, GapAnswer, GapDefinition, MatchItem, MatchPair,
-        OrderedToken, QuestionChoiceAnswer, RubricCriterion, TrackCode, TranslationDirection,
-        ChoiceQuestion,
+        CefrLevel, ChoiceQuestion, FeedbackPolicy, FeedbackTiming, GapAnswer, GapDefinition,
+        MatchItem, MatchPair, OrderedToken, QuestionChoiceAnswer, RubricCriterion, TrackCode,
+        TranslationDirection,
     };
 
     fn id(value: u128) -> Uuid {
@@ -708,11 +733,19 @@ mod tests {
             ActivityModality::Listening,
             LearningSkill::Listening,
             PartialCreditPolicy::None,
-            vec![TextNormalization::CaseInsensitive, TextNormalization::TrimWhitespace],
+            vec![
+                TextNormalization::CaseInsensitive,
+                TextNormalization::TrimWhitespace,
+            ],
         );
         assert_full_score(
             dictation,
-            submission(StudentAnswer::Text { value: " GOOD MORNING ".into() }, 111),
+            submission(
+                StudentAnswer::Text {
+                    value: " GOOD MORNING ".into(),
+                },
+                111,
+            ),
         );
 
         let grammar = deterministic_activity(
@@ -724,11 +757,19 @@ mod tests {
             ActivityModality::Written,
             LearningSkill::Grammar,
             PartialCreditPolicy::None,
-            vec![TextNormalization::CaseInsensitive, TextNormalization::TrimWhitespace],
+            vec![
+                TextNormalization::CaseInsensitive,
+                TextNormalization::TrimWhitespace,
+            ],
         );
         assert_full_score(
             grammar,
-            submission(StudentAnswer::Text { value: "i worked here.".into() }, 112),
+            submission(
+                StudentAnswer::Text {
+                    value: "i worked here.".into(),
+                },
+                112,
+            ),
         );
 
         let correction = deterministic_activity(
@@ -740,10 +781,15 @@ mod tests {
             ActivityModality::Written,
             LearningSkill::Grammar,
             PartialCreditPolicy::None,
-            vec![TextNormalization::CaseInsensitive, TextNormalization::TrimWhitespace],
+            vec![
+                TextNormalization::CaseInsensitive,
+                TextNormalization::TrimWhitespace,
+            ],
         );
         let wrong = submission(
-            StudentAnswer::Text { value: "She work everyday.".into() },
+            StudentAnswer::Text {
+                value: "She work everyday.".into(),
+            },
             113,
         );
         assert_eq!(
@@ -773,12 +819,20 @@ mod tests {
         activity.evaluation = EvaluationPolicy::UnscoredPractice;
         let result = evaluate_deterministic(
             &activity,
-            &submission(StudentAnswer::Text { value: "casa".into() }, 114),
+            &submission(
+                StudentAnswer::Text {
+                    value: "casa".into(),
+                },
+                114,
+            ),
         )
         .unwrap();
         assert_eq!(result.state, AttemptState::NotMeasured);
         assert!(result.score.is_none());
-        assert!(result.skill_measurements.iter().all(|metric| metric.score.is_none()));
+        assert!(result
+            .skill_measurements
+            .iter()
+            .all(|metric| metric.score.is_none()));
     }
 
     #[test]
@@ -787,8 +841,14 @@ mod tests {
             ExerciseSpec::MultipleChoice {
                 prompt: "Choose the greeting.".into(),
                 options: vec![
-                    ActivityOption { option_id: id(10), text: "Hello".into() },
-                    ActivityOption { option_id: id(11), text: "Goodbye".into() },
+                    ActivityOption {
+                        option_id: id(10),
+                        text: "Hello".into(),
+                    },
+                    ActivityOption {
+                        option_id: id(11),
+                        text: "Goodbye".into(),
+                    },
                 ],
                 correct_option_ids: vec![id(10)],
                 allow_multiple: false,
@@ -800,7 +860,12 @@ mod tests {
         );
         assert_full_score(
             activity,
-            submission(StudentAnswer::SelectedOptions { option_ids: vec![id(10)] }, 100),
+            submission(
+                StudentAnswer::SelectedOptions {
+                    option_ids: vec![id(10)],
+                },
+                100,
+            ),
         );
     }
 
@@ -827,10 +892,17 @@ mod tests {
         );
         assert_full_score(
             activity.clone(),
-            submission(StudentAnswer::Text { value: "  BUENOS   DÍAS! ".into() }, 101),
+            submission(
+                StudentAnswer::Text {
+                    value: "  BUENOS   DÍAS! ".into(),
+                },
+                101,
+            ),
         );
         let wrong = submission(
-            StudentAnswer::Text { value: "Buen día".into() },
+            StudentAnswer::Text {
+                value: "Buen día".into(),
+            },
             102,
         );
         assert_eq!(
@@ -860,7 +932,10 @@ mod tests {
         );
         let mut answer = submission(
             StudentAnswer::GapAnswers {
-                answers: vec![GapAnswer { gap_id: id(10), value: "WORKS".into() }],
+                answers: vec![GapAnswer {
+                    gap_id: id(10),
+                    value: "WORKS".into(),
+                }],
             },
             104,
         );
@@ -879,9 +954,18 @@ mod tests {
             ExerciseSpec::WordOrder {
                 prompt: "Put the words in order.".into(),
                 tokens: vec![
-                    OrderedToken { token_id: id(10), text: "I".into() },
-                    OrderedToken { token_id: id(11), text: "work".into() },
-                    OrderedToken { token_id: id(12), text: "today".into() },
+                    OrderedToken {
+                        token_id: id(10),
+                        text: "I".into(),
+                    },
+                    OrderedToken {
+                        token_id: id(11),
+                        text: "work".into(),
+                    },
+                    OrderedToken {
+                        token_id: id(12),
+                        text: "today".into(),
+                    },
                 ],
                 expected_token_order: vec![id(10), id(11), id(12)],
             },
@@ -893,7 +977,9 @@ mod tests {
         let result = evaluate_deterministic(
             &word_order,
             &submission(
-                StudentAnswer::OrderedTokens { token_ids: vec![id(10), id(12), id(11)] },
+                StudentAnswer::OrderedTokens {
+                    token_ids: vec![id(10), id(12), id(11)],
+                },
                 105,
             ),
         )
@@ -904,16 +990,34 @@ mod tests {
             ExerciseSpec::Matching {
                 prompt: "Match terms.".into(),
                 left_items: vec![
-                    MatchItem { item_id: id(20), text: "cat".into() },
-                    MatchItem { item_id: id(21), text: "dog".into() },
+                    MatchItem {
+                        item_id: id(20),
+                        text: "cat".into(),
+                    },
+                    MatchItem {
+                        item_id: id(21),
+                        text: "dog".into(),
+                    },
                 ],
                 right_items: vec![
-                    MatchItem { item_id: id(22), text: "gato".into() },
-                    MatchItem { item_id: id(23), text: "perro".into() },
+                    MatchItem {
+                        item_id: id(22),
+                        text: "gato".into(),
+                    },
+                    MatchItem {
+                        item_id: id(23),
+                        text: "perro".into(),
+                    },
                 ],
                 correct_pairs: vec![
-                    MatchPair { left_id: id(20), right_id: id(22) },
-                    MatchPair { left_id: id(21), right_id: id(23) },
+                    MatchPair {
+                        left_id: id(20),
+                        right_id: id(22),
+                    },
+                    MatchPair {
+                        left_id: id(21),
+                        right_id: id(23),
+                    },
                 ],
             },
             ActivityModality::Written,
@@ -926,8 +1030,14 @@ mod tests {
             submission(
                 StudentAnswer::Matching {
                     pairs: vec![
-                        MatchPair { left_id: id(20), right_id: id(22) },
-                        MatchPair { left_id: id(21), right_id: id(23) },
+                        MatchPair {
+                            left_id: id(20),
+                            right_id: id(22),
+                        },
+                        MatchPair {
+                            left_id: id(21),
+                            right_id: id(23),
+                        },
                     ],
                 },
                 106,
@@ -941,8 +1051,14 @@ mod tests {
             question_id: id(question_id),
             prompt: "Choose.".into(),
             options: vec![
-                ActivityOption { option_id: id(correct), text: "Correct".into() },
-                ActivityOption { option_id: id(correct + 1), text: "Incorrect".into() },
+                ActivityOption {
+                    option_id: id(correct),
+                    text: "Correct".into(),
+                },
+                ActivityOption {
+                    option_id: id(correct + 1),
+                    text: "Incorrect".into(),
+                },
             ],
             correct_option_ids: vec![id(correct)],
             allow_multiple: false,
@@ -962,8 +1078,14 @@ mod tests {
             submission(
                 StudentAnswer::QuestionChoices {
                     answers: vec![
-                        QuestionChoiceAnswer { question_id: id(30), option_ids: vec![id(31)] },
-                        QuestionChoiceAnswer { question_id: id(32), option_ids: vec![id(33)] },
+                        QuestionChoiceAnswer {
+                            question_id: id(30),
+                            option_ids: vec![id(31)],
+                        },
+                        QuestionChoiceAnswer {
+                            question_id: id(32),
+                            option_ids: vec![id(33)],
+                        },
                     ],
                 },
                 107,
@@ -1069,7 +1191,8 @@ mod tests {
                 summary: "Looks fluent.".into(),
                 explanation: "This is text, not acoustic evidence.".into(),
             },
-        ).is_err());
+        )
+        .is_err());
     }
 
     #[test]
@@ -1127,7 +1250,9 @@ mod tests {
             },
         };
         let answer = submission(
-            StudentAnswer::Text { value: "I work in the morning and study English.".into() },
+            StudentAnswer::Text {
+                value: "I work in the morning and study English.".into(),
+            },
             110,
         );
         let output = RubricEvaluationOutput {

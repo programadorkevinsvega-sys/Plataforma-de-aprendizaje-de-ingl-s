@@ -11,7 +11,7 @@ use common::activity_contract::{
     ActivityDefinition, ActivitySubmission, EvaluationPolicy, ExerciseSpec, StudentAnswer,
 };
 use common::activity_evaluation::{
-    apply_rubric_evaluation, pending_acoustic_review, evaluate_deterministic,
+    apply_rubric_evaluation, evaluate_deterministic, pending_acoustic_review,
     RubricEvaluationOutput,
 };
 
@@ -27,29 +27,34 @@ pub async fn evaluate(
     activity: &ActivityDefinition,
     submission: &ActivitySubmission,
 ) -> Result<common::activity_contract::ActivityAttemptResult, EvaluationFailure> {
-    activity
-        .validate()
-        .map_err(|error| EvaluationFailure::Invalid(format!("Invalid activity definition: {error}")))?;
-    activity
-        .validate_submission(submission)
-        .map_err(|error| EvaluationFailure::Invalid(format!("Invalid activity submission: {error}")))?;
+    activity.validate().map_err(|error| {
+        EvaluationFailure::Invalid(format!("Invalid activity definition: {error}"))
+    })?;
+    activity.validate_submission(submission).map_err(|error| {
+        EvaluationFailure::Invalid(format!("Invalid activity submission: {error}"))
+    })?;
 
     match &activity.evaluation {
         EvaluationPolicy::Deterministic { .. } | EvaluationPolicy::UnscoredPractice => {
-            evaluate_deterministic(activity, submission)
-                .map_err(|error| EvaluationFailure::Invalid(format!("Deterministic evaluation failed: {error}")))
+            evaluate_deterministic(activity, submission).map_err(|error| {
+                EvaluationFailure::Invalid(format!("Deterministic evaluation failed: {error}"))
+            })
         }
         EvaluationPolicy::Rubric { .. } => match (&activity.exercise, &submission.answer) {
             (ExerciseSpec::OpenWriting { prompt, .. }, StudentAnswer::Text { value }) => {
                 let output = evaluate_open_writing_with_bedrock(activity, prompt, value)
                     .await
                     .map_err(EvaluationFailure::Provider)?;
-                apply_rubric_evaluation(activity, submission, output)
-                    .map_err(|error| EvaluationFailure::Provider(format!("AI rubric output rejected: {error}")))
+                apply_rubric_evaluation(activity, submission, output).map_err(|error| {
+                    EvaluationFailure::Provider(format!("AI rubric output rejected: {error}"))
+                })
             }
             (ExerciseSpec::GuidedDialogue { .. }, StudentAnswer::SpokenAudio { .. }) => {
-                pending_acoustic_review(activity, submission)
-                    .map_err(|error| EvaluationFailure::Invalid(format!("Spoken evidence validation failed: {error}")))
+                pending_acoustic_review(activity, submission).map_err(|error| {
+                    EvaluationFailure::Invalid(format!(
+                        "Spoken evidence validation failed: {error}"
+                    ))
+                })
             }
             _ => Err(EvaluationFailure::Invalid(
                 "Rubric evaluation does not support this activity and answer combination".into(),
@@ -101,16 +106,17 @@ async fn evaluate_open_writing_with_bedrock(
     prompt_text: &str,
     answer: &str,
 ) -> Result<RubricEvaluationOutput, String> {
-    let timeout = common::timeout::duration_from_env(
-        "AWS_BEDROCK_RUBRIC_TIMEOUT_SECONDS",
-        60,
-        300,
-    )
-    .map_err(|error| format!("Invalid rubric provider timeout configuration: {error}"))?;
+    let timeout = common::timeout::duration_from_env("AWS_BEDROCK_RUBRIC_TIMEOUT_SECONDS", 60, 300)
+        .map_err(|error| format!("Invalid rubric provider timeout configuration: {error}"))?;
 
     tokio::time::timeout(timeout, call_bedrock(activity, prompt_text, answer))
         .await
-        .map_err(|_| format!("Rubric provider timed out after {} seconds", timeout.as_secs()))?
+        .map_err(|_| {
+            format!(
+                "Rubric provider timed out after {} seconds",
+                timeout.as_secs()
+            )
+        })?
 }
 
 async fn call_bedrock(
@@ -118,9 +124,8 @@ async fn call_bedrock(
     prompt_text: &str,
     answer: &str,
 ) -> Result<RubricEvaluationOutput, String> {
-    let region = Region::new(
-        std::env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string()),
-    );
+    let region =
+        Region::new(std::env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string()));
     let sdk_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
         .region(region)
         .load()
@@ -132,8 +137,8 @@ async fn call_bedrock(
         .unwrap_or_else(|_| "anthropic.claude-3-5-sonnet-20241022-v2:0".to_string());
 
     let context = open_writing_context(activity, prompt_text, answer)?;
-    let input_json =
-        serde_json::to_string(&context).map_err(|error| format!("Could not encode rubric context: {error}"))?;
+    let input_json = serde_json::to_string(&context)
+        .map_err(|error| format!("Could not encode rubric context: {error}"))?;
     let prompt = format!(
         r#"You are a careful CEFR-aligned English writing assessor.
 Assess only the student's written response against the exact rubric supplied in the JSON input.
@@ -181,16 +186,17 @@ JSON input:
         .map(str::to_string)
         .ok_or_else(|| "Bedrock rubric provider returned no text content".to_string())?;
 
-    serde_json::from_str::<RubricEvaluationOutput>(response_text.trim())
-        .map_err(|error| format!("Bedrock rubric response does not match the required schema: {error}"))
+    serde_json::from_str::<RubricEvaluationOutput>(response_text.trim()).map_err(|error| {
+        format!("Bedrock rubric response does not match the required schema: {error}")
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use common::activity_contract::{
-        ActivityHint, ActivityLimits, ActivityModality, CefrLevel, FeedbackPolicy,
-        FeedbackTiming, LearningSkill, RubricCriterion, TrackCode,
+        ActivityHint, ActivityLimits, ActivityModality, CefrLevel, FeedbackPolicy, FeedbackTiming,
+        LearningSkill, RubricCriterion, TrackCode,
     };
     use uuid::Uuid;
 
@@ -262,12 +268,9 @@ mod tests {
     #[test]
     fn writing_context_contains_only_the_published_rubric_and_student_evidence() {
         let activity = writing_activity();
-        let context = open_writing_context(
-            &activity,
-            "Describe your routine.",
-            "I work every morning.",
-        )
-        .unwrap();
+        let context =
+            open_writing_context(&activity, "Describe your routine.", "I work every morning.")
+                .unwrap();
         assert_eq!(context["rubric"]["rubricCode"], "writing-a1");
         assert_eq!(context["rubric"]["rubricVersion"], 1);
         assert_eq!(context["rubric"]["criteria"].as_array().unwrap().len(), 2);
