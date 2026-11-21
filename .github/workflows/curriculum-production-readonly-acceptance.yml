@@ -1,0 +1,83 @@
+name: Curriculum production read-only acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production_readonly:
+        description: "Confirm production login and GET-only validation; no curriculum records will be changed"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: curriculum-production-readonly-acceptance
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    name: Require explicit production read-only confirmation
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Validate main and explicit confirmation
+        env:
+          RUN_REF: ${{ github.ref }}
+          CONFIRM_PRODUCTION: ${{ inputs.confirm_production_readonly }}
+        run: |
+          set -euo pipefail
+          [[ "$RUN_REF" == "refs/heads/main" ]] || {
+            echo "::error::Run this workflow from main only."
+            exit 1
+          }
+          [[ "$CONFIRM_PRODUCTION" == "true" ]] || {
+            echo "::error::Explicit confirmation is required."
+            exit 1
+          }
+
+  accept:
+    name: Verify real production accounts and read-only curriculum routes
+    needs: guard
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CURRICULUM_API_BASE_URL: ${{ vars.NEXT_PUBLIC_BFF_URL }}
+      CURRICULUM_EDITOR_EMAIL: ${{ vars.CURRICULUM_EDITOR_EMAIL }}
+      CURRICULUM_EDITOR_PASSWORD: ${{ secrets.CURRICULUM_EDITOR_PASSWORD }}
+      CURRICULUM_NON_EDITOR_EMAIL: ${{ vars.CURRICULUM_NON_EDITOR_EMAIL }}
+      CURRICULUM_NON_EDITOR_PASSWORD: ${{ secrets.CURRICULUM_NON_EDITOR_PASSWORD }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+
+      - name: Set up Node.js 26
+        uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
+        with:
+          version: 12.21.0
+          runtime: node@26.13.1
+          cache: false
+          install: false
+
+      - name: Validate required credentials and execute GET-only production acceptance
+        run: |
+          set -euo pipefail
+          for name in \
+            CURRICULUM_API_BASE_URL \
+            CURRICULUM_EDITOR_EMAIL \
+            CURRICULUM_EDITOR_PASSWORD \
+            CURRICULUM_NON_EDITOR_EMAIL \
+            CURRICULUM_NON_EDITOR_PASSWORD; do
+            [[ -n "${!name:-}" ]] || {
+              echo "::error::$name is missing from GitHub Environment production."
+              exit 1
+            }
+          done
+          [[ "$CURRICULUM_EDITOR_EMAIL" != "$CURRICULUM_NON_EDITOR_EMAIL" ]] || {
+            echo "::error::The editor and non-editor accounts must be different."
+            exit 1
+          }
+          node tools/curriculum/production-readonly-acceptance.mjs
