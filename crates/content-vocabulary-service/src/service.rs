@@ -938,9 +938,18 @@ impl ContentService for MyContentService {
         .await
         .map_err(|_| Status::internal("No se pudieron consultar las unidades del curso"))?;
 
-        let lesson_rows: Vec<(Uuid, Uuid, String, i32, String, String, String, Option<i32>, i64)> =
-            sqlx::query_as(
-                r#"SELECT lesson.id, lesson.unit_id, lesson.lesson_code, lesson.position,
+        let lesson_rows: Vec<(
+            Uuid,
+            Uuid,
+            String,
+            i32,
+            String,
+            String,
+            String,
+            Option<i32>,
+            i64,
+        )> = sqlx::query_as(
+            r#"SELECT lesson.id, lesson.unit_id, lesson.lesson_code, lesson.position,
                           lesson.lesson_pattern, lesson.title, lesson.description,
                           lesson.estimated_minutes,
                           (SELECT COUNT(*) FROM curriculum_lesson_activities activity
@@ -949,11 +958,11 @@ impl ContentService for MyContentService {
                      FROM course_lessons lesson
                     WHERE lesson.course_version_id = $1
                     ORDER BY lesson.unit_id, lesson.position, lesson.id"#,
-            )
-            .bind(version_id)
-            .fetch_all(&mut *tx)
-            .await
-            .map_err(|_| Status::internal("No se pudieron consultar las lecciones del curso"))?;
+        )
+        .bind(version_id)
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudieron consultar las lecciones del curso"))?;
 
         let objective_rows: Vec<(Uuid, Uuid, String, String, String, i32, bool, Vec<String>)> =
             sqlx::query_as(
@@ -1218,8 +1227,17 @@ impl ContentService for MyContentService {
         }
 
         let mut lessons_by_unit: HashMap<Uuid, Vec<CurriculumLesson>> = HashMap::new();
-        for (id, unit_id, code, position, pattern, lesson_title, lesson_description, minutes, activity_count) in
-            &lesson_rows
+        for (
+            id,
+            unit_id,
+            code,
+            position,
+            pattern,
+            lesson_title,
+            lesson_description,
+            minutes,
+            activity_count,
+        ) in &lesson_rows
         {
             lessons_by_unit
                 .entry(*unit_id)

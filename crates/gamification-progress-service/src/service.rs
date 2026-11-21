@@ -2,8 +2,8 @@ use crate::domain::UserGamificationStats;
 use proto::gamification::gamification_service_server::GamificationService;
 use proto::gamification::{
     AddXpRequest, GetUserStatsRequest, InitUserStatsRequest, RecordLearningProgressRequest,
-    RecordLearningProgressResponse, RecordLessonCompletionRequest,
-    RecordLessonCompletionResponse, UserStatsResponse,
+    RecordLearningProgressResponse, RecordLessonCompletionRequest, RecordLessonCompletionResponse,
+    UserStatsResponse,
 };
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -299,11 +299,15 @@ impl GamificationService for MyGamificationService {
         let lesson_id = Uuid::parse_str(&req.lesson_id)
             .map_err(|_| Status::invalid_argument("lesson_id inválido"))?;
         if session_id.is_nil() || lesson_id.is_nil() {
-            return Err(Status::invalid_argument("Los identificadores de finalización no pueden ser nulos"));
+            return Err(Status::invalid_argument(
+                "Los identificadores de finalización no pueden ser nulos",
+            ));
         }
 
-        let mut tx = self.pool.begin().await
-            .map_err(|_| Status::internal("No se pudo iniciar la acreditación de la lección"))?;
+        let mut tx =
+            self.pool.begin().await.map_err(|_| {
+                Status::internal("No se pudo iniciar la acreditación de la lección")
+            })?;
         common::set_current_user_id(&mut tx, user_id)
             .await
             .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
@@ -346,7 +350,9 @@ impl GamificationService for MyGamificationService {
         .bind(user_id)
         .execute(&mut *tx)
         .await
-        .map_err(|_| Status::internal("No se pudieron inicializar las estadísticas del estudiante"))?;
+        .map_err(|_| {
+            Status::internal("No se pudieron inicializar las estadísticas del estudiante")
+        })?;
 
         let applied: Option<Uuid> = sqlx::query_scalar(
             r#"INSERT INTO lesson_completion_reward_events (
@@ -399,8 +405,9 @@ impl GamificationService for MyGamificationService {
         .fetch_optional(&mut *tx)
         .await
         .map_err(|_| Status::internal("No se pudieron recuperar las estadísticas de recompensa"))?;
-        let (xp, streak, coins, words, sentences) = row
-            .ok_or_else(|| Status::failed_precondition("El usuario no tiene estadísticas inicializadas"))?;
+        let (xp, streak, coins, words, sentences) = row.ok_or_else(|| {
+            Status::failed_precondition("El usuario no tiene estadísticas inicializadas")
+        })?;
 
         tx.commit()
             .await

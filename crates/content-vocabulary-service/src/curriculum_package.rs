@@ -641,7 +641,9 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
             if let Some(raw_activities) = lesson.get("activities") {
                 let activities = array(raw_activities, &format!("{lesson_path}/activities"))?;
                 if activities.len() > 50 {
-                    return Err(format!("{lesson_path}/activities: no puede superar 50 actividades"));
+                    return Err(format!(
+                        "{lesson_path}/activities: no puede superar 50 actividades"
+                    ));
                 }
                 for (activity_index, raw_activity) in activities.iter().enumerate() {
                     let activity_path = format!("{lesson_path}/activities/{activity_index}");
@@ -649,23 +651,50 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
                     check_keys(
                         activity_package,
                         &activity_path,
-                        &["activity_code", "activity_version", "position", "objective_codes", "definition"],
-                        &["activity_code", "activity_version", "position", "objective_codes", "definition"],
+                        &[
+                            "activity_code",
+                            "activity_version",
+                            "position",
+                            "objective_codes",
+                            "definition",
+                        ],
+                        &[
+                            "activity_code",
+                            "activity_version",
+                            "position",
+                            "objective_codes",
+                            "definition",
+                        ],
                     )?;
-                    let activity_code = required_string(activity_package, "activity_code", &activity_path, 80, false)?;
-                    if !valid_code(activity_code) || !activity_codes.insert(activity_code.to_string()) {
-                        return Err(format!("{activity_path}/activity_code: código inválido o duplicado"));
+                    let activity_code = required_string(
+                        activity_package,
+                        "activity_code",
+                        &activity_path,
+                        80,
+                        false,
+                    )?;
+                    if !valid_code(activity_code)
+                        || !activity_codes.insert(activity_code.to_string())
+                    {
+                        return Err(format!(
+                            "{activity_path}/activity_code: código inválido o duplicado"
+                        ));
                     }
-                    let activity_version = positive_integer(activity_package, "activity_version", &activity_path)?;
+                    let activity_version =
+                        positive_integer(activity_package, "activity_version", &activity_path)?;
                     if activity_version > i64::from(i32::MAX) {
-                        return Err(format!("{activity_path}/activity_version: supera el rango INTEGER"));
+                        return Err(format!(
+                            "{activity_path}/activity_version: supera el rango INTEGER"
+                        ));
                     }
                     let position = positive_integer(activity_package, "position", &activity_path)?;
                     if !activity_positions.insert(position) {
                         return Err(format!("{activity_path}/position: posición duplicada"));
                     }
                     let objective_codes = array(
-                        activity_package.get("objective_codes").ok_or_else(|| format!("{activity_path}/objective_codes: es obligatorio"))?,
+                        activity_package.get("objective_codes").ok_or_else(|| {
+                            format!("{activity_path}/objective_codes: es obligatorio")
+                        })?,
                         &format!("{activity_path}/objective_codes"),
                     )?;
                     if objective_codes.is_empty() || objective_codes.len() > 9 {
@@ -673,20 +702,34 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
                     }
                     let mut seen_codes = HashSet::new();
                     for (index, raw_code) in objective_codes.iter().enumerate() {
-                        let code = raw_code.as_str().ok_or_else(|| format!("{activity_path}/objective_codes/{index}: debe ser texto"))?;
-                        if !valid_code(code) || !seen_codes.insert(code.to_string()) || !linked.iter().any(|linked_code| linked_code == code) {
+                        let code = raw_code.as_str().ok_or_else(|| {
+                            format!("{activity_path}/objective_codes/{index}: debe ser texto")
+                        })?;
+                        if !valid_code(code)
+                            || !seen_codes.insert(code.to_string())
+                            || !linked.iter().any(|linked_code| linked_code == code)
+                        {
                             return Err(format!("{activity_path}/objective_codes/{index}: objetivo inválido, duplicado o no asociado a la lección"));
                         }
                     }
 
-                    let raw_definition = activity_package.get("definition")
+                    let raw_definition = activity_package
+                        .get("definition")
                         .ok_or_else(|| format!("{activity_path}/definition: es obligatorio"))?;
-                    if serde_json::to_vec(raw_definition).map(|bytes| bytes.len()).unwrap_or(usize::MAX) > 512 * 1024 {
+                    if serde_json::to_vec(raw_definition)
+                        .map(|bytes| bytes.len())
+                        .unwrap_or(usize::MAX)
+                        > 512 * 1024
+                    {
                         return Err(format!("{activity_path}/definition: supera 512 KiB"));
                     }
-                    let mut definition: ActivityDefinition = serde_json::from_value(raw_definition.clone())
-                        .map_err(|_| format!("{activity_path}/definition: contrato de actividad no válido"))?;
-                    if definition.activity_code != activity_code || i64::from(definition.activity_version) != activity_version {
+                    let mut definition: ActivityDefinition =
+                        serde_json::from_value(raw_definition.clone()).map_err(|_| {
+                            format!("{activity_path}/definition: contrato de actividad no válido")
+                        })?;
+                    if definition.activity_code != activity_code
+                        || i64::from(definition.activity_version) != activity_version
+                    {
                         return Err(format!("{activity_path}/definition: activityCode/activityVersion no coinciden con el manifiesto"));
                     }
                     let expected_level = match level {
@@ -699,15 +742,23 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
                         "C2" => CefrLevel::C2,
                         _ => return Err("Nivel CEFR no soportado".to_string()),
                     };
-                    let expected_track = if track == "technology" { TrackCode::Technology } else { TrackCode::General };
-                    if definition.cefr_level != expected_level || definition.track != expected_track {
+                    let expected_track = if track == "technology" {
+                        TrackCode::Technology
+                    } else {
+                        TrackCode::General
+                    };
+                    if definition.cefr_level != expected_level || definition.track != expected_track
+                    {
                         return Err(format!("{activity_path}/definition: nivel CEFR o ruta no coincide con el paquete"));
                     }
                     // These identity links are resolved to database UUIDs inside the same import transaction.
                     definition.course_version_id = Uuid::new_v4();
                     definition.lesson_id = Uuid::new_v4();
-                    definition.objective_ids = objective_codes.iter().map(|_| Uuid::new_v4()).collect();
-                    definition.validate().map_err(|error| format!("{activity_path}/definition: {error}"))?;
+                    definition.objective_ids =
+                        objective_codes.iter().map(|_| Uuid::new_v4()).collect();
+                    definition
+                        .validate()
+                        .map_err(|error| format!("{activity_path}/definition: {error}"))?;
                 }
             }
 
@@ -1310,22 +1361,31 @@ pub async fn import_package(
                 .enumerate()
             {
                 let activity_code = activity_package["activity_code"].as_str().unwrap_or("");
-                let mut definition: ActivityDefinition = serde_json::from_value(activity_package["definition"].clone())
-                    .map_err(|_| format!("No se pudo decodificar la actividad {activity_code}"))?;
+                let mut definition: ActivityDefinition = serde_json::from_value(
+                    activity_package["definition"].clone(),
+                )
+                .map_err(|_| format!("No se pudo decodificar la actividad {activity_code}"))?;
                 let objective_codes = activity_package["objective_codes"]
                     .as_array()
                     .ok_or("activity objective_codes debe ser un arreglo")?;
                 let activity_objective_ids = objective_codes
                     .iter()
                     .map(|objective_code| {
-                        let code = objective_code.as_str().ok_or("activity objective_code inválido")?;
-                        objective_ids.get(code).copied().ok_or("Objetivo de actividad inexistente")
+                        let code = objective_code
+                            .as_str()
+                            .ok_or("activity objective_code inválido")?;
+                        objective_ids
+                            .get(code)
+                            .copied()
+                            .ok_or("Objetivo de actividad inexistente")
                     })
                     .collect::<Result<Vec<_>, &str>>()?;
                 definition.course_version_id = course_version_id;
                 definition.lesson_id = lesson_id;
                 definition.objective_ids = activity_objective_ids.clone();
-                definition.validate().map_err(|error| format!("Actividad {activity_code} inválida: {error}"))?;
+                definition
+                    .validate()
+                    .map_err(|error| format!("Actividad {activity_code} inválida: {error}"))?;
                 let activity_id = definition.activity_id;
                 let activity_version = i32::try_from(definition.activity_version)
                     .map_err(|_| format!("La versión de {activity_code} supera INTEGER"))?;
@@ -1349,7 +1409,11 @@ pub async fn import_package(
                 .bind(lesson_id)
                 .bind(activity_code)
                 .bind(activity_version)
-                .bind(activity_package["position"].as_i64().unwrap_or((activity_index + 1) as i64) as i32)
+                .bind(
+                    activity_package["position"]
+                        .as_i64()
+                        .unwrap_or((activity_index + 1) as i64) as i32,
+                )
                 .bind(&definition_json)
                 .bind(definition_digest)
                 .execute(&mut *tx)
@@ -1625,8 +1689,8 @@ mod tests {
     fn validates_a_private_activity_bound_to_a_lesson_objective() {
         let package = package_with_private_activity();
         let raw = serde_json::to_string(&package).expect("serialize activity package");
-        let (validated, sha, counts) =
-            validate_package_json(&raw).expect("private activity should satisfy the versioned contract");
+        let (validated, sha, counts) = validate_package_json(&raw)
+            .expect("private activity should satisfy the versioned contract");
 
         assert_eq!(sha.len(), 64);
         assert_eq!(counts.lessons, 2);

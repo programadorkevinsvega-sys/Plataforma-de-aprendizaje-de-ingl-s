@@ -2,12 +2,12 @@ use crate::domain::EvaluatorEngine;
 use crate::learning_activity;
 use proto::ai_evaluator::ai_evaluator_service_server::AiEvaluatorService;
 use proto::ai_evaluator::{
-    DetectedWeakness, DrillExercise, EvaluateExamAnswerRequest, EvaluateExamAnswerResponse,
     BeginLessonActivityAttemptRequest, BeginLessonActivityAttemptResponse,
-    CommitLessonActivityAttemptRequest, CommitLessonActivityAttemptResponse,
+    CommitLessonActivityAttemptRequest, CommitLessonActivityAttemptResponse, DetectedWeakness,
+    DrillExercise, EvaluateExamAnswerRequest, EvaluateExamAnswerResponse,
     EvaluateLearningActivityRequest, EvaluateLearningActivityResponse,
-    GetLessonSessionRequest, GetLessonSessionResponse, StartLessonSessionRequest,
-    StartLessonSessionResponse, GenerateTargetedDrillRequest, GenerateTargetedDrillResponse,
+    GenerateTargetedDrillRequest, GenerateTargetedDrillResponse, GetLessonSessionRequest,
+    GetLessonSessionResponse, StartLessonSessionRequest, StartLessonSessionResponse,
 };
 use sqlx::PgPool;
 use tonic::{Request, Response, Status};
@@ -304,14 +304,13 @@ impl AiEvaluatorService for MyAIEvaluatorService {
             .map_err(|_| Status::invalid_argument("lesson_id debe ser un UUID válido"))?;
         let idempotency_key = Uuid::parse_str(&req.idempotency_key)
             .map_err(|_| Status::invalid_argument("idempotency_key debe ser un UUID válido"))?;
-        let (session, resumed_existing) =
-            crate::learning_sessions::start_lesson_session(
-                &self.pool,
-                user_id,
-                lesson_id,
-                idempotency_key,
-            )
-            .await?;
+        let (session, resumed_existing) = crate::learning_sessions::start_lesson_session(
+            &self.pool,
+            user_id,
+            lesson_id,
+            idempotency_key,
+        )
+        .await?;
         Ok(Response::new(StartLessonSessionResponse {
             session: Some(session),
             resumed_existing,

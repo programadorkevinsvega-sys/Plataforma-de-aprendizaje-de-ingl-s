@@ -68,7 +68,10 @@ fn rate_limit_error() -> (StatusCode, Json<SessionErrorDto>) {
     )
 }
 
-fn session_error(error: tonic::Status, operation: &'static str) -> (StatusCode, Json<SessionErrorDto>) {
+fn session_error(
+    error: tonic::Status,
+    operation: &'static str,
+) -> (StatusCode, Json<SessionErrorDto>) {
     let (status, code, message) = match error.code() {
         tonic::Code::InvalidArgument => (
             StatusCode::BAD_REQUEST,
@@ -127,16 +130,13 @@ fn session_error(error: tonic::Status, operation: &'static str) -> (StatusCode, 
         ),
     };
     tracing::warn!(operation, grpc_code = ?error.code(), "Learning session request failed");
-    (
-        status,
-        Json(SessionErrorDto {
-            code,
-            message,
-        }),
-    )
+    (status, Json(SessionErrorDto { code, message }))
 }
 
-fn parse_json_field(raw: &str, field: &'static str) -> Result<Option<Value>, (StatusCode, Json<SessionErrorDto>)> {
+fn parse_json_field(
+    raw: &str,
+    field: &'static str,
+) -> Result<Option<Value>, (StatusCode, Json<SessionErrorDto>)> {
     if raw.is_empty() {
         return Ok(None);
     }
@@ -242,7 +242,12 @@ pub async fn start_lesson_session_handler(
                 }),
             )
         })?;
-    if !allow_request(&user_id, "lesson-session-start", 10, Duration::from_secs(60)) {
+    if !allow_request(
+        &user_id,
+        "lesson-session-start",
+        10,
+        Duration::from_secs(60),
+    ) {
         return Err(rate_limit_error());
     }
     let mut request = tonic::Request::new(StartLessonSessionRequest {
@@ -250,16 +255,15 @@ pub async fn start_lesson_session_handler(
         lesson_id,
         idempotency_key: body.idempotency_key,
     });
-    attach_bearer_metadata(&headers, &mut request)
-        .map_err(|_| {
-            (
-                StatusCode::UNAUTHORIZED,
-                Json(SessionErrorDto {
-                    code: "AUTHENTICATION_REQUIRED",
-                    message: "La sesión de autenticación no es válida.",
-                }),
-            )
-        })?;
+    attach_bearer_metadata(&headers, &mut request).map_err(|_| {
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(SessionErrorDto {
+                code: "AUTHENTICATION_REQUIRED",
+                message: "La sesión de autenticación no es válida.",
+            }),
+        )
+    })?;
 
     let mut client = state.ai_client.clone();
     let response = client
@@ -308,23 +312,27 @@ pub async fn get_lesson_session_handler(
                 }),
             )
         })?;
-    if !allow_request(&user_id, "lesson-session-read-recover", 30, Duration::from_secs(60)) {
+    if !allow_request(
+        &user_id,
+        "lesson-session-read-recover",
+        30,
+        Duration::from_secs(60),
+    ) {
         return Err(rate_limit_error());
     }
     let mut request = tonic::Request::new(GetLessonSessionRequest {
         user_id: user_id.clone(),
         session_id: session_id.clone(),
     });
-    attach_bearer_metadata(&headers, &mut request)
-        .map_err(|_| {
-            (
-                StatusCode::UNAUTHORIZED,
-                Json(SessionErrorDto {
-                    code: "AUTHENTICATION_REQUIRED",
-                    message: "La sesión de autenticación no es válida.",
-                }),
-            )
-        })?;
+    attach_bearer_metadata(&headers, &mut request).map_err(|_| {
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(SessionErrorDto {
+                code: "AUTHENTICATION_REQUIRED",
+                message: "La sesión de autenticación no es válida.",
+            }),
+        )
+    })?;
     let mut client = state.ai_client.clone();
     let response = client
         .get_lesson_session(request)
@@ -342,12 +350,15 @@ pub async fn get_lesson_session_handler(
     })?;
     let mut recovered_result: Option<Value> = None;
     if !snapshot.pending_reservation_id.is_empty() {
-        if snapshot.activity_definition_json.is_empty() || snapshot.pending_submission_json.is_empty() {
+        if snapshot.activity_definition_json.is_empty()
+            || snapshot.pending_submission_json.is_empty()
+        {
             return Err((
                 StatusCode::BAD_GATEWAY,
                 Json(SessionErrorDto {
                     code: "LEARNING_SESSION_RECOVERY_INVALID",
-                    message: "El intento reservado no contiene la evidencia necesaria para recuperarlo.",
+                    message:
+                        "El intento reservado no contiene la evidencia necesaria para recuperarlo.",
                 }),
             ));
         }
@@ -391,16 +402,18 @@ pub async fn get_lesson_session_handler(
             .await
             .map_err(|error| session_error(error, "recover_pending_lesson_commit"))?
             .into_inner();
-        recovered_result = Some(serde_json::from_str(&committed.result_json).map_err(|error| {
-            tracing::error!(%error, "Recovered lesson result is not valid JSON");
-            (
-                StatusCode::BAD_GATEWAY,
-                Json(SessionErrorDto {
-                    code: "LEARNING_SESSION_INVALID_RESULT",
-                    message: "El servicio de evaluación devolvió un resultado inválido.",
-                }),
-            )
-        })?);
+        recovered_result = Some(
+            serde_json::from_str(&committed.result_json).map_err(|error| {
+                tracing::error!(%error, "Recovered lesson result is not valid JSON");
+                (
+                    StatusCode::BAD_GATEWAY,
+                    Json(SessionErrorDto {
+                        code: "LEARNING_SESSION_INVALID_RESULT",
+                        message: "El servicio de evaluación devolvió un resultado inválido.",
+                    }),
+                )
+            })?,
+        );
         snapshot = committed.session.ok_or_else(|| {
             (
                 StatusCode::BAD_GATEWAY,
@@ -417,18 +430,10 @@ pub async fn get_lesson_session_handler(
     let recovered_during_get = recovered_result.is_some();
     let last_result = match recovered_result {
         Some(result) => result,
-        None => parse_json_field(&snapshot.last_result_json, "last_result")?
-            .unwrap_or(Value::Null),
+        None => parse_json_field(&snapshot.last_result_json, "last_result")?.unwrap_or(Value::Null),
     };
     let reward_pending = if session_status == "completed" {
-        record_lesson_reward(
-            &mut state,
-            &headers,
-            &user_id,
-            &session_id,
-            &lesson_id,
-        )
-        .await
+        record_lesson_reward(&mut state, &headers, &user_id, &session_id, &lesson_id).await
     } else {
         false
     };
@@ -456,16 +461,15 @@ pub async fn submit_lesson_activity_handler(
             }),
         ));
     }
-    let submission_json = serde_json::to_string(&submission)
-        .map_err(|_| {
-            (
-                StatusCode::BAD_REQUEST,
-                Json(SessionErrorDto {
-                    code: "LEARNING_SESSION_SUBMISSION_INVALID",
-                    message: "No se pudo interpretar la respuesta enviada.",
-                }),
-            )
-        })?;
+    let submission_json = serde_json::to_string(&submission).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(SessionErrorDto {
+                code: "LEARNING_SESSION_SUBMISSION_INVALID",
+                message: "No se pudo interpretar la respuesta enviada.",
+            }),
+        )
+    })?;
     if submission_json.len() > 256 * 1024 {
         return Err((
             StatusCode::PAYLOAD_TOO_LARGE,
@@ -486,7 +490,12 @@ pub async fn submit_lesson_activity_handler(
                 }),
             )
         })?;
-    if !allow_request(&user_id, "lesson-session-submit", 20, Duration::from_secs(60)) {
+    if !allow_request(
+        &user_id,
+        "lesson-session-submit",
+        20,
+        Duration::from_secs(60),
+    ) {
         return Err(rate_limit_error());
     }
 
@@ -496,16 +505,15 @@ pub async fn submit_lesson_activity_handler(
         session_id: session_id.clone(),
         submission_json: submission_json.clone(),
     });
-    attach_bearer_metadata(&headers, &mut begin_request)
-        .map_err(|_| {
-            (
-                StatusCode::UNAUTHORIZED,
-                Json(SessionErrorDto {
-                    code: "AUTHENTICATION_REQUIRED",
-                    message: "La sesión de autenticación no es válida.",
-                }),
-            )
-        })?;
+    attach_bearer_metadata(&headers, &mut begin_request).map_err(|_| {
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(SessionErrorDto {
+                code: "AUTHENTICATION_REQUIRED",
+                message: "La sesión de autenticación no es válida.",
+            }),
+        )
+    })?;
     let mut client = state.ai_client.clone();
     let reservation = client
         .begin_lesson_activity_attempt(begin_request)
@@ -522,16 +530,15 @@ pub async fn submit_lesson_activity_handler(
             activity_definition_json: reservation.activity_definition_json,
             submission_json,
         });
-        attach_bearer_metadata(&headers, &mut evaluation_request)
-            .map_err(|_| {
-                (
-                    StatusCode::UNAUTHORIZED,
-                    Json(SessionErrorDto {
-                        code: "AUTHENTICATION_REQUIRED",
-                        message: "La sesión de autenticación no es válida.",
-                    }),
-                )
-            })?;
+        attach_bearer_metadata(&headers, &mut evaluation_request).map_err(|_| {
+            (
+                StatusCode::UNAUTHORIZED,
+                Json(SessionErrorDto {
+                    code: "AUTHENTICATION_REQUIRED",
+                    message: "La sesión de autenticación no es válida.",
+                }),
+            )
+        })?;
         let mut evaluator = state.ai_client.clone();
         let evaluation = evaluator
             .evaluate_learning_activity(evaluation_request)
@@ -548,16 +555,15 @@ pub async fn submit_lesson_activity_handler(
         session_id: session_id.clone(),
         reservation_id: reservation.reservation_id,
     });
-    attach_bearer_metadata(&headers, &mut commit_request)
-        .map_err(|_| {
-            (
-                StatusCode::UNAUTHORIZED,
-                Json(SessionErrorDto {
-                    code: "AUTHENTICATION_REQUIRED",
-                    message: "La sesión de autenticación no es válida.",
-                }),
-            )
-        })?;
+    attach_bearer_metadata(&headers, &mut commit_request).map_err(|_| {
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(SessionErrorDto {
+                code: "AUTHENTICATION_REQUIRED",
+                message: "La sesión de autenticación no es válida.",
+            }),
+        )
+    })?;
     let mut client = state.ai_client.clone();
     let committed = client
         .commit_lesson_activity_attempt(commit_request)
@@ -632,11 +638,13 @@ mod tests {
                     "options": [{"optionId":"00000000-0000-4000-8000-000000000005","text":"Hello"}],
                     "allowMultiple": false
                 }
-            }).to_string(),
+            })
+            .to_string(),
             activity_definition_json: json!({
                 "correctOptionIds": ["00000000-0000-4000-8000-000000000005"],
                 "evaluation": {"kind":"deterministic","maxPoints":1}
-            }).to_string(),
+            })
+            .to_string(),
             last_result_json: String::new(),
             completed_at: String::new(),
             remaining_attempts: 3,
