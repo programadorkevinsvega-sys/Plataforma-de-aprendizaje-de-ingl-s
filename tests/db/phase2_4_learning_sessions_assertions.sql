@@ -130,12 +130,19 @@ DECLARE
     session_id UUID;
     reservation_id UUID;
     assessment_attempt_id UUID;
-    objective_id UUID;
+    v_user_one UUID;
+    v_activity_id UUID;
+    v_course_version_id UUID;
+    v_lesson_id UUID;
+    v_session_id UUID;
+    v_reservation_id UUID;
+    v_assessment_attempt_id UUID;
+    v_objective_id UUID;
 BEGIN
     SELECT ids.user_one, ids.activity_id, ids.course_version_id, ids.lesson_id,
            ids.session_id, ids.reservation_id, ids.assessment_attempt_id, ids.objective_id
-      INTO user_one, activity_id, course_version_id, lesson_id,
-           session_id, reservation_id, assessment_attempt_id, objective_id
+      INTO v_user_one, v_activity_id, v_course_version_id, v_lesson_id,
+           v_session_id, v_reservation_id, v_assessment_attempt_id, v_objective_id
       FROM phase24_session_ids ids;
 
     FOREACH table_name IN ARRAY ARRAY[
@@ -191,9 +198,9 @@ BEGIN
 
     -- Published private definitions cannot be mutated in place.
     BEGIN
-        UPDATE curriculum_lesson_activities
+        UPDATE curriculum_lesson_activities AS activity
            SET definition_sha256 = repeat('b', 64)
-         WHERE activity_id = activity_id;
+         WHERE activity.activity_id = v_activity_id;
         RAISE EXCEPTION 'published activity definition update was accepted';
     EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
     END;
@@ -202,14 +209,14 @@ BEGIN
     UPDATE lesson_session_activity_attempts
        SET state = 'evaluated',
            result_json = '{"state":"evaluated"}'::JSONB,
-           assessment_attempt_id = assessment_attempt_id,
+           assessment_attempt_id = v_assessment_attempt_id,
            completed_at = CURRENT_TIMESTAMP
-     WHERE reservation_id = reservation_id;
+     WHERE reservation_id = v_reservation_id;
 
     BEGIN
-        UPDATE lesson_session_activity_attempts
+        UPDATE lesson_session_activity_attempts AS attempt
            SET result_json = '{"state":"changed"}'::JSONB
-         WHERE reservation_id = reservation_id;
+         WHERE attempt.reservation_id = v_reservation_id;
         RAISE EXCEPTION 'final lesson activity attempt could be modified';
     EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
     END;
@@ -218,19 +225,32 @@ BEGIN
         user_id, session_id, assessment_attempt_id, activity_id, course_version_id,
         lesson_id, learning_objective_id, normalized_score
     ) VALUES (
-        user_one, session_id, assessment_attempt_id, activity_id, course_version_id,
-        lesson_id, objective_id, 0.95
+        v_user_one, v_session_id, v_assessment_attempt_id, v_activity_id, v_course_version_id,
+        v_lesson_id, v_objective_id, 0.95
     );
 
     BEGIN
-        UPDATE activity_objective_evidence
+        UPDATE activity_objective_evidence AS evidence
            SET normalized_score = 0.1
-         WHERE assessment_attempt_id = assessment_attempt_id;
+         WHERE evidence.assessment_attempt_id = v_assessment_attempt_id;
         RAISE EXCEPTION 'objective evidence is mutable';
     EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
     END;
+
+    INSERT INTO lesson_completion_reward_events (
+        user_id, lesson_id, course_version_id, source_session_id
+    ) VALUES (
+        v_user_one, v_lesson_id, v_course_version_id, v_session_id
+    );
+    BEGIN
+        UPDATE lesson_completion_reward_events
+           SET xp_amount = 21
+         WHERE source_session_id = v_session_id;
+        RAISE EXCEPTION 'lesson completion reward event is mutable';
+    EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
+    END;
 END
-$$;
+$;
 
 -- Verify that a non-owner role sees only its own session, even with FORCE RLS.
 CREATE ROLE phase24_rls_probe NOLOGIN NOSUPERUSER NOBYPASSRLS;
@@ -261,7 +281,7 @@ DO $$
 DECLARE
     visible_count INTEGER;
     other_user UUID;
-    session_id UUID := uuid_generate_v4();
+    new_session_id UUID := uuid_generate_v4();
 BEGIN
     SELECT user_two INTO other_user FROM phase24_session_ids;
     SELECT COUNT(*) INTO visible_count
@@ -283,7 +303,7 @@ BEGIN
             id, user_id, enrollment_id, course_version_id, lesson_id,
             start_idempotency_key, total_activity_count
         )
-        SELECT session_id, user_two, enrollment_id, course_version_id, lesson_id,
+        SELECT new_session_id, other_user, enrollment_id, course_version_id, lesson_id,
                uuid_generate_v4(), 1
           FROM phase24_session_ids;
         RAISE EXCEPTION 'RLS accepted a lesson session for another learner';
