@@ -347,7 +347,7 @@ export async function runCurriculumAdminAcceptance({
   const studentCatalog = await requestJson(
     fetchImpl,
     baseUrl,
-    editorToken,
+    nonEditorToken,
     "GET",
     `/api/v1/curriculum/courses?${studentCatalogQuery}`,
   );
@@ -361,7 +361,7 @@ export async function runCurriculumAdminAcceptance({
   const publishedDetail = await requestJson(
     fetchImpl,
     baseUrl,
-    editorToken,
+    nonEditorToken,
     "GET",
     detailRoute,
   );
