@@ -74,6 +74,49 @@ INSERT INTO learning_objective_skills (
 SELECT course_version_id, objective_id, 'vocabulary', TRUE
   FROM phase24_session_ids;
 
+INSERT INTO curriculum_lesson_activities (
+    activity_id, course_version_id, lesson_id, activity_code, activity_version,
+    position, definition_json, definition_sha256
+)
+SELECT activity_id, course_version_id, lesson_id, 'phase24-test-activity', activity_version,
+       1,
+       jsonb_build_object(
+           'activityId', activity_id::TEXT,
+           'activityCode', 'phase24-test-activity',
+           'activityVersion', activity_version,
+           'courseVersionId', course_version_id::TEXT,
+           'lessonId', lesson_id::TEXT
+       ),
+       repeat('a', 64)
+  FROM phase24_session_ids;
+
+INSERT INTO lesson_activity_objectives (
+    activity_id, course_version_id, lesson_id, learning_objective_id, position
+)
+SELECT activity_id, course_version_id, lesson_id, objective_id, 1
+  FROM phase24_session_ids;
+
+UPDATE course_versions version
+   SET status = 'review',
+       submitted_at = CURRENT_TIMESTAMP
+  FROM phase24_session_ids ids
+ WHERE version.id = ids.course_version_id;
+
+INSERT INTO course_version_reviews (course_version_id, reviewer_id, decision, comments)
+SELECT course_version_id, editor_user, 'approved', 'Phase 2.4 SQL test fixture approval'
+  FROM phase24_session_ids;
+
+UPDATE course_versions version
+   SET status = 'published',
+       reviewed_by = ids.editor_user,
+       published_at = CURRENT_TIMESTAMP
+  FROM phase24_session_ids ids
+ WHERE version.id = ids.course_version_id;
+
+INSERT INTO course_enrollments (id, user_id, course_version_id, status)
+SELECT enrollment_id, user_one, course_version_id, 'active'
+  FROM phase24_session_ids;
+
 INSERT INTO lesson_sessions (
     id, user_id, enrollment_id, course_version_id, lesson_id,
     start_idempotency_key, status, current_activity_position, total_activity_count
@@ -273,7 +316,7 @@ BEGIN
 END
 $$;
 GRANT SELECT, INSERT, UPDATE ON lesson_sessions TO phase24_rls_probe;
-GRANT SELECT ON course_enrollments TO phase24_rls_probe;
+GRANT SELECT ON course_enrollments, course_versions TO phase24_rls_probe;
 GRANT SELECT ON curriculum_lesson_activities, lesson_activity_objectives TO phase24_rls_probe;
 GRANT SELECT ON phase24_session_ids TO phase24_rls_probe;
 SET LOCAL ROLE phase24_rls_probe;
@@ -283,7 +326,7 @@ SELECT set_config(
     TRUE
 );
 
-DO $
+DO $$
 DECLARE
     visible_count INTEGER;
     visible_activity_count INTEGER;
@@ -296,6 +339,15 @@ BEGIN
      WHERE user_id = (SELECT user_one FROM phase24_session_ids);
     IF visible_count <> 1 THEN
         RAISE EXCEPTION 'RLS should expose the current learner own session';
+    END IF;
+
+    SELECT COUNT(*) INTO visible_activity_count FROM curriculum_lesson_activities;
+    IF visible_activity_count <> 1 THEN
+        RAISE EXCEPTION 'An enrolled student must see exactly the published activities for the enrolled version';
+    END IF;
+    SELECT COUNT(*) INTO visible_activity_count FROM lesson_activity_objectives;
+    IF visible_activity_count <> 1 THEN
+        RAISE EXCEPTION 'An enrolled student must see the objective mappings for the published activity';
     END IF;
 
     SELECT COUNT(*) INTO visible_count
