@@ -70,6 +70,28 @@ Para ejecutar: abre **Actions → Curriculum staging admin acceptance → Run wo
 
 El workflow no despliega staging. Primero debe existir un BFF/Next.js desplegado con las migraciones aplicadas y una base de datos independiente de producción. Si ese entorno todavía no existe, no ejecutes el workflow ni sustituyas su URL por la de producción.
 
+## Aceptación en producción cuando no existe staging
+
+No se debe ejecutar `acceptance-smoke.mjs` contra producción: ese flujo crea, edita, aprueba y publica un curso de prueba que permanece en el catálogo, y no dispone de una limpieza segura posterior. Las versiones publicadas son inmutables y las relaciones curriculares usan restricciones `RESTRICT`.
+
+En ausencia de staging, se dispone del workflow manual **Curriculum production read-only acceptance** (`.github/workflows/curriculum-production-readonly-acceptance.yml`). Se ejecuta contra el origen oficial de producción y realiza únicamente:
+- Login real de la cuenta editorial y la cuenta estudiante.
+- Comprobación de `403` para el usuario sin permiso editorial.
+- Lectura paginada de la cola editorial con la cuenta editora.
+- Lectura del catálogo publicado y de los primeros diez detalles con la cuenta estudiante.
+- Validación de que el catálogo no entrega versiones que no estén publicadas.
+
+El workflow no importa paquetes, no guarda borradores, no tramita revisiones, no publica ni archiva cursos. Las únicas solicitudes `POST` son los dos logins normales; las comprobaciones de dominio curricular son `GET`.
+
+Configura el GitHub Environment `production`:
+- Variables `CURRICULUM_EDITOR_EMAIL` y `CURRICULUM_NON_EDITOR_EMAIL`.
+- Secrets `CURRICULUM_EDITOR_PASSWORD` y `CURRICULUM_NON_EDITOR_PASSWORD`.
+- Reutiliza `NEXT_PUBLIC_BFF_URL` como origen del BFF. El script solo acepta `https://app-ingles.jnmtortas.com`.
+
+Para ejecutar: **Actions → Curriculum production read-only acceptance → Run workflow**, desde `main`, marcando `confirm_production_readonly=true`. Deben usarse dos cuentas reales distintas; solo la primera debe pertenecer a `content_editors`.
+
+Esta prueba confirma autenticación, autorización, lectura de la administración y catálogo real, pero deliberadamente **no** certifica la mutación completa draft→review→approved→published en producción. Ese recorrido de escritura permanece cubierto por PostgreSQL/CI y por Playwright con BFF simulado. El recorrido visual manual en producción debe limitarse a navegar/consultar con las dos cuentas, sin editar ni publicar contenido existente.
+
 ## E2E visual automatizado en Chromium
 
 La CI construye el frontend de producción, levanta `next start` y ejecuta Playwright sobre un navegador Chromium real. La suite `frontend/tests/e2e/curriculum-admin.spec.mjs` recorre:
