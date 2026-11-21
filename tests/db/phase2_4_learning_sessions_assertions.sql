@@ -278,6 +278,7 @@ BEGIN
 END
 $$;
 GRANT SELECT, INSERT, UPDATE ON lesson_sessions TO phase24_rls_probe;
+GRANT SELECT ON course_enrollments TO phase24_rls_probe;
 GRANT SELECT ON curriculum_lesson_activities, lesson_activity_objectives TO phase24_rls_probe;
 GRANT SELECT ON phase24_session_ids TO phase24_rls_probe;
 SET LOCAL ROLE phase24_rls_probe;
@@ -322,6 +323,14 @@ BEGIN
     IF visible_activity_count <> 0 THEN
         RAISE EXCEPTION 'RLS exposed activity/objective mappings without an active enrollment';
     END IF;
+
+    -- Restore the first student's transaction identity before attempting the
+    -- cross-user session insert; RLS must reject that forged ownership.
+    PERFORM set_config(
+        'app.current_user_id',
+        (SELECT user_one::TEXT FROM phase24_session_ids),
+        TRUE
+    );
 
     BEGIN
         INSERT INTO lesson_sessions (
