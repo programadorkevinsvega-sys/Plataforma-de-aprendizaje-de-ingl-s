@@ -152,13 +152,6 @@ DECLARE
     rls_enabled BOOLEAN;
     rls_forced BOOLEAN;
     required_policy_count INTEGER;
-    user_one UUID;
-    activity_id UUID;
-    course_version_id UUID;
-    lesson_id UUID;
-    session_id UUID;
-    reservation_id UUID;
-    assessment_attempt_id UUID;
     v_user_one UUID;
     v_activity_id UUID;
     v_course_version_id UUID;
