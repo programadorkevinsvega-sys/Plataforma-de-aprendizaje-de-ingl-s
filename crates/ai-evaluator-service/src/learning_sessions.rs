@@ -17,6 +17,35 @@ use uuid::Uuid;
 const MAX_SUBMISSION_BYTES: usize = 256 * 1024;
 const MAX_SESSION_ACTIVE_DURATION_MS: i64 = 12 * 60 * 60 * 1000;
 
+type SessionResult<T> = Result<T, Box<Status>>;
+
+#[derive(sqlx::FromRow)]
+struct LessonSessionRow {
+    lesson_id: Uuid,
+    course_version_id: Uuid,
+    id: Uuid,
+    status: String,
+    current_activity_position: i32,
+    total_activity_count: i32,
+    active_duration_ms: i64,
+    completed_at: String,
+    lesson_title: String,
+}
+
+#[derive(sqlx::FromRow)]
+struct LessonActivityReservationRow {
+    state: String,
+    activity_id: Uuid,
+    course_version_id: Uuid,
+    lesson_id: Uuid,
+    assessment_attempt_id: Option<Uuid>,
+    current_activity_position: i32,
+    attempt_number: i32,
+    submission_json: Value,
+    result_json: Option<Value>,
+    idempotency_key: Uuid,
+}
+
 #[derive(Debug, Clone)]
 pub struct BeginAttempt {
     pub reservation_id: String,
@@ -37,7 +66,7 @@ fn db_unavailable(error: impl std::fmt::Display, operation: &'static str) -> Sta
     Status::unavailable("El servicio de sesiones no está disponible temporalmente")
 }
 
-async fn set_user(tx: &mut Transaction<'_, Postgres>, user_id: Uuid) -> Result<(), Status> {
+async fn set_user(tx: &mut Transaction<'_, Postgres>, user_id: Uuid) -> SessionResult<()> {
     common::set_current_user_id(tx, user_id)
         .await
         .map_err(|error| {
@@ -51,7 +80,7 @@ fn decode_activity(
     expected_sha256: &str,
     course_version_id: Uuid,
     lesson_id: Uuid,
-) -> Result<ActivityDefinition, Status> {
+) -> SessionResult<ActivityDefinition> {
     let canonical_bytes = serde_json::to_vec(&raw).map_err(|error| {
         tracing::error!(%error, "Published activity JSON could not be normalized");
         Status::data_loss("No se pudo normalizar una actividad publicada")
@@ -66,9 +95,9 @@ fn decode_activity(
             expected_sha256 = %expected_sha256.trim(),
             "Published activity content digest mismatch"
         );
-        return Err(Status::data_loss(
+        return Err(Box::new(Status::data_loss(
             "La huella de integridad de la actividad no coincide",
-        ));
+        )));
     }
 
     let activity: ActivityDefinition = serde_json::from_value(raw).map_err(|error| {
@@ -86,9 +115,9 @@ fn decode_activity(
             lesson_id = %lesson_id,
             "Published lesson activity has inconsistent curriculum identity"
         );
-        return Err(Status::data_loss(
+        return Err(Box::new(Status::data_loss(
             "La actividad no pertenece a esta versión de lección",
-        ));
+        )));
     }
     Ok(activity)
 }
@@ -97,8 +126,8 @@ async fn session_snapshot_in_transaction(
     tx: &mut Transaction<'_, Postgres>,
     user_id: Uuid,
     session_id: Uuid,
-) -> Result<LessonSessionSnapshot, Status> {
-    let row: Option<(Uuid, Uuid, Uuid, String, i32, i32, i64, String, String)> = sqlx::query_as(
+) -> SessionResult<LessonSessionSnapshot> {
+    let row: Option<LessonSessionRow> = sqlx::query_as::<_, LessonSessionRow>(
         r#"SELECT session.lesson_id,
                   session.course_version_id,
                   session.id,
@@ -107,7 +136,7 @@ async fn session_snapshot_in_transaction(
                   session.total_activity_count,
                   session.active_duration_ms,
                   COALESCE(session.completed_at::TEXT, ''),
-                  lesson.title
+                  lesson.title AS lesson_title
              FROM lesson_sessions session
              JOIN course_lessons lesson
                ON lesson.id = session.lesson_id
@@ -120,17 +149,18 @@ async fn session_snapshot_in_transaction(
     .fetch_optional(&mut **tx)
     .await
     .map_err(|error| db_unavailable(error, "load_session_snapshot"))?;
-    let (
+    let row = row.ok_or_else(|| Status::not_found("No se encontró la sesión de aprendizaje"))?;
+    let LessonSessionRow {
         lesson_id,
         course_version_id,
         id,
         status,
-        position,
-        total,
+        current_activity_position: position,
+        total_activity_count: total,
         active_duration_ms,
         completed_at,
         lesson_title,
-    ) = row.ok_or_else(|| Status::not_found("No se encontró la sesión de aprendizaje"))?;
+    } = row;
 
     let mut student_activity_json = String::new();
     let mut activity_definition_json = String::new();
@@ -243,11 +273,11 @@ pub async fn start_lesson_session(
     user_id: Uuid,
     lesson_id: Uuid,
     idempotency_key: Uuid,
-) -> Result<(LessonSessionSnapshot, bool), Status> {
+) -> SessionResult<(LessonSessionSnapshot, bool)> {
     if lesson_id.is_nil() || idempotency_key.is_nil() {
-        return Err(Status::invalid_argument(
+        return Err(Box::new(Status::invalid_argument(
             "lessonId e idempotencyKey deben ser UUID no nulos",
-        ));
+        )));
     }
 
     let mut tx = pool
@@ -272,7 +302,7 @@ pub async fn start_lesson_session(
     .map_err(|error| db_unavailable(error, "resolve_start_idempotency"))?
     {
         if existing_lesson_id != lesson_id {
-            return Err(Status::already_exists("La clave de inicio ya se utilizó para otra lección"));
+            return Err(Box::new(Status::already_exists("La clave de inicio ya se utilizó para otra lección")));
         }
         let snapshot = session_snapshot_in_transaction(&mut tx, user_id, existing_session_id).await?;
         tx.commit().await.map_err(|error| db_unavailable(error, "commit_start_replay"))?;
@@ -351,9 +381,9 @@ pub async fn start_lesson_session(
     .await
     .map_err(|error| db_unavailable(error, "check_lesson_prerequisites"))?;
     if blocked_prerequisite {
-        return Err(Status::failed_precondition(
+        return Err(Box::new(Status::failed_precondition(
             "Debes completar los prerrequisitos de esta lección antes de iniciarla",
-        ));
+        )));
     }
 
     let total_activities: i64 = sqlx::query_scalar(
@@ -365,9 +395,9 @@ pub async fn start_lesson_session(
     .await
     .map_err(|error| db_unavailable(error, "count_published_activities"))?;
     if total_activities <= 0 || total_activities > 200 {
-        return Err(Status::failed_precondition(
+        return Err(Box::new(Status::failed_precondition(
             "La lección todavía no tiene actividades publicadas disponibles",
-        ));
+        )));
     }
 
     let session_id: Option<Uuid> = sqlx::query_scalar(
@@ -403,9 +433,9 @@ pub async fn start_lesson_session(
         let (id, existing_lesson_id) = existing
             .ok_or_else(|| Status::internal("No se pudo resolver el inicio idempotente"))?;
         if existing_lesson_id != lesson_id {
-            return Err(Status::already_exists(
+            return Err(Box::new(Status::already_exists(
                 "La clave de inicio ya se utilizó para otra lección",
-            ));
+            )));
         }
         (id, true)
     };
@@ -423,7 +453,7 @@ pub async fn get_lesson_session(
     session_id: Uuid,
 ) -> Result<LessonSessionSnapshot, Status> {
     if session_id.is_nil() {
-        return Err(Status::invalid_argument("sessionId no puede ser nulo"));
+        return Err(Box::new(Status::invalid_argument("sessionId no puede ser nulo")));
     }
     let mut tx = pool
         .begin()
@@ -442,16 +472,16 @@ pub async fn begin_lesson_activity_attempt(
     user_id: Uuid,
     session_id: Uuid,
     submission_raw: &str,
-) -> Result<BeginAttempt, Status> {
+) -> SessionResult<BeginAttempt> {
     if session_id.is_nil() || submission_raw.len() > MAX_SUBMISSION_BYTES {
-        return Err(Status::resource_exhausted(
+        return Err(Box::new(Status::resource_exhausted(
             "La sesión o el envío supera los límites permitidos",
-        ));
+        )));
     }
     let submission: ActivitySubmission = serde_json::from_str(submission_raw)
         .map_err(|_| Status::invalid_argument("El envío de actividad no contiene JSON válido"))?;
     if submission.idempotency_key.is_nil() {
-        return Err(Status::invalid_argument("idempotencyKey no puede ser nula"));
+        return Err(Box::new(Status::invalid_argument("idempotencyKey no puede ser nula")));
     }
     let submission_json = serde_json::to_value(&submission)
         .map_err(|_| Status::internal("No se pudo normalizar el envío"))?;
@@ -497,9 +527,9 @@ pub async fn begin_lesson_activity_attempt(
     .map_err(|error| db_unavailable(error, "resolve_attempt_idempotency"))?
     {
         if existing_session_id != session_id || existing_submission != submission_json {
-            return Err(Status::already_exists(
+            return Err(Box::new(Status::already_exists(
                 "La clave idempotente ya se utilizó con otro envío",
-            ));
+            )));
         }
         let existing_definition: (Value, String) = sqlx::query_as(
             r#"SELECT definition_json, definition_sha256
@@ -548,9 +578,9 @@ pub async fn begin_lesson_activity_attempt(
     }
 
     if session_status != "in_progress" {
-        return Err(Status::failed_precondition(
+        return Err(Box::new(Status::failed_precondition(
             "La sesión ya no admite nuevas respuestas",
-        ));
+        )));
     }
 
     let current_activity: Option<(Value, String)> = sqlx::query_as(
@@ -590,9 +620,9 @@ pub async fn begin_lesson_activity_attempt(
     // object. The current repository has no such upload ledger/object store yet;
     // reject client-invented UUIDs rather than recording unauditable evidence.
     if activity.modality == common::activity_contract::ActivityModality::Spoken {
-        return Err(Status::failed_precondition(
+        return Err(Box::new(Status::failed_precondition(
             "La carga segura de evidencia de audio todavía no está habilitada para esta actividad",
-        ));
+        )));
     }
 
     let attempts: i64 = sqlx::query_scalar(
@@ -604,9 +634,9 @@ pub async fn begin_lesson_activity_attempt(
     .await
     .map_err(|error| db_unavailable(error, "count_session_attempts"))?;
     if attempts >= i64::from(activity.limits.max_attempts) {
-        return Err(Status::resource_exhausted(
+        return Err(Box::new(Status::resource_exhausted(
             "Se alcanzó el máximo de intentos de esta actividad",
-        ));
+        )));
     }
 
     if let Some(time_limit_seconds) = activity.limits.time_limit_seconds {
@@ -623,9 +653,9 @@ pub async fn begin_lesson_activity_attempt(
         .await
         .map_err(|error| db_unavailable(error, "check_activity_time_limit"))?;
         if expired {
-            return Err(Status::deadline_exceeded(
+            return Err(Box::new(Status::deadline_exceeded(
                 "Se agotó el tiempo de esta actividad",
-            ));
+            )));
         }
     }
 
@@ -683,11 +713,11 @@ pub async fn commit_lesson_activity_attempt(
     user_id: Uuid,
     session_id: Uuid,
     reservation_id: Uuid,
-) -> Result<CommitAttempt, Status> {
+) -> SessionResult<CommitAttempt> {
     if session_id.is_nil() || reservation_id.is_nil() {
-        return Err(Status::invalid_argument(
+        return Err(Box::new(Status::invalid_argument(
             "sessionId y reservationId deben ser UUID no nulos",
-        ));
+        )));
     }
     let mut tx = pool
         .begin()
@@ -704,10 +734,10 @@ pub async fn commit_lesson_activity_attempt(
     .await
     .map_err(|error| db_unavailable(error, "lock_session_before_commit"))?;
     if locked_session.is_none() {
-        return Err(Status::not_found("No se encontró la sesión de aprendizaje"));
+        return Err(Box::new(Status::not_found("No se encontró la sesión de aprendizaje")));
     }
-    let reservation: Option<(String, Uuid, Uuid, Uuid, Option<Uuid>, i32, i32, Value, Option<Value>, Uuid)> =
-        sqlx::query_as(
+    let reservation: Option<LessonActivityReservationRow> =
+        sqlx::query_as::<_, LessonActivityReservationRow>(
             r#"SELECT attempt.state, attempt.activity_id, attempt.course_version_id,
                       attempt.lesson_id, attempt.assessment_attempt_id,
                       session.current_activity_position, attempt.attempt_number,
@@ -725,18 +755,20 @@ pub async fn commit_lesson_activity_attempt(
         .fetch_optional(&mut *tx)
         .await
         .map_err(|error| db_unavailable(error, "lock_activity_reservation"))?;
-    let (
+    let reservation =
+        reservation.ok_or_else(|| Status::not_found("No se encontró la reserva del envío"))?;
+    let LessonActivityReservationRow {
         state,
         activity_id,
         course_version_id,
         lesson_id,
-        _prior_assessment_attempt_id,
-        current_position,
+        assessment_attempt_id: _prior_assessment_attempt_id,
+        current_activity_position: current_position,
         attempt_number,
         submission_json,
-        stored_result,
+        result_json: stored_result,
         idempotency_key,
-    ) = reservation.ok_or_else(|| Status::not_found("No se encontró la reserva del envío"))?;
+    } = reservation;
 
     if state != "processing" {
         let result = stored_result
@@ -784,9 +816,9 @@ pub async fn commit_lesson_activity_attempt(
         })?;
 
     if persisted_submission != submission_json {
-        return Err(Status::already_exists(
+        return Err(Box::new(Status::already_exists(
             "El resultado persistido no corresponde al envío reservado",
-        ));
+        )));
     }
     let expected_definition: (Value, String) = sqlx::query_as(
         "SELECT definition_json, definition_sha256 FROM curriculum_lesson_activities WHERE activity_id = $1 AND course_version_id = $2",
@@ -797,9 +829,9 @@ pub async fn commit_lesson_activity_attempt(
     .await
     .map_err(|error| db_unavailable(error, "verify_published_activity"))?;
     if private_definition != expected_definition.0 {
-        return Err(Status::failed_precondition(
+        return Err(Box::new(Status::failed_precondition(
             "La evaluación no utilizó la definición publicada de esta actividad",
-        ));
+        )));
     }
 
     let parsed_result: ActivityAttemptResult = serde_json::from_value(result_json.clone())
@@ -809,9 +841,9 @@ pub async fn commit_lesson_activity_attempt(
         Status::data_loss("El evaluador persistió un resultado inconsistente")
     })?;
     if parsed_result.attempt_id != attempt_id || parsed_result.activity_id != activity_id {
-        return Err(Status::data_loss(
+        return Err(Box::new(Status::data_loss(
             "El identificador del resultado no coincide con el intento",
-        ));
+        )));
     }
 
     let activity_definition = decode_activity(
@@ -821,9 +853,9 @@ pub async fn commit_lesson_activity_attempt(
         lesson_id,
     )?;
     if parsed_result.activity_version != activity_definition.activity_version {
-        return Err(Status::data_loss(
+        return Err(Box::new(Status::data_loss(
             "La versión evaluada no coincide con la actividad publicada",
-        ));
+        )));
     }
     let should_retry_activity = parsed_result.state == AttemptState::Evaluated
         && parsed_result
@@ -896,9 +928,9 @@ pub async fn commit_lesson_activity_attempt(
             .await
             .map_err(|error| db_unavailable(error, "load_session_status"))?;
     if session_state != "in_progress" {
-        return Err(Status::failed_precondition(
+        return Err(Box::new(Status::failed_precondition(
             "La sesión dejó de estar activa antes de confirmar el intento",
-        ));
+        )));
     }
 
     let session_row: (i32, i32) = sqlx::query_as(
@@ -910,9 +942,9 @@ pub async fn commit_lesson_activity_attempt(
     .await
     .map_err(|error| db_unavailable(error, "load_session_position"))?;
     if session_row.0 != current_position {
-        return Err(Status::aborted(
+        return Err(Box::new(Status::aborted(
             "La posición de la sesión cambió; vuelve a cargar la sesión",
-        ));
+        )));
     }
 
     let server_elapsed_ms: i64 = sqlx::query_scalar(

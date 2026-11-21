@@ -310,7 +310,8 @@ impl AiEvaluatorService for MyAIEvaluatorService {
             lesson_id,
             idempotency_key,
         )
-        .await?;
+        .await
+        .map_err(|status| *status)?;
         Ok(Response::new(StartLessonSessionResponse {
             session: Some(session),
             resumed_existing,
@@ -324,8 +325,9 @@ impl AiEvaluatorService for MyAIEvaluatorService {
         let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
         let session_id = Uuid::parse_str(&request.get_ref().session_id)
             .map_err(|_| Status::invalid_argument("session_id debe ser un UUID válido"))?;
-        let session =
-            crate::learning_sessions::get_lesson_session(&self.pool, user_id, session_id).await?;
+        let session = crate::learning_sessions::get_lesson_session(&self.pool, user_id, session_id)
+            .await
+            .map_err(|status| *status)?;
         Ok(Response::new(GetLessonSessionResponse {
             session: Some(session),
         }))
@@ -345,7 +347,8 @@ impl AiEvaluatorService for MyAIEvaluatorService {
             session_id,
             &req.submission_json,
         )
-        .await?;
+        .await
+        .map_err(|status| *status)?;
         Ok(Response::new(BeginLessonActivityAttemptResponse {
             reservation_id: reservation.reservation_id,
             activity_definition_json: reservation.activity_definition_json,
@@ -370,7 +373,8 @@ impl AiEvaluatorService for MyAIEvaluatorService {
             session_id,
             reservation_id,
         )
-        .await?;
+        .await
+        .map_err(|status| *status)?;
         Ok(Response::new(CommitLessonActivityAttemptResponse {
             result_json: committed.result_json,
             session: Some(committed.session),
