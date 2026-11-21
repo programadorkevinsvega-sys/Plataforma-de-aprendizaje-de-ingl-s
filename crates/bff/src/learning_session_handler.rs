@@ -271,7 +271,7 @@ pub async fn start_lesson_session_handler(
         .await
         .map_err(|error| session_error(error, "start_lesson_session"))?
         .into_inner();
-    let snapshot = response.session.ok_or_else(|| {
+    let snapshot = response.session.ok_or({
         (
             StatusCode::BAD_GATEWAY,
             Json(SessionErrorDto {
@@ -339,7 +339,7 @@ pub async fn get_lesson_session_handler(
         .await
         .map_err(|error| session_error(error, "get_lesson_session"))?
         .into_inner();
-    let mut snapshot = response.session.ok_or_else(|| {
+    let mut snapshot = response.session.ok_or({
         (
             StatusCode::BAD_GATEWAY,
             Json(SessionErrorDto {
@@ -414,7 +414,7 @@ pub async fn get_lesson_session_handler(
                 )
             })?,
         );
-        snapshot = committed.session.ok_or_else(|| {
+        snapshot = committed.session.ok_or({
             (
                 StatusCode::BAD_GATEWAY,
                 Json(SessionErrorDto {
@@ -581,7 +581,7 @@ pub async fn submit_lesson_activity_handler(
             }),
         )
     })?;
-    let snapshot = committed.session.ok_or_else(|| {
+    let snapshot = committed.session.ok_or({
         (
             StatusCode::BAD_GATEWAY,
             Json(SessionErrorDto {
