@@ -5,6 +5,10 @@ package ai_evaluator;
 service AIEvaluatorService {
   rpc EvaluateExamAnswer (EvaluateExamAnswerRequest) returns (EvaluateExamAnswerResponse);
   rpc EvaluateLearningActivity (EvaluateLearningActivityRequest) returns (EvaluateLearningActivityResponse);
+  rpc StartLessonSession (StartLessonSessionRequest) returns (StartLessonSessionResponse);
+  rpc GetLessonSession (GetLessonSessionRequest) returns (GetLessonSessionResponse);
+  rpc BeginLessonActivityAttempt (BeginLessonActivityAttemptRequest) returns (BeginLessonActivityAttemptResponse);
+  rpc CommitLessonActivityAttempt (CommitLessonActivityAttemptRequest) returns (CommitLessonActivityAttemptResponse);
   rpc GenerateTargetedDrill (GenerateTargetedDrillRequest) returns (GenerateTargetedDrillResponse);
 }
 
@@ -42,6 +46,68 @@ message EvaluateLearningActivityRequest {
 message EvaluateLearningActivityResponse {
   string result_json = 1;
   bool idempotent_replay = 2;
+}
+
+message StartLessonSessionRequest {
+  string user_id = 1;
+  string lesson_id = 2;
+  string idempotency_key = 3;
+}
+
+message StartLessonSessionResponse {
+  LessonSessionSnapshot session = 1;
+  bool resumed_existing = 2;
+}
+
+message GetLessonSessionRequest {
+  string user_id = 1;
+  string session_id = 2;
+}
+
+message GetLessonSessionResponse {
+  LessonSessionSnapshot session = 1;
+}
+
+message BeginLessonActivityAttemptRequest {
+  string user_id = 1;
+  string session_id = 2;
+  string submission_json = 3;
+}
+
+message BeginLessonActivityAttemptResponse {
+  string reservation_id = 1;
+  string activity_definition_json = 2;
+  string existing_result_json = 3;
+  bool idempotent_replay = 4;
+}
+
+message CommitLessonActivityAttemptRequest {
+  string user_id = 1;
+  string session_id = 2;
+  string reservation_id = 3;
+}
+
+message CommitLessonActivityAttemptResponse {
+  string result_json = 1;
+  LessonSessionSnapshot session = 2;
+  bool idempotent_replay = 3;
+}
+
+message LessonSessionSnapshot {
+  string session_id = 1;
+  string lesson_id = 2;
+  string lesson_title = 3;
+  string course_version_id = 4;
+  string status = 5;
+  int32 current_activity_position = 6;
+  int32 total_activities = 7;
+  int64 active_duration_ms = 8;
+  string student_activity_json = 9;
+  // Private RPC field: the BFF uses it for evaluation and must never serialize it to HTTP.
+  string activity_definition_json = 10;
+  string last_result_json = 11;
+  string completed_at = 12;
+  int32 remaining_attempts = 13;
 }
 
 message GenerateTargetedDrillRequest {
