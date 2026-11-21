@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS lesson_sessions (
     CONSTRAINT uq_lesson_session_full_identity UNIQUE (id, user_id, lesson_id, course_version_id),
     CONSTRAINT fk_lesson_session_enrollment_user_version
         FOREIGN KEY (enrollment_id, user_id, course_version_id)
-        REFERENCES course_enrollments(id, user_id, course_version_id) ON DELETE RESTRICT,
+        REFERENCES course_enrollments(id, user_id, course_version_id) ON DELETE CASCADE,
     CONSTRAINT fk_lesson_session_lesson_version
         FOREIGN KEY (lesson_id, course_version_id)
         REFERENCES course_lessons(id, course_version_id) ON DELETE RESTRICT,

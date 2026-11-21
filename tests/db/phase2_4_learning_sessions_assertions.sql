@@ -205,6 +205,15 @@ BEGIN
     EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
     END;
 
+    -- A corrupted client cannot skip activity positions or move the cursor backwards.
+    BEGIN
+        UPDATE lesson_sessions
+           SET current_activity_position = 3
+         WHERE id = v_session_id;
+        RAISE EXCEPTION 'lesson session accepted a cursor jump';
+    EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
+    END;
+
     -- Reserve -> final is permitted once; a final attempt is immutable.
     UPDATE lesson_session_activity_attempts
        SET state = 'evaluated',
