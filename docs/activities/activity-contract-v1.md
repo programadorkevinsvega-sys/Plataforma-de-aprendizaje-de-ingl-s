@@ -148,6 +148,23 @@ Ejemplo reducido de la forma del objeto privado (la clave se omite deliberadamen
 }
 ```
 
-## 9. Límite de la Subfase 2.1
+## 9. Renderizadores de ejercicios (Subfase 2.2)
 
-Este contrato no crea tablas ni guarda intentos. La persistencia de intentos, transacciones, ownership de upload de audio, idempotencia efectiva y recuperación de sesión se implementará en 2.3/2.4. La implementación de los tipos de ejercicio y su UI pertenece a 2.2. El contrato se acepta cuando la CI ejecuta las pruebas unitarias del módulo y el servicio/cliente consumidor puede usar las proyecciones sin filtrar datos privados.
+El reproductor reutilizable se encuentra en `frontend/src/presentation/components/activities/ActivityExerciseRenderer.tsx` y recibe solo `StudentActivityView`. La frontera de dominio y el parser se encuentran en `frontend/src/domain/entities/Activity.ts`.
+
+Se renderizan las trece variantes del contrato: selección múltiple, traducción en ambas direcciones, completar espacios, ordenamiento, correspondencias, comprensión auditiva, dictado, comprensión lectora, transformación gramatical, corrección, escritura abierta, diálogo hablado y recuperación de vocabulario. El cliente construye respuestas discriminadas compatibles con `StudentAnswer` y `ActivitySubmission`.
+
+El parser rechaza las propiedades privadas de la definición, incluidos `correctOptionIds`, `acceptedAnswers`, `expectedTokenOrder`, `correctPairs`, `evaluation`, `rubric`, `criteria`, `penaltyPoints` y `transcriptPolicy`. También comprueba la versión, la forma de cada ejercicio, identificadores, estímulos, modalidad, competencias y límites.
+
+El reproductor muestra resultados únicamente cuando los devuelve el servicio. Distingue `evaluated`, `pending_review` y `not_measured`; valida que un intento sin medición no incluya puntuación y que una puntuación medida esté dentro de los límites. No implementa reglas de calificación en JavaScript.
+
+**Adaptadores requeridos por el host:**
+- `onSubmit(submission)`: entrega el envío al motor de sesión y puede devolver un resultado autoritativo.
+- `resolveAudioUrl(assetId)` / `resolveImageUrl(assetId)`: resuelven recursos mediante el host autenticado; la UI no construye rutas desde identificadores.
+- `uploadSpokenAudio(blob, durationMs)`: debe realizar una carga autenticada, validar ownership, MIME, tamaño, duración y retención antes de devolver `audioUploadId`.
+
+La UI solicita permiso del micrófono solo al iniciar una grabación, corta automáticamente al alcanzar el límite, libera las pistas al detenerse/desmontarse y no persiste el audio por sí misma.
+
+## 10. Límite de la Subfase 2.1
+
+Este contrato no crea tablas ni guarda intentos. La persistencia de intentos, transacciones, ownership de upload de audio, idempotencia efectiva y recuperación de sesión se implementará en 2.3/2.4. La Subfase 2.2 proporciona los renderizadores y el contrato cliente de envío/resultado, pero depende del servicio de sesiones para entregar actividades publicadas y almacenar los intentos.
