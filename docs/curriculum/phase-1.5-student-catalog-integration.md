@@ -107,7 +107,7 @@ No hay un servidor staging configurado. La verificación pendiente se hará desd
 
 **Protección:** `tools/curriculum/acceptance-smoke.mjs` crea y publica un curso de aceptación y tiene un guard que bloquea producción. No ejecutar ese script contra la URL productiva. El workflow de staging se retiró porque el entorno no existe; no se necesitan nuevas variables ni secretos de GitHub para la aceptación manual.
 
-## 6. Backlog fuera de 1.5
+### Backlog fuera de 1.5
 
 1. Intentos y rúbricas del motor de actividades Fase 2 para que gramática, escritura, listening y speaking tengan progreso evaluado real, además de práctica de vocabulario/SRS.
 2. Curación editorial y expansión del catálogo posterior al piloto de Subfase 1.4: calidad lingüística de traducciones, ejemplos, guías fonéticas y audios lento/natural.
