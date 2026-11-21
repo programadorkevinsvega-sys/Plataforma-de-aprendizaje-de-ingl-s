@@ -186,8 +186,11 @@ CREATE POLICY lesson_activities_enrolled_private_read
     USING (
         app_is_content_editor()
         OR EXISTS (
-            SELECT 1 FROM course_enrollments enrollment
+            SELECT 1
+              FROM course_enrollments enrollment
+              JOIN course_versions version ON version.id = enrollment.course_version_id
              WHERE enrollment.course_version_id = curriculum_lesson_activities.course_version_id
+               AND version.status IN ('published', 'archived')
                AND enrollment.user_id =
                    NULLIF(current_setting('app.current_user_id', TRUE), '')::UUID
                AND enrollment.status = 'active'
@@ -202,17 +205,30 @@ ALTER TABLE lesson_activity_objectives FORCE ROW LEVEL SECURITY;
 CREATE POLICY lesson_activity_objectives_enrolled_read
     ON lesson_activity_objectives FOR SELECT
     USING (
-        EXISTS (
-            SELECT 1 FROM course_enrollments enrollment
+        app_is_content_editor()
+        OR EXISTS (
+            SELECT 1
+              FROM course_enrollments enrollment
+              JOIN course_versions version ON version.id = enrollment.course_version_id
              WHERE enrollment.course_version_id = lesson_activity_objectives.course_version_id
+               AND version.status IN ('published', 'archived')
                AND enrollment.user_id =
                    NULLIF(current_setting('app.current_user_id', TRUE), '')::UUID
                AND enrollment.status = 'active'
         )
-        OR app_is_content_editor()
     );
 CREATE POLICY lesson_activity_objectives_editor_insert
     ON lesson_activity_objectives FOR INSERT WITH CHECK (app_is_content_editor());
+
+-- Activity/objective mappings are mutable only while a curricular version is draft.
+-- The same trusted lifecycle guard used by the original curriculum children freezes
+-- them atomically when a version is submitted to review.
+DROP TRIGGER IF EXISTS trg_guard_course_version_content_mutation
+    ON public.lesson_activity_objectives;
+CREATE TRIGGER trg_guard_course_version_content_mutation
+    BEFORE INSERT OR UPDATE OR DELETE ON public.lesson_activity_objectives
+    FOR EACH ROW
+    EXECUTE FUNCTION public.guard_course_version_content_mutation();
 
 ALTER TABLE lesson_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lesson_sessions FORCE ROW LEVEL SECURITY;

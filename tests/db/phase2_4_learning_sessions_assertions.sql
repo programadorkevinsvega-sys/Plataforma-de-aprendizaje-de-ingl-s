@@ -4,6 +4,7 @@ BEGIN;
 CREATE TEMP TABLE phase24_session_ids (
     user_one UUID NOT NULL,
     user_two UUID NOT NULL,
+    editor_user UUID NOT NULL,
     course_id UUID NOT NULL,
     course_version_id UUID NOT NULL,
     unit_id UUID NOT NULL,
@@ -20,11 +21,10 @@ CREATE TEMP TABLE phase24_session_ids (
 ) ON COMMIT DROP;
 
 INSERT INTO phase24_session_ids
-SELECT uuid_generate_v4(), uuid_generate_v4(), uuid_generate_v4(),
-       uuid_generate_v4(), uuid_generate_v4(), uuid_generate_v4(),
-       uuid_generate_v4(), uuid_generate_v4(), uuid_generate_v4(), 1,
-       uuid_generate_v4(), uuid_generate_v4(), uuid_generate_v4(),
-       uuid_generate_v4(), uuid_generate_v4();
+SELECT uuid_generate_v4(), uuid_generate_v4(), uuid_generate_v4(), uuid_generate_v4(),
+       uuid_generate_v4(), uuid_generate_v4(), uuid_generate_v4(), uuid_generate_v4(),
+       uuid_generate_v4(), uuid_generate_v4(), 1, uuid_generate_v4(), uuid_generate_v4(),
+       uuid_generate_v4(), uuid_generate_v4(), uuid_generate_v4();
 
 INSERT INTO users (id, email, password_hash, full_name)
 SELECT user_one, 'phase24-' || user_one::TEXT || '@example.invalid', 'test-only', 'Phase 2.4 Student One'
@@ -32,6 +32,11 @@ SELECT user_one, 'phase24-' || user_one::TEXT || '@example.invalid', 'test-only'
 INSERT INTO users (id, email, password_hash, full_name)
 SELECT user_two, 'phase24-' || user_two::TEXT || '@example.invalid', 'test-only', 'Phase 2.4 Student Two'
   FROM phase24_session_ids;
+INSERT INTO users (id, email, password_hash, full_name)
+SELECT editor_user, 'phase24-editor-' || editor_user::TEXT || '@example.invalid', 'test-only', 'Phase 2.4 Reviewer'
+  FROM phase24_session_ids;
+INSERT INTO content_editors (user_id)
+SELECT editor_user FROM phase24_session_ids;
 
 INSERT INTO courses (id, slug, track_code)
 SELECT course_id, 'phase24-session-' || left(course_id::TEXT, 8), 'general'
@@ -62,30 +67,11 @@ INSERT INTO lesson_learning_objectives (
 )
 SELECT course_version_id, lesson_id, objective_id, 1, TRUE
   FROM phase24_session_ids;
-INSERT INTO course_enrollments (id, user_id, course_version_id, status)
-SELECT enrollment_id, user_one, course_version_id, 'active'
-  FROM phase24_session_ids;
 
-INSERT INTO curriculum_lesson_activities (
-    activity_id, course_version_id, lesson_id, activity_code, activity_version,
-    position, definition_json, definition_sha256
+INSERT INTO learning_objective_skills (
+    course_version_id, learning_objective_id, skill_code, is_primary
 )
-SELECT activity_id, course_version_id, lesson_id, 'phase24-test-activity', activity_version,
-       1,
-       jsonb_build_object(
-           'activityId', activity_id::TEXT,
-           'activityCode', 'phase24-test-activity',
-           'activityVersion', activity_version,
-           'courseVersionId', course_version_id::TEXT,
-           'lessonId', lesson_id::TEXT
-       ),
-       repeat('a', 64)
-  FROM phase24_session_ids;
-
-INSERT INTO lesson_activity_objectives (
-    activity_id, course_version_id, lesson_id, learning_objective_id, position
-)
-SELECT activity_id, course_version_id, lesson_id, objective_id, 1
+SELECT course_version_id, objective_id, 'vocabulary', TRUE
   FROM phase24_session_ids;
 
 INSERT INTO lesson_sessions (
@@ -202,6 +188,15 @@ BEGIN
            SET definition_sha256 = repeat('b', 64)
          WHERE activity.activity_id = v_activity_id;
         RAISE EXCEPTION 'published activity definition update was accepted';
+    EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
+    END;
+
+    -- Published activity/objective links are frozen with the course version.
+    BEGIN
+        UPDATE lesson_activity_objectives AS link
+           SET position = 2
+         WHERE link.activity_id = v_activity_id;
+        RAISE EXCEPTION 'published activity/objective mapping could be changed';
     EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
     END;
 
