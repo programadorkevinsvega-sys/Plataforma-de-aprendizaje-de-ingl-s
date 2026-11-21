@@ -40,8 +40,8 @@ INSERT INTO course_versions (
     id, course_id, version_number, status, cefr_level, title, description,
     locale, content_schema_version, published_at
 )
-SELECT course_version_id, course_id, 1, 'published', 'A1', 'Phase 2.4 session test',
-       'Test-only session fixture', 'en', 1, CURRENT_TIMESTAMP
+SELECT course_version_id, course_id, 1, 'draft', 'A1', 'Phase 2.4 session test',
+       'Test-only session fixture', 'en', 1, NULL
   FROM phase24_session_ids;
 INSERT INTO course_units (id, course_version_id, unit_code, position, title, theme, description)
 SELECT unit_id, course_version_id, 'unit-1', 1, 'Test unit', 'Test theme', ''

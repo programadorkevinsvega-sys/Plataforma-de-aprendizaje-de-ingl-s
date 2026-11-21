@@ -45,7 +45,8 @@ export default function LearningSessionPage() {
   }, [router, sessionId])
 
   useEffect(() => {
-    void loadSession()
+    // Defer the initial network load until after the current render commits.
+    void Promise.resolve().then(loadSession)
   }, [loadSession])
 
   const activity = session?.activity ?? null
