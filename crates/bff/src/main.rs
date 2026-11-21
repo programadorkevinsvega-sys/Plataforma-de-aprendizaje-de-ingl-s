@@ -227,7 +227,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .route(
             "/api/v1/learning/sessions/:session_id/answers",
-            post(submit_lesson_activity_handler),
+            post(submit_lesson_activity_handler).layer(DefaultBodyLimit::max(256 * 1024)),
         )
         .route(
             "/api/v1/curriculum/editor/import",

@@ -9,6 +9,7 @@ use common::activity_contract::{ActivityDefinition, ActivitySubmission, AttemptS
 use common::activity_contract::ActivityAttemptResult;
 use proto::ai_evaluator::LessonSessionSnapshot;
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use sqlx::{PgPool, Postgres, Transaction};
 use tonic::Status;
 use uuid::Uuid;
@@ -48,7 +49,29 @@ async fn set_user(
         })
 }
 
-fn decode_activity(raw: Value, course_version_id: Uuid, lesson_id: Uuid) -> Result<ActivityDefinition, Status> {
+fn decode_activity(
+    raw: Value,
+    expected_sha256: &str,
+    course_version_id: Uuid,
+    lesson_id: Uuid,
+) -> Result<ActivityDefinition, Status> {
+    let canonical_bytes = serde_json::to_vec(&raw).map_err(|error| {
+        tracing::error!(%error, "Published activity JSON could not be normalized");
+        Status::data_loss("No se pudo normalizar una actividad publicada")
+    })?;
+    let actual_sha256 = Sha256::digest(&canonical_bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    if actual_sha256 != expected_sha256.trim() {
+        tracing::error!(
+            activity_sha256 = %actual_sha256,
+            expected_sha256 = %expected_sha256.trim(),
+            "Published activity content digest mismatch"
+        );
+        return Err(Status::data_loss("La huella de integridad de la actividad no coincide"));
+    }
+
     let activity: ActivityDefinition = serde_json::from_value(raw)
         .map_err(|error| {
             tracing::error!(%error, "Published lesson activity could not be decoded");
@@ -106,8 +129,8 @@ async fn session_snapshot_in_transaction(
     let mut pending_reservation_id = String::new();
     let mut pending_submission_json = String::new();
     if status == "in_progress" && position <= total {
-        let definition: Option<Value> = sqlx::query_scalar(
-            r#"SELECT definition_json
+        let definition: Option<(Value, String)> = sqlx::query_as(
+            r#"SELECT definition_json, definition_sha256
                  FROM curriculum_lesson_activities
                 WHERE lesson_id = $1
                   AND course_version_id = $2
@@ -119,11 +142,11 @@ async fn session_snapshot_in_transaction(
         .fetch_optional(&mut **tx)
         .await
         .map_err(|error| db_unavailable(error, "load_current_activity"))?;
-        let raw = definition.ok_or_else(|| {
+        let (raw, definition_sha256) = definition.ok_or_else(|| {
             tracing::error!(session_id = %id, position, "Session points to a missing published activity");
             Status::data_loss("La sesión apunta a una actividad publicada inexistente")
         })?;
-        let activity = decode_activity(raw, course_version_id, lesson_id)?;
+        let activity = decode_activity(&raw, &definition_sha256, course_version_id, lesson_id)?;
         let view = activity.to_student_view();
         student_activity_json = serde_json::to_string(&view)
             .map_err(|_| Status::internal("No se pudo preparar la actividad para el estudiante"))?;
@@ -436,8 +459,8 @@ pub async fn begin_lesson_activity_attempt(
         if existing_session_id != session_id || existing_submission != submission_json {
             return Err(Status::already_exists("La clave idempotente ya se utilizó con otro envío"));
         }
-        let existing_definition: Value = sqlx::query_scalar(
-            r#"SELECT definition_json
+        let existing_definition: (Value, String) = sqlx::query_as(
+            r#"SELECT definition_json, definition_sha256
                  FROM curriculum_lesson_activities
                 WHERE activity_id = $1
                   AND course_version_id = $2
@@ -450,7 +473,12 @@ pub async fn begin_lesson_activity_attempt(
         .await
         .map_err(|error| db_unavailable(error, "load_replayed_activity_definition"))?
         .ok_or_else(|| Status::data_loss("La actividad del intento idempotente ya no existe"))?;
-        let replay_activity = decode_activity(existing_definition, course_version_id, lesson_id)?;
+        let replay_activity = decode_activity(
+            &existing_definition.0,
+            &existing_definition.1,
+            course_version_id,
+            lesson_id,
+        )?;
         replay_activity.validate_submission(&submission).map_err(|_| {
             Status::already_exists("La clave idempotente no coincide con la actividad reservada")
         })?;
@@ -475,8 +503,8 @@ pub async fn begin_lesson_activity_attempt(
         return Err(Status::failed_precondition("La sesión ya no admite nuevas respuestas"));
     }
 
-    let current_activity: Option<Value> = sqlx::query_scalar(
-        r#"SELECT definition_json
+    let current_activity: Option<(Value, String)> = sqlx::query_as(
+        r#"SELECT definition_json, definition_sha256
              FROM curriculum_lesson_activities
             WHERE lesson_id = $1
               AND course_version_id = $2
@@ -488,9 +516,14 @@ pub async fn begin_lesson_activity_attempt(
     .fetch_optional(&mut *tx)
     .await
     .map_err(|error| db_unavailable(error, "load_activity_for_submission"))?;
-    let raw_definition = current_activity
+    let (raw_definition, definition_sha256) = current_activity
         .ok_or_else(|| Status::data_loss("La posición actual no tiene actividad publicada"))?;
-    let activity = decode_activity(raw_definition, course_version_id, lesson_id)?;
+    let activity = decode_activity(
+        &raw_definition,
+        &definition_sha256,
+        course_version_id,
+        lesson_id,
+    )?;
     activity.validate_submission(&submission).map_err(|error| match error {
         common::activity_contract::ActivityContractError::ActivityVersionMismatch
         | common::activity_contract::ActivityContractError::UnsupportedSchemaVersion => {
@@ -656,15 +689,15 @@ pub async fn commit_lesson_activity_attempt(
     if persisted_submission != submission_json {
         return Err(Status::already_exists("El resultado persistido no corresponde al envío reservado"));
     }
-    let expected_definition: Value = sqlx::query_scalar(
-        "SELECT definition_json FROM curriculum_lesson_activities WHERE activity_id = $1 AND course_version_id = $2",
+    let expected_definition: (Value, String) = sqlx::query_as(
+        "SELECT definition_json, definition_sha256 FROM curriculum_lesson_activities WHERE activity_id = $1 AND course_version_id = $2",
     )
     .bind(activity_id)
     .bind(course_version_id)
     .fetch_one(&mut *tx)
     .await
     .map_err(|error| db_unavailable(error, "verify_published_activity"))?;
-    if private_definition != expected_definition {
+    if private_definition != expected_definition.0 {
         return Err(Status::failed_precondition("La evaluación no utilizó la definición publicada de esta actividad"));
     }
 
@@ -680,7 +713,12 @@ pub async fn commit_lesson_activity_attempt(
         return Err(Status::data_loss("El identificador del resultado no coincide con el intento"));
     }
 
-    let activity_definition = decode_activity(expected_definition, course_version_id, lesson_id)?;
+    let activity_definition = decode_activity(
+        expected_definition.0,
+        &expected_definition.1,
+        course_version_id,
+        lesson_id,
+    )?;
     if parsed_result.activity_version != activity_definition.activity_version {
         return Err(Status::data_loss("La versión evaluada no coincide con la actividad publicada"));
     }

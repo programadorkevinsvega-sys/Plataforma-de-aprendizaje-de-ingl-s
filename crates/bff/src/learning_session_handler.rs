@@ -15,6 +15,7 @@ use crate::srs_handler::{attach_bearer_metadata, validate_token_from_headers};
 use crate::AppState;
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct StartLessonSessionBody {
     pub idempotency_key: String,
 }
@@ -395,6 +396,7 @@ pub async fn get_lesson_session_handler(
 
     let lesson_id = snapshot.lesson_id.clone();
     let session_status = snapshot.status.clone();
+    let recovered_during_get = recovered_result.is_some();
     let last_result = match recovered_result {
         Some(result) => result,
         None => parse_json_field(&snapshot.last_result_json, "last_result")?
@@ -415,7 +417,7 @@ pub async fn get_lesson_session_handler(
     Ok(Json(SubmitLessonActivityDto {
         session: session_dto(snapshot)?,
         result: last_result,
-        idempotent_replay: true,
+        idempotent_replay: recovered_during_get,
         reward_pending,
     }))
 }

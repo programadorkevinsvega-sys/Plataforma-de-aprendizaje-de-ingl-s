@@ -1543,6 +1543,73 @@ mod tests {
     const VALID_PACKAGE: &str =
         include_str!("../../../tests/fixtures/curriculum/phase1_3_content_package_v1.json");
 
+    fn package_with_private_activity() -> Value {
+        use uuid::Uuid;
+
+        let mut package: Value =
+            serde_json::from_str(VALID_PACKAGE).expect("canonical fixture should parse");
+        let objective_code = package["units"][0]["lessons"][0]["objective_codes"][0]
+            .as_str()
+            .expect("lesson objective code")
+            .to_string();
+        let activity_id = Uuid::new_v4();
+        let correct_option_id = Uuid::new_v4();
+        let distractor_option_id = Uuid::new_v4();
+
+        package["units"][0]["lessons"][0]["activities"] = serde_json::json!([{
+            "activity_code": "greetings-choice-001",
+            "activity_version": 1,
+            "position": 1,
+            "objective_codes": [objective_code],
+            "definition": {
+                "schemaVersion": "1.0",
+                "activityId": activity_id.to_string(),
+                "activityCode": "greetings-choice-001",
+                "activityVersion": 1,
+                "courseVersionId": Uuid::nil().to_string(),
+                "lessonId": Uuid::nil().to_string(),
+                "title": "Choose the greeting",
+                "cefrLevel": "PRE_A1",
+                "track": "general",
+                "modality": "written",
+                "skills": ["vocabulary"],
+                "objectiveIds": [Uuid::nil().to_string()],
+                "instructions": "Choose the greeting from the options.",
+                "stimulus": null,
+                "exercise": {
+                    "type": "multiple_choice",
+                    "prompt": "Which word is a greeting?",
+                    "options": [
+                        { "optionId": correct_option_id.to_string(), "text": "Hello" },
+                        { "optionId": distractor_option_id.to_string(), "text": "Notebook" }
+                    ],
+                    "correctOptionIds": [correct_option_id.to_string()],
+                    "allowMultiple": false
+                },
+                "hints": [],
+                "evaluation": {
+                    "kind": "deterministic",
+                    "maxPoints": 1,
+                    "partialCredit": "none",
+                    "textNormalization": ["trim_whitespace"]
+                },
+                "feedback": {
+                    "timing": "immediate",
+                    "showExplanation": true,
+                    "revealCorrectAnswerAfterSubmission": true
+                },
+                "limits": {
+                    "timeLimitSeconds": null,
+                    "maxAttempts": 3,
+                    "maxHints": 0,
+                    "maxAudioDurationSeconds": null
+                }
+            }
+        }]);
+
+        package
+    }
+
     #[test]
     fn validates_the_versioned_ci_package_and_returns_counts() {
         let (_, sha, counts) =
@@ -1552,6 +1619,32 @@ mod tests {
         assert!(counts.units > 0);
         assert!(counts.lessons > 0);
         assert!(counts.objectives > 0);
+    }
+
+    #[test]
+    fn validates_a_private_activity_bound_to_a_lesson_objective() {
+        let package = package_with_private_activity();
+        let raw = serde_json::to_string(&package).expect("serialize activity package");
+        let (validated, sha, counts) =
+            validate_package_json(&raw).expect("private activity should satisfy the versioned contract");
+
+        assert_eq!(sha.len(), 64);
+        assert_eq!(counts.lessons, 2);
+        assert_eq!(
+            validated["units"][0]["lessons"][0]["activities"][0]["activity_code"],
+            "greetings-choice-001"
+        );
+    }
+
+    #[test]
+    fn rejects_an_activity_linked_to_an_objective_outside_its_lesson() {
+        let mut package = package_with_private_activity();
+        package["units"][0]["lessons"][0]["activities"][0]["objective_codes"] =
+            serde_json::json!(["objective-from-another-lesson"]);
+        let raw = serde_json::to_string(&package).expect("serialize invalid activity package");
+        let error = validate_package_json(&raw)
+            .expect_err("an activity cannot claim an objective outside its lesson");
+        assert!(error.contains("objetivo"));
     }
 
     #[test]
