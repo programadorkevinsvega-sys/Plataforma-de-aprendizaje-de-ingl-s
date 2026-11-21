@@ -1146,7 +1146,7 @@ impl ContentService for MyContentService {
         }
 
         let mut progress_by_lesson: HashMap<Uuid, CurriculumLessonProgress> = HashMap::new();
-        for (lesson_id, _, _, _, _, _, _, _) in &lesson_rows {
+        for (lesson_id, _, _, _, _, _, _, _, _) in &lesson_rows {
             let evidence = lesson_base
                 .get(lesson_id)
                 .copied()
