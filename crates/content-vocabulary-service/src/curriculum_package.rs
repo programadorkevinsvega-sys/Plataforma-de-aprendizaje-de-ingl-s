@@ -682,11 +682,6 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
                     }
                     let activity_version =
                         positive_integer(activity_package, "activity_version", &activity_path)?;
-                    if activity_version > i64::from(i32::MAX) {
-                        return Err(format!(
-                            "{activity_path}/activity_version: supera el rango INTEGER"
-                        ));
-                    }
                     let position = positive_integer(activity_package, "position", &activity_path)?;
                     if !activity_positions.insert(position) {
                         return Err(format!("{activity_path}/position: posición duplicada"));
@@ -728,7 +723,7 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
                             format!("{activity_path}/definition: contrato de actividad no válido")
                         })?;
                     if definition.activity_code != activity_code
-                        || i64::from(definition.activity_version) != activity_version
+                        || definition.activity_version != activity_version
                     {
                         return Err(format!("{activity_path}/definition: activityCode/activityVersion no coinciden con el manifiesto"));
                     }
@@ -1754,6 +1749,15 @@ mod tests {
         let raw = serde_json::to_string(&data).expect("serialize mutated package");
         let error =
             validate_package_json(&raw).expect_err("PostgreSQL INTEGER overflow must be rejected");
+        assert!(error.contains("rango INTEGER"));
+
+        let mut activity_package = package_with_private_activity();
+        activity_package["units"][0]["lessons"][0]["activities"][0]["activity_version"] =
+            Value::from(i64::from(i32::MAX) + 1);
+        let raw = serde_json::to_string(&activity_package)
+            .expect("serialize activity version overflow package");
+        let error = validate_package_json(&raw)
+            .expect_err("activity version overflow must be rejected");
         assert!(error.contains("rango INTEGER"));
     }
 
