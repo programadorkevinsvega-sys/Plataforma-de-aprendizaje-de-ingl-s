@@ -1,4 +1,5 @@
 use chrono::NaiveDate;
+use common::activity_contract::{ActivityDefinition, CefrLevel, TrackCode};
 use serde::de::{MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use serde_json::{Map, Number, Value};
@@ -587,6 +588,7 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
                     "estimated_minutes",
                     "objective_codes",
                     "prerequisites",
+                    "activities",
                 ],
             )?;
             let lesson_code = required_string(lesson, "code", &lesson_path, 80, false)?;
@@ -632,7 +634,83 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
                 }
                 linked.push(code.to_string());
             }
-            lesson_links.insert(lesson_code.to_string(), linked);
+            lesson_links.insert(lesson_code.to_string(), linked.clone());
+
+            let mut activity_positions = HashSet::new();
+            let mut activity_codes = HashSet::new();
+            if let Some(raw_activities) = lesson.get("activities") {
+                let activities = array(raw_activities, &format!("{lesson_path}/activities"))?;
+                if activities.len() > 50 {
+                    return Err(format!("{lesson_path}/activities: no puede superar 50 actividades"));
+                }
+                for (activity_index, raw_activity) in activities.iter().enumerate() {
+                    let activity_path = format!("{lesson_path}/activities/{activity_index}");
+                    let activity_package = object(raw_activity, &activity_path)?;
+                    check_keys(
+                        activity_package,
+                        &activity_path,
+                        &["activity_code", "activity_version", "position", "objective_codes", "definition"],
+                        &["activity_code", "activity_version", "position", "objective_codes", "definition"],
+                    )?;
+                    let activity_code = required_string(activity_package, "activity_code", &activity_path, 80, false)?;
+                    if !valid_code(activity_code) || !activity_codes.insert(activity_code.to_string()) {
+                        return Err(format!("{activity_path}/activity_code: código inválido o duplicado"));
+                    }
+                    let activity_version = positive_integer(activity_package, "activity_version", &activity_path)?;
+                    if activity_version > i64::from(i32::MAX) {
+                        return Err(format!("{activity_path}/activity_version: supera el rango INTEGER"));
+                    }
+                    let position = positive_integer(activity_package, "position", &activity_path)?;
+                    if !activity_positions.insert(position) {
+                        return Err(format!("{activity_path}/position: posición duplicada"));
+                    }
+                    let objective_codes = array(
+                        activity_package.get("objective_codes").ok_or_else(|| format!("{activity_path}/objective_codes: es obligatorio"))?,
+                        &format!("{activity_path}/objective_codes"),
+                    )?;
+                    if objective_codes.is_empty() || objective_codes.len() > 9 {
+                        return Err(format!("{activity_path}/objective_codes: debe incluir de uno a nueve objetivos"));
+                    }
+                    let mut seen_codes = HashSet::new();
+                    for (index, raw_code) in objective_codes.iter().enumerate() {
+                        let code = raw_code.as_str().ok_or_else(|| format!("{activity_path}/objective_codes/{index}: debe ser texto"))?;
+                        if !valid_code(code) || !seen_codes.insert(code.to_string()) || !linked.iter().any(|linked_code| linked_code == code) {
+                            return Err(format!("{activity_path}/objective_codes/{index}: objetivo inválido, duplicado o no asociado a la lección"));
+                        }
+                    }
+
+                    let raw_definition = activity_package.get("definition")
+                        .ok_or_else(|| format!("{activity_path}/definition: es obligatorio"))?;
+                    if serde_json::to_vec(raw_definition).map(|bytes| bytes.len()).unwrap_or(usize::MAX) > 512 * 1024 {
+                        return Err(format!("{activity_path}/definition: supera 512 KiB"));
+                    }
+                    let mut definition: ActivityDefinition = serde_json::from_value(raw_definition.clone())
+                        .map_err(|_| format!("{activity_path}/definition: contrato de actividad no válido"))?;
+                    if definition.activity_code != activity_code || i64::from(definition.activity_version) != activity_version {
+                        return Err(format!("{activity_path}/definition: activityCode/activityVersion no coinciden con el manifiesto"));
+                    }
+                    let expected_level = match level {
+                        "PRE_A1" => CefrLevel::PreA1,
+                        "A1" => CefrLevel::A1,
+                        "A2" => CefrLevel::A2,
+                        "B1" => CefrLevel::B1,
+                        "B2" => CefrLevel::B2,
+                        "C1" => CefrLevel::C1,
+                        "C2" => CefrLevel::C2,
+                        _ => return Err("Nivel CEFR no soportado".to_string()),
+                    };
+                    let expected_track = if track == "technology" { TrackCode::Technology } else { TrackCode::General };
+                    if definition.cefr_level != expected_level || definition.track != expected_track {
+                        return Err(format!("{activity_path}/definition: nivel CEFR o ruta no coincide con el paquete"));
+                    }
+                    // These identity links are resolved to database UUIDs inside the same import transaction.
+                    definition.course_version_id = Uuid::new_v4();
+                    definition.lesson_id = Uuid::new_v4();
+                    definition.objective_ids = objective_codes.iter().map(|_| Uuid::new_v4()).collect();
+                    definition.validate().map_err(|error| format!("{activity_path}/definition: {error}"))?;
+                }
+            }
+
             let mut prereqs = Vec::new();
             if let Some(raw_prerequisites) = lesson.get("prerequisites") {
                 let prerequisites =
@@ -1199,6 +1277,74 @@ pub async fn import_package(
             .await
             .map_err(|_| format!("No se pudo insertar la lección {code}"))?;
             lesson_ids.insert(code.to_string(), lesson_id);
+            for (activity_index, activity_package) in lesson
+                .get("activities")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .enumerate()
+            {
+                let activity_code = activity_package["activity_code"].as_str().unwrap_or("");
+                let mut definition: ActivityDefinition = serde_json::from_value(activity_package["definition"].clone())
+                    .map_err(|_| format!("No se pudo decodificar la actividad {activity_code}"))?;
+                let objective_codes = activity_package["objective_codes"]
+                    .as_array()
+                    .ok_or("activity objective_codes debe ser un arreglo")?;
+                let activity_objective_ids = objective_codes
+                    .iter()
+                    .map(|objective_code| {
+                        let code = objective_code.as_str().ok_or("activity objective_code inválido")?;
+                        objective_ids.get(code).copied().ok_or("Objetivo de actividad inexistente")
+                    })
+                    .collect::<Result<Vec<_>, &str>>()?;
+                definition.course_version_id = course_version_id;
+                definition.lesson_id = lesson_id;
+                definition.objective_ids = activity_objective_ids.clone();
+                definition.validate().map_err(|error| format!("Actividad {activity_code} inválida: {error}"))?;
+                let activity_id = definition.activity_id;
+                let activity_version = i32::try_from(definition.activity_version)
+                    .map_err(|_| format!("La versión de {activity_code} supera INTEGER"))?;
+                let definition_json = serde_json::to_value(&definition)
+                    .map_err(|_| format!("No se pudo serializar la actividad {activity_code}"))?;
+                let definition_bytes = serde_json::to_vec(&definition_json)
+                    .map_err(|_| format!("No se pudo normalizar la actividad {activity_code}"))?;
+                let definition_digest = Sha256::digest(&definition_bytes)
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect::<String>();
+                sqlx::query(
+                    r#"INSERT INTO curriculum_lesson_activities (
+                           activity_id, course_version_id, lesson_id, activity_code,
+                           activity_version, position, definition_json, definition_sha256
+                       )
+                       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
+                )
+                .bind(activity_id)
+                .bind(course_version_id)
+                .bind(lesson_id)
+                .bind(activity_code)
+                .bind(activity_version)
+                .bind(activity_package["position"].as_i64().unwrap_or((activity_index + 1) as i64) as i32)
+                .bind(&definition_json)
+                .bind(definition_digest)
+                .execute(&mut *tx)
+                .await
+                .map_err(|_| format!("No se pudo insertar la actividad {activity_code}"))?;
+                for (index, objective_id) in activity_objective_ids.iter().enumerate() {
+                    sqlx::query(
+                        r#"INSERT INTO lesson_activity_objectives (
+                               activity_id, course_version_id, learning_objective_id, position
+                           ) VALUES ($1, $2, $3, $4)"#,
+                    )
+                    .bind(activity_id)
+                    .bind(course_version_id)
+                    .bind(*objective_id)
+                    .bind((index + 1) as i32)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|_| format!("No se pudo asociar el objetivo de {activity_code}"))?;
+                }
+            }
             for (index, objective_code) in lesson["objective_codes"]
                 .as_array()
                 .ok_or("objective_codes debe ser un arreglo")?
