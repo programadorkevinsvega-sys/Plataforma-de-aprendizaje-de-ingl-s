@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 const PRODUCTION_HOST = "app-ingles.jnmtortas.com";
 
@@ -194,7 +196,7 @@ async function main() {
   console.log(JSON.stringify(result, null, 2));
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   main().catch((error) => {
     console.error(`Production read-only curriculum acceptance failed: ${error.message}`);
     process.exitCode = 1;
