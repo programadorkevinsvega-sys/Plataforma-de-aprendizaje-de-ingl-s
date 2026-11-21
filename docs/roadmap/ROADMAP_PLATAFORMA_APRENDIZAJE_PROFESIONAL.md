@@ -519,7 +519,7 @@ Construir un motor reutilizable que permita presentar actividades diferentes baj
 
 ### Subfase 2.2. Tipos de ejercicio
 
-**Estado: implementación de las 13 familias y contrato de interfaz en rama; CI pendiente.** La implementación está en `frontend/src/domain/entities/Activity.ts` y `frontend/src/presentation/components/activities/ActivityExerciseRenderer.tsx`. El detalle está en [renderizadores de ejercicios v1](../activities/exercise-renderers-v1.md).
+**Estado: IMPLEMENTADA e integrada en main (PR #101).** Las 13 familias están implementadas en `frontend/src/domain/entities/Activity.ts` y `frontend/src/presentation/components/activities/ActivityExerciseRenderer.tsx`. El CI de la PR pasó antes de fusionarse. El detalle está en [renderizadores de ejercicios v1](../activities/exercise-renderers-v1.md).
 
 - [x] Selección múltiple.
 - [x] Selección de traducción en ambas direcciones.
@@ -538,22 +538,30 @@ Construir un motor reutilizable que permita presentar actividades diferentes baj
 - [x] Validación del tipo de respuesta, identificadores, completitud, longitud, duración, pistas e idempotencia antes de construir el envío.
 - [x] Estados de carga, error de envío, confirmación, resultado evaluado, pendiente de revisión y no medido, sin inventar puntuaciones en el cliente.
 - [x] Pruebas de contrato para las 13 familias, respuestas completas/incompletas, privacidad, límites y resultados.
-- [ ] CI verde y compilación de producción para esta entrega.
-- [ ] Prueba visual/manual en el navegador desplegado.
+- [x] CI verde, lint, pruebas de contrato y compilación de producción para esta entrega (PR #101 integrada).
+- [ ] Prueba visual/manual en el navegador desplegado, cuando 2.4 conecte el renderer con una sesión curricular real.
 
-**Frontera con las siguientes subfases:** este renderer no decide si una respuesta es correcta ni califica escritura/habla en el navegador. Solo muestra el resultado autoritativo que devuelva el servicio. La evaluación determinista y las rúbricas se completan en 2.3; la entrega desde lecciones, persistencia de intentos y recuperación se completan en 2.4; las pistas y el feedback pedagógico contextual se profundizan en 2.5. No se habilitan actividades ficticias en producción para simular esas capacidades.
+**Frontera con las siguientes subfases:** este renderer no decide si una respuesta es correcta ni califica escritura/habla en el navegador. Solo muestra el resultado autoritativo del servicio. La evaluación determinista, las rúbricas y la persistencia idempotente de resultados se implementan en 2.3. La entrega segura desde contenido publicado, las sesiones y su recuperación se integran en 2.4; las pistas y el feedback pedagógico contextual se profundizan en 2.5. No se habilitan actividades ficticias en producción para simular esas capacidades.
 
 ### Subfase 2.3. Evaluación de respuestas
 
-- [ ] Calificar ejercicios cerrados en backend mediante reglas deterministas.
-- [ ] Normalizar mayúsculas, espacios y puntuación solo cuando el tipo lo permita.
-- [ ] Definir equivalencias aceptadas de forma explícita.
-- [ ] No aceptar respuestas por coincidencia aproximada sin reglas transparentes.
-- [ ] Incorporar rúbricas a respuestas abiertas.
-- [ ] Validar la salida de IA contra esquemas tipados.
-- [ ] Registrar resultado, puntuación, explicación, pistas y versión de la regla/rúbrica.
-- [ ] Separar errores de contenido, formato, red y proveedor.
-- [ ] Permitir reintento sin duplicar progreso o recompensas.
+**Estado: implementación propuesta en PR #102; CI pendiente.** El motor determinista, las rúbricas de escritura y la persistencia idempotente están implementados en backend. La prueba manual con una actividad publicada espera la conexión segura del motor de sesiones en 2.4; no se enviarán definiciones privadas desde el navegador.
+
+- [x] Calificar en backend los ejercicios cerrados compatibles mediante reglas deterministas.
+- [x] Aplicar mayúsculas, espacios, puntuación ASCII y Unicode NFC solo cuando la política versionada lo permita.
+- [x] Definir equivalencias aceptadas de forma explícita en la definición privada de cada actividad.
+- [x] No aceptar respuestas por coincidencia aproximada.
+- [x] Incorporar rúbricas versionadas a respuestas escritas abiertas mediante Bedrock.
+- [x] Validar la salida de IA contra esquemas tipados, identidad/versionado de rúbrica, criterios exactos y límites de puntuación.
+- [x] Registrar definición privada, envío, resultado, puntuación, feedback, pistas y versión del motor/rúbrica.
+- [x] Separar errores de entrada, versión, capacidad, proveedor y persistencia mediante estados gRPC diferenciados.
+- [x] Persistir reintentos de forma idempotente por usuario sin duplicar resultados; la acreditación transaccional de progreso/recompensas y el límite de intentos se aplican en 2.4.
+- [ ] CI verde de compilación, pruebas Rust y migraciones de base de datos.
+- [ ] Prueba manual con contenido publicado y proveedor real, después de conectar la entrega segura de actividades en 2.4.
+
+**Implementación:** el motor determinista vive en el módulo común y el evaluador de rúbricas reutiliza ai-evaluator-service. Los intentos se guardan en PostgreSQL con RLS forzado por usuario y clave idempotente. No se creó otro microservicio ni una ruta pública que acepte definiciones privadas enviadas por el estudiante.
+
+**Límites que se conservan:** las respuestas habladas quedan en pending_review y sus métricas acústicas en not_measured; una transcripción no se usa para inventar puntuaciones de pronunciación o fluidez. La práctica de recuperación de vocabulario tampoco otorga una nota académica. La recuperación de definiciones publicadas y la integración BFF/sesiones pertenecen a 2.4.
 
 ### Subfase 2.4. Sesiones de lección
 
