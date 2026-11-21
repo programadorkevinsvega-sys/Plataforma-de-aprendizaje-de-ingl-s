@@ -252,8 +252,14 @@ function SpokenRecorder({
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-sm font-semibold text-slate-800">Respuesta hablada · máximo {maxDurationSeconds} s</span>
         {!recording ? (
-          <button type="button" onClick={() => void start()} disabled={working} className="rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">
-            {working ? 'Procesando audio…' : 'Iniciar grabación'}
+          <button
+            type="button"
+            onClick={() => void start()}
+            disabled={working || !upload}
+            aria-describedby={!upload ? 'spoken-upload-unavailable' : undefined}
+            className="rounded-xl bg-emerald-700 px-4 py-2.5 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {working ? 'Procesando audio…' : upload ? 'Iniciar grabación' : 'Grabación no disponible'}
           </button>
         ) : (
           <button type="button" onClick={stop} className="rounded-xl bg-rose-700 px-4 py-2.5 text-xs font-bold text-white">
@@ -262,6 +268,11 @@ function SpokenRecorder({
         )}
         {recording && <span className="text-xs font-semibold text-rose-700" role="status">● Grabando</span>}
       </div>
+      {!upload && (
+        <p id="spoken-upload-unavailable" className="text-xs text-amber-800" role="status">
+          La carga segura de audio todavía no está conectada. Esta actividad hablada permanece deshabilitada y no registrará evidencia ficticia.
+        </p>
+      )}
       {message && <p className="text-xs text-stone-600" role="status">{message}</p>}
     </div>
   )

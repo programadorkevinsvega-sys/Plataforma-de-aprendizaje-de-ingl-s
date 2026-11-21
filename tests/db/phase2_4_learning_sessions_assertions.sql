@@ -278,6 +278,7 @@ BEGIN
 END
 $$;
 GRANT SELECT, INSERT, UPDATE ON lesson_sessions TO phase24_rls_probe;
+GRANT SELECT ON curriculum_lesson_activities, lesson_activity_objectives TO phase24_rls_probe;
 GRANT SELECT ON phase24_session_ids TO phase24_rls_probe;
 SET LOCAL ROLE phase24_rls_probe;
 SELECT set_config(
@@ -286,9 +287,10 @@ SELECT set_config(
     TRUE
 );
 
-DO $$
+DO $
 DECLARE
     visible_count INTEGER;
+    visible_activity_count INTEGER;
     other_user UUID;
     new_session_id UUID := uuid_generate_v4();
 BEGIN
@@ -305,6 +307,20 @@ BEGIN
      WHERE user_id = other_user;
     IF visible_count <> 0 THEN
         RAISE EXCEPTION 'RLS exposed another learner session';
+    END IF;
+
+    SELECT set_config(
+        'app.current_user_id',
+        other_user::TEXT,
+        TRUE
+    );
+    SELECT COUNT(*) INTO visible_activity_count FROM curriculum_lesson_activities;
+    IF visible_activity_count <> 0 THEN
+        RAISE EXCEPTION 'RLS exposed private activity definitions without an active enrollment';
+    END IF;
+    SELECT COUNT(*) INTO visible_activity_count FROM lesson_activity_objectives;
+    IF visible_activity_count <> 0 THEN
+        RAISE EXCEPTION 'RLS exposed activity/objective mappings without an active enrollment';
     END IF;
 
     BEGIN

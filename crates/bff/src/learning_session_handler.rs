@@ -603,3 +603,57 @@ pub async fn submit_lesson_activity_handler(
         reward_pending,
     }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::session_dto;
+    use proto::ai_evaluator::LessonSessionSnapshot;
+    use serde_json::json;
+
+    #[test]
+    fn http_session_projection_never_serializes_private_definition_or_recovery_fields() {
+        let snapshot = LessonSessionSnapshot {
+            session_id: "00000000-0000-4000-8000-000000000001".to_string(),
+            lesson_id: "00000000-0000-4000-8000-000000000002".to_string(),
+            lesson_title: "Greetings".to_string(),
+            course_version_id: "00000000-0000-4000-8000-000000000003".to_string(),
+            status: "in_progress".to_string(),
+            current_activity_position: 1,
+            total_activities: 1,
+            active_duration_ms: 0,
+            student_activity_json: json!({
+                "schemaVersion": "1.0",
+                "activityId": "00000000-0000-4000-8000-000000000004",
+                "activityVersion": 1,
+                "title": "Choose a greeting",
+                "exercise": {
+                    "type": "multiple_choice",
+                    "prompt": "Choose a greeting",
+                    "options": [{"optionId":"00000000-0000-4000-8000-000000000005","text":"Hello"}],
+                    "allowMultiple": false
+                }
+            }).to_string(),
+            activity_definition_json: json!({
+                "correctOptionIds": ["00000000-0000-4000-8000-000000000005"],
+                "evaluation": {"kind":"deterministic","maxPoints":1}
+            }).to_string(),
+            last_result_json: String::new(),
+            completed_at: String::new(),
+            remaining_attempts: 3,
+            pending_reservation_id: "00000000-0000-4000-8000-000000000006".to_string(),
+            pending_submission_json: json!({"answer":{"kind":"selected_options"}}).to_string(),
+        };
+
+        let dto = session_dto(snapshot).expect("valid public projection");
+        let serialized = serde_json::to_value(dto).expect("serialize public DTO");
+        assert!(serialized.get("activity").is_some());
+        assert!(serialized.get("correctOptionIds").is_none());
+        assert!(serialized.get("activity_definition_json").is_none());
+        assert!(serialized.get("pending_reservation_id").is_none());
+        assert!(serialized.get("pending_submission_json").is_none());
+        let json = serialized.to_string();
+        assert!(!json.contains("correctOptionIds"));
+        assert!(!json.contains("pending_reservation"));
+        assert!(!json.contains("pending_submission"));
+    }
+}

@@ -532,6 +532,15 @@ pub async fn begin_lesson_activity_attempt(
         _ => Status::invalid_argument(format!("El envío no cumple el contrato publicado: {error}")),
     })?;
 
+    // Spoken submissions must reference a server-issued, durably stored audio
+    // object. The current repository has no such upload ledger/object store yet;
+    // reject client-invented UUIDs rather than recording unauditable evidence.
+    if activity.modality == common::activity_contract::ActivityModality::Spoken {
+        return Err(Status::failed_precondition(
+            "La carga segura de evidencia de audio todavía no está habilitada para esta actividad",
+        ));
+    }
+
     let attempts: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM lesson_session_activity_attempts WHERE session_id = $1 AND activity_id = $2",
     )
