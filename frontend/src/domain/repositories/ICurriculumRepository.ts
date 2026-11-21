@@ -73,6 +73,7 @@ export interface CurriculumLesson {
   title: string
   description: string
   estimatedMinutes: number
+  activityCount: number
   objectives: CurriculumObjective[]
   prerequisites: CurriculumPrerequisite[]
   progress: CurriculumLessonProgress | null

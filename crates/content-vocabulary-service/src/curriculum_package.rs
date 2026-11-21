@@ -1333,11 +1333,12 @@ pub async fn import_package(
                 for (index, objective_id) in activity_objective_ids.iter().enumerate() {
                     sqlx::query(
                         r#"INSERT INTO lesson_activity_objectives (
-                               activity_id, course_version_id, learning_objective_id, position
-                           ) VALUES ($1, $2, $3, $4)"#,
+                               activity_id, course_version_id, lesson_id, learning_objective_id, position
+                           ) VALUES ($1, $2, $3, $4, $5)"#,
                     )
                     .bind(activity_id)
                     .bind(course_version_id)
+                    .bind(lesson_id)
                     .bind(*objective_id)
                     .bind((index + 1) as i32)
                     .execute(&mut *tx)

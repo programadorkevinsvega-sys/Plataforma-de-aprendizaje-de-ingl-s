@@ -152,6 +152,7 @@ function toLesson(dto: Dto): CurriculumLesson {
     title: stringValue(dto, ['title']),
     description: stringValue(dto, ['description']),
     estimatedMinutes: numberValue(dto, ['estimated_minutes', 'estimatedMinutes']),
+    activityCount: numberValue(dto, ['activity_count', 'activityCount']),
     objectives: records(dto, 'objectives').map(toObjective),
     prerequisites: records(dto, 'prerequisites').map(toPrerequisite),
     progress,

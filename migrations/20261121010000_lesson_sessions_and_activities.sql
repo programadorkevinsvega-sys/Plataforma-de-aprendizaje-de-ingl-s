@@ -34,6 +34,7 @@ CREATE INDEX IF NOT EXISTS idx_lesson_activities_order
 CREATE TABLE IF NOT EXISTS lesson_activity_objectives (
     activity_id UUID NOT NULL,
     course_version_id UUID NOT NULL,
+    lesson_id UUID NOT NULL,
     learning_objective_id UUID NOT NULL,
     position INTEGER NOT NULL CHECK (position > 0),
     PRIMARY KEY (activity_id, learning_objective_id),
@@ -150,8 +151,8 @@ CREATE TABLE IF NOT EXISTS activity_objective_evidence (
     CONSTRAINT uq_activity_objective_attempt UNIQUE (user_id, assessment_attempt_id, learning_objective_id),
     FOREIGN KEY (session_id, user_id)
         REFERENCES lesson_sessions(id, user_id) ON DELETE RESTRICT,
-    FOREIGN KEY (activity_id, course_version_id)
-        REFERENCES curriculum_lesson_activities(activity_id, course_version_id) ON DELETE RESTRICT,
+    FOREIGN KEY (activity_id, course_version_id, lesson_id)
+        REFERENCES curriculum_lesson_activities(activity_id, course_version_id, lesson_id) ON DELETE RESTRICT,
     FOREIGN KEY (learning_objective_id, course_version_id)
         REFERENCES learning_objectives(id, course_version_id) ON DELETE RESTRICT
 );

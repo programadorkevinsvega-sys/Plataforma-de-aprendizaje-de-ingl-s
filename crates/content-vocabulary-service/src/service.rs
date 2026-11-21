@@ -938,12 +938,17 @@ impl ContentService for MyContentService {
         .await
         .map_err(|_| Status::internal("No se pudieron consultar las unidades del curso"))?;
 
-        let lesson_rows: Vec<(Uuid, Uuid, String, i32, String, String, String, Option<i32>)> =
+        let lesson_rows: Vec<(Uuid, Uuid, String, i32, String, String, String, Option<i32>, i64)> =
             sqlx::query_as(
-                r#"SELECT id, unit_id, lesson_code, position, lesson_pattern, title, description, estimated_minutes
-                     FROM course_lessons
-                    WHERE course_version_id = $1
-                    ORDER BY unit_id, position, id"#,
+                r#"SELECT lesson.id, lesson.unit_id, lesson.lesson_code, lesson.position,
+                          lesson.lesson_pattern, lesson.title, lesson.description,
+                          lesson.estimated_minutes,
+                          (SELECT COUNT(*) FROM curriculum_lesson_activities activity
+                            WHERE activity.lesson_id = lesson.id
+                              AND activity.course_version_id = lesson.course_version_id)
+                     FROM course_lessons lesson
+                    WHERE lesson.course_version_id = $1
+                    ORDER BY lesson.unit_id, lesson.position, lesson.id"#,
             )
             .bind(version_id)
             .fetch_all(&mut *tx)
@@ -1116,7 +1121,7 @@ impl ContentService for MyContentService {
         // La disponibilidad se deriva después, evitando depender del orden visual
         // de las unidades cuando el grafo de prerrequisitos no es lineal.
         let mut lesson_base: HashMap<Uuid, (i32, i32, f64, bool, bool)> = HashMap::new();
-        for (lesson_id, _, _, _, _, _, _, _) in &lesson_rows {
+        for (lesson_id, _, _, _, _, _, _, _, _) in &lesson_rows {
             let (required, completed, mastery_sum) = lesson_evidence
                 .get(lesson_id)
                 .copied()
@@ -1157,7 +1162,7 @@ impl ContentService for MyContentService {
         }
 
         let mut lessons_by_unit: HashMap<Uuid, Vec<CurriculumLesson>> = HashMap::new();
-        for (id, unit_id, code, position, pattern, lesson_title, lesson_description, minutes) in
+        for (id, unit_id, code, position, pattern, lesson_title, lesson_description, minutes, activity_count) in
             &lesson_rows
         {
             lessons_by_unit
@@ -1174,6 +1179,7 @@ impl ContentService for MyContentService {
                     objectives: objectives_by_lesson.remove(id).unwrap_or_default(),
                     prerequisites: prerequisites_by_lesson.remove(id).unwrap_or_default(),
                     progress: progress_by_lesson.remove(id),
+                    activity_count: (*activity_count).min(i64::from(i32::MAX)) as i32,
                 });
         }
 
