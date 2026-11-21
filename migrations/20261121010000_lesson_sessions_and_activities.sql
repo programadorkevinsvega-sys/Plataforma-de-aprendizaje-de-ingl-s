@@ -44,6 +44,12 @@ CREATE TABLE IF NOT EXISTS lesson_activity_objectives (
         REFERENCES learning_objectives(id, course_version_id) ON DELETE RESTRICT
 );
 
+-- Extend enrollment and session identity keys so a session cannot reference
+-- a different course version's enrollment, lesson, or activity.
+ALTER TABLE course_enrollments
+    ADD CONSTRAINT uq_course_enrollment_id_user_version
+    UNIQUE (id, user_id, course_version_id);
+
 CREATE TABLE IF NOT EXISTS lesson_sessions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -151,12 +157,6 @@ CREATE TABLE IF NOT EXISTS activity_objective_evidence (
 );
 CREATE INDEX IF NOT EXISTS idx_activity_objective_evidence_user_objective
     ON activity_objective_evidence(user_id, learning_objective_id, recorded_at DESC);
-
--- Extend enrollment and session identity keys so a session cannot reference
--- a different course version's enrollment, lesson, or activity.
-ALTER TABLE course_enrollments
-    ADD CONSTRAINT uq_course_enrollment_id_user_version
-    UNIQUE (id, user_id, course_version_id);
 
 -- A lesson may grant its completion reward only once per learner, regardless of retries.
 CREATE TABLE IF NOT EXISTS lesson_completion_reward_events (

@@ -191,6 +191,12 @@ pub async fn start_lesson_session(
 
     let mut tx = pool.begin().await.map_err(|error| db_unavailable(error, "start_session"))?;
     set_user(&mut tx, user_id).await?;
+    let lock_key = format!("lesson-session:{user_id}:{lesson_id}");
+    sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
+        .bind(lock_key)
+        .execute(&mut *tx)
+        .await
+        .map_err(|error| db_unavailable(error, "lock_lesson_session_start"))?;
 
     if let Some((existing_session_id, existing_lesson_id)) = sqlx::query_as::<_, (Uuid, Uuid)>(
         "SELECT id, lesson_id FROM lesson_sessions WHERE user_id = $1 AND start_idempotency_key = $2",
@@ -229,6 +235,27 @@ pub async fn start_lesson_session(
     let (enrollment_id, course_version_id, _lesson_title) = enrollment.ok_or_else(|| {
         Status::failed_precondition("La lección no está publicada o no existe una matrícula activa")
     })?;
+
+    if let Some(existing_session_id) = sqlx::query_scalar::<_, Uuid>(
+        r#"SELECT id
+             FROM lesson_sessions
+            WHERE user_id = $1
+              AND lesson_id = $2
+              AND status = 'in_progress'
+            ORDER BY last_activity_at DESC, id DESC
+            LIMIT 1
+            FOR UPDATE"#,
+    )
+    .bind(user_id)
+    .bind(lesson_id)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(|error| db_unavailable(error, "find_resumable_lesson_session"))?
+    {
+        let snapshot = session_snapshot_in_transaction(&mut tx, user_id, existing_session_id).await?;
+        tx.commit().await.map_err(|error| db_unavailable(error, "commit_resumed_lesson_session"))?;
+        return Ok((snapshot, true));
+    }
 
     let blocked_prerequisite: bool = sqlx::query_scalar(
         r#"SELECT EXISTS (
