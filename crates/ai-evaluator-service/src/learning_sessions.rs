@@ -71,7 +71,7 @@ async fn set_user(tx: &mut Transaction<'_, Postgres>, user_id: Uuid) -> SessionR
         .await
         .map_err(|error| {
             tracing::error!(%error, user_id = %user_id, "Could not establish lesson session RLS context");
-            Status::internal("No se pudo establecer el aislamiento de la sesión")
+            Box::new(Status::internal("No se pudo establecer el aislamiento de la sesión"))
         })
 }
 
@@ -451,7 +451,7 @@ pub async fn get_lesson_session(
     pool: &PgPool,
     user_id: Uuid,
     session_id: Uuid,
-) -> Result<LessonSessionSnapshot, Status> {
+) -> SessionResult<LessonSessionSnapshot> {
     if session_id.is_nil() {
         return Err(Box::new(Status::invalid_argument(
             "sessionId no puede ser nulo",
