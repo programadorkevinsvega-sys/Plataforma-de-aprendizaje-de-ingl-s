@@ -938,17 +938,31 @@ impl ContentService for MyContentService {
         .await
         .map_err(|_| Status::internal("No se pudieron consultar las unidades del curso"))?;
 
-        let lesson_rows: Vec<(Uuid, Uuid, String, i32, String, String, String, Option<i32>)> =
-            sqlx::query_as(
-                r#"SELECT id, unit_id, lesson_code, position, lesson_pattern, title, description, estimated_minutes
-                     FROM course_lessons
-                    WHERE course_version_id = $1
-                    ORDER BY unit_id, position, id"#,
-            )
-            .bind(version_id)
-            .fetch_all(&mut *tx)
-            .await
-            .map_err(|_| Status::internal("No se pudieron consultar las lecciones del curso"))?;
+        let lesson_rows: Vec<(
+            Uuid,
+            Uuid,
+            String,
+            i32,
+            String,
+            String,
+            String,
+            Option<i32>,
+            i64,
+        )> = sqlx::query_as(
+            r#"SELECT lesson.id, lesson.unit_id, lesson.lesson_code, lesson.position,
+                          lesson.lesson_pattern, lesson.title, lesson.description,
+                          lesson.estimated_minutes,
+                          (SELECT COUNT(*) FROM curriculum_lesson_activities activity
+                            WHERE activity.lesson_id = lesson.id
+                              AND activity.course_version_id = lesson.course_version_id)
+                     FROM course_lessons lesson
+                    WHERE lesson.course_version_id = $1
+                    ORDER BY lesson.unit_id, lesson.position, lesson.id"#,
+        )
+        .bind(version_id)
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudieron consultar las lecciones del curso"))?;
 
         let objective_rows: Vec<(Uuid, Uuid, String, String, String, i32, bool, Vec<String>)> =
             sqlx::query_as(
@@ -1013,6 +1027,11 @@ impl ContentService for MyContentService {
                        SELECT COUNT(*)
                          FROM learning_objective_sentences reference
                         WHERE reference.learning_objective_id = objective.id
+                   ) + (
+                       SELECT COUNT(*)
+                         FROM lesson_activity_objectives link
+                        WHERE link.learning_objective_id = objective.id
+                          AND link.course_version_id = objective.course_version_id
                    ) AS evidence_total,
                    (
                        SELECT COUNT(*)
@@ -1029,20 +1048,71 @@ impl ContentService for MyContentService {
                           AND review.user_id = $2
                           AND review.repetitions > 0
                         WHERE reference.learning_objective_id = objective.id
+                   ) + (
+                       SELECT COUNT(*)
+                         FROM (
+                             SELECT DISTINCT ON (evidence.activity_id)
+                                    evidence.activity_id, evidence.normalized_score
+                               FROM activity_objective_evidence evidence
+                              WHERE evidence.learning_objective_id = objective.id
+                                AND evidence.user_id = $2
+                                AND evidence.course_version_id = objective.course_version_id
+                              ORDER BY evidence.activity_id, evidence.recorded_at DESC, evidence.id DESC
+                         ) latest
+                        WHERE latest.normalized_score >= 0.7
                    ) AS evidence_completed,
                    CASE
-                     WHEN EXISTS (
-                         SELECT 1 FROM learning_objective_sentences reference
-                          WHERE reference.learning_objective_id = objective.id
-                     )
-                     THEN COALESCE((
-                         SELECT AVG(LEAST(review.repetitions::DOUBLE PRECISION / 3.0, 1.0))
+                     WHEN (
+                         SELECT COUNT(*)
+                           FROM lesson_activity_objectives link
+                          WHERE link.learning_objective_id = objective.id
+                            AND link.course_version_id = objective.course_version_id
+                     ) + (
+                         SELECT COUNT(*)
                            FROM learning_objective_sentences reference
-                           LEFT JOIN user_srs_progress review
-                             ON review.sentence_id = reference.context_sentence_id
-                            AND review.user_id = $2
                           WHERE reference.learning_objective_id = objective.id
-                     ), 0.0)
+                     ) > 0
+                     THEN (
+                         COALESCE((
+                             SELECT AVG(LEAST(review.repetitions::DOUBLE PRECISION / 3.0, 1.0))
+                               FROM learning_objective_sentences reference
+                               LEFT JOIN user_srs_progress review
+                                 ON review.sentence_id = reference.context_sentence_id
+                                AND review.user_id = $2
+                              WHERE reference.learning_objective_id = objective.id
+                         ), 0.0) * (
+                             SELECT COUNT(*)
+                               FROM learning_objective_sentences reference
+                              WHERE reference.learning_objective_id = objective.id
+                         )
+                         +
+                         COALESCE((
+                             SELECT AVG(latest.normalized_score)::DOUBLE PRECISION
+                               FROM (
+                                   SELECT DISTINCT ON (evidence.activity_id)
+                                          evidence.activity_id, evidence.normalized_score
+                                     FROM activity_objective_evidence evidence
+                                    WHERE evidence.learning_objective_id = objective.id
+                                      AND evidence.user_id = $2
+                                      AND evidence.course_version_id = objective.course_version_id
+                                    ORDER BY evidence.activity_id, evidence.recorded_at DESC, evidence.id DESC
+                               ) latest
+                         ), 0.0) * (
+                             SELECT COUNT(*)
+                               FROM lesson_activity_objectives link
+                              WHERE link.learning_objective_id = objective.id
+                                AND link.course_version_id = objective.course_version_id
+                         )
+                     ) / NULLIF((
+                         SELECT COUNT(*)
+                           FROM learning_objective_sentences reference
+                          WHERE reference.learning_objective_id = objective.id
+                     ) + (
+                         SELECT COUNT(*)
+                           FROM lesson_activity_objectives link
+                          WHERE link.learning_objective_id = objective.id
+                            AND link.course_version_id = objective.course_version_id
+                     ), 0)
                      ELSE 0.0
                    END AS mastery_score
                FROM learning_objectives objective
@@ -1116,7 +1186,7 @@ impl ContentService for MyContentService {
         // La disponibilidad se deriva después, evitando depender del orden visual
         // de las unidades cuando el grafo de prerrequisitos no es lineal.
         let mut lesson_base: HashMap<Uuid, (i32, i32, f64, bool, bool)> = HashMap::new();
-        for (lesson_id, _, _, _, _, _, _, _) in &lesson_rows {
+        for (lesson_id, _, _, _, _, _, _, _, _) in &lesson_rows {
             let (required, completed, mastery_sum) = lesson_evidence
                 .get(lesson_id)
                 .copied()
@@ -1141,7 +1211,7 @@ impl ContentService for MyContentService {
         }
 
         let mut progress_by_lesson: HashMap<Uuid, CurriculumLessonProgress> = HashMap::new();
-        for (lesson_id, _, _, _, _, _, _, _) in &lesson_rows {
+        for (lesson_id, _, _, _, _, _, _, _, _) in &lesson_rows {
             let evidence = lesson_base
                 .get(lesson_id)
                 .copied()
@@ -1157,8 +1227,17 @@ impl ContentService for MyContentService {
         }
 
         let mut lessons_by_unit: HashMap<Uuid, Vec<CurriculumLesson>> = HashMap::new();
-        for (id, unit_id, code, position, pattern, lesson_title, lesson_description, minutes) in
-            &lesson_rows
+        for (
+            id,
+            unit_id,
+            code,
+            position,
+            pattern,
+            lesson_title,
+            lesson_description,
+            minutes,
+            activity_count,
+        ) in &lesson_rows
         {
             lessons_by_unit
                 .entry(*unit_id)
@@ -1174,6 +1253,7 @@ impl ContentService for MyContentService {
                     objectives: objectives_by_lesson.remove(id).unwrap_or_default(),
                     prerequisites: prerequisites_by_lesson.remove(id).unwrap_or_default(),
                     progress: progress_by_lesson.remove(id),
+                    activity_count: (*activity_count).min(i64::from(i32::MAX)) as i32,
                 });
         }
 

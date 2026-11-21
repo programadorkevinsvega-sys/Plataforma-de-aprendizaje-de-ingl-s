@@ -13,6 +13,11 @@ import {
 } from '@/application/use-cases/EvaluateExamAnswerUseCase'
 import { GetAchievementsUseCase } from '@/application/use-cases/GetAchievementsUseCase'
 import {
+  GetLearningSessionUseCase,
+  StartLessonSessionUseCase,
+  SubmitLearningActivityUseCase,
+} from '@/application/use-cases/LearningSessionUseCases'
+import {
   EnrollInCurriculumCourseUseCase,
   GetCurriculumCourseUseCase,
   GetCurriculumCoursesUseCase,
@@ -46,6 +51,7 @@ import type { IAuthRepository } from '@/domain/repositories/IAuthRepository'
 import type { IContentRepository } from '@/domain/repositories/IContentRepository'
 import type { ICurriculumRepository } from '@/domain/repositories/ICurriculumRepository'
 import type { IProgressRepository } from '@/domain/repositories/IProgressRepository'
+import type { ILearningSessionRepository } from '@/domain/repositories/ILearningSessionRepository'
 import type { ISrsRepository } from '@/domain/repositories/ISrsRepository'
 import { BFF_BASE_URL, BffHttpClient } from '../api/BffHttpClient'
 import { BffAIEvaluatorRepository } from '../repositories/BffAIEvaluatorRepository'
@@ -53,6 +59,7 @@ import { BffAuthRepository } from '../repositories/BffAuthRepository'
 import { BffContentRepository } from '../repositories/BffContentRepository'
 import { BffCurriculumRepository } from '../repositories/BffCurriculumRepository'
 import { BffProgressRepository } from '../repositories/BffProgressRepository'
+import { BffLearningSessionRepository } from '../repositories/BffLearningSessionRepository'
 import { BffSrsRepository } from '../repositories/BffSrsRepository'
 import { sessionStorageAdapter } from '../storage/SessionStorage'
 
@@ -66,6 +73,7 @@ export interface Container {
     evaluator: IAIEvaluatorRepository
     srs: ISrsRepository
     progress: IProgressRepository
+    learningSessions: ILearningSessionRepository
   }
   useCases: {
     register: RegisterUserUseCase
@@ -94,6 +102,9 @@ export interface Container {
     getLeaderboard: GetLeaderboardUseCase
     getAchievements: GetAchievementsUseCase
     recordLearningProgress: RecordLearningProgressUseCase
+    startLessonSession: StartLessonSessionUseCase
+    getLearningSession: GetLearningSessionUseCase
+    submitLearningActivity: SubmitLearningActivityUseCase
   }
 }
 
@@ -113,11 +124,12 @@ function build(): Container {
   const evaluator = new BffAIEvaluatorRepository(http)
   const srs = new BffSrsRepository(http)
   const progress = new BffProgressRepository(http)
+  const learningSessions = new BffLearningSessionRepository(http)
 
   return {
     bffBaseUrl: http.baseUrlValue,
     session: sessionStorageAdapter,
-    repositories: { auth, content, curriculum, evaluator, srs, progress },
+    repositories: { auth, content, curriculum, evaluator, srs, progress, learningSessions },
     useCases: {
       register: new RegisterUserUseCase(auth),
       login: new LoginUserUseCase(auth),
@@ -145,6 +157,9 @@ function build(): Container {
       getLeaderboard: new GetLeaderboardUseCase(progress),
       getAchievements: new GetAchievementsUseCase(progress),
       recordLearningProgress: new RecordLearningProgressUseCase(progress),
+      startLessonSession: new StartLessonSessionUseCase(learningSessions),
+      getLearningSession: new GetLearningSessionUseCase(learningSessions),
+      submitLearningActivity: new SubmitLearningActivityUseCase(learningSessions),
     },
   }
 }

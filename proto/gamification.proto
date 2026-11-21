@@ -6,41 +6,39 @@ service GamificationService {
   rpc GetUserStats (GetUserStatsRequest) returns (UserStatsResponse);
   rpc AddXp (AddXpRequest) returns (UserStatsResponse);
   rpc RecordLearningProgress (RecordLearningProgressRequest) returns (RecordLearningProgressResponse);
+  rpc RecordLessonCompletion (RecordLessonCompletionRequest) returns (RecordLessonCompletionResponse);
   rpc InitUserStats (InitUserStatsRequest) returns (UserStatsResponse);
   rpc GetLeaderboard (GetLeaderboardRequest) returns (LeaderboardResponse);
   rpc GetUserAchievements (GetUserAchievementsRequest) returns (UserAchievementsResponse);
 }
 
-message GetUserStatsRequest {
-  string user_id = 1;
-}
-
-message AddXpRequest {
-  string user_id = 1;
-  int32 xp_amount = 2;
-  int32 words_learned_delta = 3;
-}
-
+message GetUserStatsRequest { string user_id = 1; }
+message AddXpRequest { string user_id = 1; int32 xp_amount = 2; int32 words_learned_delta = 3; }
 message RecordLearningProgressRequest {
   string user_id = 1;
   int32 xp_amount = 2;
   int32 coins_amount = 3;
   int32 words_learned_delta = 4;
-  // Stable idempotency key; for the BFF learning flow this is the vocabulary word UUID.
   string word_id = 5;
 }
-
 message RecordLearningProgressResponse {
   UserStatsResponse stats = 1;
   int32 xp_gained = 2;
   int32 coins_gained = 3;
   bool applied = 4;
 }
-
-message InitUserStatsRequest {
+message RecordLessonCompletionRequest {
   string user_id = 1;
+  string session_id = 2;
+  string lesson_id = 3;
 }
-
+message RecordLessonCompletionResponse {
+  UserStatsResponse stats = 1;
+  int32 xp_gained = 2;
+  int32 coins_gained = 3;
+  bool applied = 4;
+}
+message InitUserStatsRequest { string user_id = 1; }
 message UserStatsResponse {
   string user_id = 1;
   int32 xp = 2;
@@ -50,11 +48,7 @@ message UserStatsResponse {
   int32 sentences_mastered = 6;
   string current_level = 7;
 }
-
-message GetLeaderboardRequest {
-  int32 limit = 1;
-}
-
+message GetLeaderboardRequest { int32 limit = 1; }
 message LeaderboardEntry {
   string user_id = 1;
   string full_name = 2;
@@ -62,15 +56,8 @@ message LeaderboardEntry {
   int32 xp = 4;
   int32 streak_days = 5;
 }
-
-message LeaderboardResponse {
-  repeated LeaderboardEntry entries = 1;
-}
-
-message GetUserAchievementsRequest {
-  string user_id = 1;
-}
-
+message LeaderboardResponse { repeated LeaderboardEntry entries = 1; }
+message GetUserAchievementsRequest { string user_id = 1; }
 message Achievement {
   string id = 1;
   string emoji = 2;
@@ -81,7 +68,4 @@ message Achievement {
   int32 max_progress = 7;
   string category = 8;
 }
-
-message UserAchievementsResponse {
-  repeated Achievement achievements = 1;
-}
+message UserAchievementsResponse { repeated Achievement achievements = 1; }

@@ -62,6 +62,8 @@ export default function CurriculumCoursePage() {
   const [error, setError] = useState<string | null>(null)
   const [enrollmentMessage, setEnrollmentMessage] = useState<string | null>(null)
   const [enrollmentError, setEnrollmentError] = useState<string | null>(null)
+  const [startingLessonId, setStartingLessonId] = useState<string | null>(null)
+  const [lessonActionError, setLessonActionError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -95,6 +97,28 @@ export default function CurriculumCoursePage() {
     }
   }, [courseVersionId, router])
 
+  const handleStartLesson = async (lessonId: string) => {
+    if (!detail?.course.enrolled || startingLessonId) return
+    setStartingLessonId(lessonId)
+    setLessonActionError(null)
+    try {
+      const container = getContainer()
+      const started = await container.useCases.startLessonSession.execute(
+        lessonId,
+        crypto.randomUUID(),
+      )
+      router.push('/learn/sessions/' + encodeURIComponent(started.session.sessionId))
+    } catch (cause) {
+      setLessonActionError(
+        cause instanceof Error
+          ? cause.message
+          : 'No se pudo iniciar la sesión de aprendizaje.',
+      )
+    } finally {
+      setStartingLessonId(null)
+    }
+  }
+
   const lessonTitles = useMemo(() => {
     const titles = new Map<string, string>()
     detail?.units.forEach((unit) =>
@@ -113,11 +137,12 @@ export default function CurriculumCoursePage() {
       await container.useCases.enrollInCurriculumCourse.execute(
         detail.course.courseVersionId,
       )
-      setDetail((current) =>
-        current
-          ? { ...current, course: { ...current.course, enrolled: true } }
-          : current,
+      // Reload the catalog after enrollment so RLS-protected activity counts and
+      // evidence-backed lesson states are computed inside the authenticated scope.
+      const refreshed = await container.useCases.getCurriculumCourse.execute(
+        detail.course.courseVersionId,
       )
+      setDetail(refreshed)
       setEnrollmentMessage('Tu matrícula quedó registrada correctamente.')
     } catch (cause) {
       setEnrollmentError(
@@ -306,9 +331,9 @@ export default function CurriculumCoursePage() {
                                   Completa las lecciones previas para desbloquear esta ruta.
                                 </p>
                               )}
-                              {lesson.progress.state === 'available' && (
-                                <p className="mt-2 text-[10px] leading-5 text-emerald-100/70">
-                                  Los prerrequisitos están satisfechos. Las actividades interactivas se habilitarán con el motor de ejercicios de Fase 2.
+                              {lesson.progress.state === 'available' && lesson.activityCount === 0 && (
+                                <p className="mt-2 text-[10px] leading-5 text-slate-400">
+                                  Esta lección todavía no tiene actividades interactivas publicadas.
                                 </p>
                               )}
                             </div>
@@ -316,6 +341,39 @@ export default function CurriculumCoursePage() {
                           {lesson.description && (
                             <p className="mt-2 text-sm leading-6 text-slate-400">{lesson.description}</p>
                           )}
+
+                          {lessonActionError && startingLessonId === null && (
+                            <p className="mt-3 rounded-xl border border-rose-400/20 bg-rose-400/5 p-3 text-xs text-rose-200" role="alert">
+                              {lessonActionError}
+                            </p>
+                          )}
+
+                          {detail.course.enrolled &&
+                            lesson.activityCount > 0 &&
+                            (lesson.progress?.state === 'available' || lesson.progress?.state === 'in_progress') && (
+                              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-400/15 bg-emerald-400/5 p-3">
+                                <div>
+                                  <p className="text-xs font-bold text-emerald-100">
+                                    {lesson.activityCount} actividades publicadas
+                                  </p>
+                                  <p className="mt-1 text-[10px] text-emerald-100/60">
+                                    La sesión guarda tu avance y se puede recuperar si sales.
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => void handleStartLesson(lesson.id)}
+                                  disabled={startingLessonId !== null}
+                                  className="rounded-xl bg-emerald-400 px-4 py-2.5 text-xs font-extrabold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  {startingLessonId === lesson.id
+                                    ? 'Abriendo lección…'
+                                    : lesson.progress.state === 'in_progress'
+                                      ? 'Continuar lección'
+                                      : 'Iniciar lección'}
+                                </button>
+                              </div>
+                            )}
 
                           {lesson.prerequisites.length > 0 && (
                             <div className="mt-4 rounded-xl border border-amber-400/15 bg-amber-400/5 p-3">

@@ -545,7 +545,7 @@ Construir un motor reutilizable que permita presentar actividades diferentes baj
 
 ### Subfase 2.3. Evaluación de respuestas
 
-**Estado: implementación propuesta en PR #102; CI pendiente.** El motor determinista, las rúbricas de escritura y la persistencia idempotente están implementados en backend. La prueba manual con una actividad publicada espera la conexión segura del motor de sesiones en 2.4; no se enviarán definiciones privadas desde el navegador.
+**Estado: IMPLEMENTADA e integrada en main (PR #102).** El CI del commit de la PR terminó correctamente (workflow run #530) y la validación posterior de main también quedó verde. El motor determinista, las rúbricas de escritura con Bedrock y la persistencia idempotente están integrados. La aceptación manual con una actividad publicada y un proveedor real se conserva como validación funcional posterior a la integración de sesiones de 2.4; no se envían definiciones privadas desde el navegador.
 
 - [x] Calificar en backend los ejercicios cerrados compatibles mediante reglas deterministas.
 - [x] Aplicar mayúsculas, espacios, puntuación ASCII y Unicode NFC solo cuando la política versionada lo permita.
@@ -556,7 +556,7 @@ Construir un motor reutilizable que permita presentar actividades diferentes baj
 - [x] Registrar definición privada, envío, resultado, puntuación, feedback, pistas y versión del motor/rúbrica.
 - [x] Separar errores de entrada, versión, capacidad, proveedor y persistencia mediante estados gRPC diferenciados.
 - [x] Persistir reintentos de forma idempotente por usuario sin duplicar resultados; la acreditación transaccional de progreso/recompensas y el límite de intentos se aplican en 2.4.
-- [ ] CI verde de compilación, pruebas Rust y migraciones de base de datos.
+- [x] CI verde de compilación, pruebas Rust y migraciones de base de datos (PR #102, workflow run #530).
 - [ ] Prueba manual con contenido publicado y proveedor real, después de conectar la entrega segura de actividades en 2.4.
 
 **Implementación:** el motor determinista vive en el módulo común y el evaluador de rúbricas reutiliza ai-evaluator-service. Los intentos se guardan en PostgreSQL con RLS forzado por usuario y clave idempotente. No se creó otro microservicio ni una ruta pública que acepte definiciones privadas enviadas por el estudiante.
@@ -565,13 +565,30 @@ Construir un motor reutilizable que permita presentar actividades diferentes baj
 
 ### Subfase 2.4. Sesiones de lección
 
-- [ ] Crear un motor de sesión con inicio, actividad actual, respuesta, corrección, avance y finalización.
-- [ ] Recuperar una sesión interrumpida cuando sea válido.
-- [ ] Guardar estado en backend; no depender únicamente del estado React.
-- [ ] Evitar doble envío y doble puntuación.
-- [ ] Registrar tiempo activo sin contar pausas indefinidas como estudio.
-- [ ] Mostrar progreso real de la sesión.
-- [ ] Permitir salir sin perder resultados confirmados.
+**Estado: implementación en revisión en la rama `feat/phase-2-4-learning-sessions`; CI y aceptación funcional pendientes.** La entrega conecta el catálogo curricular publicado con el evaluador interno mediante sesiones persistentes y endpoints BFF autenticados. El código y las pruebas están en preparación de PR; todavía no se marca como DONE.
+
+- [x] Crear un motor de sesión con inicio idempotente, actividad actual, respuesta, corrección, avance y finalización.
+- [x] Recuperar una sesión interrumpida desde el backend, incluida una reserva que quedó en proceso después de cerrar el navegador.
+- [x] Guardar estado, cursor y resultados confirmados en PostgreSQL; React solo representa el estado autoritativo.
+- [x] Evitar doble envío/doble puntuación mediante reserva única por sesión/actividad y clave idempotente por usuario.
+- [x] Aplicar límites de intentos, tamaño del envío, duración máxima y un tiempo activo acotado por el reloj del servidor.
+- [x] Mostrar el progreso real, resultado y estados completado/pendiente de revisión en la experiencia de sesión.
+- [x] Permitir salir y recuperar la sesión sin perder resultados confirmados.
+- [x] Importar definiciones privadas versionadas junto a la lección y sus objetivos; bloquear mutaciones en PostgreSQL y verificar su SHA-256 en cada lectura.
+- [x] Exponer solo StudentActivityView y resultados permitidos al navegador; la definición privada, rúbricas, reserva y envío de recuperación permanecen en el RPC interno.
+- [x] Registrar evidencia por objetivo y progreso de lección solo a partir de resultados evaluados y validados.
+- [x] Acreditar XP/monedas desde un ledger idempotente del backend, nunca desde el navegador.
+- [x] Proteger las operaciones HTTP de inicio/consulta/envío con límites de tasa por usuario y límites de cuerpo.
+- [x] Añadir aserciones PostgreSQL para RLS forzado, privacidad de definiciones, aislamiento entre estudiantes, inmutabilidad y transiciones de sesión.
+- [x] Añadir pruebas de importación para una actividad privada válida y para rechazar referencias a objetivos de otra lección; probar que el DTO HTTP no filtra campos internos.
+- [ ] CI verde de Rust, frontend, auditorías y migraciones fresh/upgrade para el HEAD exacto del PR.
+- [ ] Prueba manual de extremo a extremo con una actividad real publicada por la cuenta editorial y una matrícula real; no se crearán actividades ficticias en producción.
+- [ ] Verificar recursos multimedia reales (audio/imagen) desde el catálogo curricular. Los IDs de asset no deben convertirse en URLs construidas por el frontend.
+- [ ] Habilitar los ejercicios hablados solo después de disponer de un almacenamiento autenticado y verificable de grabaciones. En esta entrega se rechazan reservas habladas sin evidencia de audio persistida; no se inventan transcripciones ni puntuaciones acústicas.
+
+**Decisiones de operación y escalado:** las sesiones y sus intentos son persistentes y seguras en PostgreSQL. El limitador de tasa conectado reutiliza el control local existente del BFF; protege una instancia, pero no coordina varias réplicas. Antes de escalar horizontalmente el BFF, el contador debe respaldarse con un almacén compartido y atómico (Redis u otro servicio ya aprobado). La entrega no añade secretos nuevos ni un microservicio adicional.
+
+**Frontera con las siguientes subfases:** 2.4 resuelve la sesión, el envío seguro y el avance. Las pistas graduadas y el feedback pedagógico contextual pertenecen a 2.5. La evaluación hablada real y el Sistema Dual transversal mantienen sus criterios de evidencia, consentimiento y calidad; esta entrega no los da por implementados.
 
 ### Subfase 2.5. Feedback educativo
 

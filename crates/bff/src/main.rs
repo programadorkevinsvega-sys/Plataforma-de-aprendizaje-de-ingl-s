@@ -3,6 +3,7 @@ mod content_handler;
 mod curriculum_handler;
 mod exam_handler;
 mod grpc_deadlines;
+mod learning_session_handler;
 mod progress_handler;
 mod request_limiter;
 mod srs_handler;
@@ -20,6 +21,9 @@ use curriculum_handler::{
 use exam_handler::{
     create_transcribe_ticket_handler, evaluate_answer_handler, get_drill_handler,
     next_question_handler, transcribe_ws_handler,
+};
+use learning_session_handler::{
+    get_lesson_session_handler, start_lesson_session_handler, submit_lesson_activity_handler,
 };
 use progress_handler::record_progress_handler;
 use srs_handler::{get_due_cards_handler, review_card_handler};
@@ -212,6 +216,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route(
             "/api/v1/curriculum/enrollments",
             post(enroll_course_handler),
+        )
+        .route(
+            "/api/v1/curriculum/lessons/:lesson_id/sessions",
+            post(start_lesson_session_handler).layer(DefaultBodyLimit::max(4 * 1024)),
+        )
+        .route(
+            "/api/v1/learning/sessions/:session_id",
+            get(get_lesson_session_handler),
+        )
+        .route(
+            "/api/v1/learning/sessions/:session_id/answers",
+            post(submit_lesson_activity_handler).layer(DefaultBodyLimit::max(256 * 1024)),
         )
         .route(
             "/api/v1/curriculum/editor/import",

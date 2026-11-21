@@ -17,285 +17,84 @@ service ContentService {
 }
 
 message ContextSentence {
-  string id = 1;
-  string english_text = 2;
-  string spanish_phonetic = 3;
-  string spanish_translation = 4;
-  string audio_url = 5;
-  string spanish_phonetic_natural = 6;
-  string pronunciation_status = 7;
+  string id = 1; string english_text = 2; string spanish_phonetic = 3; string spanish_translation = 4;
+  string audio_url = 5; string spanish_phonetic_natural = 6; string pronunciation_status = 7;
 }
-
 message VocabularyWordResponse {
-  string id = 1;
-  string word = 2;
-  string spanish_phonetic = 3;
-  string spanish_translation = 4;
-  string category = 5;
-  string level = 6;
-  repeated ContextSentence context_sentences = 7;
-  string spanish_phonetic_natural = 8;
-  string definition_en = 9;
-  string lexical_type = 10;
-  repeated string tracks = 11;
-  string lexical_register = 12;
-  string editorial_priority = 13;
-  string usefulness = 14;
-  repeated string context_tags = 15;
-  string usage_mode = 16;
-  string pronunciation_status = 17;
+  string id = 1; string word = 2; string spanish_phonetic = 3; string spanish_translation = 4;
+  string category = 5; string level = 6; repeated ContextSentence context_sentences = 7;
+  string spanish_phonetic_natural = 8; string definition_en = 9; string lexical_type = 10;
+  repeated string tracks = 11; string lexical_register = 12; string editorial_priority = 13;
+  string usefulness = 14; repeated string context_tags = 15; string usage_mode = 16; string pronunciation_status = 17;
 }
-
-message GetVocabularyWordRequest {
-  string word_id = 1;
-}
-
+message GetVocabularyWordRequest { string word_id = 1; }
 message ListVocabularyWordsRequest {
-  string level = 1;
-  string category = 2;
-  int32 limit = 3;
-  int32 offset = 4;
-  string user_id = 5;
-  string track = 6;
+  string level = 1; string category = 2; int32 limit = 3; int32 offset = 4; string user_id = 5; string track = 6;
 }
-
-message ListVocabularyWordsResponse {
-  repeated VocabularyWordResponse words = 1;
-  int32 total = 2;
-}
-
-
+message ListVocabularyWordsResponse { repeated VocabularyWordResponse words = 1; int32 total = 2; }
 message ListComprehensionResourcesRequest {
-  string user_id = 1;
-  int32 page = 2;
-  int32 page_size = 3;
-  string track = 4;
-  string cefr_level = 5;
-  string skill = 6;
+  string user_id = 1; int32 page = 2; int32 page_size = 3; string track = 4; string cefr_level = 5; string skill = 6;
 }
-
 message ListComprehensionResourcesResponse {
-  repeated ComprehensionResource items = 1;
-  int32 total = 2;
-  int32 page = 3;
-  int32 page_size = 4;
-  int32 total_pages = 5;
+  repeated ComprehensionResource items = 1; int32 total = 2; int32 page = 3; int32 page_size = 4; int32 total_pages = 5;
 }
-
 message ComprehensionResource {
-  string id = 1;
-  string track = 2;
-  string cefr_level = 3;
-  string skill = 4;
-  string title = 5;
-  string topic = 6;
-  string content = 7;
-  int32 word_count = 8;
-  int32 sentence_count = 9;
-  int32 estimated_minutes = 10;
-  string comprehension_focus = 11;
-  repeated string lexical_tags = 12;
-  bool transcript_available = 13;
-  string audio_url = 14;
-  string audio_status = 15;
-  string questions_json = 16;
+  string id = 1; string track = 2; string cefr_level = 3; string skill = 4; string title = 5; string topic = 6;
+  string content = 7; int32 word_count = 8; int32 sentence_count = 9; int32 estimated_minutes = 10;
+  string comprehension_focus = 11; repeated string lexical_tags = 12; bool transcript_available = 13;
+  string audio_url = 14; string audio_status = 15; string questions_json = 16;
 }
-
-message GetRandomInterviewQuestionRequest {
-  string category = 1;
-  string level = 2;
-}
-
-message InterviewQuestionResponse {
-  string id = 1;
-  string question = 2;
-  string category = 3;
-  string difficulty = 4;
-}
-
+message GetRandomInterviewQuestionRequest { string category = 1; string level = 2; }
+message InterviewQuestionResponse { string id = 1; string question = 2; string category = 3; string difficulty = 4; }
 message ListCurriculumCoursesRequest {
-  string user_id = 1;
-  int32 page = 2;
-  int32 page_size = 3;
-  string track_code = 4;
-  string cefr_level = 5;
-  string search_query = 6;
-  bool enrolled_only = 7;
+  string user_id = 1; int32 page = 2; int32 page_size = 3; string track_code = 4; string cefr_level = 5;
+  string search_query = 6; bool enrolled_only = 7;
 }
-
 message ListCurriculumCoursesResponse {
-  repeated CurriculumCourseSummary items = 1;
-  int32 total = 2;
-  int32 page = 3;
-  int32 page_size = 4;
-  int32 total_pages = 5;
+  repeated CurriculumCourseSummary items = 1; int32 total = 2; int32 page = 3; int32 page_size = 4; int32 total_pages = 5;
 }
-
-message GetCurriculumCourseRequest {
-  string user_id = 1;
-  string course_version_id = 2;
-}
-
-message GetCurriculumCourseResponse {
-  CurriculumCourseSummary course = 1;
-  repeated CurriculumUnit units = 2;
-}
-
+message GetCurriculumCourseRequest { string user_id = 1; string course_version_id = 2; }
+message GetCurriculumCourseResponse { CurriculumCourseSummary course = 1; repeated CurriculumUnit units = 2; }
 message CurriculumCourseSummary {
-  string course_version_id = 1;
-  string slug = 2;
-  string track_code = 3;
-  string cefr_level = 4;
-  int32 version_number = 5;
-  string title = 6;
-  string description = 7;
-  int32 unit_count = 8;
-  int32 lesson_count = 9;
-  int32 estimated_minutes = 10;
-  bool enrolled = 11;
-  string status = 12;
+  string course_version_id = 1; string slug = 2; string track_code = 3; string cefr_level = 4;
+  int32 version_number = 5; string title = 6; string description = 7; int32 unit_count = 8;
+  int32 lesson_count = 9; int32 estimated_minutes = 10; bool enrolled = 11; string status = 12;
 }
-
 message CurriculumUnit {
-  string id = 1;
-  int32 position = 2;
-  string title = 3;
-  string theme = 4;
-  string description = 5;
-  int32 estimated_minutes = 6;
-  repeated CurriculumLesson lessons = 7;
+  string id = 1; int32 position = 2; string title = 3; string theme = 4; string description = 5;
+  int32 estimated_minutes = 6; repeated CurriculumLesson lessons = 7;
 }
-
 message CurriculumLesson {
-  string id = 1;
-  string lesson_code = 2;
-  int32 position = 3;
-  string lesson_pattern = 4;
-  string title = 5;
-  string description = 6;
-  int32 estimated_minutes = 7;
-  repeated CurriculumObjective objectives = 8;
-  repeated CurriculumPrerequisite prerequisites = 9;
-  CurriculumLessonProgress progress = 10;
+  string id = 1; string lesson_code = 2; int32 position = 3; string lesson_pattern = 4; string title = 5;
+  string description = 6; int32 estimated_minutes = 7; repeated CurriculumObjective objectives = 8;
+  repeated CurriculumPrerequisite prerequisites = 9; CurriculumLessonProgress progress = 10;
+  int32 activity_count = 11;
 }
-
 message CurriculumLessonProgress {
-  string state = 1;
-  double mastery_score = 2;
-  int32 required_objectives = 3;
-  int32 completed_objectives = 4;
+  string state = 1; double mastery_score = 2; int32 required_objectives = 3; int32 completed_objectives = 4;
   bool prerequisites_satisfied = 5;
 }
-
 message CurriculumObjective {
-  string id = 1;
-  string objective_code = 2;
-  string description = 3;
-  string success_criteria = 4;
-  int32 position = 5;
-  bool required = 6;
-  repeated string skills = 7;
+  string id = 1; string objective_code = 2; string description = 3; string success_criteria = 4;
+  int32 position = 5; bool required = 6; repeated string skills = 7;
 }
-
-message CurriculumPrerequisite {
-  string prerequisite_lesson_id = 1;
-  string required_state = 2;
-  double minimum_mastery_score = 3;
-}
-
-message EnrollInCourseRequest {
-  string user_id = 1;
-  string course_version_id = 2;
-}
-
-message EnrollInCourseResponse {
-  string enrollment_id = 1;
-  string course_version_id = 2;
-  string status = 3;
-  string started_at = 4;
-}
-
-message ListEditorialVersionsRequest {
-  string user_id = 1;
-  int32 page = 2;
-  int32 page_size = 3;
-  string status = 4;
-  string search_query = 5;
-}
-
-message ListEditorialVersionsResponse {
-  repeated EditorialCourseVersionSummary items = 1;
-  int32 total = 2;
-  int32 page = 3;
-  int32 page_size = 4;
-  int32 total_pages = 5;
-}
-
+message CurriculumPrerequisite { string prerequisite_lesson_id = 1; string required_state = 2; double minimum_mastery_score = 3; }
+message EnrollInCourseRequest { string user_id = 1; string course_version_id = 2; }
+message EnrollInCourseResponse { string enrollment_id = 1; string course_version_id = 2; string status = 3; string started_at = 4; }
+message ListEditorialVersionsRequest { string user_id = 1; int32 page = 2; int32 page_size = 3; string status = 4; string search_query = 5; }
+message ListEditorialVersionsResponse { repeated EditorialCourseVersionSummary items = 1; int32 total = 2; int32 page = 3; int32 page_size = 4; int32 total_pages = 5; }
 message EditorialCourseVersionSummary {
-  string course_version_id = 1;
-  string slug = 2;
-  string track_code = 3;
-  string cefr_level = 4;
-  int32 version_number = 5;
-  string status = 6;
-  string title = 7;
-  string description = 8;
-  string imported_at = 9;
-  string package_sha256 = 10;
-  string latest_decision = 11;
-  string latest_comments = 12;
-  string latest_reviewer_id = 13;
-  bool can_publish = 14;
-  string updated_at = 15;
+  string course_version_id = 1; string slug = 2; string track_code = 3; string cefr_level = 4;
+  int32 version_number = 5; string status = 6; string title = 7; string description = 8; string imported_at = 9;
+  string package_sha256 = 10; string latest_decision = 11; string latest_comments = 12;
+  string latest_reviewer_id = 13; bool can_publish = 14; string updated_at = 15;
 }
-
-message ManageEditorialVersionRequest {
-  string user_id = 1;
-  string course_version_id = 2;
-  string action = 3;
-  string decision = 4;
-  string comments = 5;
-}
-
-message ManageEditorialVersionResponse {
-  string course_version_id = 1;
-  string action = 2;
-  string previous_status = 3;
-  string next_status = 4;
-  string review_id = 5;
-  string reviewed_at = 6;
-}
-
-
-message ImportCurriculumPackageRequest {
-  string user_id = 1;
-  string package_json = 2;
-  bool apply = 3;
-}
-
+message ManageEditorialVersionRequest { string user_id = 1; string course_version_id = 2; string action = 3; string decision = 4; string comments = 5; }
+message ManageEditorialVersionResponse { string course_version_id = 1; string action = 2; string previous_status = 3; string next_status = 4; string review_id = 5; string reviewed_at = 6; }
+message ImportCurriculumPackageRequest { string user_id = 1; string package_json = 2; bool apply = 3; }
 message ImportCurriculumPackageResponse {
-  string state = 1;
-  string course_version_id = 2;
-  string package_sha256 = 3;
-  int32 units = 4;
-  int32 lessons = 5;
-  int32 objectives = 6;
-  int32 vocabulary_references = 7;
-  int32 sentence_references = 8;
-  bool applied = 9;
-  bool dry_run = 10;
+  string state = 1; string course_version_id = 2; string package_sha256 = 3; int32 units = 4; int32 lessons = 5;
+  int32 objectives = 6; int32 vocabulary_references = 7; int32 sentence_references = 8; bool applied = 9; bool dry_run = 10;
 }
-
-message UpdateCurriculumDraftRequest {
-  string user_id = 1;
-  string course_version_id = 2;
-  string expected_updated_at = 3;
-  string draft_json = 4;
-}
-
-message UpdateCurriculumDraftResponse {
-  string course_version_id = 1;
-  string updated_at = 2;
-  int32 revision_number = 3;
-  string content_sha256 = 4;
-}
+message UpdateCurriculumDraftRequest { string user_id = 1; string course_version_id = 2; string expected_updated_at = 3; string draft_json = 4; }
+message UpdateCurriculumDraftResponse { string course_version_id = 1; string updated_at = 2; int32 revision_number = 3; string content_sha256 = 4; }

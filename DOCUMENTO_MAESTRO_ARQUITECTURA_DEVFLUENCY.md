@@ -317,6 +317,20 @@ El Sistema Dual presenta modelos de pronunciación para que el estudiante practi
 
 Los requisitos de modalidad, rúbricas, evidencia, privacidad, pruebas y criterios están en Fase 3 del roadmap rector.
 
+### 6.6. Sesiones curriculares recuperables (Subfase 2.4)
+
+La ejecución de una lección se guarda en `lesson_sessions`; las reservas y resultados de cada actividad se registran en `lesson_session_activity_attempts`. El backend conserva el cursor, el tiempo activo acotado y el estado final. Las solicitudes repetidas con la misma clave idempotente devuelven el resultado anterior; una reserva que quedó en `processing` se puede recuperar desde el BFF sin confiar en estado volátil del navegador.
+
+Las definiciones de actividades se importan dentro de una versión curricular y se asocian a sus objetivos. El registro almacena JSON privado, versión y huella SHA-256; las definiciones son inmutables. El servicio valida la huella y el contrato antes de entregar la proyección pública `StudentActivityView`. El BFF nunca serializa al cliente la clave de respuestas, la rúbrica privada, la reserva ni el envío interno usado para recuperación.
+
+El resultado de evaluación se confirma en una transacción que finaliza el intento, registra evidencia por objetivo y avanza la sesión. El dominio de una lección exige evidencia para todos los objetivos requeridos; se calcula con puntuaciones normalizadas de resultados evaluados, no con XP. El ledger de recompensa impide acreditar dos veces XP/monedas por una misma lección.
+
+El BFF aplica límites de tasa locales por usuario (inicio, lectura/recuperación y envío). Este límite no es global entre réplicas; antes de ejecutar varias instancias debe usar un contador atómico compartido, por ejemplo Redis. PostgreSQL sigue siendo la fuente autoritativa del estado y la idempotencia.
+
+**Límite de evidencia hablada:** la transcripción no demuestra pronunciación ni fluidez. Como aún no existe un almacenamiento autenticado y verificable de grabaciones de las sesiones curriculares, el backend rechaza envíos hablados que solo incluyan un UUID declarado por el cliente. La UI no habilita la grabación hasta que ese canal esté conectado. La pronunciación/fluidez quedan sin medir; no se generan resultados ficticios.
+
+La validación CI de migraciones/RLS, compilación, lint y contratos está pendiente para la rama 2.4. La aceptación manual requiere una actividad real importada, revisada y publicada por una cuenta editorial y una matrícula real; no se cargarán datos de demostración en producción.
+
 ## 7. Tutor conversacional y proveedores de IA
 
 ### 7.1. Separación de capacidades

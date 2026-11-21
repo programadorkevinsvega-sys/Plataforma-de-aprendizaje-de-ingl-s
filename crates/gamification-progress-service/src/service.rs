@@ -2,7 +2,8 @@ use crate::domain::UserGamificationStats;
 use proto::gamification::gamification_service_server::GamificationService;
 use proto::gamification::{
     AddXpRequest, GetUserStatsRequest, InitUserStatsRequest, RecordLearningProgressRequest,
-    RecordLearningProgressResponse, UserStatsResponse,
+    RecordLearningProgressResponse, RecordLessonCompletionRequest, RecordLessonCompletionResponse,
+    UserStatsResponse,
 };
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -284,6 +285,147 @@ impl GamificationService for MyGamificationService {
             xp_gained: req.xp_amount,
             coins_gained: req.coins_amount,
             applied: true,
+        }))
+    }
+
+    async fn record_lesson_completion(
+        &self,
+        request: Request<RecordLessonCompletionRequest>,
+    ) -> Result<Response<RecordLessonCompletionResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let req = request.into_inner();
+        let session_id = Uuid::parse_str(&req.session_id)
+            .map_err(|_| Status::invalid_argument("session_id inválido"))?;
+        let lesson_id = Uuid::parse_str(&req.lesson_id)
+            .map_err(|_| Status::invalid_argument("lesson_id inválido"))?;
+        if session_id.is_nil() || lesson_id.is_nil() {
+            return Err(Status::invalid_argument(
+                "Los identificadores de finalización no pueden ser nulos",
+            ));
+        }
+
+        let mut tx =
+            self.pool.begin().await.map_err(|_| {
+                Status::internal("No se pudo iniciar la acreditación de la lección")
+            })?;
+        common::set_current_user_id(&mut tx, user_id)
+            .await
+            .map_err(|_| Status::internal("No se pudo establecer el contexto RLS"))?;
+
+        let completion_is_valid: bool = sqlx::query_scalar(
+            r#"SELECT EXISTS (
+                   SELECT 1
+                     FROM lesson_sessions session
+                     JOIN course_lesson_progress_events evidence
+                       ON evidence.user_id = session.user_id
+                      AND evidence.evidence_event_id = session.id
+                      AND evidence.lesson_id = session.lesson_id
+                      AND evidence.course_version_id = session.course_version_id
+                    WHERE session.id = $1
+                      AND session.user_id = $2
+                      AND session.lesson_id = $3
+                      AND session.status = 'completed'
+                      AND evidence.outcome_status IN ('completed', 'mastered')
+               )"#,
+        )
+        .bind(session_id)
+        .bind(user_id)
+        .bind(lesson_id)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudo verificar la finalización académica"))?;
+        if !completion_is_valid {
+            return Err(Status::failed_precondition(
+                "La sesión no tiene una finalización académica confirmada",
+            ));
+        }
+
+        sqlx::query(
+            r#"INSERT INTO user_stats (
+                   user_id, xp, streak_days, coins, words_learned, sentences_mastered
+               )
+               VALUES ($1, 0, 0, 50, 0, 0)
+               ON CONFLICT (user_id) DO NOTHING"#,
+        )
+        .bind(user_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| {
+            Status::internal("No se pudieron inicializar las estadísticas del estudiante")
+        })?;
+
+        let applied: Option<Uuid> = sqlx::query_scalar(
+            r#"INSERT INTO lesson_completion_reward_events (
+                   user_id, lesson_id, course_version_id, source_session_id
+               )
+               SELECT session.user_id, session.lesson_id, session.course_version_id, session.id
+                 FROM lesson_sessions session
+                WHERE session.id = $1
+                  AND session.user_id = $2
+                  AND session.lesson_id = $3
+                  AND session.status = 'completed'
+               ON CONFLICT (user_id, lesson_id) DO NOTHING
+               RETURNING id"#,
+        )
+        .bind(session_id)
+        .bind(user_id)
+        .bind(lesson_id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudo registrar la recompensa de la lección"))?;
+
+        let reward_applied = applied.is_some();
+        if reward_applied {
+            sqlx::query(
+                r#"INSERT INTO user_stats (
+                       user_id, xp, streak_days, coins, words_learned, sentences_mastered, last_study_date
+                   )
+                   VALUES ($1, 20, 1, 55, 0, 0, CURRENT_DATE)
+                   ON CONFLICT (user_id) DO UPDATE
+                   SET xp = user_stats.xp + 20,
+                       coins = user_stats.coins + 5,
+                       streak_days = CASE
+                           WHEN user_stats.last_study_date = CURRENT_DATE THEN user_stats.streak_days
+                           WHEN user_stats.last_study_date = CURRENT_DATE - INTERVAL '1 day' THEN user_stats.streak_days + 1
+                           ELSE 1
+                       END,
+                       last_study_date = CURRENT_DATE,
+                       updated_at = NOW()"#,
+            )
+            .bind(user_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| Status::internal("No se pudo acreditar la recompensa en las estadísticas"))?;
+        }
+
+        let row: Option<(i32, i32, i32, i32, i32)> = sqlx::query_as(
+            "SELECT xp, streak_days, coins, words_learned, sentences_mastered FROM user_stats WHERE user_id = $1",
+        )
+        .bind(user_id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|_| Status::internal("No se pudieron recuperar las estadísticas de recompensa"))?;
+        let (xp, streak, coins, words, sentences) = row.ok_or_else(|| {
+            Status::failed_precondition("El usuario no tiene estadísticas inicializadas")
+        })?;
+
+        tx.commit()
+            .await
+            .map_err(|_| Status::internal("No se pudo confirmar la recompensa de la lección"))?;
+
+        Ok(Response::new(RecordLessonCompletionResponse {
+            stats: Some(UserStatsResponse {
+                user_id: user_id.to_string(),
+                xp,
+                streak_days: streak,
+                coins,
+                words_learned: words,
+                sentences_mastered: sentences,
+                current_level: level_from_xp(xp).to_string(),
+            }),
+            xp_gained: if reward_applied { 20 } else { 0 },
+            coins_gained: if reward_applied { 5 } else { 0 },
+            applied: reward_applied,
         }))
     }
 
