@@ -24,16 +24,16 @@ impl MyAIEvaluatorService {
         &self,
         user_id: Uuid,
         idempotency_key: Uuid,
-    ) -> Result<Option<(serde_json::Value, serde_json::Value, serde_json::Value)>, Status> {
+    ) -> Result<Option<(serde_json::Value, serde_json::Value, serde_json::Value)>, Box<Status>> {
         let mut transaction = self.pool.begin().await.map_err(|error| {
             tracing::error!(error = %error, "Could not open assessment idempotency transaction");
-            Status::unavailable("Assessment storage is temporarily unavailable")
+            Box::new(Status::unavailable("Assessment storage is temporarily unavailable"))
         })?;
-        common::set_current_user_id(&mut *transaction, user_id)
+        common::set_current_user_id(&mut transaction, user_id)
             .await
             .map_err(|error| {
                 tracing::error!(error = %error, "Could not establish assessment RLS context");
-                Status::internal("Could not establish assessment data isolation")
+                Box::new(Status::internal("Could not establish assessment data isolation"))
             })?;
         let existing =
             sqlx::query_as::<_, (serde_json::Value, serde_json::Value, serde_json::Value)>(
@@ -47,11 +47,11 @@ impl MyAIEvaluatorService {
             .await
             .map_err(|error| {
                 tracing::error!(error = %error, "Could not read idempotent activity result");
-                Status::internal("Could not read the saved assessment result")
+                Box::new(Status::internal("Could not read the saved assessment result"))
             })?;
         transaction.commit().await.map_err(|error| {
             tracing::error!(error = %error, "Could not close assessment idempotency transaction");
-            Status::internal("Could not close assessment data transaction")
+            Box::new(Status::internal("Could not close assessment data transaction"))
         })?;
         Ok(existing)
     }
@@ -157,7 +157,8 @@ impl AiEvaluatorService for MyAIEvaluatorService {
 
         if let Some((stored_activity, stored_submission, stored_result)) = self
             .find_existing_activity_result(user_id, submission.idempotency_key)
-            .await?
+            .await
+            .map_err(|status| *status)?
         {
             if stored_activity != activity_json || stored_submission != submission_json {
                 return Err(Status::already_exists(
@@ -207,7 +208,7 @@ impl AiEvaluatorService for MyAIEvaluatorService {
             tracing::error!(error = %error, "Could not open assessment result transaction");
             Status::unavailable("Assessment storage is temporarily unavailable")
         })?;
-        common::set_current_user_id(&mut *transaction, user_id)
+        common::set_current_user_id(&mut transaction, user_id)
             .await
             .map_err(|error| {
                 tracing::error!(error = %error, "Could not establish assessment RLS context");
