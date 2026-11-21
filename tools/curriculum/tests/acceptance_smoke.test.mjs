@@ -231,6 +231,14 @@ test("live acceptance flow covers authorization, dry-run, import, concurrency, r
     ),
     "La comprobación 403 debe usar la cuenta sin permiso editorial.",
   );
+  const studentCatalogCall = calls.find(
+    (call) => call.pathname === "/api/v1/curriculum/courses" && call.method === "GET",
+  );
+  assert.equal(
+    studentCatalogCall?.token,
+    `Bearer ${nonEditorToken}`,
+    "El catálogo publicado debe verificarse con la cuenta estudiante.",
+  );
 });
 
 test("live acceptance refuses production, even when staging mode is accidentally set", async () => {
