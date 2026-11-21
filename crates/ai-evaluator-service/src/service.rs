@@ -3,8 +3,11 @@ use crate::learning_activity;
 use proto::ai_evaluator::ai_evaluator_service_server::AiEvaluatorService;
 use proto::ai_evaluator::{
     DetectedWeakness, DrillExercise, EvaluateExamAnswerRequest, EvaluateExamAnswerResponse,
+    BeginLessonActivityAttemptRequest, BeginLessonActivityAttemptResponse,
+    CommitLessonActivityAttemptRequest, CommitLessonActivityAttemptResponse,
     EvaluateLearningActivityRequest, EvaluateLearningActivityResponse,
-    GenerateTargetedDrillRequest, GenerateTargetedDrillResponse,
+    GetLessonSessionRequest, GetLessonSessionResponse, StartLessonSessionRequest,
+    StartLessonSessionResponse, GenerateTargetedDrillRequest, GenerateTargetedDrillResponse,
 };
 use sqlx::PgPool;
 use tonic::{Request, Response, Status};
@@ -288,6 +291,91 @@ impl AiEvaluatorService for MyAIEvaluatorService {
             result_json: serde_json::to_string(&saved_result)
                 .map_err(|_| Status::internal("Could not encode the assessment result"))?,
             idempotent_replay,
+        }))
+    }
+
+    async fn start_lesson_session(
+        &self,
+        request: Request<StartLessonSessionRequest>,
+    ) -> Result<Response<StartLessonSessionResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let req = request.into_inner();
+        let lesson_id = Uuid::parse_str(&req.lesson_id)
+            .map_err(|_| Status::invalid_argument("lesson_id debe ser un UUID válido"))?;
+        let idempotency_key = Uuid::parse_str(&req.idempotency_key)
+            .map_err(|_| Status::invalid_argument("idempotency_key debe ser un UUID válido"))?;
+        let (session, resumed_existing) =
+            crate::learning_sessions::start_lesson_session(
+                &self.pool,
+                user_id,
+                lesson_id,
+                idempotency_key,
+            )
+            .await?;
+        Ok(Response::new(StartLessonSessionResponse {
+            session: Some(session),
+            resumed_existing,
+        }))
+    }
+
+    async fn get_lesson_session(
+        &self,
+        request: Request<GetLessonSessionRequest>,
+    ) -> Result<Response<GetLessonSessionResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let session_id = Uuid::parse_str(&request.get_ref().session_id)
+            .map_err(|_| Status::invalid_argument("session_id debe ser un UUID válido"))?;
+        let session =
+            crate::learning_sessions::get_lesson_session(&self.pool, user_id, session_id).await?;
+        Ok(Response::new(GetLessonSessionResponse {
+            session: Some(session),
+        }))
+    }
+
+    async fn begin_lesson_activity_attempt(
+        &self,
+        request: Request<BeginLessonActivityAttemptRequest>,
+    ) -> Result<Response<BeginLessonActivityAttemptResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let req = request.into_inner();
+        let session_id = Uuid::parse_str(&req.session_id)
+            .map_err(|_| Status::invalid_argument("session_id debe ser un UUID válido"))?;
+        let reservation = crate::learning_sessions::begin_lesson_activity_attempt(
+            &self.pool,
+            user_id,
+            session_id,
+            &req.submission_json,
+        )
+        .await?;
+        Ok(Response::new(BeginLessonActivityAttemptResponse {
+            reservation_id: reservation.reservation_id,
+            activity_definition_json: reservation.activity_definition_json,
+            existing_result_json: reservation.existing_result_json,
+            idempotent_replay: reservation.idempotent_replay,
+        }))
+    }
+
+    async fn commit_lesson_activity_attempt(
+        &self,
+        request: Request<CommitLessonActivityAttemptRequest>,
+    ) -> Result<Response<CommitLessonActivityAttemptResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let req = request.into_inner();
+        let session_id = Uuid::parse_str(&req.session_id)
+            .map_err(|_| Status::invalid_argument("session_id debe ser un UUID válido"))?;
+        let reservation_id = Uuid::parse_str(&req.reservation_id)
+            .map_err(|_| Status::invalid_argument("reservation_id debe ser un UUID válido"))?;
+        let committed = crate::learning_sessions::commit_lesson_activity_attempt(
+            &self.pool,
+            user_id,
+            session_id,
+            reservation_id,
+        )
+        .await?;
+        Ok(Response::new(CommitLessonActivityAttemptResponse {
+            result_json: committed.result_json,
+            session: Some(committed.session),
+            idempotent_replay: committed.idempotent_replay,
         }))
     }
 

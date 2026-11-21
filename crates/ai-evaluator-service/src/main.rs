@@ -1,6 +1,7 @@
 mod aws_bedrock;
 mod domain;
 mod learning_activity;
+mod learning_sessions;
 mod service;
 
 use aws_bedrock::AwsBedrockClient;
