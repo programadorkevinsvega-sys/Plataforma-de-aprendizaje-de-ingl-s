@@ -50,9 +50,29 @@ El paquete por defecto es `tests/fixtures/curriculum/initial-release-english-gen
 
 Este smoke test valida la integración HTTP real, pero no reemplaza la comprobación visual de paginación, controles, formularios y estados de la página `/admin/curriculum`. El recorrido manual que sigue continúa siendo obligatorio.
 
+## Ejecución del smoke test real desde GitHub Actions
+
+El repositorio incluye el workflow manual **Curriculum staging admin acceptance** en `.github/workflows/curriculum-staging-acceptance.yml`. Este workflow ejecuta el script HTTP anterior contra un staging ya desplegado; no crea ni despliega infraestructura y no reutiliza las credenciales de producción.
+
+Configura el GitHub Environment `staging` con estas variables:
+
+| Tipo | Nombre |
+|---|---|
+| Variable | `CURRICULUM_API_BASE_URL` — origen HTTPS del BFF staging, sin ruta |
+| Variable | `CURRICULUM_EDITOR_EMAIL` |
+| Variable | `CURRICULUM_NON_EDITOR_EMAIL` |
+| Secret | `CURRICULUM_EDITOR_PASSWORD` |
+| Secret | `CURRICULUM_NON_EDITOR_PASSWORD` |
+
+Las dos cuentas deben estar registradas **en staging**. La primera debe existir en `content_editors`; la segunda no debe tener permiso editorial. Concede el permiso solamente en la base de staging mediante `manage_content_editor.mjs`; no copies una fila ni una credencial de producción.
+
+Para ejecutar: abre **Actions → Curriculum staging admin acceptance → Run workflow**, selecciona `main` y marca `confirm_staging=true`. El workflow exige ambos controles, usa el Environment `staging`, valida que las cuentas sean distintas y ejecuta `node tools/curriculum/acceptance-smoke.mjs`. El propio script rechaza el host de producción conocido y crea un curso de aceptación único que queda publicado en staging para inspección.
+
+El workflow no despliega staging. Primero debe existir un BFF/Next.js desplegado con las migraciones aplicadas y una base de datos independiente de producción. Si ese entorno todavía no existe, no ejecutes el workflow ni sustituyas su URL por la de producción.
+
 ## E2E visual automatizado en Chromium
 
-La CI construye el frontend de producción, levanta `next start` y ejecuta Playwright sobre un navegador Chromium real. La suite `frontend/tests/e2e/curriculum-admin.spec.cjs` recorre:
+La CI construye el frontend de producción, levanta `next start` y ejecuta Playwright sobre un navegador Chromium real. La suite `frontend/tests/e2e/curriculum-admin.spec.mjs` recorre:
 
 - Redirección al login cuando no hay sesión.
 - Error 403 visible para una cuenta autenticada sin capacidad editorial; nunca se representa como cola vacía.
