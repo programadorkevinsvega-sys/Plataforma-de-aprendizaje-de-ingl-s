@@ -50,7 +50,7 @@ pub fn evaluate_deterministic(
             return Err(invalid("rubric activities require a rubric evaluator"));
         }
         EvaluationPolicy::UnscoredPractice => {
-            let result = unscored_practice_result(activity, submission);
+            let result = unscored_practice_result(activity);
             result.validate()?;
             return Ok(result);
         }
@@ -298,10 +298,7 @@ pub fn pending_acoustic_review(
     Ok(result)
 }
 
-fn unscored_practice_result(
-    activity: &ActivityDefinition,
-    submission: &ActivitySubmission,
-) -> ActivityAttemptResult {
+fn unscored_practice_result(activity: &ActivityDefinition)  -> ActivityAttemptResult {
     ActivityAttemptResult {
         schema_version: activity.schema_version.clone(),
         attempt_id: Uuid::new_v4(),

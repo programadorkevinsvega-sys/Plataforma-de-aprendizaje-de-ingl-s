@@ -183,7 +183,7 @@ JSON input:
         .and_then(|output| output.as_message().ok())
         .and_then(|message| message.content().first())
         .and_then(|content| content.as_text().ok())
-        .map(str::to_string)
+        .map(|text| text.as_str().to_owned())
         .ok_or_else(|| "Bedrock rubric provider returned no text content".to_string())?;
 
     serde_json::from_str::<RubricEvaluationOutput>(response_text.trim()).map_err(|error| {

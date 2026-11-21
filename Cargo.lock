@@ -20,7 +20,6 @@ dependencies = [
  "common",
  "dotenvy",
  "proto",
- "reqwest",
  "serde",
  "serde_json",
  "sqlx",
