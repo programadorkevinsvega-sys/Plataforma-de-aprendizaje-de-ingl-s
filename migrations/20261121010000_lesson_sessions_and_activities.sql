@@ -39,6 +39,10 @@ CREATE TABLE IF NOT EXISTS lesson_activity_objectives (
     position INTEGER NOT NULL CHECK (position > 0),
     PRIMARY KEY (activity_id, learning_objective_id),
     CONSTRAINT uq_lesson_activity_objective_position UNIQUE (activity_id, position),
+    CONSTRAINT uq_lesson_activity_objective_full_identity
+        UNIQUE (activity_id, course_version_id, lesson_id, learning_objective_id),
+    FOREIGN KEY (lesson_id, learning_objective_id)
+        REFERENCES lesson_learning_objectives(lesson_id, learning_objective_id) ON DELETE RESTRICT,
     FOREIGN KEY (activity_id, course_version_id, lesson_id)
         REFERENCES curriculum_lesson_activities(activity_id, course_version_id, lesson_id) ON DELETE RESTRICT,
     FOREIGN KEY (learning_objective_id, course_version_id)
@@ -117,8 +121,8 @@ CREATE TABLE IF NOT EXISTS lesson_session_activity_attempts (
     CONSTRAINT uq_lesson_session_attempt_number UNIQUE (session_id, activity_id, attempt_number),
     CONSTRAINT uq_lesson_session_attempt_user_key UNIQUE (user_id, idempotency_key),
     CONSTRAINT uq_lesson_session_attempt_reservation_user UNIQUE (reservation_id, user_id),
-    FOREIGN KEY (session_id, user_id)
-        REFERENCES lesson_sessions(id, user_id) ON DELETE RESTRICT,
+    FOREIGN KEY (session_id, user_id, lesson_id, course_version_id)
+        REFERENCES lesson_sessions(id, user_id, lesson_id, course_version_id) ON DELETE CASCADE,
     FOREIGN KEY (activity_id, course_version_id, lesson_id)
         REFERENCES curriculum_lesson_activities(activity_id, course_version_id, lesson_id) ON DELETE RESTRICT,
     CONSTRAINT ck_session_attempt_result_state CHECK (
@@ -149,12 +153,10 @@ CREATE TABLE IF NOT EXISTS activity_objective_evidence (
     normalized_score REAL NOT NULL CHECK (normalized_score BETWEEN 0 AND 1),
     recorded_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_activity_objective_attempt UNIQUE (user_id, assessment_attempt_id, learning_objective_id),
-    FOREIGN KEY (session_id, user_id)
-        REFERENCES lesson_sessions(id, user_id) ON DELETE RESTRICT,
-    FOREIGN KEY (activity_id, course_version_id, lesson_id)
-        REFERENCES curriculum_lesson_activities(activity_id, course_version_id, lesson_id) ON DELETE RESTRICT,
-    FOREIGN KEY (learning_objective_id, course_version_id)
-        REFERENCES learning_objectives(id, course_version_id) ON DELETE RESTRICT
+    FOREIGN KEY (session_id, user_id, lesson_id, course_version_id)
+        REFERENCES lesson_sessions(id, user_id, lesson_id, course_version_id) ON DELETE CASCADE,
+    FOREIGN KEY (activity_id, course_version_id, lesson_id, learning_objective_id)
+        REFERENCES lesson_activity_objectives(activity_id, course_version_id, lesson_id, learning_objective_id) ON DELETE RESTRICT
 );
 CREATE INDEX IF NOT EXISTS idx_activity_objective_evidence_user_objective
     ON activity_objective_evidence(user_id, learning_objective_id, recorded_at DESC);
@@ -172,7 +174,7 @@ CREATE TABLE IF NOT EXISTS lesson_completion_reward_events (
     CONSTRAINT uq_lesson_reward_user_lesson UNIQUE (user_id, lesson_id),
     CONSTRAINT uq_lesson_reward_user_session UNIQUE (user_id, source_session_id),
     FOREIGN KEY (source_session_id, user_id, lesson_id, course_version_id)
-        REFERENCES lesson_sessions(id, user_id, lesson_id, course_version_id) ON DELETE RESTRICT,
+        REFERENCES lesson_sessions(id, user_id, lesson_id, course_version_id) ON DELETE CASCADE,
     FOREIGN KEY (lesson_id, course_version_id)
         REFERENCES course_lessons(id, course_version_id) ON DELETE RESTRICT
 );
@@ -280,12 +282,8 @@ CREATE TRIGGER trg_curriculum_lesson_activity_immutable
     FOR EACH ROW EXECUTE FUNCTION guard_curriculum_lesson_activity_immutable();
 
 CREATE OR REPLACE FUNCTION guard_lesson_session_attempt_transition()
-RETURNS TRIGGER LANGUAGE plpgsql AS $
+RETURNS TRIGGER LANGUAGE plpgsql AS $phase24_attempt$
 BEGIN
-    IF TG_OP = 'DELETE' THEN
-        RAISE EXCEPTION 'Lesson session attempts are immutable evidence'
-            USING ERRCODE = '55000';
-    END IF;
     IF OLD.state <> 'processing' OR NEW.state = 'processing'
        OR NEW.reservation_id IS DISTINCT FROM OLD.reservation_id
        OR NEW.session_id IS DISTINCT FROM OLD.session_id
@@ -303,10 +301,54 @@ BEGIN
     END IF;
     RETURN NEW;
 END
-$;
+$phase24_attempt$;
 CREATE TRIGGER trg_lesson_session_attempt_transition
-    BEFORE UPDATE OR DELETE ON lesson_session_activity_attempts
+    BEFORE UPDATE ON lesson_session_activity_attempts
     FOR EACH ROW EXECUTE FUNCTION guard_lesson_session_attempt_transition();
+
+CREATE OR REPLACE FUNCTION guard_lesson_session_state_transition()
+RETURNS TRIGGER LANGUAGE plpgsql AS $phase24_session$
+BEGIN
+    IF NEW.id IS DISTINCT FROM OLD.id
+       OR NEW.user_id IS DISTINCT FROM OLD.user_id
+       OR NEW.enrollment_id IS DISTINCT FROM OLD.enrollment_id
+       OR NEW.course_version_id IS DISTINCT FROM OLD.course_version_id
+       OR NEW.lesson_id IS DISTINCT FROM OLD.lesson_id
+       OR NEW.start_idempotency_key IS DISTINCT FROM OLD.start_idempotency_key
+       OR NEW.total_activity_count IS DISTINCT FROM OLD.total_activity_count
+       OR NEW.started_at IS DISTINCT FROM OLD.started_at THEN
+        RAISE EXCEPTION 'Lesson session identity and activity count are immutable'
+            USING ERRCODE = '55000';
+    END IF;
+    IF OLD.status <> 'in_progress' THEN
+        RAISE EXCEPTION 'A finalized lesson session cannot transition again'
+            USING ERRCODE = '55000';
+    END IF;
+    IF NEW.current_activity_position < OLD.current_activity_position
+       OR NEW.current_activity_position > OLD.current_activity_position + 1 THEN
+        RAISE EXCEPTION 'Lesson session position may only stay for retry or advance by one'
+            USING ERRCODE = '55000';
+    END IF;
+    IF NEW.active_duration_ms < OLD.active_duration_ms
+       OR NEW.active_duration_ms > 43200000
+       OR NEW.last_activity_at < OLD.last_activity_at
+       OR NEW.current_activity_started_at < OLD.current_activity_started_at THEN
+        RAISE EXCEPTION 'Lesson session time measurements must be monotonic and bounded'
+            USING ERRCODE = '55000';
+    END IF;
+    IF NEW.status IN ('completed', 'pending_review')
+       AND NEW.current_activity_position <> NEW.total_activity_count + 1 THEN
+        RAISE EXCEPTION 'A finalized session must have consumed every published activity'
+            USING ERRCODE = '55000';
+    END IF;
+    RETURN NEW;
+END
+$phase24_session$;
+
+CREATE TRIGGER trg_lesson_session_state_transition
+    BEFORE UPDATE ON lesson_sessions
+    FOR EACH ROW EXECUTE FUNCTION guard_lesson_session_state_transition();
+
 
 COMMENT ON TABLE curriculum_lesson_activities IS
     'Private, immutable, versioned activity definitions. Never serialize definition_json to the student-facing API.';
@@ -323,7 +365,7 @@ COMMENT ON TABLE lesson_completion_reward_events IS
 ALTER TABLE lesson_session_activity_attempts
     ADD CONSTRAINT fk_lesson_session_attempt_assessment_result
     FOREIGN KEY (assessment_attempt_id)
-    REFERENCES activity_attempt_results(attempt_id) ON DELETE RESTRICT;
+    REFERENCES activity_attempt_results(attempt_id) ON DELETE CASCADE;
 
 CREATE OR REPLACE FUNCTION guard_lesson_evidence_append_only()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
@@ -333,19 +375,9 @@ BEGIN
 END
 $$;
 CREATE TRIGGER trg_activity_objective_evidence_append_only
-    BEFORE UPDATE OR DELETE ON activity_objective_evidence
+    BEFORE UPDATE ON activity_objective_evidence
     FOR EACH ROW EXECUTE FUNCTION guard_lesson_evidence_append_only();
 CREATE TRIGGER trg_lesson_completion_reward_events_append_only
-    BEFORE UPDATE OR DELETE ON lesson_completion_reward_events
+    BEFORE UPDATE ON lesson_completion_reward_events
     FOR EACH ROW EXECUTE FUNCTION guard_lesson_evidence_append_only();
 
-COMMENT ON TABLE curriculum_lesson_activities IS
-    'Private, immutable, versioned activity definitions. Never serialize definition_json to the student-facing API.';
-COMMENT ON TABLE lesson_sessions IS
-    'Recoverable learner sessions with server-owned position, duration and completion state.';
-COMMENT ON TABLE lesson_session_activity_attempts IS
-    'Reserved, idempotent activity submissions linked to persisted assessment evidence.';
-COMMENT ON TABLE activity_objective_evidence IS
-    'Objective-level academic evidence derived only from validated evaluated attempts.';
-COMMENT ON TABLE lesson_completion_reward_events IS
-    'Idempotent lesson completion reward ledger; one academic completion reward per user and lesson.';
