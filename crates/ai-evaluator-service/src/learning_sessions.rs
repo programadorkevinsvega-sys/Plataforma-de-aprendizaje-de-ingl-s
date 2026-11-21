@@ -103,6 +103,8 @@ async fn session_snapshot_in_transaction(
     let mut student_activity_json = String::new();
     let mut activity_definition_json = String::new();
     let mut remaining_attempts = 0_i32;
+    let mut pending_reservation_id = String::new();
+    let mut pending_submission_json = String::new();
     if status == "in_progress" && position <= total {
         let definition: Option<Value> = sqlx::query_scalar(
             r#"SELECT definition_json
@@ -127,6 +129,29 @@ async fn session_snapshot_in_transaction(
             .map_err(|_| Status::internal("No se pudo preparar la actividad para el estudiante"))?;
         activity_definition_json = serde_json::to_string(&activity)
             .map_err(|_| Status::internal("No se pudo preparar la actividad privada"))?;
+
+        let pending: Option<(Uuid, Value)> = sqlx::query_as(
+            r#"SELECT reservation_id, submission_json
+                 FROM lesson_session_activity_attempts
+                WHERE session_id = $1
+                  AND user_id = $2
+                  AND activity_id = $3
+                  AND state = 'processing'
+                ORDER BY created_at DESC, reservation_id DESC
+                LIMIT 1"#,
+        )
+        .bind(id)
+        .bind(user_id)
+        .bind(activity.activity_id)
+        .fetch_optional(&mut **tx)
+        .await
+        .map_err(|error| db_unavailable(error, "load_pending_activity_attempt"))?;
+        if let Some((reservation_id, submission)) = pending {
+            pending_reservation_id = reservation_id.to_string();
+            pending_submission_json = serde_json::to_string(&submission)
+                .map_err(|_| Status::internal("No se pudo preparar el envío reservado"))?;
+        }
+
         let attempts: i64 = sqlx::query_scalar(
             r#"SELECT COUNT(*)
                  FROM lesson_session_activity_attempts
@@ -176,6 +201,8 @@ async fn session_snapshot_in_transaction(
         last_result_json,
         completed_at,
         remaining_attempts,
+        pending_reservation_id,
+        pending_submission_json,
     })
 }
 

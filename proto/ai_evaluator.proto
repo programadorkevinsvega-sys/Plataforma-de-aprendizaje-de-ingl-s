@@ -108,6 +108,9 @@ message LessonSessionSnapshot {
   string last_result_json = 11;
   string completed_at = 12;
   int32 remaining_attempts = 13;
+  // Private recovery fields; the BFF consumes these and never serializes them to HTTP.
+  string pending_reservation_id = 14;
+  string pending_submission_json = 15;
 }
 
 message GenerateTargetedDrillRequest {

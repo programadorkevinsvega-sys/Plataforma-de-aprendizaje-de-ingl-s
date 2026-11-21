@@ -312,7 +312,7 @@ pub async fn get_lesson_session_handler(
         .await
         .map_err(|error| session_error(error, "get_lesson_session"))?
         .into_inner();
-    let snapshot = response.session.ok_or_else(|| {
+    let mut snapshot = response.session.ok_or_else(|| {
         (
             StatusCode::BAD_GATEWAY,
             Json(SessionErrorDto {
@@ -321,10 +321,85 @@ pub async fn get_lesson_session_handler(
             }),
         )
     })?;
+    let mut recovered_result: Option<Value> = None;
+    if !snapshot.pending_reservation_id.is_empty() {
+        if snapshot.activity_definition_json.is_empty() || snapshot.pending_submission_json.is_empty() {
+            return Err((
+                StatusCode::BAD_GATEWAY,
+                Json(SessionErrorDto {
+                    code: "LEARNING_SESSION_RECOVERY_INVALID",
+                    message: "El intento reservado no contiene la evidencia necesaria para recuperarlo.",
+                }),
+            ));
+        }
+        let mut evaluation_request = tonic::Request::new(EvaluateLearningActivityRequest {
+            user_id: user_id.clone(),
+            activity_definition_json: snapshot.activity_definition_json.clone(),
+            submission_json: snapshot.pending_submission_json.clone(),
+        });
+        attach_bearer_metadata(&headers, &mut evaluation_request).map_err(|_| {
+            (
+                StatusCode::UNAUTHORIZED,
+                Json(SessionErrorDto {
+                    code: "AUTHENTICATION_REQUIRED",
+                    message: "La sesión de autenticación no es válida.",
+                }),
+            )
+        })?;
+        let mut evaluator = state.ai_client.clone();
+        evaluator
+            .evaluate_learning_activity(evaluation_request)
+            .await
+            .map_err(|error| session_error(error, "recover_pending_lesson_evaluation"))?;
+
+        let mut commit_request = tonic::Request::new(CommitLessonActivityAttemptRequest {
+            user_id: user_id.clone(),
+            session_id: session_id.clone(),
+            reservation_id: snapshot.pending_reservation_id.clone(),
+        });
+        attach_bearer_metadata(&headers, &mut commit_request).map_err(|_| {
+            (
+                StatusCode::UNAUTHORIZED,
+                Json(SessionErrorDto {
+                    code: "AUTHENTICATION_REQUIRED",
+                    message: "La sesión de autenticación no es válida.",
+                }),
+            )
+        })?;
+        let mut client = state.ai_client.clone();
+        let committed = client
+            .commit_lesson_activity_attempt(commit_request)
+            .await
+            .map_err(|error| session_error(error, "recover_pending_lesson_commit"))?
+            .into_inner();
+        recovered_result = Some(serde_json::from_str(&committed.result_json).map_err(|error| {
+            tracing::error!(%error, "Recovered lesson result is not valid JSON");
+            (
+                StatusCode::BAD_GATEWAY,
+                Json(SessionErrorDto {
+                    code: "LEARNING_SESSION_INVALID_RESULT",
+                    message: "El servicio de evaluación devolvió un resultado inválido.",
+                }),
+            )
+        })?);
+        snapshot = committed.session.ok_or_else(|| {
+            (
+                StatusCode::BAD_GATEWAY,
+                Json(SessionErrorDto {
+                    code: "LEARNING_SESSION_INVALID_RESPONSE",
+                    message: "El servicio de sesiones no devolvió el estado recuperado.",
+                }),
+            )
+        })?;
+    }
+
     let lesson_id = snapshot.lesson_id.clone();
     let session_status = snapshot.status.clone();
-    let last_result = parse_json_field(&snapshot.last_result_json, "last_result")?
-        .unwrap_or(Value::Null);
+    let last_result = match recovered_result {
+        Some(result) => result,
+        None => parse_json_field(&snapshot.last_result_json, "last_result")?
+            .unwrap_or(Value::Null),
+    };
     let reward_pending = if session_status == "completed" {
         record_lesson_reward(
             &mut state,
