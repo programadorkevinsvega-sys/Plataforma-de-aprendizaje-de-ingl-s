@@ -16,6 +16,13 @@ function required(value, name) {
   return value.trim();
 }
 
+function requiredSecret(value, name) {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`Falta configurar ${name}.`);
+  }
+  return value;
+}
+
 function assertStagingTarget(apiBaseUrl, environment) {
   const url = new URL(required(apiBaseUrl, "CURRICULUM_API_BASE_URL"));
   if (url.protocol !== "https:") {
@@ -69,7 +76,7 @@ async function requestJson(fetchImpl, baseUrl, token, method, route, body, expec
 
 async function login(fetchImpl, baseUrl, credentials, label) {
   const email = required(credentials?.email, `credenciales de ${label}: email`);
-  const password = required(credentials?.password, `credenciales de ${label}: password`);
+  const password = requiredSecret(credentials?.password, `credenciales de ${label}: password`);
   const response = await requestJson(
     fetchImpl,
     baseUrl,
@@ -389,11 +396,11 @@ async function main() {
   const environment = required(process.env.CURRICULUM_ACCEPTANCE_ENV, "CURRICULUM_ACCEPTANCE_ENV");
   const editorCredentials = {
     email: required(process.env.CURRICULUM_EDITOR_EMAIL, "CURRICULUM_EDITOR_EMAIL"),
-    password: required(process.env.CURRICULUM_EDITOR_PASSWORD, "CURRICULUM_EDITOR_PASSWORD"),
+    password: requiredSecret(process.env.CURRICULUM_EDITOR_PASSWORD, "CURRICULUM_EDITOR_PASSWORD"),
   };
   const nonEditorCredentials = {
     email: required(process.env.CURRICULUM_NON_EDITOR_EMAIL, "CURRICULUM_NON_EDITOR_EMAIL"),
-    password: required(process.env.CURRICULUM_NON_EDITOR_PASSWORD, "CURRICULUM_NON_EDITOR_PASSWORD"),
+    password: requiredSecret(process.env.CURRICULUM_NON_EDITOR_PASSWORD, "CURRICULUM_NON_EDITOR_PASSWORD"),
   };
   const packagePath = path.resolve(
     process.env.CURRICULUM_ACCEPTANCE_PACKAGE || DEFAULT_PACKAGE,
