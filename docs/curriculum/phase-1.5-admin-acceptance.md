@@ -32,10 +32,10 @@ export CURRICULUM_API_BASE_URL='https://<origen-bff-staging>'
 
 read -r -p 'Correo del editor: ' CURRICULUM_EDITOR_EMAIL
 read -r -s -p 'Contraseña del editor: ' CURRICULUM_EDITOR_PASSWORD
-printf '\\n'
+printf '\n'
 read -r -p 'Correo del estudiante sin permisos: ' CURRICULUM_NON_EDITOR_EMAIL
 read -r -s -p 'Contraseña del estudiante: ' CURRICULUM_NON_EDITOR_PASSWORD
-printf '\\n'
+printf '\n'
 export CURRICULUM_EDITOR_EMAIL CURRICULUM_EDITOR_PASSWORD
 export CURRICULUM_NON_EDITOR_EMAIL CURRICULUM_NON_EDITOR_PASSWORD
 
