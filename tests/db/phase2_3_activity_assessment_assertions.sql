@@ -195,13 +195,13 @@ DO $$
 DECLARE
     visible_rows INTEGER;
     other_user UUID;
-    activity_id UUID;
+    v_activity_id UUID;
     probe_attempt UUID;
     probe_idempotency UUID;
 BEGIN
-    SELECT user_two, activity_id, probe_attempt, probe_idempotency
-    INTO other_user, activity_id, probe_attempt, probe_idempotency
-    FROM phase23_assessment_ids;
+    SELECT ids.user_two, ids.activity_id, ids.probe_attempt, ids.probe_idempotency
+    INTO other_user, v_activity_id, probe_attempt, probe_idempotency
+    FROM phase23_assessment_ids AS ids;
 
     SELECT count(*) INTO visible_rows
     FROM activity_attempt_results
@@ -223,7 +223,7 @@ BEGIN
             activity_definition_json, submission_json, result_json,
             evaluation_engine_version
         ) VALUES (
-            probe_attempt, other_user, activity_id, 1, probe_idempotency,
+            probe_attempt, other_user, v_activity_id, 1, probe_idempotency,
             '{"schemaVersion":"1.0"}'::JSONB,
             '{"schemaVersion":"1.0"}'::JSONB,
             '{"state":"evaluated"}'::JSONB,
