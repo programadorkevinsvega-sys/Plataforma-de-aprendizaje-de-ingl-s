@@ -462,12 +462,14 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 - [x] Tramitar submit, approved, changes_requested, rejected y publish mediante API; publicación exige la última aprobación del mismo editor y las restricciones de PostgreSQL.
 - [x] Versionar contratos HTTP/gRPC y mantener intacto el recorrido legado `/learn`.
 
-**Validaciones manuales pendientes para completar la subfase 1.5:**
+**Pruebas automatizadas y entregables integrados:**
 - [x] Editor visual campo a campo de una versión `draft` ya importada, con guardado transaccional, validación de estructura inmutable, token de concurrencia e historial append-only con SHA-256.
 - [x] Prueba de integración PostgreSQL del guardado de borrador: revisión persistida, rechazo de escritura obsoleta y bloqueo tras entrar a `review`.
 - [x] Mantener un smoke test HTTP que recorre el ciclo editorial con dos cuentas reales, pero protegido para staging aislado porque crea y deja publicado un curso de aceptación. No debe ejecutarse contra producción.
 - [x] Suite E2E visual en Chromium integrada a CI: login requerido, 403 visible, paginación, búsqueda, filtros, importación, edición del borrador, revisión, aprobación y publicación (BFF simulado para determinismo).
 - [x] Auditoría automática completa del catálogo fuente en CI: 790 entradas, 2.201 ejemplos, 26 recursos Reading/Listening y 52 preguntas; la auditoría no convierte ítems pendientes en contenido aprobado/publicado.
+
+**Validaciones manuales pendientes (producción):**
 - [ ] Comprobar en producción, con la cuenta editorial real, acceso a `/admin/curriculum`, carga de cola, filtros/paginación y edición únicamente de borradores.
 - [ ] Comprobar con una cuenta sin permiso que la API y la interfaz deniegan el acceso (403), sin revelar versiones editoriales.
 - [ ] Validar con un borrador seguro el dry-run, importación, edición, conflicto 409, solicitud de cambios, reenvío, aprobación y publicación; no publicar fixtures ni cursos ficticios.
