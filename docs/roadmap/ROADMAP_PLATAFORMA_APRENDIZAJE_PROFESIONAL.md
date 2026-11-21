@@ -397,9 +397,9 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 
 ### Subfase 1.4. Curación y expansión del catálogo
 
-**Estado: EN CURSO — base técnica v2 implementada en la rama de trabajo; no cumple todavía el gate editorial ni la cobertura curricular.** La fuente v2 reúne 790 unidades léxicas (704 trasladadas/deduplicadas y 86 nuevas), 26 categorías y 26 recursos graduados. Su inventario, distribución por nivel y pendientes están en [Catálogo léxico y recursos graduados v2](../curriculum/phase-1.4-catalog-audit.md).
+**Estado: CERRADA para el alcance de la primera liberación piloto aprobada e integrada en `main` el 2026-11-20 (PR #90, #92 y #93).** La fuente v2 reúne 790 unidades léxicas (704 trasladadas/deduplicadas y 86 nuevas), 2.201 ejemplos, 26 categorías y 26 recursos graduados. El catálogo se importó desde CI/CD y se publicó una selección privada controlada: 30 términos, 26 ejemplos, 4 recursos, 12 preguntas y 2 audios Listening, en dos versiones English General PRE_A1 y A1. No se publicó el resto del catálogo. El inventario, distribución por nivel y backlog posterior al piloto están en [Catálogo léxico y recursos graduados v2](../curriculum/phase-1.4-catalog-audit.md).
 
-**Integración del panel estudiantil 1.1–1.4 (rama de trabajo):** se conectaron filtros por ruta/nivel/categoría, metadatos léxicos v2, controles duales sujetos a aprobación editorial y la biblioteca de Reading/Listening. La matriz de pantallas, APIs y límites está en [Integración frontend estudiantil 1.1–1.4](../curriculum/phase-1.1-1.4-student-frontend-integration.md). Esta entrega aún requiere CI verde y no cambia el estado editorial del catálogo.
+**Integración del panel estudiantil 1.1–1.4 (PR #90 y #92):** los filtros por ruta/nivel/categoría, metadatos léxicos v2, controles duales sujetos a aprobación editorial y biblioteca Reading/Listening quedaron integrados en `main`; CI y despliegue de la carga inicial se completaron mediante PR #93. La matriz de pantallas, APIs y límites está en [Integración frontend estudiantil 1.1–1.4](../curriculum/phase-1.1-1.4-student-frontend-integration.md).
 
 **Modelo, auditoría y procedencia**
 - [x] Consolidar el catálogo en una fuente JSON v2 y retirar los tres JSON semilla anteriores, las claves antiguas y el alias persistido A0.
@@ -409,7 +409,7 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 - [x] Auditar campos heredados de pronunciación y preservarlos únicamente como candidatos no aprobados; desactivar el motor heurístico de conversión.
 - [x] Bloquear rangos numéricos de frecuencia mientras no exista cotejo validado de lema, POS y sentido.
 
-**Curación lingüística y cobertura**
+**Backlog de expansión posterior al piloto (no reabre el alcance 1.4 ya aprobado)**
 - [ ] Revisar por persona competente traducciones, significado, naturalidad, registro, categoría gramatical, nivel y todos los ejemplos de las 790 unidades (2.201 ejemplos).
 - [ ] Ejecutar y revisar el cruce exacto de los 709 candidatos unigrama con NGSL 1.2 y NGSL-Spoken 1.2 mediante el script reproducible, conservando atribución, CC BY-SA 4.0, hash y metodología. Los lemas modificados de las listas agregan categorías gramaticales y no representan una frecuencia por sentido; no derivar rangos con fuzzy matching. Las 81 expresiones multi-palabra quedan fuera de listas unigramas.
 - [ ] Aprobar individualmente las guías lenta/natural para hispanohablantes y agregar notas de sonidos que no existen en español; no publicar aproximaciones automáticas.
@@ -428,14 +428,14 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 - [x] Exponer el RPC de recursos graduados mediante BFF autenticado y crear biblioteca estudiantil de Reading/Listening; la API elimina claves de respuesta y no entrega transcripción de listening.
 - [x] Mostrar guías de pronunciación lenta/natural únicamente con aprobación editorial del vocabulario y del ejemplo; ambos audios parten del texto inglés original.
 - [x] Retirar del BFF las rutas heredadas de lección sintética y finalización ficticia; el panel registra práctica mediante el flujo persistente de progreso.
-- [ ] Validar la integración completa con CI y prueba de navegador contra un entorno con contenido realmente publicado.
+- [x] Validar CI y despliegue de la primera liberación con contenido real: PR #93 ejecutó la carga curricular desde CI/CD y completó el deploy productivo. La aceptación manual de la experiencia del estudiante se mantiene en el checklist operativo correspondiente.
 - [x] Añadir migración PostgreSQL v2 para conservar procedencia, frecuencia, estados editoriales, ejemplos y recursos graduados; preservar las filas heredadas para no romper referencias SRS, pero marcarlas como pendientes de revisión.
 - [x] Añadir importador transaccional/idempotente con dry-run por defecto, ledger SHA-256 y comprobación de editor registrado para aplicar.
 - [x] Hacer que el servicio de contenido consulte solo vocabulario y ejemplos publicados; los datos heredados y los importados como draft quedan fuera de las respuestas estudiantiles.
 - [x] Bloquear en base de datos la publicación de vocabulario/ejemplos sin aprobación editorial y pronunciación aprobada o explícitamente no requerida; listening publicado requiere asset real aprobado.
-- [ ] Ejecutar migración/importación en staging con editor provisionado y verificar las consultas gRPC/frontend de extremo a extremo.
-- [ ] Completar revisión, aprobación y publicación de la primera selección de catálogo real. El catálogo completo no se debe publicar por el mero hecho de haberlo importado.
-- [ ] Ejecutar CI completo para migración fresca/upgrade, auditoría, importación transaccional y regresiones; cerrar hallazgos antes de integrar.
+- [x] Ejecutar la migración e importación inicial mediante CI/CD en producción, con la identidad editorial técnica provisionada para la carga.
+- [x] Completar revisión, aprobación y publicación privada de la selección piloto inicial. El resto del catálogo permanece oculto y requiere curación independiente antes de una futura publicación.
+- [x] Ejecutar CI para migración, auditoría, importación transaccional y regresiones antes de integrar PR #93.
 
 **Pruebas y aceptación**
 - [x] Auditor estricto de esquema, categorías, niveles, identidades duplicadas, estados de publicación, frecuencia no verificada y listening sin audio aprobado.
@@ -444,9 +444,11 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 - [ ] Evidencia CI verde de migración desde base vacía y desde esquema anterior, dry-run, importación completa, autorización, idempotencia y filtros del servicio.
 - [ ] Evidencia editorial de revisión y cobertura curricular suficiente, más audios reales revisados.
 
-**Criterio de cierre:** no declarar DONE hasta que se completen las revisiones editoriales, la expansión general/tecnológica, la evidencia de frecuencia que se decida utilizar, los 13 audios y la validación operativa en staging. La infraestructura de importación y publicación es necesaria, pero por sí sola no cierra la subfase.
+**Criterio de cierre cumplido para el alcance aprobado:** la infraestructura, el catálogo de 790 entradas y el piloto privado de Inglés General quedaron integrados y desplegados mediante PR #90, #92 y #93. La ampliación completa de niveles/ruta Tecnología, curación lingüística individual y revisión de audios que no forman parte del piloto quedan como backlog editorial posterior; no reabren la entrega piloto aceptada. No hay un entorno staging configurado en este proyecto.
 
 ### Subfase 1.5. APIs y administración
+
+**Estado: IMPLEMENTACIÓN INTEGRADA; aceptación manual con cuentas reales PENDIENTE.** No existe un entorno staging configurado. La implementación y sus pruebas automatizadas están en `main`; las comprobaciones HTTP/navegador con identidades reales se realizarán posteriormente en la aplicación productiva, por el usuario, y no se marcarán como aprobadas hasta registrar evidencia.
 
 **Avance incremental — catálogo estudiantil (PR #81) y APIs/administración web:** se conservan las rutas existentes, se expone el catálogo por versión inmutable y se incorporan filtros/paginación PostgreSQL, progreso de lecciones basado en evidencia persistida y una administración web protegida para importar, editar borradores, tramitar revisión y publicar. La edición de borradores es transaccional, usa un token de concurrencia y conserva revisiones SHA-256 append-only. La implementación y sus límites están en [Catálogo curricular y administración editorial web](../curriculum/phase-1.5-student-catalog-integration.md).
 
@@ -460,15 +462,22 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 - [x] Tramitar submit, approved, changes_requested, rejected y publish mediante API; publicación exige la última aprobación del mismo editor y las restricciones de PostgreSQL.
 - [x] Versionar contratos HTTP/gRPC y mantener intacto el recorrido legado `/learn`.
 
-**Pendientes para completar la subfase 1.5:**
+**Pruebas automatizadas y entregables integrados:**
 - [x] Editor visual campo a campo de una versión `draft` ya importada, con guardado transaccional, validación de estructura inmutable, token de concurrencia e historial append-only con SHA-256.
 - [x] Prueba de integración PostgreSQL del guardado de borrador: revisión persistida, rechazo de escritura obsoleta y bloqueo tras entrar a `review`.
-- [x] Smoke test HTTP ejecutable contra el BFF desplegado, con dos cuentas reales, que recorre 403, dry-run, importación, edición, conflicto 409, cambios solicitados, aprobación, publicación, catálogo estudiantil y bloqueo posterior a publicar. La ejecución con cuentas reales en staging sigue pendiente.
+- [x] Mantener un smoke test HTTP que recorre el ciclo editorial con dos cuentas reales, pero protegido para staging aislado porque crea y deja publicado un curso de aceptación. No debe ejecutarse contra producción.
 - [x] Suite E2E visual en Chromium integrada a CI: login requerido, 403 visible, paginación, búsqueda, filtros, importación, edición del borrador, revisión, aprobación y publicación (BFF simulado para determinismo).
 - [x] Auditoría automática completa del catálogo fuente en CI: 790 entradas, 2.201 ejemplos, 26 recursos Reading/Listening y 52 preguntas; la auditoría no convierte ítems pendientes en contenido aprobado/publicado.
-- [ ] Ejecutar el smoke test HTTP en staging y registrar el recorrido con una cuenta editorial humana real y otra sin permisos.
-- [x] Añadir workflow manual protegido `Curriculum staging admin acceptance`: exige ejecución desde `main`, confirmación explícita y GitHub Environment `staging`; consume únicamente credenciales del entorno de staging. No despliega infraestructura ni permite usar producción.
-- [ ] Completar la aceptación visual en el entorno desplegado con las cuentas reales, incluida la comprobación posterior a revocar el permiso editorial.
+
+**Validaciones manuales pendientes (producción):**
+- [ ] Comprobar en producción, con la cuenta editorial real, acceso a `/admin/curriculum`, carga de cola, filtros/paginación y edición únicamente de borradores.
+- [ ] Comprobar con una cuenta sin permiso que la API y la interfaz deniegan el acceso (403), sin revelar versiones editoriales.
+- [ ] Validar con un borrador seguro el dry-run, importación, edición, conflicto 409, solicitud de cambios, reenvío, aprobación y publicación; no publicar fixtures ni cursos ficticios.
+- [ ] Verificar que el curso aprobado aparece en el catálogo estudiantil y que una versión publicada no admite edición posterior.
+- [ ] Revocar temporalmente la capacidad editorial de la cuenta de prueba y verificar que el acceso vuelve a ser 403; restaurar el permiso solo mediante el procedimiento administrativo autorizado.
+- [ ] Registrar fecha, cuentas/roles (sin contraseñas), versión curricular y evidencia de la aceptación manual.
+
+**Operación:** se retiró el workflow manual de staging porque no existe ese entorno. `tools/curriculum/acceptance-smoke.mjs` conserva su bloqueo de producción: crea y publica un curso de aceptación y solo debe utilizarse en un staging aislado si se configura en el futuro.
 
 **Límite de progreso:** el desbloqueo usa eventos de palabras completadas y repetición SM-2 exitosa sobre frases. La cobertura SM-2 es práctica/retención, no una calificación general de competencia. La evaluación de gramática, escritura, listening y speaking con intentos y rúbricas pertenece al motor de actividades de Fase 2.
 
@@ -482,12 +491,12 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 - [x] Pruebas de publicación y versionado en PostgreSQL/CI existentes.
 - [x] Pruebas de permisos editor/estudiante y RLS del modelo editorial en PostgreSQL.
 - [x] Pruebas unitarias frontend para mapeadores de paginación/progreso/acciones/importación.
-- [ ] Ejecutar contra staging las pruebas HTTP reales de las rutas BFF/gRPC y las transacciones de importación PostgreSQL, con cuentas de editor y estudiante.
-- [x] Pruebas E2E del navegador sobre la experiencia de administración en Chromium con BFF simulado; repetir el recorrido visual contra staging con identidades reales.
+- [ ] Ejecutar la validación HTTP y visual de las rutas BFF/gRPC y transacciones PostgreSQL en producción con cuentas reales; la realizará el usuario después del merge y se documentará aquí.
+- [x] Pruebas E2E del navegador sobre la experiencia de administración en Chromium con BFF simulado; la repetición contra la web desplegada con identidades reales permanece pendiente.
 - [x] Validación estructural del catálogo fuente completo en CI. La aprobación y publicación de contenido editorial se mantiene separada de la mera importación.
 - [x] Ninguna lección publicada carece de objetivo requerido y criterio de finalización; PostgreSQL lo bloquea y CI prueba el rechazo.
 
-**Gate de salida:** catálogo académico navegable, versionado, validado, con progreso trazable, administración editorial protegida, pruebas de integración y contenido real aprobado/publicado para la primera versión de producto.
+**Gate de salida:** la implementación ya está integrada; la Subfase 1.5 permanece abierta únicamente por la aceptación manual HTTP/visual con cuentas reales en producción y su evidencia. No declarar DONE antes de marcar esos puntos.
 
 ---
 

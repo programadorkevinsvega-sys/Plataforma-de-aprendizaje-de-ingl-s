@@ -2,9 +2,9 @@
 
 ## Estado y alcance
 
-Esta entrega amplía el catálogo estudiantil integrado en PR #81. Incorpora paginación y filtros en PostgreSQL, estados de lección calculados a partir de evidencia persistida, y una interfaz administrativa para importar paquetes, gestionar revisión y publicar versiones aprobadas. El editor visual permite corregir los campos de una versión existente mientras continúe en `draft`, con control de concurrencia e historial de revisiones.
+La implementación de la Subfase 1.5 está integrada en `main` mediante PR #81, #82, #94, #96 y #97. Incorpora el catálogo estudiantil por versión inmutable, paginación/filtros PostgreSQL, progreso sustentado en evidencia persistida y la administración protegida para importar como borrador, editar, tramitar revisión y publicar. El editor visual guarda transaccionalmente, aplica control de concurrencia y conserva revisiones append-only con SHA-256.
 
-No cierra la Fase 1.5 ni la Fase 1 completa. Aún faltan pruebas de integración web para toda la cola editorial (paginación, filtros, permisos, importación y transiciones), provisionar una cuenta editorial real y ejecutar el flujo de extremo a extremo con esa cuenta.
+**Estado: IMPLEMENTACIÓN INTEGRADA; aceptación manual HTTP/visual PENDIENTE.** La suite de CI cubre las pruebas automatizadas disponibles (incluido E2E Chromium con BFF simulado y pruebas PostgreSQL de edición). Todavía no se ha validado el recorrido completo con cuentas humanas contra la web desplegada. El usuario realizará esa aceptación después, en producción, porque el proyecto no tiene un entorno staging configurado. Por tanto, no se declara cerrada la Subfase 1.5.
 
 ## 1. Catálogo estudiantil: filtros y paginación reales
 
@@ -92,13 +92,26 @@ La tabla content_editors requiere que un administrador de plataforma registre ex
 - /admin/curriculum es el área administrativa protegida por la capacidad de base de datos.
 - No se utilizan fixtures de CI como catálogo de producción.
 
-## 5. Pendientes explícitos
+## 5. Aceptación manual pendiente en producción
 
-1. Pruebas de integración web para paginación, filtros, respuestas 403/409, importación dry-run/apply y transiciones editoriales completas, incluida la ruta PUT de edición visual.
-2. Provisionar al menos una cuenta autorizada en `content_editors` mediante la operación administrativa segura y ejecutar el flujo web con esa cuenta.
-3. Intentos y rúbricas del motor de actividades Fase 2 para que gramática, escritura, listening y speaking tengan progreso evaluado real, además de práctica de vocabulario/SRS.
-4. Curación editorial y expansión del catálogo (Subfase 1.4): calidad lingüística de traducciones, ejemplos, guías fonéticas y audios lento/natural.
-5. Cargar y validar el contenido real completo que corresponda a la siguiente publicación, con referencias exactas y decisiones editoriales humanas.
+No hay un servidor staging configurado. La verificación pendiente se hará desde la web desplegada y con las cuentas reales ya existentes; no requiere crear variables ni secretos nuevos en GitHub.
+
+- [ ] Entrar en `/admin/curriculum` con una cuenta que ya tenga la capacidad editorial y comprobar carga de cola, búsqueda, filtros y paginación.
+- [ ] Entrar con una cuenta normal y comprobar que la interfaz y la API responden 403 y no muestran la cola editorial.
+- [ ] Ejecutar el dry-run de un paquete válido y comprobar que no crea una versión; luego importar un paquete de prueba aprobado como `draft` solo cuando se haya elegido un borrador seguro.
+- [ ] Editar campos permitidos y comprobar el historial; verificar que un guardado con `updated_at` obsoleto produce 409.
+- [ ] Completar cambios solicitados → corrección → reenvío → aprobación → publicación usando únicamente contenido real revisado, nunca fixtures ni cursos ficticios.
+- [ ] Verificar el curso/versionado en el catálogo estudiantil y confirmar que una versión publicada ya no admite edición.
+- [ ] Comprobar que revocar la capacidad editorial vuelve a producir 403 y restaurarla solo mediante el procedimiento administrativo autorizado.
+- [ ] Registrar fecha, versión curricular probada y evidencia (sin contraseñas ni tokens).
+
+**Protección:** `tools/curriculum/acceptance-smoke.mjs` crea y publica un curso de aceptación y tiene un guard que bloquea producción. No ejecutar ese script contra la URL productiva. El workflow de staging se retiró porque el entorno no existe; no se necesitan nuevas variables ni secretos de GitHub para la aceptación manual.
+
+### Backlog fuera de 1.5
+
+1. Intentos y rúbricas del motor de actividades Fase 2 para que gramática, escritura, listening y speaking tengan progreso evaluado real, además de práctica de vocabulario/SRS.
+2. Curación editorial y expansión del catálogo posterior al piloto de Subfase 1.4: calidad lingüística de traducciones, ejemplos, guías fonéticas y audios lento/natural.
+3. Cargar y validar futuras publicaciones de contenido real, con referencias exactas y decisiones editoriales humanas.
 
 El fixture tests/fixtures/curriculum/phase1_3_content_package_v1.json se utiliza únicamente para CI y validación de esquema. No es contenido real y no debe importarse ni publicarse en producción.
 
@@ -109,4 +122,4 @@ El fixture tests/fixtures/curriculum/phase1_3_content_package_v1.json se utiliza
 - Los endpoints editoriales devuelven 403 a cuentas que no estén en content_editors.
 - La publicación solo se realiza desde una versión review cuya última decisión sea approved por el mismo editor que publica.
 - La edición visual solo modifica versiones draft y registra snapshots inmutables; no existe una ruta para sobrescribir contenido en review/published.
-- No se ha ejecutado todavía una importación real en producción ni se declara ningún curso publicado por esta entrega.
+- La publicación privada inicial de Inglés General (PR #93) se ejecutó desde CI/CD y dejó dos versiones PRE_A1/A1 con contenido real seleccionado. Esa publicación corresponde a la Subfase 1.4; no sustituye la aceptación de la administración web de 1.5, que sigue pendiente con cuentas humanas.
