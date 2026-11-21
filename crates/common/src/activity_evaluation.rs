@@ -922,14 +922,23 @@ mod tests {
             ExerciseSpec::FillBlank {
                 prompt_template: format!("She {first_gap_marker} {second_gap_marker} every day."),
                 gaps: vec![
-                    GapDefinition { gap_id: first_gap_id, accepted_answers: vec!["works".into()] },
-                    GapDefinition { gap_id: second_gap_id, accepted_answers: vec!["at home".into()] },
+                    GapDefinition {
+                        gap_id: first_gap_id,
+                        accepted_answers: vec!["works".into()],
+                    },
+                    GapDefinition {
+                        gap_id: second_gap_id,
+                        accepted_answers: vec!["at home".into()],
+                    },
                 ],
             },
             ActivityModality::Written,
             LearningSkill::Grammar,
             PartialCreditPolicy::PerItem,
-            vec![TextNormalization::CaseInsensitive, TextNormalization::TrimWhitespace],
+            vec![
+                TextNormalization::CaseInsensitive,
+                TextNormalization::TrimWhitespace,
+            ],
         );
         let mut answer = submission(
             StudentAnswer::GapAnswers {
