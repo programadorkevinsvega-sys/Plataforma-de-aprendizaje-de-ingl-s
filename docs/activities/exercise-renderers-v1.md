@@ -1,6 +1,6 @@
 # Renderizadores de ejercicios v1
 
-**Subfase:** 2.2 — Motor de lecciones y ejercicios  
+**Subfase:** 2.2 — Motor de lecciones y ejercicios
 **Estado:** implementación de renderizadores y contrato cliente en rama; CI pendiente. La entrega de actividades y persistencia de intentos sigue en 2.3–2.4.
 
 ## Componentes

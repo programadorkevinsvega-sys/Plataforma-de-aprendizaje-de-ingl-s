@@ -149,14 +149,14 @@ test('student parser rejects listening activities that reveal a transcript', () 
   assert.throws(() => activityFor({
     ...cases[5],
     stimulus: { kind: 'text_and_audio', text: 'The hidden transcript', audioAssetId: uuid(52) },
-  }), /no revelar el texto/)
+  }), /no puede revelar el texto/)
 })
 
 test('fill blank requires one exact marker for every gap ID', () => {
   assert.throws(() => parseStudentActivityView({
     ...base,
     exercise: { type: 'fill_blank', promptTemplate: 'Name: {{' + uuid(20) + '}} and {{' + uuid(20) + '}}', gapIds: [uuid(20)] },
-  }), /exactamente una vez/)
+  }), /exactamente un marcador válido por espacio/)
 })
 
 test('multiple-choice submission is versioned, typed, idempotent and bounded', () => {
