@@ -35,7 +35,7 @@ export default function LearningSessionPage() {
       const current = await container.useCases.getLearningSession.execute(sessionId)
       setSession(current)
       setPendingTransition(null)
-      setRewardPending(false)
+      setRewardPending(current.rewardPending)
     } catch (cause) {
       setLoadError(cause instanceof Error ? cause.message : 'No se pudo recuperar la sesión.')
     } finally {

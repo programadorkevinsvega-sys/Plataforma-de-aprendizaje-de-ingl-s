@@ -92,6 +92,7 @@ function parseSession(value: unknown): LearningSession {
     lastResult: optionalResult(dto.last_result, activity),
     completedAt: typeof dto.completed_at === 'string' ? dto.completed_at : null,
     remainingAttempts,
+    rewardPending: false,
   }
 }
 
@@ -119,7 +120,8 @@ export class BffLearningSessionRepository implements ILearningSessionRepository 
       '/api/v1/learning/sessions/' + encodeURIComponent(sessionId),
       { timeoutMs: 45_000 },
     ))
-    return parseSession(dto.session)
+    const session = parseSession(dto.session)
+    return { ...session, rewardPending: dto.reward_pending === true }
   }
 
   async submitActivity(
@@ -134,7 +136,10 @@ export class BffLearningSessionRepository implements ILearningSessionRepository 
     ))
     const result = parseActivityAttemptResult(dto.result, activity)
     return {
-      session: parseSession(dto.session),
+      session: {
+        ...parseSession(dto.session),
+        rewardPending: dto.reward_pending === true,
+      },
       result,
       idempotentReplay: dto.idempotent_replay === true,
       rewardPending: dto.reward_pending === true,

@@ -1040,11 +1040,17 @@ impl ContentService for MyContentService {
                           AND review.repetitions > 0
                         WHERE reference.learning_objective_id = objective.id
                    ) + (
-                       SELECT COUNT(DISTINCT evidence.activity_id)
-                         FROM activity_objective_evidence evidence
-                        WHERE evidence.learning_objective_id = objective.id
-                          AND evidence.user_id = $2
-                          AND evidence.course_version_id = objective.course_version_id
+                       SELECT COUNT(*)
+                         FROM (
+                             SELECT DISTINCT ON (evidence.activity_id)
+                                    evidence.activity_id, evidence.normalized_score
+                               FROM activity_objective_evidence evidence
+                              WHERE evidence.learning_objective_id = objective.id
+                                AND evidence.user_id = $2
+                                AND evidence.course_version_id = objective.course_version_id
+                              ORDER BY evidence.activity_id, evidence.recorded_at DESC, evidence.id DESC
+                         ) latest
+                        WHERE latest.normalized_score >= 0.7
                    ) AS evidence_completed,
                    CASE
                      WHEN (

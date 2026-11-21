@@ -19,6 +19,7 @@ export interface LearningSession {
   lastResult: ActivityAttemptResult | null
   completedAt: string | null
   remainingAttempts: number
+  rewardPending: boolean
 }
 
 export interface StartLearningSessionResult {
