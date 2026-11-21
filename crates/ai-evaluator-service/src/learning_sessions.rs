@@ -453,7 +453,9 @@ pub async fn get_lesson_session(
     session_id: Uuid,
 ) -> Result<LessonSessionSnapshot, Status> {
     if session_id.is_nil() {
-        return Err(Box::new(Status::invalid_argument("sessionId no puede ser nulo")));
+        return Err(Box::new(Status::invalid_argument(
+            "sessionId no puede ser nulo",
+        )));
     }
     let mut tx = pool
         .begin()
@@ -481,7 +483,9 @@ pub async fn begin_lesson_activity_attempt(
     let submission: ActivitySubmission = serde_json::from_str(submission_raw)
         .map_err(|_| Status::invalid_argument("El envío de actividad no contiene JSON válido"))?;
     if submission.idempotency_key.is_nil() {
-        return Err(Box::new(Status::invalid_argument("idempotencyKey no puede ser nula")));
+        return Err(Box::new(Status::invalid_argument(
+            "idempotencyKey no puede ser nula",
+        )));
     }
     let submission_json = serde_json::to_value(&submission)
         .map_err(|_| Status::internal("No se pudo normalizar el envío"))?;
@@ -734,7 +738,9 @@ pub async fn commit_lesson_activity_attempt(
     .await
     .map_err(|error| db_unavailable(error, "lock_session_before_commit"))?;
     if locked_session.is_none() {
-        return Err(Box::new(Status::not_found("No se encontró la sesión de aprendizaje")));
+        return Err(Box::new(Status::not_found(
+            "No se encontró la sesión de aprendizaje",
+        )));
     }
     let reservation: Option<LessonActivityReservationRow> =
         sqlx::query_as::<_, LessonActivityReservationRow>(
