@@ -219,7 +219,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .route(
             "/api/v1/curriculum/lessons/:lesson_id/sessions",
-            post(start_lesson_session_handler),
+            post(start_lesson_session_handler).layer(DefaultBodyLimit::max(4 * 1024)),
         )
         .route(
             "/api/v1/learning/sessions/:session_id",

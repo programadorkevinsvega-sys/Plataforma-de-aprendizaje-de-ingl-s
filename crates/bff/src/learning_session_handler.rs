@@ -11,8 +11,10 @@ use proto::gamification::RecordLessonCompletionRequest;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::request_limiter::allow_request;
 use crate::srs_handler::{attach_bearer_metadata, validate_token_from_headers};
 use crate::AppState;
+use std::time::Duration;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -54,6 +56,16 @@ pub struct SubmitLessonActivityDto {
 struct SessionErrorDto {
     code: &'static str,
     message: &'static str,
+}
+
+fn rate_limit_error() -> (StatusCode, Json<SessionErrorDto>) {
+    (
+        StatusCode::TOO_MANY_REQUESTS,
+        Json(SessionErrorDto {
+            code: "LEARNING_SESSION_RATE_LIMIT",
+            message: "Has enviado demasiadas solicitudes de aprendizaje. Espera un momento y vuelve a intentarlo.",
+        }),
+    )
 }
 
 fn session_error(error: tonic::Status, operation: &'static str) -> (StatusCode, Json<SessionErrorDto>) {
@@ -230,6 +242,9 @@ pub async fn start_lesson_session_handler(
                 }),
             )
         })?;
+    if !allow_request(&user_id, "lesson-session-start", 10, Duration::from_secs(60)) {
+        return Err(rate_limit_error());
+    }
     let mut request = tonic::Request::new(StartLessonSessionRequest {
         user_id,
         lesson_id,
@@ -293,6 +308,9 @@ pub async fn get_lesson_session_handler(
                 }),
             )
         })?;
+    if !allow_request(&user_id, "lesson-session-read-recover", 30, Duration::from_secs(60)) {
+        return Err(rate_limit_error());
+    }
     let mut request = tonic::Request::new(GetLessonSessionRequest {
         user_id: user_id.clone(),
         session_id: session_id.clone(),
@@ -468,6 +486,9 @@ pub async fn submit_lesson_activity_handler(
                 }),
             )
         })?;
+    if !allow_request(&user_id, "lesson-session-submit", 20, Duration::from_secs(60)) {
+        return Err(rate_limit_error());
+    }
 
     // Step 1: reserve the attempt against the current published activity.
     let mut begin_request = tonic::Request::new(BeginLessonActivityAttemptRequest {
