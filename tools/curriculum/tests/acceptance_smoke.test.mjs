@@ -128,7 +128,9 @@ function createAcceptanceFetch() {
     }
 
     if (parsedUrl.pathname === `/api/v1/curriculum/courses/${courseVersionId}` && method === "GET") {
-      return jsonResponse(detail);
+      const courseDetail = structuredClone(detail);
+      if (editorialActions >= 5) courseDetail.course.status = "published";
+      return jsonResponse(courseDetail);
     }
 
     if (parsedUrl.pathname.endsWith(`/${courseVersionId}/draft`) && method === "PUT") {
@@ -213,7 +215,22 @@ test("live acceptance flow covers authorization, dry-run, import, concurrency, r
   assert.equal(calls.filter((call) => call.pathname === "/api/v1/curriculum/editor/import").length, 2);
   assert.equal(calls.filter((call) => call.pathname.endsWith("/draft") && call.method === "PUT").length, 4);
   assert.equal(calls.filter((call) => call.pathname.endsWith("/actions") && call.method === "POST").length, 5);
-  assert.ok(calls.every((call) => call.token !== `Bearer ${editorToken}` || call.method === "GET" || call.method === "POST" || call.method === "PUT"));
+  assert.ok(
+    calls.some(
+      (call) =>
+        call.pathname === "/api/v1/curriculum/editor/import" &&
+        call.token === `Bearer ${editorToken}`,
+    ),
+    "La importación debe estar autenticada con la cuenta editorial.",
+  );
+  assert.ok(
+    calls.some(
+      (call) =>
+        call.pathname === "/api/v1/curriculum/editor/versions" &&
+        call.token === `Bearer ${nonEditorToken}`,
+    ),
+    "La comprobación 403 debe usar la cuenta sin permiso editorial.",
+  );
 });
 
 test("live acceptance refuses production, even when staging mode is accidentally set", async () => {
