@@ -21,6 +21,9 @@ export interface ActivityExerciseRendererProps {
   resolveImageUrl?: (assetId: string) => string | null
   uploadSpokenAudio?: (audio: Blob, durationMs: number) => Promise<AudioUploadReceipt>
   className?: string
+  initialResult?: ActivityAttemptResult | null
+  onContinue?: () => void
+  continueLabel?: string
 }
 
 const fieldClass = 'w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/15'
@@ -271,14 +274,21 @@ function ActivityExerciseRendererSession({
   resolveImageUrl,
   uploadSpokenAudio,
   className = '',
+  initialResult = null,
+  onContinue,
+  continueLabel = 'Continuar',
 }: ActivityExerciseRendererProps) {
   const activeDurationMs = useRef(0)
   const activeSince = useRef(0)
+  const pendingSubmission = useRef<{ fingerprint: string; value: ActivitySubmission } | null>(null)
   const [answer, setAnswer] = useState<StudentAnswer | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitMessage, setSubmitMessage] = useState<string | null>(null)
-  const [attemptResult, setAttemptResult] = useState<ActivityAttemptResult | null>(null)
+  const [attemptResult, setAttemptResult] = useState<ActivityAttemptResult | null>(() => {
+    if (!initialResult || initialResult.activityId !== activity.activityId || initialResult.activityVersion !== activity.activityVersion) return null
+    return parseActivityAttemptResult(initialResult, activity)
+  })
   const complete = answer !== null && isStudentAnswerComplete(activity, answer)
 
   useEffect(() => {
@@ -572,12 +582,19 @@ function ActivityExerciseRendererSession({
     setSubmitError(null)
     setSubmitMessage(null)
     try {
-      const submission = buildActivitySubmission(
-        activity,
-        answer,
-        crypto.randomUUID(),
-        Math.max(1, activeDurationMs.current + (activeSince.current > 0 ? Date.now() - activeSince.current : 0)),
-      )
+      const fingerprint = JSON.stringify(answer)
+      let submission = pendingSubmission.current?.fingerprint === fingerprint
+        ? pendingSubmission.current.value
+        : null
+      if (!submission) {
+        submission = buildActivitySubmission(
+          activity,
+          answer,
+          crypto.randomUUID(),
+          Math.max(1, activeDurationMs.current + (activeSince.current > 0 ? Date.now() - activeSince.current : 0)),
+        )
+        pendingSubmission.current = { fingerprint, value: submission }
+      }
       const result = await onSubmit(submission)
       if (result !== undefined && result !== null) {
         setAttemptResult(parseActivityAttemptResult(result, activity))
@@ -616,7 +633,10 @@ function ActivityExerciseRendererSession({
         resolveImageUrl={resolveImageUrl}
       />
 
-      <div className="space-y-4">{exerciseContent}</div>
+      <fieldset disabled={attemptResult !== null || submitting} className="space-y-4 disabled:opacity-80">
+        <legend className="sr-only">Respuesta de la actividad</legend>
+        {exerciseContent}
+      </fieldset>
 
       {attemptResult && (
         <section
@@ -664,16 +684,30 @@ function ActivityExerciseRendererSession({
         {submitMessage && <p className="rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800" role="status">{submitMessage}</p>}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="text-xs text-stone-500" aria-live="polite">
-            {complete ? 'Respuesta completa. Lista para enviar.' : 'Completa todos los campos obligatorios para continuar.'}
+            {attemptResult
+              ? 'Resultado confirmado por el servicio de aprendizaje.'
+              : complete
+                ? 'Respuesta completa. Lista para enviar.'
+                : 'Completa todos los campos obligatorios para continuar.'}
           </span>
-          <button
-            type="button"
-            onClick={() => void submit()}
-            disabled={!complete || submitting || submitMessage !== null || attemptResult !== null}
-            className="rounded-xl bg-emerald-700 px-5 py-3 text-xs font-extrabold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-500"
-          >
-            {submitting ? 'Enviando…' : 'Enviar respuesta'}
-          </button>
+          {attemptResult && onContinue ? (
+            <button
+              type="button"
+              onClick={onContinue}
+              className="rounded-xl bg-emerald-700 px-5 py-3 text-xs font-extrabold text-white transition hover:bg-emerald-800"
+            >
+              {continueLabel}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void submit()}
+              disabled={!complete || submitting || submitMessage !== null || attemptResult !== null}
+              className="rounded-xl bg-emerald-700 px-5 py-3 text-xs font-extrabold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-500"
+            >
+              {submitting ? 'Enviando…' : 'Enviar respuesta'}
+            </button>
+          )}
         </div>
       </footer>
     </section>
