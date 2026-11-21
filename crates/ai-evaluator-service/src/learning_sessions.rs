@@ -363,110 +363,8 @@ pub async fn begin_lesson_activity_attempt(
     .map_err(|error| db_unavailable(error, "lock_lesson_session"))?;
     let (course_version_id, lesson_id, session_status, position) =
         session.ok_or_else(|| Status::not_found("No se encontró la sesión de aprendizaje"))?;
-    if session_status != "in_progress" {
-        return Err(Status::failed_precondition("La sesión ya no admite nuevas respuestas"));
-    }
-
     // Resolve idempotent retries before loading the session's current position:
     // a completed request has already advanced the cursor, but must still replay.
-    if let Some((existing_reservation, existing_session_id, existing_activity_id, existing_submission, existing_result, existing_state)) =
-        sqlx::query_as::<_, (Uuid, Uuid, Uuid, Value, Option<Value>, String)>(
-            r#"SELECT reservation_id, session_id, activity_id, submission_json, result_json, state
-                 FROM lesson_session_activity_attempts
-                WHERE user_id = $1 AND idempotency_key = $2"#,
-        )
-        .bind(user_id)
-        .bind(submission.idempotency_key)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|error| db_unavailable(error, "resolve_attempt_idempotency"))?
-    {
-        if existing_session_id != session_id || existing_submission != submission_json {
-            return Err(Status::already_exists("La clave idempotente ya se utilizó con otro envío"));
-        }
-        let existing_definition: Value = sqlx::query_scalar(
-            r#"SELECT definition_json FROM curriculum_lesson_activities
-                WHERE activity_id = $1 AND course_version_id = $2 AND lesson_id = $3"#,
-        )
-        .bind(existing_activity_id)
-        .bind(course_version_id)
-        .bind(lesson_id)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|error| db_unavailable(error, "load_replayed_activity_definition"))?
-        .ok_or_else(|| Status::data_loss("La actividad del intento idempotente ya no existe"))?;
-        let replay_activity = decode_activity(existing_definition, course_version_id, lesson_id)?;
-        replay_activity.validate_submission(&submission).map_err(|_| {
-            Status::already_exists("La clave idempotente no coincide con la actividad reservada")
-        })?;
-        let activity_json = serde_json::to_string(&replay_activity)
-            .map_err(|_| Status::internal("No se pudo serializar la definición privada"))?;
-        let existing_result_json = existing_result
-            .map(|value| serde_json::to_string(&value))
-            .transpose()
-            .map_err(|_| Status::internal("No se pudo serializar el resultado almacenado"))?
-            .unwrap_or_default();
-        let idempotent_replay = existing_state != "processing";
-        tx.commit().await.map_err(|error| db_unavailable(error, "commit_attempt_replay"))?;
-        return Ok(BeginAttempt {
-            reservation_id: existing_reservation.to_string(),
-            activity_definition_json: activity_json,
-            existing_result_json,
-            idempotent_replay,
-        });
-    }
-
-    let current_activity: Option<Value> = sqlx::query_scalar(
-        r#"SELECT definition_json
-             FROM curriculum_lesson_activities
-            WHERE lesson_id = $1 AND course_version_id = $2 AND position = $3"#,
-    )
-    .bind(lesson_id)
-    .bind(course_version_id)
-    .bind(position)
-    .fetch_optional(&mut *tx)
-    .await
-    .map_err(|error| db_unavailable(error, "load_activity_for_submission"))?;
-    let raw_definition = current_activity.ok_or_else(|| Status::data_loss("La posición actual no tiene actividad publicada"))?;
-    let activity = decode_activity(raw_definition.clone(), course_version_id, lesson_id)?;
-    activity.validate_submission(&submission).map_err(|error| match error {
-        common::activity_contract::ActivityContractError::ActivityVersionMismatch
-        | common::activity_contract::ActivityContractError::UnsupportedSchemaVersion => Status::failed_precondition(error.to_string()),
-        _ => Status::invalid_argument(format!("El envío no cumple el contrato publicado: {error}")),
-    })?;
-
-    if let Some((existing_reservation, existing_session_id, existing_activity_id, existing_submission, existing_result, existing_state)) =
-        sqlx::query_as::<_, (Uuid, Uuid, Uuid, Value, Option<Value>, String)>(
-            r#"SELECT reservation_id, session_id, activity_id, submission_json, result_json, state
-                 FROM lesson_session_activity_attempts
-                WHERE user_id = $1 AND idempotency_key = $2"#,
-        )
-        .bind(user_id)
-        .bind(submission.idempotency_key)
-        .fetch_optional(&mut *tx)
-        .await
-        .map_err(|error| db_unavailable(error, "resolve_attempt_idempotency"))?
-    {
-        if existing_session_id != session_id || existing_activity_id != activity.activity_id || existing_submission != submission_json {
-            return Err(Status::already_exists("La clave idempotente ya se utilizó con otro envío"));
-        }
-        let activity_json = serde_json::to_string(&raw_definition)
-            .map_err(|_| Status::internal("No se pudo serializar la definición privada"))?;
-        let existing_result_json = existing_result
-            .map(|value| serde_json::to_string(&value))
-            .transpose()
-            .map_err(|_| Status::internal("No se pudo serializar el resultado almacenado"))?
-            .unwrap_or_default();
-        let idempotent_replay = existing_state != "processing";
-        tx.commit().await.map_err(|error| db_unavailable(error, "commit_attempt_replay"))?;
-        return Ok(BeginAttempt {
-            reservation_id: existing_reservation.to_string(),
-            activity_definition_json: activity_json,
-            existing_result_json,
-            idempotent_replay,
-        });
-    }
-
     let attempts: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM lesson_session_activity_attempts WHERE session_id = $1 AND activity_id = $2",
     )
@@ -545,17 +443,30 @@ pub async fn commit_lesson_activity_attempt(
     }
     let mut tx = pool.begin().await.map_err(|error| db_unavailable(error, "commit_activity_attempt"))?;
     set_user(&mut tx, user_id).await?;
-    let reservation: Option<(String, Uuid, Uuid, Uuid, Uuid, i32, Value, Option<Value>, Uuid)> =
+    // Keep one lock order across begin/commit (session first, attempt second).
+    let session_exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS (SELECT 1 FROM lesson_sessions WHERE id = $1 AND user_id = $2 FOR UPDATE)",
+    )
+    .bind(session_id)
+    .bind(user_id)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(|error| db_unavailable(error, "lock_session_before_commit"))?;
+    if !session_exists {
+        return Err(Status::not_found("No se encontró la sesión de aprendizaje"));
+    }
+    let reservation: Option<(String, Uuid, Uuid, Uuid, Option<Uuid>, i32, i32, Value, Option<Value>, Uuid)> =
         sqlx::query_as(
             r#"SELECT attempt.state, attempt.activity_id, attempt.course_version_id,
-                      attempt.lesson_id, attempt.assessment_attempt_id, session.current_activity_position,
+                      attempt.lesson_id, attempt.assessment_attempt_id,
+                      session.current_activity_position, attempt.attempt_number,
                       attempt.submission_json, attempt.result_json, attempt.idempotency_key
                  FROM lesson_session_activity_attempts attempt
                  JOIN lesson_sessions session ON session.id = attempt.session_id AND session.user_id = attempt.user_id
                 WHERE attempt.reservation_id = $1
                   AND attempt.session_id = $2
                   AND attempt.user_id = $3
-                FOR UPDATE OF attempt, session"#,
+                FOR UPDATE OF attempt"#,
         )
         .bind(reservation_id)
         .bind(session_id)
@@ -563,7 +474,7 @@ pub async fn commit_lesson_activity_attempt(
         .fetch_optional(&mut *tx)
         .await
         .map_err(|error| db_unavailable(error, "lock_activity_reservation"))?;
-    let (state, activity_id, course_version_id, lesson_id, assessment_attempt_id, current_position, submission_json, stored_result, idempotency_key) =
+    let (state, activity_id, course_version_id, lesson_id, _prior_assessment_attempt_id, current_position, attempt_number, submission_json, stored_result, idempotency_key) =
         reservation.ok_or_else(|| Status::not_found("No se encontró la reserva del envío"))?;
 
     if state != "processing" {
@@ -635,6 +546,9 @@ pub async fn commit_lesson_activity_attempt(
     if parsed_result.activity_version != activity_definition.activity_version {
         return Err(Status::data_loss("La versión evaluada no coincide con la actividad publicada"));
     }
+    let should_retry_activity = parsed_result.state == AttemptState::Evaluated
+        && parsed_result.score.as_ref().is_some_and(|score| score.normalized_score < 1.0)
+        && attempt_number < i32::from(activity_definition.limits.max_attempts);
 
     let status = match parsed_result.state {
         AttemptState::Evaluated => "evaluated",
@@ -712,9 +626,31 @@ pub async fn commit_lesson_activity_attempt(
         return Err(Status::aborted("La posición de la sesión cambió; vuelve a cargar la sesión"));
     }
 
-    let next_position = current_position.saturating_add(1);
+    let server_elapsed_ms: i64 = sqlx::query_scalar(
+        r#"SELECT GREATEST(
+               0,
+               FLOOR(EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - current_activity_started_at)) * 1000)::BIGINT
+           )
+             FROM lesson_sessions
+            WHERE id = $1 AND user_id = $2"#,
+    )
+    .bind(session_id)
+    .bind(user_id)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(|error| db_unavailable(error, "measure_server_activity_duration"))?;
+    let accepted_active_duration_ms = i64::try_from(submission.active_duration_ms)
+        .unwrap_or(MAX_SESSION_ACTIVE_DURATION_MS)
+        .min(server_elapsed_ms.saturating_add(5_000))
+        .min(MAX_SESSION_ACTIVE_DURATION_MS);
+
+    let next_position = if should_retry_activity {
+        current_position
+    } else {
+        current_position.saturating_add(1)
+    };
     let has_next = next_position <= session_row.1;
-    let next_state = if has_next {
+    let next_state = if should_retry_activity || has_next {
         "in_progress"
     } else {
         let pending: bool = sqlx::query_scalar(
@@ -744,7 +680,7 @@ pub async fn commit_lesson_activity_attempt(
     .bind(session_id)
     .bind(next_position)
     .bind(next_state)
-    .bind(i64::try_from(submission.active_duration_ms).unwrap_or(MAX_SESSION_ACTIVE_DURATION_MS))
+    .bind(accepted_active_duration_ms)
     .bind(MAX_SESSION_ACTIVE_DURATION_MS)
     .bind(user_id)
     .execute(&mut *tx)
