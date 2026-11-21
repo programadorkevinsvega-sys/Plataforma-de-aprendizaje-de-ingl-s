@@ -350,7 +350,7 @@ BEGIN
         RAISE EXCEPTION 'RLS exposed another learner session';
     END IF;
 
-    SELECT set_config(
+    PERFORM set_config(
         'app.current_user_id',
         other_user::TEXT,
         TRUE
