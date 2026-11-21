@@ -1454,6 +1454,11 @@ impl ActivityAttemptResult {
         if self.schema_version != ACTIVITY_SCHEMA_VERSION {
             return Err(ActivityContractError::UnsupportedSchemaVersion);
         }
+        if self.attempt_id.is_nil() || self.activity_id.is_nil() || self.activity_version == 0 {
+            return Err(invalid(
+                "attemptId and activityId must be valid and activityVersion must be positive",
+            ));
+        }
         match (self.state, &self.score) {
             (AttemptState::Evaluated, Some(score)) => {
                 if score.max_points == 0
