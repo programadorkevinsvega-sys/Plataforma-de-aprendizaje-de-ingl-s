@@ -723,7 +723,7 @@ fn validate_package(data: &Value) -> Result<PackageCounts, String> {
                             format!("{activity_path}/definition: contrato de actividad no válido")
                         })?;
                     if definition.activity_code != activity_code
-                        || definition.activity_version != activity_version
+                        || definition.activity_version != u32::try_from(activity_version).map_err(|_| format!("{activity_path}/activity_version: fuera de rango"))?
                     {
                         return Err(format!("{activity_path}/definition: activityCode/activityVersion no coinciden con el manifiesto"));
                     }
