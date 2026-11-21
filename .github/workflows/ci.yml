@@ -338,6 +338,26 @@ jobs:
         working-directory: .
         run: pnpm --filter devfluency-frontend build
 
+      - name: Install pinned Playwright runner
+        working-directory: .
+        run: npm install --prefix "$RUNNER_TEMP/playwright" --no-save --no-package-lock @playwright/test@1.65.1
+      - name: Run curriculum administration browser E2E
+        working-directory: .
+        env:
+          PLAYWRIGHT_TEST_MODULE: ${{ runner.temp }}/playwright/node_modules/@playwright/test/index.mjs
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/playwright/node_modules/.bin/playwright" install chromium --with-deps
+          "$RUNNER_TEMP/playwright/node_modules/.bin/playwright" test --config frontend/tests/e2e/playwright.config.mjs
+      - name: Upload curriculum browser E2E diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: curriculum-admin-browser-e2e
+          path: ${{ runner.temp }}/curriculum-admin-e2e-results
+          if-no-files-found: ignore
+          retention-days: 14
+
   rust-dependency-audit:
     name: Rust dependency vulnerability audit
     needs: changes

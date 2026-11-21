@@ -463,10 +463,11 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 **Pendientes para completar la subfase 1.5:**
 - [x] Editor visual campo a campo de una versión `draft` ya importada, con guardado transaccional, validación de estructura inmutable, token de concurrencia e historial append-only con SHA-256.
 - [x] Prueba de integración PostgreSQL del guardado de borrador: revisión persistida, rechazo de escritura obsoleta y bloqueo tras entrar a `review`.
-- [x] Implementar un smoke test de aceptación HTTP que recorre el BFF desplegado con dos cuentas reales: 403, dry-run, importación, edición, conflicto 409, cambios solicitados, aprobación, publicación, catálogo estudiantil y bloqueo posterior a publicar. Su ejecución contra staging sigue pendiente.
-- [ ] Pruebas E2E visuales del navegador para paginación, filtros, formularios, permisos editoriales e interacción completa de la administración.
-- [ ] Ejecutar el smoke test en staging y registrar evidencia de una cuenta editorial real y otra sin permisos.
-- [ ] Validación automática del catálogo real completo y evidencia de su cobertura.
+- [x] Smoke test HTTP ejecutable contra el BFF desplegado, con dos cuentas reales, que recorre 403, dry-run, importación, edición, conflicto 409, cambios solicitados, aprobación, publicación, catálogo estudiantil y bloqueo posterior a publicar. La ejecución con cuentas reales en staging sigue pendiente.
+- [x] Suite E2E visual en Chromium integrada a CI: login requerido, 403 visible, paginación, búsqueda, filtros, importación, edición del borrador, revisión, aprobación y publicación (BFF simulado para determinismo).
+- [x] Auditoría automática completa del catálogo fuente en CI: 790 entradas, 2.201 ejemplos, 26 recursos Reading/Listening y 52 preguntas; la auditoría no convierte ítems pendientes en contenido aprobado/publicado.
+- [ ] Ejecutar el smoke test HTTP en staging y registrar el recorrido con una cuenta editorial humana real y otra sin permisos.
+- [ ] Completar la aceptación visual en el entorno desplegado con las cuentas reales, incluida la comprobación posterior a revocar el permiso editorial.
 
 **Límite de progreso:** el desbloqueo usa eventos de palabras completadas y repetición SM-2 exitosa sobre frases. La cobertura SM-2 es práctica/retención, no una calificación general de competencia. La evaluación de gramática, escritura, listening y speaking con intentos y rúbricas pertenece al motor de actividades de Fase 2.
 
@@ -481,8 +482,8 @@ Convertir el conjunto de palabras y preguntas existente en un currículo estruct
 - [x] Pruebas de permisos editor/estudiante y RLS del modelo editorial en PostgreSQL.
 - [x] Pruebas unitarias frontend para mapeadores de paginación/progreso/acciones/importación.
 - [ ] Ejecutar contra staging las pruebas HTTP reales de las rutas BFF/gRPC y las transacciones de importación PostgreSQL, con cuentas de editor y estudiante.
-- [ ] Pruebas E2E del navegador sobre la experiencia visual de administración.
-- [ ] Validación automática del catálogo completo y carga editorial de negocio.
+- [x] Pruebas E2E del navegador sobre la experiencia de administración en Chromium con BFF simulado; repetir el recorrido visual contra staging con identidades reales.
+- [x] Validación estructural del catálogo fuente completo en CI. La aprobación y publicación de contenido editorial se mantiene separada de la mera importación.
 - [x] Ninguna lección publicada carece de objetivo requerido y criterio de finalización; PostgreSQL lo bloquea y CI prueba el rechazo.
 
 **Gate de salida:** catálogo académico navegable, versionado, validado, con progreso trazable, administración editorial protegida, pruebas de integración y contenido real aprobado/publicado para la primera versión de producto.

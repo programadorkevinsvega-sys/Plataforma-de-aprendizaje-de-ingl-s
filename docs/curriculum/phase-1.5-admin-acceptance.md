@@ -50,6 +50,23 @@ El paquete por defecto es `tests/fixtures/curriculum/initial-release-english-gen
 
 Este smoke test valida la integración HTTP real, pero no reemplaza la comprobación visual de paginación, controles, formularios y estados de la página `/admin/curriculum`. El recorrido manual que sigue continúa siendo obligatorio.
 
+## E2E visual automatizado en Chromium
+
+La CI construye el frontend de producción, levanta `next start` y ejecuta Playwright sobre un navegador Chromium real. La suite `frontend/tests/e2e/curriculum-admin.spec.cjs` recorre:
+
+- Redirección al login cuando no hay sesión.
+- Error 403 visible para una cuenta autenticada sin capacidad editorial; nunca se representa como cola vacía.
+- Paginación real de la interfaz, búsqueda y filtro por estado.
+- Previsualización dry-run y confirmación de importación.
+- Apertura del editor visual, guardado del borrador y confirmación de revisión SHA-256.
+- Envío a revisión, solicitud de cambios con comentarios, segundo guardado, aprobación y publicación.
+
+Esta suite intercepta las llamadas HTTP al BFF con respuestas controladas para que sea determinista en CI. Ejecuta la aplicación Next.js compilada y sus componentes reales, pero **no** prueba PostgreSQL ni sustituye el smoke test HTTP contra staging con cuentas reales. El runner Playwright está fijado en `@playwright/test 1.65.1`; los diagnósticos de navegador se conservan como artefacto de CI cuando existan.
+
+## Verificación completa del catálogo fuente
+
+La CI ejecuta `node tools/curriculum/audit_lexical_catalog.mjs --strict` y `node --test tools/curriculum/tests/*.test.mjs`. El test `lexical_catalog_audit.test.mjs` carga la fuente canónica completa y verifica, entre otros invariantes, 26 categorías, 790 entradas léxicas, 2.201 ejemplos, 26 recursos (13 Reading y 13 Listening) y 52 preguntas; también comprueba niveles Pre-A1/A1, revisión pendiente, estado editorial, referencias, pronunciación y audio de Listening. Es una auditoría estructural/semántica reproducible del catálogo fuente, no una declaración de que todos esos ítems estén aprobados o publicados.
+
 ## Habilitar una cuenta existente
 
 Primero registra la cuenta mediante el flujo normal de registro de la aplicación. La herramienta no crea usuarios ni gestiona contraseñas; solo concede o revoca la capacidad editorial de una cuenta existente.
