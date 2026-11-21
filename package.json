@@ -12,7 +12,8 @@
     "start": "pnpm --filter devfluency-frontend start",
     "lint": "pnpm --filter devfluency-frontend lint",
     "test:frontend:phase0": "node --experimental-test-coverage --experimental-loader ./frontend/tests/phase0/ts-path-loader.mjs --test-coverage-include='frontend/src/domain/**/*.ts' --test-coverage-include='frontend/src/application/**/*.ts' --test-coverage-include='frontend/src/infrastructure/**/*.ts' --test-coverage-include='frontend/src/shared/**/*.ts' --test frontend/tests/phase0/*.test.mjs",
-    "test:frontend:phase1": "node --experimental-loader ./frontend/tests/phase0/ts-path-loader.mjs --test frontend/tests/phase1/*.test.mjs"
+    "test:frontend:phase1": "node --experimental-loader ./frontend/tests/phase0/ts-path-loader.mjs --test frontend/tests/phase1/*.test.mjs",
+    "test:frontend:phase2": "node --experimental-loader ./frontend/tests/phase0/ts-path-loader.mjs --test frontend/tests/phase2/*.test.mjs"
   },
   "dependencies": {
     "pg": "8.23.1"

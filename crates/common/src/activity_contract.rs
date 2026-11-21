@@ -116,7 +116,12 @@ pub enum TranscriptPolicy {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
 pub enum ActivityStimulus {
     Text {
         text: String,
@@ -194,7 +199,12 @@ pub enum TranslationDirection {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(
+    tag = "type",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
 pub enum ExerciseSpec {
     MultipleChoice {
         prompt: String,
@@ -321,7 +331,12 @@ pub struct RubricCriterion {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
 pub enum EvaluationPolicy {
     Deterministic {
         max_points: u16,
@@ -919,7 +934,12 @@ pub struct StudentActivityView {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
 pub enum StudentStimulus {
     Text { text: String },
     Audio { asset_id: Uuid },
@@ -958,7 +978,12 @@ pub struct StudentHintPreview {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(
+    tag = "type",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
 pub enum StudentExercise {
     MultipleChoice {
         prompt: String,
@@ -1159,7 +1184,12 @@ pub struct ActivitySubmission {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(
+    tag = "kind",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
 pub enum StudentAnswer {
     SelectedOptions {
         option_ids: Vec<Uuid>,
@@ -1573,6 +1603,8 @@ mod tests {
         assert!(!serialized.contains("evaluation"));
         assert!(!serialized.contains("penaltyPoints"));
         assert!(serialized.contains("Nice to meet you"));
+        assert!(serialized.contains("\"allowMultiple\""));
+        assert!(!serialized.contains("\"allow_multiple\""));
         assert_eq!(public.available_hints.len(), 1);
     }
 
@@ -1709,6 +1741,9 @@ mod tests {
             active_duration_ms: 10_000,
         };
         definition.validate_submission(&valid).unwrap();
+        let serialized = serde_json::to_string(&valid).unwrap();
+        assert!(serialized.contains("\"optionIds\""));
+        assert!(!serialized.contains("\"option_ids\""));
         let mut stale = valid.clone();
         stale.activity_version = 2;
         assert_eq!(

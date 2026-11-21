@@ -334,6 +334,9 @@ jobs:
       - name: Test curriculum API mappers
         working-directory: .
         run: pnpm --filter devfluency-node-workspace test:frontend:phase1
+      - name: Test learning activity contracts and answer submissions
+        working-directory: .
+        run: pnpm --filter devfluency-node-workspace test:frontend:phase2
       - name: Build production bundle
         working-directory: .
         run: pnpm --filter devfluency-frontend build

@@ -519,23 +519,29 @@ Construir un motor reutilizable que permita presentar actividades diferentes baj
 
 ### Subfase 2.2. Tipos de ejercicio
 
-Implementar como mínimo:
+**Estado: implementación de las 13 familias y contrato de interfaz en rama; CI pendiente.** La implementación está en `frontend/src/domain/entities/Activity.ts` y `frontend/src/presentation/components/activities/ActivityExerciseRenderer.tsx`. El detalle está en [renderizadores de ejercicios v1](../activities/exercise-renderers-v1.md).
 
-- [ ] Selección múltiple.
-- [ ] Selección de traducción en ambas direcciones.
-- [ ] Completar espacios.
-- [ ] Ordenar palabras para construir oraciones.
-- [ ] Relacionar palabra, significado, contexto o expresión.
-- [ ] Escuchar audio y responder preguntas de comprensión.
-- [ ] Dictado o transcripción de fragmentos con comparación de texto.
-- [ ] Lectura con preguntas de comprensión.
-- [ ] Transformación gramatical de oraciones.
-- [ ] Corrección de errores gramaticales.
-- [ ] Respuesta escrita abierta con rúbrica y evaluación controlada.
-- [ ] Diálogo guiado por turnos.
-- [ ] Repaso de vocabulario mediante recuperación activa.
+- [x] Selección múltiple.
+- [x] Selección de traducción en ambas direcciones.
+- [x] Completar espacios.
+- [x] Ordenar palabras para construir oraciones.
+- [x] Relacionar palabra, significado, contexto o expresión.
+- [x] Escuchar audio y responder preguntas de comprensión sin revelar transcripción.
+- [x] Dictado o transcripción de fragmentos con comparación diferida en backend.
+- [x] Lectura con preguntas de comprensión.
+- [x] Transformación gramatical de oraciones.
+- [x] Corrección de errores gramaticales.
+- [x] Respuesta escrita abierta con límites visibles; la rúbrica se conserva en backend.
+- [x] Diálogo guiado con grabación local y adaptador de carga autenticada inyectable.
+- [x] Repaso de vocabulario mediante recuperación activa.
+- [x] Parser de la vista pública que rechaza claves de respuesta, rúbricas, criterios, penalizaciones y transcripciones privadas.
+- [x] Validación del tipo de respuesta, identificadores, completitud, longitud, duración, pistas e idempotencia antes de construir el envío.
+- [x] Estados de carga, error de envío, confirmación, resultado evaluado, pendiente de revisión y no medido, sin inventar puntuaciones en el cliente.
+- [x] Pruebas de contrato para las 13 familias, respuestas completas/incompletas, privacidad, límites y resultados.
+- [ ] CI verde y compilación de producción para esta entrega.
+- [ ] Prueba visual/manual en el navegador desplegado.
 
-Cada tipo debe tener instrucciones claras, estados de carga, error, respuesta correcta, respuesta incorrecta, explicación y finalización.
+**Frontera con las siguientes subfases:** este renderer no decide si una respuesta es correcta ni califica escritura/habla en el navegador. Solo muestra el resultado autoritativo que devuelva el servicio. La evaluación determinista y las rúbricas se completan en 2.3; la entrega desde lecciones, persistencia de intentos y recuperación se completan en 2.4; las pistas y el feedback pedagógico contextual se profundizan en 2.5. No se habilitan actividades ficticias en producción para simular esas capacidades.
 
 ### Subfase 2.3. Evaluación de respuestas
 
