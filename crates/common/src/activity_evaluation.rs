@@ -914,12 +914,16 @@ mod tests {
 
     #[test]
     fn fill_blank_awards_per_item_partial_credit_and_applies_hint_penalty() {
+        let first_gap_id = id(10);
+        let second_gap_id = id(11);
+        let first_gap_marker = format!("{{{{{}}}}}", first_gap_id);
+        let second_gap_marker = format!("{{{{{}}}}}", second_gap_id);
         let activity = deterministic_activity(
             ExerciseSpec::FillBlank {
-                prompt_template: "She {{00000000-0000-0000-0000-000000000010}} {{00000000-0000-0000-0000-000000000011}} every day.".into(),
+                prompt_template: format!("She {first_gap_marker} {second_gap_marker} every day."),
                 gaps: vec![
-                    GapDefinition { gap_id: id(10), accepted_answers: vec!["works".into()] },
-                    GapDefinition { gap_id: id(11), accepted_answers: vec!["at home".into()] },
+                    GapDefinition { gap_id: first_gap_id, accepted_answers: vec!["works".into()] },
+                    GapDefinition { gap_id: second_gap_id, accepted_answers: vec!["at home".into()] },
                 ],
             },
             ActivityModality::Written,
