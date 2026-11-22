@@ -85,7 +85,7 @@ async fn revealed_hint_ids_in_transaction(
     .bind(activity_id)
     .fetch_one(&mut **tx)
     .await
-    .map_err(|error| db_unavailable(error, "load_revealed_activity_hints"))
+    .map_err(|error| Box::new(db_unavailable(error, "load_revealed_activity_hints")))
 }
 
 fn db_unavailable(error: impl std::fmt::Display, operation: &'static str) -> Status {
