@@ -353,7 +353,7 @@ BEGIN
     END;
 
 END
-$;
+$$;
 
 -- Verify that a non-owner role sees only its own session, even with FORCE RLS.
 CREATE ROLE phase24_rls_probe NOLOGIN NOSUPERUSER NOBYPASSRLS;
