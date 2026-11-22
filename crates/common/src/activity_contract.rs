@@ -362,10 +362,28 @@ pub enum FeedbackTiming {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct FeedbackErrorPattern {
+    pub code: String,
+    pub label: String,
+    pub remediation: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct FeedbackPolicy {
     pub timing: FeedbackTiming,
     pub show_explanation: bool,
     pub reveal_correct_answer_after_submission: bool,
+    #[serde(default)]
+    pub correct_explanation: Option<String>,
+    #[serde(default)]
+    pub incorrect_explanation: Option<String>,
+    #[serde(default)]
+    pub detailed_explanation: Option<String>,
+    #[serde(default)]
+    pub equivalent_examples: Vec<String>,
+    #[serde(default)]
+    pub error_pattern: Option<FeedbackErrorPattern>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -432,9 +450,54 @@ impl ActivityDefinition {
         ensure_unique(self.objective_ids.iter().copied(), "objectiveIds")?;
         self.validate_limits()?;
         self.validate_hints()?;
+        self.validate_feedback()?;
         self.validate_exercise()?;
         self.validate_modality()?;
         self.validate_evaluation()
+    }
+
+    fn validate_feedback(&self) -> Result<(), ActivityContractError> {
+        if let Some(explanation) = &self.feedback.correct_explanation {
+            require_text(explanation, "feedback.correctExplanation", 800)?;
+        }
+        if let Some(explanation) = &self.feedback.incorrect_explanation {
+            require_text(explanation, "feedback.incorrectExplanation", 800)?;
+        }
+        if let Some(explanation) = &self.feedback.detailed_explanation {
+            require_text(explanation, "feedback.detailedExplanation", 4000)?;
+        }
+        if self.feedback.equivalent_examples.len() > 5 {
+            return Err(invalid(
+                "feedback.equivalentExamples cannot exceed five examples",
+            ));
+        }
+        ensure_unique(
+            self.feedback.equivalent_examples.iter().map(String::as_str),
+            "feedback.equivalentExamples",
+        )?;
+        for example in &self.feedback.equivalent_examples {
+            require_text(example, "feedback.equivalentExample", 500)?;
+        }
+        if let Some(pattern) = &self.feedback.error_pattern {
+            if !(2..=80).contains(&pattern.code.len())
+                || !pattern.code.bytes().all(|byte| {
+                    byte.is_ascii_lowercase()
+                        || byte.is_ascii_digit()
+                        || matches!(byte, b'.' | b'_' | b'-')
+                })
+            {
+                return Err(invalid(
+                    "feedback.errorPattern.code must be a stable lowercase code",
+                ));
+            }
+            require_text(&pattern.label, "feedback.errorPattern.label", 120)?;
+            require_text(
+                &pattern.remediation,
+                "feedback.errorPattern.remediation",
+                1000,
+            )?;
+        }
+        Ok(())
     }
 
     fn validate_limits(&self) -> Result<(), ActivityContractError> {
@@ -476,12 +539,24 @@ impl ActivityDefinition {
     fn validate_hints(&self) -> Result<(), ActivityContractError> {
         ensure_unique(self.hints.iter().map(|hint| hint.hint_id), "hints.hintId")?;
         ensure_unique(self.hints.iter().map(|hint| hint.order), "hints.order")?;
+        let mut ordered_hints: Vec<u8> = self.hints.iter().map(|hint| hint.order).collect();
+        ordered_hints.sort_unstable();
+        if ordered_hints
+            .iter()
+            .enumerate()
+            .any(|(index, order)| usize::from(*order) != index + 1)
+        {
+            return Err(invalid("hint orders must be contiguous and start at one"));
+        }
         for hint in &self.hints {
             if hint.order == 0 {
                 return Err(invalid("hint order starts at one"));
             }
             require_text(&hint.title, "hint.title", 100)?;
             require_text(&hint.body, "hint.body", 1000)?;
+            if hint.penalty_points > 1000 {
+                return Err(invalid("hint.penaltyPoints cannot exceed 1000"));
+            }
         }
         Ok(())
     }
@@ -1443,10 +1518,28 @@ pub struct SkillMeasurement {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct ErrorPatternFeedback {
+    pub code: String,
+    pub label: String,
+    pub remediation: String,
+    #[serde(default)]
+    pub occurrences: u32,
+    #[serde(default)]
+    pub recurring: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub struct ResultFeedback {
     pub summary: String,
     pub explanation: Option<String>,
     pub revealed_answer: Option<String>,
+    #[serde(default)]
+    pub equivalent_examples: Vec<String>,
+    #[serde(default)]
+    pub detailed_explanation: Option<String>,
+    #[serde(default)]
+    pub error_pattern: Option<ErrorPatternFeedback>,
 }
 
 impl ActivityAttemptResult {
@@ -1502,6 +1595,43 @@ impl ActivityAttemptResult {
         }
         if let Some(answer) = &self.feedback.revealed_answer {
             require_text(answer, "feedback.revealedAnswer", 4000)?;
+        }
+        if self.feedback.equivalent_examples.len() > 5 {
+            return Err(invalid(
+                "feedback.equivalentExamples cannot exceed five examples",
+            ));
+        }
+        ensure_unique(
+            self.feedback.equivalent_examples.iter().map(String::as_str),
+            "feedback.equivalentExamples",
+        )?;
+        for example in &self.feedback.equivalent_examples {
+            require_text(example, "feedback.equivalentExample", 500)?;
+        }
+        if let Some(explanation) = &self.feedback.detailed_explanation {
+            require_text(explanation, "feedback.detailedExplanation", 4000)?;
+        }
+        if let Some(pattern) = &self.feedback.error_pattern {
+            if !(2..=80).contains(&pattern.code.len())
+                || !pattern.code.bytes().all(|byte| {
+                    byte.is_ascii_lowercase()
+                        || byte.is_ascii_digit()
+                        || matches!(byte, b'.' | b'_' | b'-')
+                })
+            {
+                return Err(invalid("feedback.errorPattern.code is invalid"));
+            }
+            require_text(&pattern.label, "feedback.errorPattern.label", 120)?;
+            require_text(
+                &pattern.remediation,
+                "feedback.errorPattern.remediation",
+                1000,
+            )?;
+            if pattern.occurrences > 1_000_000 || pattern.recurring != (pattern.occurrences >= 3) {
+                return Err(invalid(
+                    "feedback.errorPattern recurrence metadata is inconsistent",
+                ));
+            }
         }
         Ok(())
     }
@@ -1569,6 +1699,11 @@ mod tests {
                 timing: FeedbackTiming::AfterSubmission,
                 show_explanation: true,
                 reveal_correct_answer_after_submission: true,
+                correct_explanation: None,
+                incorrect_explanation: None,
+                detailed_explanation: None,
+                equivalent_examples: Vec::new(),
+                error_pattern: None,
             },
             limits: ActivityLimits {
                 time_limit_seconds: Some(120),
@@ -1795,6 +1930,53 @@ mod tests {
     }
 
     #[test]
+    fn legacy_feedback_policy_json_defaults_new_fields_without_breaking_existing_packages() {
+        let policy: FeedbackPolicy = serde_json::from_value(serde_json::json!({
+            "timing": "after_submission",
+            "showExplanation": true,
+            "revealCorrectAnswerAfterSubmission": false
+        }))
+        .unwrap();
+        assert!(policy.correct_explanation.is_none());
+        assert!(policy.incorrect_explanation.is_none());
+        assert!(policy.detailed_explanation.is_none());
+        assert!(policy.equivalent_examples.is_empty());
+        assert!(policy.error_pattern.is_none());
+    }
+
+    #[test]
+    fn feedback_policy_validates_short_detailed_examples_and_error_patterns() {
+        let mut definition = base_definition(multiple_choice(), ActivityModality::Written);
+        definition.feedback.correct_explanation =
+            Some("This is the greeting for a first meeting.".into());
+        definition.feedback.incorrect_explanation =
+            Some("Choose the phrase used when meeting someone.".into());
+        definition.feedback.detailed_explanation =
+            Some("The phrase is used at the beginning of a first meeting.".into());
+        definition.feedback.equivalent_examples = vec!["Pleased to meet you.".into()];
+        definition.feedback.error_pattern = Some(FeedbackErrorPattern {
+            code: "a1.greeting.context".into(),
+            label: "Greeting context".into(),
+            remediation: "Match the phrase to the social situation.".into(),
+        });
+        definition.validate().unwrap();
+
+        definition.feedback.error_pattern.as_mut().unwrap().code = "Greeting Context".into();
+        assert!(definition.validate().is_err());
+
+        definition.feedback.error_pattern.as_mut().unwrap().code = "a1.greeting.context".into();
+        definition
+            .feedback
+            .equivalent_examples
+            .push("Pleased to meet you.".into());
+        assert!(definition.validate().is_err());
+
+        definition.feedback.equivalent_examples.clear();
+        definition.hints[0].penalty_points = 1001;
+        assert!(definition.validate().is_err());
+    }
+
+    #[test]
     fn result_never_scores_an_unmeasured_skill() {
         let result = ActivityAttemptResult {
             schema_version: ACTIVITY_SCHEMA_VERSION.into(),
@@ -1812,6 +1994,9 @@ mod tests {
                 summary: "Audio was not measurable.".into(),
                 explanation: None,
                 revealed_answer: None,
+                equivalent_examples: Vec::new(),
+                detailed_explanation: None,
+                error_pattern: None,
             },
         };
         result.validate().unwrap();

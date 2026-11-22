@@ -1,5 +1,6 @@
 import type {
   ActivitySubmission,
+  RevealedHint,
   StudentActivityView,
 } from '@/domain/entities/Activity'
 import type {
@@ -28,6 +29,18 @@ export class GetLearningSessionUseCase {
   execute(sessionId: string): Promise<LearningSession> {
     if (!UUID_PATTERN.test(sessionId)) throw new Error('El identificador de sesión no es válido.')
     return this.repository.getSession(sessionId)
+  }
+}
+
+export class RevealLearningHintUseCase {
+  constructor(private readonly repository: ILearningSessionRepository) {}
+
+  execute(sessionId: string, hintOrder: number): Promise<RevealedHint> {
+    if (!UUID_PATTERN.test(sessionId)) throw new Error('El identificador de sesión no es válido.')
+    if (!Number.isInteger(hintOrder) || hintOrder < 1 || hintOrder > 8) {
+      throw new Error('El orden de la pista debe estar entre uno y ocho.')
+    }
+    return this.repository.revealHint(sessionId, hintOrder)
   }
 }
 

@@ -173,7 +173,9 @@ BEGIN
         'lesson_sessions',
         'lesson_session_activity_attempts',
         'activity_objective_evidence',
-        'lesson_completion_reward_events'
+        'lesson_completion_reward_events',
+        'lesson_session_hint_reveals',
+        'learning_error_pattern_events'
     ] LOOP
         SELECT relation.relrowsecurity, relation.relforcerowsecurity
           INTO rls_enabled, rls_forced
@@ -203,10 +205,14 @@ BEGIN
            ('activity_objective_evidence', 'activity_objective_evidence_select_own'),
            ('activity_objective_evidence', 'activity_objective_evidence_insert_own'),
            ('lesson_completion_reward_events', 'lesson_completion_reward_events_select_own'),
-           ('lesson_completion_reward_events', 'lesson_completion_reward_events_insert_own')
+           ('lesson_completion_reward_events', 'lesson_completion_reward_events_insert_own'),
+           ('lesson_session_hint_reveals', 'lesson_session_hint_reveals_select_own'),
+           ('lesson_session_hint_reveals', 'lesson_session_hint_reveals_insert_own'),
+           ('learning_error_pattern_events', 'learning_error_pattern_events_select_own'),
+           ('learning_error_pattern_events', 'learning_error_pattern_events_insert_own')
        );
-    IF required_policy_count <> 14 THEN
-        RAISE EXCEPTION 'Expected all 14 lesson activity/session RLS policies, found %', required_policy_count;
+    IF required_policy_count <> 18 THEN
+        RAISE EXCEPTION 'Expected all 18 lesson activity/session/feedback RLS policies, found %', required_policy_count;
     END IF;
 
     IF NOT EXISTS (
@@ -289,6 +295,63 @@ BEGIN
         RAISE EXCEPTION 'lesson completion reward event is mutable';
     EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
     END;
+
+    INSERT INTO lesson_session_hint_reveals (
+        session_id, user_id, lesson_id, course_version_id, activity_id,
+        hint_id, hint_order, hint_title, hint_body, penalty_points
+    )
+    SELECT session_id, user_one, lesson_id, course_version_id, activity_id,
+           uuid_generate_v4(), 1, 'Context clue', 'Think about the first meeting.', 1
+      FROM phase24_session_ids;
+
+    INSERT INTO learning_error_pattern_events (
+        user_id, session_id, assessment_attempt_id, activity_id,
+        course_version_id, lesson_id, error_pattern_code
+    )
+    SELECT user_one, session_id, assessment_attempt_id, activity_id,
+           course_version_id, lesson_id, 'a1.present-simple-third-person'
+      FROM phase24_session_ids;
+
+    BEGIN
+        INSERT INTO lesson_session_hint_reveals (
+            session_id, user_id, lesson_id, course_version_id, activity_id,
+            hint_id, hint_order, hint_title, hint_body, penalty_points
+        )
+        SELECT session_id, user_one, lesson_id, course_version_id, activity_id,
+               uuid_generate_v4(), 1, 'Duplicate order', 'This must be rejected.', 0
+          FROM phase24_session_ids;
+        RAISE EXCEPTION 'duplicate hint order was accepted';
+    EXCEPTION WHEN unique_violation THEN NULL;
+    END;
+
+    BEGIN
+        INSERT INTO lesson_session_hint_reveals (
+            session_id, user_id, lesson_id, course_version_id, activity_id,
+            hint_id, hint_order, hint_title, hint_body, penalty_points
+        )
+        SELECT session_id, user_one, lesson_id, course_version_id, activity_id,
+               uuid_generate_v4(), 2, 'Invalid penalty', 'This must be rejected.', 1001
+          FROM phase24_session_ids;
+        RAISE EXCEPTION 'excessive hint penalty was accepted';
+    EXCEPTION WHEN check_violation THEN NULL;
+    END;
+
+    BEGIN
+        UPDATE lesson_session_hint_reveals
+           SET hint_body = 'changed'
+         WHERE session_id = v_session_id;
+        RAISE EXCEPTION 'revealed hint evidence is mutable';
+    EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
+    END;
+
+    BEGIN
+        UPDATE learning_error_pattern_events
+           SET error_pattern_code = 'invented'
+         WHERE session_id = v_session_id;
+        RAISE EXCEPTION 'error pattern evidence is mutable';
+    EXCEPTION WHEN SQLSTATE '55000' THEN NULL;
+    END;
+
 END
 $$;
 
@@ -311,6 +374,7 @@ $$;
 GRANT SELECT, INSERT, UPDATE ON lesson_sessions TO phase24_rls_probe;
 GRANT SELECT ON course_enrollments, course_versions TO phase24_rls_probe;
 GRANT SELECT ON curriculum_lesson_activities, lesson_activity_objectives TO phase24_rls_probe;
+GRANT SELECT, INSERT ON lesson_session_hint_reveals, learning_error_pattern_events TO phase24_rls_probe;
 GRANT SELECT ON phase24_session_ids TO phase24_rls_probe;
 SET LOCAL ROLE phase24_rls_probe;
 SELECT set_config(
@@ -342,6 +406,14 @@ BEGIN
     IF visible_activity_count <> 1 THEN
         RAISE EXCEPTION 'An enrolled student must see the objective mappings for the published activity';
     END IF;
+    SELECT COUNT(*) INTO visible_count FROM lesson_session_hint_reveals;
+    IF visible_count <> 1 THEN
+        RAISE EXCEPTION 'RLS should expose only the learner-owned revealed hint';
+    END IF;
+    SELECT COUNT(*) INTO visible_count FROM learning_error_pattern_events;
+    IF visible_count <> 1 THEN
+        RAISE EXCEPTION 'RLS should expose only the learner-owned error-pattern event';
+    END IF;
 
     SELECT COUNT(*) INTO visible_count
       FROM lesson_sessions
@@ -362,6 +434,14 @@ BEGIN
     SELECT COUNT(*) INTO visible_activity_count FROM lesson_activity_objectives;
     IF visible_activity_count <> 0 THEN
         RAISE EXCEPTION 'RLS exposed activity/objective mappings without an active enrollment';
+    END IF;
+    SELECT COUNT(*) INTO visible_count FROM lesson_session_hint_reveals;
+    IF visible_count <> 0 THEN
+        RAISE EXCEPTION 'RLS exposed another learner hint reveal';
+    END IF;
+    SELECT COUNT(*) INTO visible_count FROM learning_error_pattern_events;
+    IF visible_count <> 0 THEN
+        RAISE EXCEPTION 'RLS exposed another learner error-pattern event';
     END IF;
 
     -- Restore the first student's transaction identity before attempting the

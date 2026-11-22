@@ -61,6 +61,33 @@ pub struct CommitAttempt {
     pub idempotent_replay: bool,
 }
 
+#[derive(Debug, Clone)]
+pub struct RevealedHint {
+    pub hint_id: String,
+    pub order: i32,
+    pub title: String,
+    pub body: String,
+}
+
+async fn revealed_hint_ids_in_transaction(
+    tx: &mut Transaction<'_, Postgres>,
+    user_id: Uuid,
+    session_id: Uuid,
+    activity_id: Uuid,
+) -> SessionResult<Vec<Uuid>> {
+    sqlx::query_scalar(
+        r#"SELECT COALESCE(array_agg(hint_id ORDER BY hint_order), ARRAY[]::UUID[])
+             FROM lesson_session_hint_reveals
+            WHERE user_id = $1 AND session_id = $2 AND activity_id = $3"#,
+    )
+    .bind(user_id)
+    .bind(session_id)
+    .bind(activity_id)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(|error| Box::new(db_unavailable(error, "load_revealed_activity_hints")))
+}
+
 fn db_unavailable(error: impl std::fmt::Display, operation: &'static str) -> Status {
     tracing::error!(%error, operation, "Lesson session database operation failed");
     Status::unavailable("El servicio de sesiones no está disponible temporalmente")
@@ -167,6 +194,7 @@ async fn session_snapshot_in_transaction(
     let mut remaining_attempts = 0_i32;
     let mut pending_reservation_id = String::new();
     let mut pending_submission_json = String::new();
+    let mut revealed_hints_json = "[]".to_string();
     if status == "in_progress" && position <= total {
         let definition: Option<(Value, String)> = sqlx::query_as(
             r#"SELECT definition_json, definition_sha256
@@ -191,6 +219,29 @@ async fn session_snapshot_in_transaction(
             .map_err(|_| Status::internal("No se pudo preparar la actividad para el estudiante"))?;
         activity_definition_json = serde_json::to_string(&activity)
             .map_err(|_| Status::internal("No se pudo preparar la actividad privada"))?;
+        let revealed_hints: Value = sqlx::query_scalar(
+            r#"SELECT COALESCE(
+                   jsonb_agg(
+                       jsonb_build_object(
+                           'hintId', hint_id::TEXT,
+                           'order', hint_order,
+                           'title', hint_title,
+                           'body', hint_body
+                       ) ORDER BY hint_order
+                   ),
+                   '[]'::JSONB
+               )
+                 FROM lesson_session_hint_reveals
+                WHERE user_id = $1 AND session_id = $2 AND activity_id = $3"#,
+        )
+        .bind(user_id)
+        .bind(id)
+        .bind(activity.activity_id)
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(|error| db_unavailable(error, "load_revealed_hint_details"))?;
+        revealed_hints_json = serde_json::to_string(&revealed_hints)
+            .map_err(|_| Status::internal("No se pudieron preparar las pistas desbloqueadas"))?;
 
         let pending: Option<(Uuid, Value)> = sqlx::query_as(
             r#"SELECT reservation_id, submission_json
@@ -265,6 +316,7 @@ async fn session_snapshot_in_transaction(
         remaining_attempts,
         pending_reservation_id,
         pending_submission_json,
+        revealed_hints_json,
     })
 }
 
@@ -469,6 +521,182 @@ pub async fn get_lesson_session(
     Ok(snapshot)
 }
 
+pub async fn reveal_lesson_activity_hint(
+    pool: &PgPool,
+    user_id: Uuid,
+    session_id: Uuid,
+    hint_order: i32,
+) -> SessionResult<RevealedHint> {
+    if session_id.is_nil() || !(1..=8).contains(&hint_order) {
+        return Err(Box::new(Status::invalid_argument(
+            "sessionId y hintOrder deben ser válidos",
+        )));
+    }
+    let hint_order_db = i16::try_from(hint_order)
+        .map_err(|_| Status::invalid_argument("hintOrder no es válido"))?;
+    let mut tx = pool
+        .begin()
+        .await
+        .map_err(|error| db_unavailable(error, "reveal_activity_hint"))?;
+    set_user(&mut tx, user_id).await?;
+    let session: Option<(Uuid, Uuid, String, i32)> = sqlx::query_as(
+        r#"SELECT lesson_id, course_version_id, status, current_activity_position
+             FROM lesson_sessions
+            WHERE id = $1 AND user_id = $2
+            FOR UPDATE"#,
+    )
+    .bind(session_id)
+    .bind(user_id)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(|error| db_unavailable(error, "lock_session_for_hint"))?;
+    let (lesson_id, course_version_id, status, position) =
+        session.ok_or_else(|| Status::not_found("No se encontró la sesión de aprendizaje"))?;
+    if status != "in_progress" {
+        return Err(Box::new(Status::failed_precondition(
+            "La sesión ya no admite nuevas pistas",
+        )));
+    }
+    let activity_record: Option<(Value, String)> = sqlx::query_as(
+        r#"SELECT definition_json, definition_sha256
+             FROM curriculum_lesson_activities
+            WHERE lesson_id = $1 AND course_version_id = $2 AND position = $3"#,
+    )
+    .bind(lesson_id)
+    .bind(course_version_id)
+    .bind(position)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(|error| db_unavailable(error, "load_activity_for_hint"))?;
+    let (raw, digest) = activity_record.ok_or_else(|| {
+        Status::data_loss("La sesión apunta a una actividad publicada inexistente")
+    })?;
+    let activity = decode_activity(raw, &digest, course_version_id, lesson_id)?;
+    if hint_order > i32::from(activity.limits.max_hints) {
+        return Err(Box::new(Status::resource_exhausted(
+            "La actividad no permite desbloquear más pistas",
+        )));
+    }
+    let hint = activity
+        .hints
+        .iter()
+        .find(|hint| i32::from(hint.order) == hint_order)
+        .ok_or_else(|| Status::not_found("La pista solicitada no existe"))?;
+
+    let existing: Option<(Uuid, i16, String, String)> = sqlx::query_as(
+        r#"SELECT hint_id, hint_order, hint_title, hint_body
+             FROM lesson_session_hint_reveals
+            WHERE user_id = $1 AND session_id = $2
+              AND activity_id = $3 AND hint_order = $4"#,
+    )
+    .bind(user_id)
+    .bind(session_id)
+    .bind(activity.activity_id)
+    .bind(hint_order_db)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(|error| db_unavailable(error, "load_existing_hint_reveal"))?;
+    if let Some((hint_id, order, title, body)) = existing {
+        if hint_id != hint.hint_id {
+            return Err(Box::new(Status::data_loss(
+                "La pista guardada no coincide con la definición publicada",
+            )));
+        }
+        tx.commit()
+            .await
+            .map_err(|error| db_unavailable(error, "commit_hint_replay"))?;
+        return Ok(RevealedHint {
+            hint_id: hint_id.to_string(),
+            order: i32::from(order),
+            title,
+            body,
+        });
+    }
+
+    let pending_attempt: bool = sqlx::query_scalar(
+        r#"SELECT EXISTS (
+               SELECT 1
+                 FROM lesson_session_activity_attempts
+                WHERE session_id = $1
+                  AND user_id = $2
+                  AND activity_id = $3
+                  AND state = 'processing'
+           )"#,
+    )
+    .bind(session_id)
+    .bind(user_id)
+    .bind(activity.activity_id)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(|error| db_unavailable(error, "check_pending_attempt_before_hint"))?;
+    if pending_attempt {
+        return Err(Box::new(Status::failed_precondition(
+            "Hay un envío en proceso; recupera la sesión antes de solicitar otra pista",
+        )));
+    }
+    let last_order: Option<i16> = sqlx::query_scalar(
+        r#"SELECT MAX(hint_order)
+             FROM lesson_session_hint_reveals
+            WHERE user_id = $1 AND session_id = $2 AND activity_id = $3"#,
+    )
+    .bind(user_id)
+    .bind(session_id)
+    .bind(activity.activity_id)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(|error| db_unavailable(error, "load_last_revealed_hint_order"))?;
+    let expected_order = last_order.unwrap_or(0) + 1;
+    if i16::try_from(hint_order).ok() != Some(expected_order) {
+        return Err(Box::new(Status::failed_precondition(
+            "Las pistas deben desbloquearse en orden, sin saltar niveles",
+        )));
+    }
+
+    let attempts: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM lesson_session_activity_attempts WHERE session_id = $1 AND activity_id = $2",
+    )
+    .bind(session_id)
+    .bind(activity.activity_id)
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(|error| db_unavailable(error, "count_attempts_before_hint"))?;
+    if attempts >= i64::from(activity.limits.max_attempts) {
+        return Err(Box::new(Status::resource_exhausted(
+            "Ya no quedan intentos para esta actividad",
+        )));
+    }
+
+    sqlx::query(
+        r#"INSERT INTO lesson_session_hint_reveals (
+               session_id, user_id, lesson_id, course_version_id, activity_id,
+               hint_id, hint_order, hint_title, hint_body, penalty_points
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)"#,
+    )
+    .bind(session_id)
+    .bind(user_id)
+    .bind(lesson_id)
+    .bind(course_version_id)
+    .bind(activity.activity_id)
+    .bind(hint.hint_id)
+    .bind(i16::from(hint.order))
+    .bind(&hint.title)
+    .bind(&hint.body)
+    .bind(i32::from(hint.penalty_points))
+    .execute(&mut *tx)
+    .await
+    .map_err(|error| db_unavailable(error, "persist_hint_reveal"))?;
+
+    tx.commit()
+        .await
+        .map_err(|error| db_unavailable(error, "commit_hint_reveal"))?;
+    Ok(RevealedHint {
+        hint_id: hint.hint_id.to_string(),
+        order: i32::from(hint.order),
+        title: hint.title.clone(),
+        body: hint.body.clone(),
+    })
+}
+
 pub async fn begin_lesson_activity_attempt(
     pool: &PgPool,
     user_id: Uuid,
@@ -562,6 +790,14 @@ pub async fn begin_lesson_activity_attempt(
                     "La clave idempotente no coincide con la actividad reservada",
                 )
             })?;
+        let revealed_hint_ids =
+            revealed_hint_ids_in_transaction(&mut tx, user_id, session_id, existing_activity_id)
+                .await?;
+        if submission.hints_used != revealed_hint_ids {
+            return Err(Box::new(Status::already_exists(
+                "El envío idempotente no coincide con las pistas realmente desbloqueadas",
+            )));
+        }
         let activity_json = serde_json::to_string(&replay_activity)
             .map_err(|_| Status::internal("No se pudo serializar la definición privada"))?;
         let existing_result_json = existing_result
@@ -619,6 +855,14 @@ pub async fn begin_lesson_activity_attempt(
                 "El envío no cumple el contrato publicado: {error}"
             )),
         })?;
+    let revealed_hint_ids =
+        revealed_hint_ids_in_transaction(&mut tx, user_id, session_id, activity.activity_id)
+            .await?;
+    if submission.hints_used != revealed_hint_ids {
+        return Err(Box::new(Status::invalid_argument(
+            "El envío debe declarar exactamente las pistas desbloqueadas por el servidor",
+        )));
+    }
 
     // Spoken submissions must reference a server-issued, durably stored audio
     // object. The current repository has no such upload ledger/object store yet;
@@ -863,6 +1107,81 @@ pub async fn commit_lesson_activity_attempt(
             "La versión evaluada no coincide con la actividad publicada",
         )));
     }
+    let mut session_result = parsed_result.clone();
+    let should_record_error_pattern = parsed_result.state == AttemptState::Evaluated
+        && parsed_result
+            .score
+            .as_ref()
+            .is_some_and(|score| score.normalized_score < 100.0);
+    match (
+        session_result.feedback.error_pattern.as_mut(),
+        activity_definition.feedback.error_pattern.as_ref(),
+    ) {
+        (Some(result_pattern), Some(policy_pattern)) if should_record_error_pattern => {
+            if result_pattern.code != policy_pattern.code
+                || result_pattern.label != policy_pattern.label
+                || result_pattern.remediation != policy_pattern.remediation
+                || parsed_result.state != AttemptState::Evaluated
+            {
+                return Err(Box::new(Status::data_loss(
+                    "El patrón de error del resultado no coincide con la política publicada",
+                )));
+            }
+            let pattern_lock_key =
+                format!("learning-error-pattern:{user_id}:{}", policy_pattern.code);
+            sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
+                .bind(pattern_lock_key)
+                .execute(&mut *tx)
+                .await
+                .map_err(|error| db_unavailable(error, "lock_recurring_learning_pattern"))?;
+            sqlx::query(
+                r#"INSERT INTO learning_error_pattern_events (
+                       user_id, session_id, assessment_attempt_id, activity_id,
+                       course_version_id, lesson_id, error_pattern_code
+                   ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                   ON CONFLICT (user_id, assessment_attempt_id, error_pattern_code) DO NOTHING"#,
+            )
+            .bind(user_id)
+            .bind(session_id)
+            .bind(attempt_id)
+            .bind(activity_id)
+            .bind(course_version_id)
+            .bind(lesson_id)
+            .bind(&policy_pattern.code)
+            .execute(&mut *tx)
+            .await
+            .map_err(|error| db_unavailable(error, "record_learning_error_pattern"))?;
+            let occurrences: i64 = sqlx::query_scalar(
+                r#"SELECT COUNT(*)
+                     FROM learning_error_pattern_events
+                    WHERE user_id = $1
+                      AND error_pattern_code = $2
+                      AND recorded_at >= CURRENT_TIMESTAMP - INTERVAL '90 days'"#,
+            )
+            .bind(user_id)
+            .bind(&policy_pattern.code)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(|error| db_unavailable(error, "count_recurring_learning_errors"))?;
+            result_pattern.occurrences = u32::try_from(occurrences)
+                .unwrap_or(1_000_000)
+                .min(1_000_000);
+            result_pattern.recurring = result_pattern.occurrences >= 3;
+        }
+        (None, Some(_)) if !should_record_error_pattern => {}
+        (None, None) => {}
+        _ => {
+            return Err(Box::new(Status::data_loss(
+                "El resultado no respeta los patrones pedagógicos publicados",
+            )));
+        }
+    }
+    session_result.validate().map_err(|error| {
+        tracing::error!(%error, "Session feedback enrichment failed validation");
+        Status::data_loss("El feedback guardado no cumple el contrato")
+    })?;
+    let session_result_value = serde_json::to_value(&session_result)
+        .map_err(|_| Status::internal("No se pudo preparar el feedback de la sesión"))?;
     let should_retry_activity = parsed_result.state == AttemptState::Evaluated
         && parsed_result
             .score
@@ -885,7 +1204,7 @@ pub async fn commit_lesson_activity_attempt(
     )
     .bind(reservation_id)
     .bind(status)
-    .bind(&result_json)
+    .bind(&session_result_value)
     .bind(attempt_id)
     .execute(&mut *tx)
     .await
@@ -1080,7 +1399,7 @@ pub async fn commit_lesson_activity_attempt(
     }
 
     let snapshot = session_snapshot_in_transaction(&mut tx, user_id, session_id).await?;
-    let result_json = serde_json::to_string(&result_json)
+    let result_json = serde_json::to_string(&session_result_value)
         .map_err(|_| Status::internal("No se pudo serializar el resultado confirmado"))?;
     tx.commit()
         .await

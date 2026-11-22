@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   ActivityAttemptResult,
   ActivitySubmission,
+  RevealedHint,
   StudentActivityView,
   StudentAnswer,
   StudentChoiceQuestion,
@@ -22,6 +23,8 @@ export interface ActivityExerciseRendererProps {
   uploadSpokenAudio?: (audio: Blob, durationMs: number) => Promise<AudioUploadReceipt>
   className?: string
   initialResult?: ActivityAttemptResult | null
+  initialRevealedHints?: RevealedHint[]
+  onRevealHint?: (hintOrder: number) => Promise<RevealedHint>
   onContinue?: () => void
   continueLabel?: string
 }
@@ -286,6 +289,8 @@ function ActivityExerciseRendererSession({
   uploadSpokenAudio,
   className = '',
   initialResult = null,
+  initialRevealedHints = [],
+  onRevealHint,
   onContinue,
   continueLabel = 'Continuar',
 }: ActivityExerciseRendererProps) {
@@ -296,6 +301,9 @@ function ActivityExerciseRendererSession({
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitMessage, setSubmitMessage] = useState<string | null>(null)
+  const [revealedHints, setRevealedHints] = useState<RevealedHint[]>(initialRevealedHints)
+  const [revealingHintOrder, setRevealingHintOrder] = useState<number | null>(null)
+  const [hintError, setHintError] = useState<string | null>(null)
   const [attemptResult, setAttemptResult] = useState<ActivityAttemptResult | null>(() => {
     if (!initialResult || initialResult.activityId !== activity.activityId || initialResult.activityVersion !== activity.activityVersion) return null
     return parseActivityAttemptResult(initialResult, activity)
@@ -593,7 +601,8 @@ function ActivityExerciseRendererSession({
     setSubmitError(null)
     setSubmitMessage(null)
     try {
-      const fingerprint = JSON.stringify(answer)
+      const hintsUsed = revealedHints.map((hint) => hint.hintId)
+      const fingerprint = JSON.stringify({ answer, hintsUsed })
       let submission = pendingSubmission.current?.fingerprint === fingerprint
         ? pendingSubmission.current.value
         : null
@@ -603,6 +612,7 @@ function ActivityExerciseRendererSession({
           answer,
           crypto.randomUUID(),
           Math.max(1, activeDurationMs.current + (activeSince.current > 0 ? Date.now() - activeSince.current : 0)),
+          hintsUsed,
         )
         pendingSubmission.current = { fingerprint, value: submission }
       }
@@ -616,6 +626,28 @@ function ActivityExerciseRendererSession({
       setSubmitError(cause instanceof Error ? cause.message : 'No se pudo enviar la respuesta.')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const revealNextHint = async () => {
+    if (!onRevealHint || revealingHintOrder !== null || attemptResult || submitting) return
+    const hintOrder = revealedHints.length + 1
+    if (hintOrder > Math.min(activity.availableHints.length, activity.limits.maxHints)) return
+    setRevealingHintOrder(hintOrder)
+    setHintError(null)
+    try {
+      const hint = await onRevealHint(hintOrder)
+      if (hint.order !== hintOrder || hint.hintId !== activity.availableHints[hintOrder - 1]?.hintId) {
+        throw new Error('La pista recibida no corresponde a la siguiente pista publicada.')
+      }
+      setRevealedHints((current) => {
+        if (current.some((item) => item.hintId === hint.hintId)) return current
+        return [...current, hint]
+      })
+    } catch (cause) {
+      setHintError(cause instanceof Error ? cause.message : 'No se pudo desbloquear la pista.')
+    } finally {
+      setRevealingHintOrder(null)
     }
   }
 
@@ -682,14 +714,65 @@ function ActivityExerciseRendererSession({
               <p className="mt-1 text-sm text-emerald-950">{attemptResult.feedback.revealedAnswer}</p>
             </div>
           )}
+          {attemptResult.feedback.equivalentExamples.length > 0 && (
+            <div className="rounded-xl bg-white/80 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-900/70">Ejemplos equivalentes</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-emerald-950">
+                {attemptResult.feedback.equivalentExamples.map((example, index) => <li key={index}>{example}</li>)}
+              </ul>
+            </div>
+          )}
+          {attemptResult.feedback.errorPattern && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-amber-900">Patrón para reforzar</p>
+              <p className="mt-1 text-sm font-bold text-amber-950">{attemptResult.feedback.errorPattern.label}</p>
+              <p className="mt-1 text-sm leading-6 text-amber-950">{attemptResult.feedback.errorPattern.remediation}</p>
+              {attemptResult.feedback.errorPattern.recurring && (
+                <p className="mt-2 text-xs font-semibold text-amber-900">
+                  Este patrón apareció en {attemptResult.feedback.errorPattern.occurrences} intentos durante los últimos 90 días.
+                </p>
+              )}
+            </div>
+          )}
+          {attemptResult.feedback.detailedExplanation && (
+            <details className="rounded-xl border border-emerald-200 bg-white/80 p-3">
+              <summary className="cursor-pointer text-xs font-bold text-emerald-900">Ver explicación detallada</summary>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-emerald-950">{attemptResult.feedback.detailedExplanation}</p>
+            </details>
+          )}
         </section>
       )}
 
       <footer className="space-y-3 border-t border-stone-100 pt-5">
         {activity.availableHints.length > 0 && (
-          <p className="text-xs text-stone-500">
-            Esta actividad dispone de {Math.min(activity.availableHints.length, activity.limits.maxHints)} pistas graduadas. La entrega del contenido de cada pista se gestiona en el servicio de sesión.
-          </p>
+          <section className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3" aria-label="Pistas graduadas">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-bold text-amber-950">Pistas graduadas</p>
+                <p className="mt-1 text-[11px] text-amber-900">
+                  {revealedHints.length} de {Math.min(activity.availableHints.length, activity.limits.maxHints)} desbloqueadas. El uso de pistas puede reducir la puntuación de esta actividad.
+                </p>
+              </div>
+              {onRevealHint && !attemptResult && revealedHints.length < Math.min(activity.availableHints.length, activity.limits.maxHints) && (
+                <button
+                  type="button"
+                  onClick={() => void revealNextHint()}
+                  disabled={revealingHintOrder !== null || submitting}
+                  className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-bold text-amber-950 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {revealingHintOrder !== null ? 'Desbloqueando…' : 'Mostrar siguiente pista'}
+                </button>
+              )}
+            </div>
+            {revealedHints.map((hint) => (
+              <article key={hint.hintId} className="rounded-lg border border-amber-200 bg-white p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-amber-900">Pista {hint.order}</p>
+                <p className="mt-1 text-xs font-bold text-amber-950">{hint.title}</p>
+                <p className="mt-1 text-sm leading-6 text-slate-800">{hint.body}</p>
+              </article>
+            ))}
+            {hintError && <p className="text-xs text-rose-700" role="alert">{hintError}</p>}
+          </section>
         )}
         {submitError && <p className="rounded-xl bg-rose-50 p-3 text-xs text-rose-800" role="alert">{submitError}</p>}
         {submitMessage && <p className="rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800" role="status">{submitMessage}</p>}

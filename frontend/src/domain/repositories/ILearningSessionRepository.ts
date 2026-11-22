@@ -1,6 +1,7 @@
 import type {
   ActivityAttemptResult,
   ActivitySubmission,
+  RevealedHint,
   StudentActivityView,
 } from '@/domain/entities/Activity'
 
@@ -20,6 +21,7 @@ export interface LearningSession {
   completedAt: string | null
   remainingAttempts: number
   rewardPending: boolean
+  revealedHints: RevealedHint[]
 }
 
 export interface StartLearningSessionResult {
@@ -37,6 +39,7 @@ export interface SubmitLearningActivityResult {
 export interface ILearningSessionRepository {
   startLesson(lessonId: string, idempotencyKey: string): Promise<StartLearningSessionResult>
   getSession(sessionId: string): Promise<LearningSession>
+  revealHint(sessionId: string, hintOrder: number): Promise<RevealedHint>
   submitActivity(
     sessionId: string,
     activity: StudentActivityView,

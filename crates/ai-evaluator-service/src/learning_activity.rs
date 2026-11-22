@@ -255,6 +255,11 @@ mod tests {
                 timing: FeedbackTiming::AfterSubmission,
                 show_explanation: true,
                 reveal_correct_answer_after_submission: false,
+                correct_explanation: None,
+                incorrect_explanation: None,
+                detailed_explanation: None,
+                equivalent_examples: Vec::new(),
+                error_pattern: None,
             },
             limits: ActivityLimits {
                 time_limit_seconds: None,
