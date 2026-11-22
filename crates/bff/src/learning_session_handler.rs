@@ -177,16 +177,17 @@ fn session_dto(
     let last_result = parse_json_field(&snapshot.last_result_json, "last_result")?;
     let revealed_value = parse_json_field(&snapshot.revealed_hints_json, "revealed_hints")?
         .unwrap_or_else(|| Value::Array(Vec::new()));
-    let revealed_hints: Vec<RevealedHintDto> = serde_json::from_value(revealed_value).map_err(|error| {
-        tracing::error!(%error, "Revealed lesson hints did not match the public DTO");
-        (
-            StatusCode::BAD_GATEWAY,
-            Json(SessionErrorDto {
-                code: "LEARNING_SESSION_INVALID_HINTS",
-                message: "El servicio de aprendizaje devolvió pistas inválidas.",
-            }),
-        )
-    })?;
+    let revealed_hints: Vec<RevealedHintDto> =
+        serde_json::from_value(revealed_value).map_err(|error| {
+            tracing::error!(%error, "Revealed lesson hints did not match the public DTO");
+            (
+                StatusCode::BAD_GATEWAY,
+                Json(SessionErrorDto {
+                    code: "LEARNING_SESSION_INVALID_HINTS",
+                    message: "El servicio de aprendizaje devolvió pistas inválidas.",
+                }),
+            )
+        })?;
     // activity_definition_json is intentionally not copied into this HTTP DTO.
     Ok(LessonSessionDto {
         session_id: snapshot.session_id,
@@ -482,7 +483,8 @@ pub async fn reveal_lesson_activity_hint_handler(
     Path(session_id): Path<String>,
     Json(body): Json<RevealLessonHintBody>,
 ) -> Result<Json<RevealedHintDto>, (StatusCode, Json<SessionErrorDto>)> {
-    if session_id.trim().is_empty() || session_id.len() > 36 || !(1..=8).contains(&body.hint_order) {
+    if session_id.trim().is_empty() || session_id.len() > 36 || !(1..=8).contains(&body.hint_order)
+    {
         return Err((
             StatusCode::BAD_REQUEST,
             Json(SessionErrorDto {
@@ -744,11 +746,12 @@ mod tests {
             pending_reservation_id: "00000000-0000-4000-8000-000000000006".to_string(),
             pending_submission_json: json!({"answer":{"kind":"selected_options"}}).to_string(),
             revealed_hints_json: json!([{
-        "hintId": "00000000-0000-4000-8000-000000000007",
-        "order": 1,
-        "title": "Context clue",
-        "body": "Think about the first meeting."
-    }]).to_string(),
+                "hintId": "00000000-0000-4000-8000-000000000007",
+                "order": 1,
+                "title": "Context clue",
+                "body": "Think about the first meeting."
+            }])
+            .to_string(),
         };
 
         let dto = session_dto(snapshot).expect("valid public projection");
@@ -759,7 +762,10 @@ mod tests {
             .and_then(serde_json::Value::as_array)
             .expect("only revealed hints are included in session DTO");
         assert_eq!(revealed_hints.len(), 1);
-        assert_eq!(revealed_hints[0]["hintId"], "00000000-0000-4000-8000-000000000007");
+        assert_eq!(
+            revealed_hints[0]["hintId"],
+            "00000000-0000-4000-8000-000000000007"
+        );
         assert_eq!(revealed_hints[0]["body"], "Think about the first meeting.");
         assert!(serialized.get("correctOptionIds").is_none());
         assert!(serialized.get("activity_definition_json").is_none());

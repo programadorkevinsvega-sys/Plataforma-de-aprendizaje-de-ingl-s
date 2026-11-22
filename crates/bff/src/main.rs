@@ -23,8 +23,8 @@ use exam_handler::{
     next_question_handler, transcribe_ws_handler,
 };
 use learning_session_handler::{
-    get_lesson_session_handler, reveal_lesson_activity_hint_handler,
-    start_lesson_session_handler, submit_lesson_activity_handler,
+    get_lesson_session_handler, reveal_lesson_activity_hint_handler, start_lesson_session_handler,
+    submit_lesson_activity_handler,
 };
 use progress_handler::record_progress_handler;
 use srs_handler::{get_due_cards_handler, review_card_handler};

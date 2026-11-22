@@ -102,13 +102,17 @@ pub fn evaluate_deterministic(
     let error_pattern = if all_correct {
         None
     } else {
-        activity.feedback.error_pattern.as_ref().map(|pattern| ErrorPatternFeedback {
-            code: pattern.code.clone(),
-            label: pattern.label.clone(),
-            remediation: pattern.remediation.clone(),
-            occurrences: 0,
-            recurring: false,
-        })
+        activity
+            .feedback
+            .error_pattern
+            .as_ref()
+            .map(|pattern| ErrorPatternFeedback {
+                code: pattern.code.clone(),
+                label: pattern.label.clone(),
+                remediation: pattern.remediation.clone(),
+                occurrences: 0,
+                recurring: false,
+            })
     };
     let result = ActivityAttemptResult {
         schema_version: activity.schema_version.clone(),
@@ -276,9 +280,17 @@ pub fn apply_rubric_evaluation(
     // A hint penalty is not an answer error and must not create an error-pattern event.
     let is_correct = raw_earned == u32::from(max_points);
     let explanation = if is_correct {
-        activity.feedback.correct_explanation.clone().unwrap_or(generated_explanation)
+        activity
+            .feedback
+            .correct_explanation
+            .clone()
+            .unwrap_or(generated_explanation)
     } else {
-        activity.feedback.incorrect_explanation.clone().unwrap_or(generated_explanation)
+        activity
+            .feedback
+            .incorrect_explanation
+            .clone()
+            .unwrap_or(generated_explanation)
     };
     let detailed_explanation = activity
         .feedback
@@ -288,13 +300,17 @@ pub fn apply_rubric_evaluation(
     let error_pattern = if is_correct {
         None
     } else {
-        activity.feedback.error_pattern.as_ref().map(|pattern| ErrorPatternFeedback {
-            code: pattern.code.clone(),
-            label: pattern.label.clone(),
-            remediation: pattern.remediation.clone(),
-            occurrences: 0,
-            recurring: false,
-        })
+        activity
+            .feedback
+            .error_pattern
+            .as_ref()
+            .map(|pattern| ErrorPatternFeedback {
+                code: pattern.code.clone(),
+                label: pattern.label.clone(),
+                remediation: pattern.remediation.clone(),
+                occurrences: 0,
+                recurring: false,
+            })
     };
 
     let result = ActivityAttemptResult {
@@ -700,10 +716,9 @@ mod tests {
     use super::*;
     use crate::activity_contract::{
         ActivityHint, ActivityLimits, ActivityModality, ActivityOption, ActivityStimulus,
-        CefrLevel, ChoiceQuestion, FeedbackErrorPattern, FeedbackPolicy, FeedbackTiming,
-        GapAnswer, GapDefinition,
-        MatchItem, MatchPair, OrderedToken, QuestionChoiceAnswer, RubricCriterion, TrackCode,
-        TranslationDirection,
+        CefrLevel, ChoiceQuestion, FeedbackErrorPattern, FeedbackPolicy, FeedbackTiming, GapAnswer,
+        GapDefinition, MatchItem, MatchPair, OrderedToken, QuestionChoiceAnswer, RubricCriterion,
+        TrackCode, TranslationDirection,
     };
 
     fn id(value: u128) -> Uuid {
@@ -943,15 +958,20 @@ mod tests {
         );
     }
 
-
     #[test]
     fn deterministic_feedback_uses_editorial_explanations_examples_and_error_patterns() {
         let mut activity = deterministic_activity(
             ExerciseSpec::MultipleChoice {
                 prompt: "Choose the greeting.".into(),
                 options: vec![
-                    ActivityOption { option_id: id(10), text: "Hello".into() },
-                    ActivityOption { option_id: id(11), text: "Goodbye".into() },
+                    ActivityOption {
+                        option_id: id(10),
+                        text: "Hello".into(),
+                    },
+                    ActivityOption {
+                        option_id: id(11),
+                        text: "Goodbye".into(),
+                    },
                 ],
                 correct_option_ids: vec![id(10)],
                 allow_multiple: false,
@@ -979,7 +999,9 @@ mod tests {
         let wrong = evaluate_deterministic(
             &activity,
             &submission(
-                StudentAnswer::SelectedOptions { option_ids: vec![id(11)] },
+                StudentAnswer::SelectedOptions {
+                    option_ids: vec![id(11)],
+                },
                 150,
             ),
         )
@@ -988,7 +1010,10 @@ mod tests {
             wrong.feedback.explanation.as_deref(),
             Some("Choose the greeting, not the expression used to leave.")
         );
-        assert_eq!(wrong.feedback.equivalent_examples, vec!["Hi", "Good morning"]);
+        assert_eq!(
+            wrong.feedback.equivalent_examples,
+            vec!["Hi", "Good morning"]
+        );
         assert!(wrong.feedback.detailed_explanation.is_some());
         let pattern = wrong.feedback.error_pattern.unwrap();
         assert_eq!(pattern.code, "a1.greeting.context");
@@ -998,7 +1023,9 @@ mod tests {
         let correct = evaluate_deterministic(
             &activity,
             &submission(
-                StudentAnswer::SelectedOptions { option_ids: vec![id(10)] },
+                StudentAnswer::SelectedOptions {
+                    option_ids: vec![id(10)],
+                },
                 151,
             ),
         )
@@ -1011,7 +1038,9 @@ mod tests {
         assert!(correct.feedback.error_pattern.is_none());
 
         let mut correct_with_hint = submission(
-            StudentAnswer::SelectedOptions { option_ids: vec![id(10)] },
+            StudentAnswer::SelectedOptions {
+                option_ids: vec![id(10)],
+            },
             152,
         );
         correct_with_hint.hints_used = vec![id(5)];

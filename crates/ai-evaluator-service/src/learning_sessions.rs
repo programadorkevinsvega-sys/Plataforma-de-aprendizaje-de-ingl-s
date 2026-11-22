@@ -550,8 +550,8 @@ pub async fn reveal_lesson_activity_hint(
     .fetch_optional(&mut *tx)
     .await
     .map_err(|error| db_unavailable(error, "lock_session_for_hint"))?;
-    let (lesson_id, course_version_id, status, position) = session
-        .ok_or_else(|| Status::not_found("No se encontró la sesión de aprendizaje"))?;
+    let (lesson_id, course_version_id, status, position) =
+        session.ok_or_else(|| Status::not_found("No se encontró la sesión de aprendizaje"))?;
     if status != "in_progress" {
         return Err(Box::new(Status::failed_precondition(
             "La sesión ya no admite nuevas pistas",
@@ -790,13 +790,9 @@ pub async fn begin_lesson_activity_attempt(
                     "La clave idempotente no coincide con la actividad reservada",
                 )
             })?;
-        let revealed_hint_ids = revealed_hint_ids_in_transaction(
-            &mut tx,
-            user_id,
-            session_id,
-            existing_activity_id,
-        )
-        .await?;
+        let revealed_hint_ids =
+            revealed_hint_ids_in_transaction(&mut tx, user_id, session_id, existing_activity_id)
+                .await?;
         if submission.hints_used != revealed_hint_ids {
             return Err(Box::new(Status::already_exists(
                 "El envío idempotente no coincide con las pistas realmente desbloqueadas",
@@ -1131,10 +1127,8 @@ pub async fn commit_lesson_activity_attempt(
                     "El patrón de error del resultado no coincide con la política publicada",
                 )));
             }
-            let pattern_lock_key = format!(
-                "learning-error-pattern:{user_id}:{}",
-                policy_pattern.code
-            );
+            let pattern_lock_key =
+                format!("learning-error-pattern:{user_id}:{}", policy_pattern.code);
             sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
                 .bind(pattern_lock_key)
                 .execute(&mut *tx)
@@ -1169,8 +1163,9 @@ pub async fn commit_lesson_activity_attempt(
             .fetch_one(&mut *tx)
             .await
             .map_err(|error| db_unavailable(error, "count_recurring_learning_errors"))?;
-            result_pattern.occurrences =
-                u32::try_from(occurrences).unwrap_or(1_000_000).min(1_000_000);
+            result_pattern.occurrences = u32::try_from(occurrences)
+                .unwrap_or(1_000_000)
+                .min(1_000_000);
             result_pattern.recurring = result_pattern.occurrences >= 3;
         }
         (None, Some(_)) if !should_record_error_pattern => {}

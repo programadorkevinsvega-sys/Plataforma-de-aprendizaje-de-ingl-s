@@ -467,7 +467,9 @@ impl ActivityDefinition {
             require_text(explanation, "feedback.detailedExplanation", 4000)?;
         }
         if self.feedback.equivalent_examples.len() > 5 {
-            return Err(invalid("feedback.equivalentExamples cannot exceed five examples"));
+            return Err(invalid(
+                "feedback.equivalentExamples cannot exceed five examples",
+            ));
         }
         ensure_unique(
             self.feedback.equivalent_examples.iter().map(String::as_str),
@@ -484,10 +486,16 @@ impl ActivityDefinition {
                         || matches!(byte, b'.' | b'_' | b'-')
                 })
             {
-                return Err(invalid("feedback.errorPattern.code must be a stable lowercase code"));
+                return Err(invalid(
+                    "feedback.errorPattern.code must be a stable lowercase code",
+                ));
             }
             require_text(&pattern.label, "feedback.errorPattern.label", 120)?;
-            require_text(&pattern.remediation, "feedback.errorPattern.remediation", 1000)?;
+            require_text(
+                &pattern.remediation,
+                "feedback.errorPattern.remediation",
+                1000,
+            )?;
         }
         Ok(())
     }
@@ -533,7 +541,11 @@ impl ActivityDefinition {
         ensure_unique(self.hints.iter().map(|hint| hint.order), "hints.order")?;
         let mut ordered_hints: Vec<u8> = self.hints.iter().map(|hint| hint.order).collect();
         ordered_hints.sort_unstable();
-        if ordered_hints.iter().enumerate().any(|(index, order)| usize::from(*order) != index + 1) {
+        if ordered_hints
+            .iter()
+            .enumerate()
+            .any(|(index, order)| usize::from(*order) != index + 1)
+        {
             return Err(invalid("hint orders must be contiguous and start at one"));
         }
         for hint in &self.hints {
@@ -1585,7 +1597,9 @@ impl ActivityAttemptResult {
             require_text(answer, "feedback.revealedAnswer", 4000)?;
         }
         if self.feedback.equivalent_examples.len() > 5 {
-            return Err(invalid("feedback.equivalentExamples cannot exceed five examples"));
+            return Err(invalid(
+                "feedback.equivalentExamples cannot exceed five examples",
+            ));
         }
         ensure_unique(
             self.feedback.equivalent_examples.iter().map(String::as_str),
@@ -1608,9 +1622,15 @@ impl ActivityAttemptResult {
                 return Err(invalid("feedback.errorPattern.code is invalid"));
             }
             require_text(&pattern.label, "feedback.errorPattern.label", 120)?;
-            require_text(&pattern.remediation, "feedback.errorPattern.remediation", 1000)?;
+            require_text(
+                &pattern.remediation,
+                "feedback.errorPattern.remediation",
+                1000,
+            )?;
             if pattern.occurrences > 1_000_000 || pattern.recurring != (pattern.occurrences >= 3) {
-                return Err(invalid("feedback.errorPattern recurrence metadata is inconsistent"));
+                return Err(invalid(
+                    "feedback.errorPattern recurrence metadata is inconsistent",
+                ));
             }
         }
         Ok(())
@@ -1910,7 +1930,6 @@ mod tests {
     }
 
 
-
     #[test]
     fn legacy_feedback_policy_json_defaults_new_fields_without_breaking_existing_packages() {
         let policy: FeedbackPolicy = serde_json::from_value(serde_json::json!({
@@ -1933,9 +1952,8 @@ mod tests {
             Some("This is the greeting for a first meeting.".into());
         definition.feedback.incorrect_explanation =
             Some("Choose the phrase used when meeting someone.".into());
-        definition.feedback.detailed_explanation = Some(
-            "The phrase is used at the beginning of a first meeting.".into(),
-        );
+        definition.feedback.detailed_explanation =
+            Some("The phrase is used at the beginning of a first meeting.".into());
         definition.feedback.equivalent_examples = vec!["Pleased to meet you.".into()];
         definition.feedback.error_pattern = Some(FeedbackErrorPattern {
             code: "a1.greeting.context".into(),
@@ -1948,7 +1966,10 @@ mod tests {
         assert!(definition.validate().is_err());
 
         definition.feedback.error_pattern.as_mut().unwrap().code = "a1.greeting.context".into();
-        definition.feedback.equivalent_examples.push("Pleased to meet you.".into());
+        definition
+            .feedback
+            .equivalent_examples
+            .push("Pleased to meet you.".into());
         assert!(definition.validate().is_err());
 
         definition.feedback.equivalent_examples.clear();
