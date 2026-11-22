@@ -1929,7 +1929,6 @@ mod tests {
         definition.validate().unwrap();
     }
 
-
     #[test]
     fn legacy_feedback_policy_json_defaults_new_fields_without_breaking_existing_packages() {
         let policy: FeedbackPolicy = serde_json::from_value(serde_json::json!({
