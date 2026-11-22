@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { Navbar } from '@/presentation/components/Navbar'
 import { Sidebar } from '@/presentation/components/Sidebar'
 import { ActivityExerciseRenderer } from '@/presentation/components/activities/ActivityExerciseRenderer'
-import type { ActivityAttemptResult, ActivitySubmission } from '@/domain/entities/Activity'
+import type { ActivityAttemptResult, ActivitySubmission, RevealedHint } from '@/domain/entities/Activity'
 import type { LearningSession, SubmitLearningActivityResult } from '@/domain/repositories/ILearningSessionRepository'
 import { getContainer } from '@/infrastructure/di/container'
 
@@ -62,6 +62,21 @@ export default function LearningSessionPage() {
     setPendingTransition(result)
     setRewardPending(result.rewardPending)
     return result.result
+  }, [activity, session])
+
+  const handleRevealHint = useCallback(async (hintOrder: number): Promise<RevealedHint> => {
+    if (!session || !activity) throw new Error('No hay una actividad activa para desbloquear pistas.')
+    const hint = await getContainer().useCases.revealLearningHint.execute(session.sessionId, hintOrder)
+    const publishedHint = activity.availableHints[hintOrder - 1]
+    if (!publishedHint || hint.order !== hintOrder || hint.hintId !== publishedHint.hintId) {
+      throw new Error('El servidor devolvió una pista que no pertenece a la actividad actual.')
+    }
+    setSession((current) => {
+      if (!current) return current
+      if (current.revealedHints.some((item) => item.hintId === hint.hintId)) return current
+      return { ...current, revealedHints: [...current.revealedHints, hint].sort((a, b) => a.order - b.order) }
+    })
+    return hint
   }, [activity, session])
 
   const continueAfterResult = useCallback(() => {
@@ -179,6 +194,8 @@ export default function LearningSessionPage() {
                   key={activity.activityId + ':' + activity.activityVersion + ':' + session.remainingAttempts}
                   activity={activity}
                   onSubmit={handleSubmit}
+                  initialRevealedHints={session.revealedHints}
+                  onRevealHint={handleRevealHint}
                   onContinue={pendingTransition ? continueAfterResult : undefined}
                   continueLabel={nextActionLabel}
                 />

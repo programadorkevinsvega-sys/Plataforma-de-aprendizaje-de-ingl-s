@@ -3,8 +3,9 @@
 
 use crate::activity_contract::{
     ActivityAttemptResult, ActivityDefinition, ActivityScore, ActivitySubmission, AttemptState,
-    EvaluationPolicy, ExerciseSpec, LearningSkill, MeasurementState, PartialCreditPolicy,
-    ResultFeedback, RubricCriterion, SkillMeasurement, StudentAnswer, TextNormalization,
+    ErrorPatternFeedback, EvaluationPolicy, ExerciseSpec, LearningSkill, MeasurementState,
+    PartialCreditPolicy, ResultFeedback, RubricCriterion, SkillMeasurement, StudentAnswer,
+    TextNormalization,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -67,21 +68,48 @@ pub fn evaluate_deterministic(
     let penalty = hint_penalty(activity, submission);
     let earned_points = raw_points.saturating_sub(penalty);
     let normalized_score = normalize_score(earned_points, max_points);
-    let all_correct = outcomes.iter().all(|outcome| *outcome >= 1.0) && earned_points == max_points;
+    // Hint penalties affect points, not whether the learner's answer was correct.
+    let all_correct = outcomes.iter().all(|outcome| *outcome >= 1.0);
     let correct_answer = if activity.feedback.reveal_correct_answer_after_submission {
         revealed_answer(&activity.exercise)
     } else {
         None
     };
-    let explanation = activity.feedback.show_explanation.then(|| {
+    let explanation = if activity.feedback.show_explanation {
         if all_correct {
-            "La respuesta coincide con las soluciones explícitas publicadas para esta actividad."
-                .to_string()
+            activity.feedback.correct_explanation.clone().or_else(|| {
+                Some(
+                    "La respuesta coincide con las soluciones publicadas para esta actividad."
+                        .to_string(),
+                )
+            })
         } else {
-            "La corrección usa equivalencias explícitas y normalizaciones configuradas por el currículo; no aplica coincidencia aproximada."
-                .to_string()
+            activity.feedback.incorrect_explanation.clone().or_else(|| {
+                Some(
+                    "Revisa la explicación y compara tu respuesta con los ejemplos de referencia."
+                        .to_string(),
+                )
+            })
         }
-    });
+    } else {
+        None
+    };
+    let detailed_explanation = activity
+        .feedback
+        .show_explanation
+        .then(|| activity.feedback.detailed_explanation.clone())
+        .flatten();
+    let error_pattern = if all_correct {
+        None
+    } else {
+        activity.feedback.error_pattern.as_ref().map(|pattern| ErrorPatternFeedback {
+            code: pattern.code.clone(),
+            label: pattern.label.clone(),
+            remediation: pattern.remediation.clone(),
+            occurrences: 0,
+            recurring: false,
+        })
+    };
     let result = ActivityAttemptResult {
         schema_version: activity.schema_version.clone(),
         attempt_id: Uuid::new_v4(),
@@ -112,6 +140,13 @@ pub fn evaluate_deterministic(
             },
             explanation,
             revealed_answer: correct_answer,
+            equivalent_examples: if all_correct {
+                Vec::new()
+            } else {
+                activity.feedback.equivalent_examples.clone()
+            },
+            detailed_explanation,
+            error_pattern,
         },
     };
     result.validate()?;
@@ -232,12 +267,35 @@ pub fn apply_rubric_evaluation(
         .map(|score| format!("{}: {}", score.criterion_code, score.feedback))
         .collect::<Vec<_>>()
         .join("\n");
-    let explanation = format!("{}\n\n{}", output.explanation, criterion_feedback);
-    if explanation.chars().count() > 4000 {
+    let generated_explanation = format!("{}\n\n{}", output.explanation, criterion_feedback);
+    if generated_explanation.chars().count() > 4000 {
         return Err(invalid(
             "combined rubric explanation exceeds 4000 characters",
         ));
     }
+    // A hint penalty is not an answer error and must not create an error-pattern event.
+    let is_correct = raw_earned == u32::from(max_points);
+    let explanation = if is_correct {
+        activity.feedback.correct_explanation.clone().unwrap_or(generated_explanation)
+    } else {
+        activity.feedback.incorrect_explanation.clone().unwrap_or(generated_explanation)
+    };
+    let detailed_explanation = activity
+        .feedback
+        .show_explanation
+        .then(|| activity.feedback.detailed_explanation.clone())
+        .flatten();
+    let error_pattern = if is_correct {
+        None
+    } else {
+        activity.feedback.error_pattern.as_ref().map(|pattern| ErrorPatternFeedback {
+            code: pattern.code.clone(),
+            label: pattern.label.clone(),
+            remediation: pattern.remediation.clone(),
+            occurrences: 0,
+            recurring: false,
+        })
+    };
 
     let result = ActivityAttemptResult {
         schema_version: activity.schema_version.clone(),
@@ -256,6 +314,13 @@ pub fn apply_rubric_evaluation(
             summary: output.summary,
             explanation: activity.feedback.show_explanation.then_some(explanation),
             revealed_answer: None,
+            equivalent_examples: if is_correct {
+                Vec::new()
+            } else {
+                activity.feedback.equivalent_examples.clone()
+            },
+            detailed_explanation,
+            error_pattern,
         },
     };
     result.validate()?;
@@ -292,6 +357,9 @@ pub fn pending_acoustic_review(
             summary: "Envío recibido. La verificación de la evidencia y la evaluación acústica de pronunciación y fluidez quedan pendientes; no se infieren desde la transcripción.".to_string(),
             explanation: None,
             revealed_answer: None,
+            equivalent_examples: Vec::new(),
+            detailed_explanation: None,
+            error_pattern: None,
         },
     };
     result.validate()?;
@@ -321,6 +389,9 @@ fn unscored_practice_result(activity: &ActivityDefinition) -> ActivityAttemptRes
                 .to_string(),
             explanation: None,
             revealed_answer: None,
+            equivalent_examples: Vec::new(),
+            detailed_explanation: None,
+            error_pattern: None,
         },
     }
 }
@@ -629,7 +700,8 @@ mod tests {
     use super::*;
     use crate::activity_contract::{
         ActivityHint, ActivityLimits, ActivityModality, ActivityOption, ActivityStimulus,
-        CefrLevel, ChoiceQuestion, FeedbackPolicy, FeedbackTiming, GapAnswer, GapDefinition,
+        CefrLevel, ChoiceQuestion, FeedbackErrorPattern, FeedbackPolicy, FeedbackTiming,
+        GapAnswer, GapDefinition,
         MatchItem, MatchPair, OrderedToken, QuestionChoiceAnswer, RubricCriterion, TrackCode,
         TranslationDirection,
     };
@@ -684,6 +756,11 @@ mod tests {
                 timing: FeedbackTiming::AfterSubmission,
                 show_explanation: true,
                 reveal_correct_answer_after_submission: true,
+                correct_explanation: None,
+                incorrect_explanation: None,
+                detailed_explanation: None,
+                equivalent_examples: Vec::new(),
+                error_pattern: None,
             },
             limits: ActivityLimits {
                 time_limit_seconds: Some(120),
@@ -864,6 +941,87 @@ mod tests {
                 100,
             ),
         );
+    }
+
+
+    #[test]
+    fn deterministic_feedback_uses_editorial_explanations_examples_and_error_patterns() {
+        let mut activity = deterministic_activity(
+            ExerciseSpec::MultipleChoice {
+                prompt: "Choose the greeting.".into(),
+                options: vec![
+                    ActivityOption { option_id: id(10), text: "Hello".into() },
+                    ActivityOption { option_id: id(11), text: "Goodbye".into() },
+                ],
+                correct_option_ids: vec![id(10)],
+                allow_multiple: false,
+            },
+            ActivityModality::Written,
+            LearningSkill::Vocabulary,
+            PartialCreditPolicy::None,
+            vec![],
+        );
+        activity.feedback.correct_explanation =
+            Some("This is the greeting used at the start of a conversation.".into());
+        activity.feedback.incorrect_explanation =
+            Some("Choose the greeting, not the expression used to leave.".into());
+        activity.feedback.detailed_explanation = Some(
+            "Hello is used when you meet or address someone. Goodbye is used when leaving.".into(),
+        );
+        activity.feedback.equivalent_examples = vec!["Hi".into(), "Good morning".into()];
+        activity.feedback.error_pattern = Some(FeedbackErrorPattern {
+            code: "a1.greeting.context".into(),
+            label: "Greeting context".into(),
+            remediation: "Match the expression to the social situation.".into(),
+        });
+        activity.validate().unwrap();
+
+        let wrong = evaluate_deterministic(
+            &activity,
+            &submission(
+                StudentAnswer::SelectedOptions { option_ids: vec![id(11)] },
+                150,
+            ),
+        )
+        .unwrap();
+        assert_eq!(
+            wrong.feedback.explanation.as_deref(),
+            Some("Choose the greeting, not the expression used to leave.")
+        );
+        assert_eq!(wrong.feedback.equivalent_examples, vec!["Hi", "Good morning"]);
+        assert!(wrong.feedback.detailed_explanation.is_some());
+        let pattern = wrong.feedback.error_pattern.unwrap();
+        assert_eq!(pattern.code, "a1.greeting.context");
+        assert_eq!(pattern.occurrences, 0);
+        assert!(!pattern.recurring);
+
+        let correct = evaluate_deterministic(
+            &activity,
+            &submission(
+                StudentAnswer::SelectedOptions { option_ids: vec![id(10)] },
+                151,
+            ),
+        )
+        .unwrap();
+        assert_eq!(
+            correct.feedback.explanation.as_deref(),
+            Some("This is the greeting used at the start of a conversation.")
+        );
+        assert!(correct.feedback.equivalent_examples.is_empty());
+        assert!(correct.feedback.error_pattern.is_none());
+
+        let mut correct_with_hint = submission(
+            StudentAnswer::SelectedOptions { option_ids: vec![id(10)] },
+            152,
+        );
+        correct_with_hint.hints_used = vec![id(5)];
+        let penalized_but_correct = evaluate_deterministic(&activity, &correct_with_hint).unwrap();
+        assert_eq!(penalized_but_correct.score.unwrap().earned_points, 8);
+        assert_eq!(
+            penalized_but_correct.feedback.explanation.as_deref(),
+            Some("This is the greeting used at the start of a conversation.")
+        );
+        assert!(penalized_but_correct.feedback.error_pattern.is_none());
     }
 
     #[test]
@@ -1164,6 +1322,11 @@ mod tests {
                 timing: FeedbackTiming::AfterReview,
                 show_explanation: true,
                 reveal_correct_answer_after_submission: false,
+                correct_explanation: None,
+                incorrect_explanation: None,
+                detailed_explanation: None,
+                equivalent_examples: Vec::new(),
+                error_pattern: None,
             },
             limits: ActivityLimits {
                 time_limit_seconds: None,
@@ -1251,6 +1414,11 @@ mod tests {
                 timing: FeedbackTiming::AfterSubmission,
                 show_explanation: true,
                 reveal_correct_answer_after_submission: false,
+                correct_explanation: None,
+                incorrect_explanation: None,
+                detailed_explanation: None,
+                equivalent_examples: Vec::new(),
+                error_pattern: None,
             },
             limits: ActivityLimits {
                 time_limit_seconds: None,

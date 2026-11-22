@@ -9,6 +9,7 @@ service AIEvaluatorService {
   rpc GetLessonSession (GetLessonSessionRequest) returns (GetLessonSessionResponse);
   rpc BeginLessonActivityAttempt (BeginLessonActivityAttemptRequest) returns (BeginLessonActivityAttemptResponse);
   rpc CommitLessonActivityAttempt (CommitLessonActivityAttemptRequest) returns (CommitLessonActivityAttemptResponse);
+  rpc RevealLessonActivityHint (RevealLessonActivityHintRequest) returns (RevealLessonActivityHintResponse);
   rpc GenerateTargetedDrill (GenerateTargetedDrillRequest) returns (GenerateTargetedDrillResponse);
 }
 
@@ -93,6 +94,19 @@ message CommitLessonActivityAttemptResponse {
   bool idempotent_replay = 3;
 }
 
+message RevealLessonActivityHintRequest {
+  string user_id = 1;
+  string session_id = 2;
+  int32 hint_order = 3;
+}
+
+message RevealLessonActivityHintResponse {
+  string hint_id = 1;
+  int32 hint_order = 2;
+  string title = 3;
+  string body = 4;
+}
+
 message LessonSessionSnapshot {
   string session_id = 1;
   string lesson_id = 2;
@@ -111,6 +125,8 @@ message LessonSessionSnapshot {
   // Private recovery fields; the BFF consumes these and never serializes them to HTTP.
   string pending_reservation_id = 14;
   string pending_submission_json = 15;
+  // User-owned hints explicitly revealed for the current activity.
+  string revealed_hints_json = 16;
 }
 
 message GenerateTargetedDrillRequest {

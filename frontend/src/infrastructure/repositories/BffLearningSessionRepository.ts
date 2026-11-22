@@ -1,10 +1,12 @@
 import type {
   ActivityAttemptResult,
   ActivitySubmission,
+  RevealedHint,
   StudentActivityView,
 } from '@/domain/entities/Activity'
 import {
   parseActivityAttemptResult,
+  parseRevealedHint,
   parseStudentActivityView,
 } from '@/domain/entities/Activity'
 import type {
@@ -69,6 +71,21 @@ function parseSession(value: unknown): LearningSession {
   const currentActivityPosition = numberField(dto, 'current_activity_position')
   const totalActivities = numberField(dto, 'total_activities')
   const remainingAttempts = numberField(dto, 'remaining_attempts')
+  const rawRevealedHints = dto.revealed_hints
+  if (rawRevealedHints != null && !Array.isArray(rawRevealedHints)) {
+    throw new Error('La sesión contiene pistas desbloqueadas inválidas.')
+  }
+  const revealedHints = (rawRevealedHints ?? []).map(parseRevealedHint)
+  if (
+    revealedHints.length > 8 ||
+    (activity === null && revealedHints.length > 0) ||
+    new Set(revealedHints.map((hint) => hint.hintId)).size !== revealedHints.length ||
+    revealedHints.some((hint, index) =>
+      hint.order !== index + 1 || hint.hintId !== activity?.availableHints[index]?.hintId
+    )
+  ) {
+    throw new Error('La sesión contiene pistas fuera de orden o ajenas a la actividad.')
+  }
   if (
     activeDurationMs < 0 ||
     currentActivityPosition < 1 ||
@@ -93,6 +110,7 @@ function parseSession(value: unknown): LearningSession {
     completedAt: typeof dto.completed_at === 'string' ? dto.completed_at : null,
     remainingAttempts,
     rewardPending: false,
+    revealedHints,
   }
 }
 
@@ -122,6 +140,22 @@ export class BffLearningSessionRepository implements ILearningSessionRepository 
     ))
     const session = parseSession(dto.session)
     return { ...session, rewardPending: dto.reward_pending === true }
+  }
+
+  async revealHint(sessionId: string, hintOrder: number): Promise<RevealedHint> {
+    if (!Number.isInteger(hintOrder) || hintOrder < 1 || hintOrder > 8) {
+      throw new Error('El orden de la pista no es válido.')
+    }
+    const dto = parseResponse(await this.http.post<unknown>(
+      '/api/v1/learning/sessions/' + encodeURIComponent(sessionId) + '/hints',
+      { hint_order: hintOrder },
+      { timeoutMs: 30_000 },
+    ))
+    const hint = parseRevealedHint(dto)
+    if (hint.order !== hintOrder) {
+      throw new Error('El servidor devolvió una pista fuera de orden.')
+    }
+    return hint
   }
 
   async submitActivity(

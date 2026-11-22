@@ -592,13 +592,18 @@ Construir un motor reutilizable que permita presentar actividades diferentes baj
 
 ### Subfase 2.5. Feedback educativo
 
-- [ ] Mostrar por qué una respuesta es correcta.
-- [ ] Explicar los errores de forma adecuada al nivel.
-- [ ] Ofrecer pistas graduadas.
-- [ ] Mostrar ejemplos equivalentes.
-- [ ] Reforzar patrones de error frecuentes.
-- [ ] Evitar explicaciones largas en ejercicios simples.
-- [ ] Permitir consultar más detalle bajo demanda.
+**Estado: implementación en la rama `feat/phase-2-5-educational-feedback`; CI, pruebas integrales y aceptación funcional pendientes.** El contenido pedagógico se versiona con la actividad publicada; el backend controla la entrega de pistas, la puntuación asociada y el historial de patrones por estudiante. La experiencia muestra el feedback breve primero y permite ampliar los detalles bajo demanda.
+
+- [x] Mostrar por qué una respuesta es correcta mediante una explicación editorial específica; usar una explicación breve y explícita cuando no exista texto editorial.
+- [x] Explicar errores con mensajes asociados al nivel CEFR y al contexto de la actividad; las rúbricas abiertas conservan su evaluación CEFR.
+- [x] Ofrecer pistas graduadas, secuenciales e idempotentes, entregadas por backend solo al titular de la sesión.
+- [x] Mostrar ejemplos equivalentes publicados, sin inferir soluciones nuevas en el navegador.
+- [x] Registrar patrones de error editoriales por estudiante e intento; considerar recurrente un patrón con al menos tres apariciones en 90 días.
+- [x] Mostrar feedback conciso por defecto y reservar explicaciones ampliadas para una consulta explícita.
+- [x] Mantener respuestas correctas, rúbricas, penalizaciones y cuerpos de pistas fuera de la proyección pública de la actividad.
+- [ ] CI verde de Rust, frontend, auditorías y migraciones fresh/upgrade para el HEAD exacto del PR.
+- [ ] Validación de extremo a extremo con una actividad curricular publicada que incluya pistas, ejemplos y patrón editorial.
+- [ ] Verificar recuperación de pistas desbloqueadas tras recargar la sesión y que el historial de patrones solo sea visible para el estudiante propietario.
 
 ### Subfase 2.6. Sistema Dual de Pronunciación para Hispanohablantes
 

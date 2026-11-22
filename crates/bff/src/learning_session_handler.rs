@@ -5,7 +5,8 @@ use axum::{
 };
 use proto::ai_evaluator::{
     BeginLessonActivityAttemptRequest, CommitLessonActivityAttemptRequest,
-    EvaluateLearningActivityRequest, GetLessonSessionRequest, StartLessonSessionRequest,
+    EvaluateLearningActivityRequest, GetLessonSessionRequest, RevealLessonActivityHintRequest,
+    StartLessonSessionRequest,
 };
 use proto::gamification::RecordLessonCompletionRequest;
 use serde::{Deserialize, Serialize};
@@ -22,6 +23,21 @@ pub struct StartLessonSessionBody {
     pub idempotency_key: String,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RevealLessonHintBody {
+    pub hint_order: i32,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RevealedHintDto {
+    pub hint_id: String,
+    pub order: i32,
+    pub title: String,
+    pub body: String,
+}
+
 #[derive(Serialize)]
 pub struct LessonSessionDto {
     pub session_id: String,
@@ -36,6 +52,7 @@ pub struct LessonSessionDto {
     pub last_result: Option<Value>,
     pub completed_at: Option<String>,
     pub remaining_attempts: i32,
+    pub revealed_hints: Vec<RevealedHintDto>,
 }
 
 #[derive(Serialize)]
@@ -158,6 +175,18 @@ fn session_dto(
 ) -> Result<LessonSessionDto, (StatusCode, Json<SessionErrorDto>)> {
     let activity = parse_json_field(&snapshot.student_activity_json, "student_activity")?;
     let last_result = parse_json_field(&snapshot.last_result_json, "last_result")?;
+    let revealed_value = parse_json_field(&snapshot.revealed_hints_json, "revealed_hints")?
+        .unwrap_or_else(|| Value::Array(Vec::new()));
+    let revealed_hints: Vec<RevealedHintDto> = serde_json::from_value(revealed_value).map_err(|error| {
+        tracing::error!(%error, "Revealed lesson hints did not match the public DTO");
+        (
+            StatusCode::BAD_GATEWAY,
+            Json(SessionErrorDto {
+                code: "LEARNING_SESSION_INVALID_HINTS",
+                message: "El servicio de aprendizaje devolvió pistas inválidas.",
+            }),
+        )
+    })?;
     // activity_definition_json is intentionally not copied into this HTTP DTO.
     Ok(LessonSessionDto {
         session_id: snapshot.session_id,
@@ -176,6 +205,7 @@ fn session_dto(
             Some(snapshot.completed_at)
         },
         remaining_attempts: snapshot.remaining_attempts,
+        revealed_hints,
     })
 }
 
@@ -445,6 +475,69 @@ pub async fn get_lesson_session_handler(
     }))
 }
 
+/// POST /api/v1/learning/sessions/:session_id/hints
+pub async fn reveal_lesson_activity_hint_handler(
+    State(mut state): State<AppState>,
+    headers: HeaderMap,
+    Path(session_id): Path<String>,
+    Json(body): Json<RevealLessonHintBody>,
+) -> Result<Json<RevealedHintDto>, (StatusCode, Json<SessionErrorDto>)> {
+    if session_id.trim().is_empty() || session_id.len() > 36 || !(1..=8).contains(&body.hint_order) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(SessionErrorDto {
+                code: "LEARNING_SESSION_HINT_INPUT_INVALID",
+                message: "La sesión y el orden de la pista deben ser válidos.",
+            }),
+        ));
+    }
+    let user_id = validate_token_from_headers(&headers, &mut state)
+        .await
+        .map_err(|(status, _)| {
+            (
+                status,
+                Json(SessionErrorDto {
+                    code: "AUTHENTICATION_REQUIRED",
+                    message: "Debes iniciar sesión para continuar.",
+                }),
+            )
+        })?;
+    if !allow_request(
+        &user_id,
+        "lesson-session-hint-reveal",
+        24,
+        Duration::from_secs(60),
+    ) {
+        return Err(rate_limit_error());
+    }
+    let mut request = tonic::Request::new(RevealLessonActivityHintRequest {
+        user_id: user_id.clone(),
+        session_id,
+        hint_order: body.hint_order,
+    });
+    attach_bearer_metadata(&headers, &mut request).map_err(|_| {
+        (
+            StatusCode::UNAUTHORIZED,
+            Json(SessionErrorDto {
+                code: "AUTHENTICATION_REQUIRED",
+                message: "La sesión de autenticación no es válida.",
+            }),
+        )
+    })?;
+    let mut client = state.ai_client.clone();
+    let hint = client
+        .reveal_lesson_activity_hint(request)
+        .await
+        .map_err(|error| session_error(error, "reveal_lesson_activity_hint"))?
+        .into_inner();
+    Ok(Json(RevealedHintDto {
+        hint_id: hint.hint_id,
+        order: hint.hint_order,
+        title: hint.title,
+        body: hint.body,
+    }))
+}
+
 /// POST /api/v1/learning/sessions/:session_id/answers
 pub async fn submit_lesson_activity_handler(
     State(mut state): State<AppState>,
@@ -650,11 +743,24 @@ mod tests {
             remaining_attempts: 3,
             pending_reservation_id: "00000000-0000-4000-8000-000000000006".to_string(),
             pending_submission_json: json!({"answer":{"kind":"selected_options"}}).to_string(),
+            revealed_hints_json: json!([{
+        "hintId": "00000000-0000-4000-8000-000000000007",
+        "order": 1,
+        "title": "Context clue",
+        "body": "Think about the first meeting."
+    }]).to_string(),
         };
 
         let dto = session_dto(snapshot).expect("valid public projection");
         let serialized = serde_json::to_value(dto).expect("serialize public DTO");
         assert!(serialized.get("activity").is_some());
+        let revealed_hints = serialized
+            .get("revealed_hints")
+            .and_then(serde_json::Value::as_array)
+            .expect("only revealed hints are included in session DTO");
+        assert_eq!(revealed_hints.len(), 1);
+        assert_eq!(revealed_hints[0]["hintId"], "00000000-0000-4000-8000-000000000007");
+        assert_eq!(revealed_hints[0]["body"], "Think about the first meeting.");
         assert!(serialized.get("correctOptionIds").is_none());
         assert!(serialized.get("activity_definition_json").is_none());
         assert!(serialized.get("pending_reservation_id").is_none());

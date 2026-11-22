@@ -33,3 +33,14 @@ La Subfase 2.2 ya define 13 familias de ejercicios, envíos tipados y resultados
 - Un reintento con la misma clave devuelve el resultado persistido y no crea otra fila de evaluación.
 - Progreso, límite de intentos y recompensas todavía no se acreditan desde este RPC; se integrarán transaccionalmente con el motor de sesiones en 2.4.
 - La integración HTTP de actividades publicadas y las pruebas manuales del flujo real quedan pendientes.
+
+
+## Extensión de la decisión — Subfase 2.5: feedback educativo
+
+La definición privada y versionada de cada actividad puede incluir explicaciones breves diferenciadas para respuestas correctas e incorrectas, una explicación ampliada, ejemplos equivalentes revisados y un código estable de patrón de error con su orientación de refuerzo. Estos campos son opcionales para mantener la lectura de paquetes históricos; el importador valida sus límites antes de publicar una nueva versión.
+
+Las pistas continúan dentro de la definición privada. El estudiante recibe únicamente la siguiente pista solicitada, después de una llamada autenticada y secuencial vinculada a su sesión activa. Cada revelación queda registrada de forma inmutable, junto con el texto servido y la penalización publicada. Al enviar una respuesta, el evaluador compara los IDs declarados con los IDs realmente revelados; el navegador no determina la penalización.
+
+Los patrones de error se registran únicamente para intentos evaluados e incorrectos. El historial guarda el código editorial y la referencia al intento, nunca el texto de la respuesta. La recurrencia se calcula por estudiante y código durante una ventana móvil de 90 días; tres o más eventos permiten mostrar una recomendación de refuerzo. Los eventos son inmutables para la aplicación, están protegidos por RLS y se eliminan mediante las cascadas de la sesión/cuenta según la política de retención.
+
+La proyección pública de la actividad no incluye FeedbackPolicy, claves de respuesta, criterios de rúbrica, penalizaciones ni cuerpos de pistas no desbloqueadas. El resultado evaluado contiene solo el feedback autorizado para el estudiante. Las explicaciones editoriales son deterministas; no se invoca un modelo generativo para corregir ejercicios cerrados.

@@ -7,7 +7,8 @@ use proto::ai_evaluator::{
     DrillExercise, EvaluateExamAnswerRequest, EvaluateExamAnswerResponse,
     EvaluateLearningActivityRequest, EvaluateLearningActivityResponse,
     GenerateTargetedDrillRequest, GenerateTargetedDrillResponse, GetLessonSessionRequest,
-    GetLessonSessionResponse, StartLessonSessionRequest, StartLessonSessionResponse,
+    GetLessonSessionResponse, RevealLessonActivityHintRequest, RevealLessonActivityHintResponse,
+    StartLessonSessionRequest, StartLessonSessionResponse,
 };
 use sqlx::PgPool;
 use tonic::{Request, Response, Status};
@@ -330,6 +331,30 @@ impl AiEvaluatorService for MyAIEvaluatorService {
             .map_err(|status| *status)?;
         Ok(Response::new(GetLessonSessionResponse {
             session: Some(session),
+        }))
+    }
+
+    async fn reveal_lesson_activity_hint(
+        &self,
+        request: Request<RevealLessonActivityHintRequest>,
+    ) -> Result<Response<RevealLessonActivityHintResponse>, Status> {
+        let user_id = common::ensure_authenticated_user(&request, &request.get_ref().user_id)?;
+        let req = request.into_inner();
+        let session_id = Uuid::parse_str(&req.session_id)
+            .map_err(|_| Status::invalid_argument("session_id debe ser un UUID válido"))?;
+        let hint = crate::learning_sessions::reveal_lesson_activity_hint(
+            &self.pool,
+            user_id,
+            session_id,
+            req.hint_order,
+        )
+        .await
+        .map_err(|status| *status)?;
+        Ok(Response::new(RevealLessonActivityHintResponse {
+            hint_id: hint.hint_id,
+            hint_order: hint.order,
+            title: hint.title,
+            body: hint.body,
         }))
     }
 

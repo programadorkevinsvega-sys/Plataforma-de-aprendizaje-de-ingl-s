@@ -14,6 +14,7 @@ import {
 import { GetAchievementsUseCase } from '@/application/use-cases/GetAchievementsUseCase'
 import {
   GetLearningSessionUseCase,
+  RevealLearningHintUseCase,
   StartLessonSessionUseCase,
   SubmitLearningActivityUseCase,
 } from '@/application/use-cases/LearningSessionUseCases'
@@ -104,6 +105,7 @@ export interface Container {
     recordLearningProgress: RecordLearningProgressUseCase
     startLessonSession: StartLessonSessionUseCase
     getLearningSession: GetLearningSessionUseCase
+    revealLearningHint: RevealLearningHintUseCase
     submitLearningActivity: SubmitLearningActivityUseCase
   }
 }
@@ -159,6 +161,7 @@ function build(): Container {
       recordLearningProgress: new RecordLearningProgressUseCase(progress),
       startLessonSession: new StartLessonSessionUseCase(learningSessions),
       getLearningSession: new GetLearningSessionUseCase(learningSessions),
+      revealLearningHint: new RevealLearningHintUseCase(learningSessions),
       submitLearningActivity: new SubmitLearningActivityUseCase(learningSessions),
     },
   }

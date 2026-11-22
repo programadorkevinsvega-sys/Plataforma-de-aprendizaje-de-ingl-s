@@ -5,6 +5,7 @@ import {
   buildActivitySubmission,
   isStudentAnswerComplete,
   parseActivityAttemptResult,
+  parseRevealedHint,
   parseStudentActivityView,
 } from '../../src/domain/entities/Activity.ts'
 
@@ -378,4 +379,111 @@ test('student parser enforces listening and speaking skill evidence boundaries',
     ...cases[11],
     modality: 'written',
   }), /diálogo guiado requiere modalidad hablada/)
+})
+
+test('feedback parser preserves authored examples, on-demand detail and recurring error guidance', () => {
+  const activity = activityFor(cases[0])
+  const parsed = parseActivityAttemptResult({
+    schemaVersion: '1.0',
+    attemptId: uuid(910),
+    activityId: activity.activityId,
+    activityVersion: activity.activityVersion,
+    state: 'evaluated',
+    score: { earnedPoints: 6, maxPoints: 10, normalizedScore: 60, partialCreditAwarded: true },
+    skillMeasurements: [{ skill: 'vocabulary', state: 'measured', score: 60 }],
+    feedback: {
+      summary: 'Review the greeting context.',
+      explanation: 'This expression is used when people meet.',
+      revealedAnswer: 'Nice to meet you',
+      equivalentExamples: ['Pleased to meet you'],
+      detailedExplanation: 'Use this phrase when you meet someone for the first time.',
+      errorPattern: {
+        code: 'a1.greeting.context',
+        label: 'Greeting context',
+        remediation: 'Choose the expression used at a first meeting.',
+        occurrences: 3,
+        recurring: true,
+      },
+    },
+  }, activity)
+  assert.deepEqual(parsed.feedback.equivalentExamples, ['Pleased to meet you'])
+  assert.equal(parsed.feedback.detailedExplanation, 'Use this phrase when you meet someone for the first time.')
+  assert.equal(parsed.feedback.errorPattern?.recurring, true)
+  assert.equal(parsed.feedback.errorPattern?.occurrences, 3)
+})
+
+test('legacy feedback payloads default new pedagogical fields safely', () => {
+  const activity = activityFor(cases[0])
+  const parsed = parseActivityAttemptResult({
+    schemaVersion: '1.0',
+    attemptId: uuid(911),
+    activityId: activity.activityId,
+    activityVersion: activity.activityVersion,
+    state: 'evaluated',
+    score: { earnedPoints: 10, maxPoints: 10, normalizedScore: 100, partialCreditAwarded: false },
+    skillMeasurements: [],
+    feedback: { summary: 'Correct.', explanation: null, revealedAnswer: null },
+  }, activity)
+  assert.deepEqual(parsed.feedback.equivalentExamples, [])
+  assert.equal(parsed.feedback.detailedExplanation, null)
+  assert.equal(parsed.feedback.errorPattern, null)
+})
+
+test('recurring error metadata must be consistent and bounded', () => {
+  const activity = activityFor(cases[0])
+  const malformed = {
+    schemaVersion: '1.0',
+    attemptId: uuid(912),
+    activityId: activity.activityId,
+    activityVersion: activity.activityVersion,
+    state: 'evaluated',
+    score: { earnedPoints: 0, maxPoints: 10, normalizedScore: 0, partialCreditAwarded: false },
+    skillMeasurements: [],
+    feedback: {
+      summary: 'Try again.',
+      explanation: null,
+      revealedAnswer: null,
+      errorPattern: {
+        code: 'a1.greeting.context',
+        label: 'Context',
+        remediation: 'Review the situation.',
+        occurrences: 2,
+        recurring: true,
+      },
+    },
+  }
+  assert.throws(() => parseActivityAttemptResult(malformed, activity), /tres o más apariciones/)
+})
+
+test('revealed hints accept only bounded, ordered payload fields', () => {
+  const hint = parseRevealedHint({
+    hintId: uuid(101),
+    order: 1,
+    title: 'Think about the context',
+    body: 'Consider the first meeting.',
+  })
+  assert.equal(hint.order, 1)
+  assert.equal(hint.body, 'Consider the first meeting.')
+  assert.throws(() => parseRevealedHint({
+    hintId: 'not-a-uuid',
+    order: 1,
+    title: 'Think',
+    body: 'Consider the context.',
+  }), /UUID/)
+  assert.throws(() => parseRevealedHint({
+    hintId: uuid(102),
+    order: 9,
+    title: 'Think',
+    body: 'Consider the context.',
+  }), /entero entre 1 y 8/)
+})
+
+test('student activity projection rejects private pedagogical feedback policy', () => {
+  assert.throws(() => parseStudentActivityView({
+    ...base,
+    feedback: {
+      correctExplanation: 'Editorial-only explanation',
+      errorPattern: { code: 'a1.example', label: 'Private', remediation: 'Private' },
+    },
+  }), /datos editoriales privados/)
 })

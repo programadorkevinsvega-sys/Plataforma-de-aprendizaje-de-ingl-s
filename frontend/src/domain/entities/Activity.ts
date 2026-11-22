@@ -91,6 +91,21 @@ export interface ActivitySubmission {
 export type ActivityAttemptState = 'evaluated' | 'pending_review' | 'not_measured'
 export type MeasurementState = 'measured' | 'not_measured'
 
+export interface RevealedHint {
+  hintId: string
+  order: number
+  title: string
+  body: string
+}
+
+export interface ActivityErrorPatternFeedback {
+  code: string
+  label: string
+  remediation: string
+  occurrences: number
+  recurring: boolean
+}
+
 export interface ActivityAttemptResult {
   schemaVersion: typeof ACTIVITY_SCHEMA_VERSION
   attemptId: string
@@ -112,6 +127,9 @@ export interface ActivityAttemptResult {
     summary: string
     explanation: string | null
     revealedAnswer: string | null
+    equivalentExamples: string[]
+    detailedExplanation: string | null
+    errorPattern: ActivityErrorPatternFeedback | null
   }
 }
 
@@ -136,6 +154,18 @@ const PRIVATE_FIELDS = new Set([
   'transcript_policy',
   'answerKey',
   'answer_key',
+  'feedback',
+  'feedbackPolicy',
+  'correctExplanation',
+  'correct_explanation',
+  'incorrectExplanation',
+  'incorrect_explanation',
+  'detailedExplanation',
+  'detailed_explanation',
+  'equivalentExamples',
+  'equivalent_examples',
+  'errorPattern',
+  'error_pattern',
 ])
 
 type JsonRecord = Record<string, unknown>
@@ -459,6 +489,16 @@ export function parseStudentActivityView(value: unknown): StudentActivityView {
 }
 
 
+export function parseRevealedHint(value: unknown): RevealedHint {
+  const hint = record(value, 'revealedHint')
+  return {
+    hintId: uuid(hint.hintId, 'revealedHint.hintId'),
+    order: integer(hint.order, 'revealedHint.order', 1, 8),
+    title: text(hint.title, 'revealedHint.title', 100),
+    body: text(hint.body, 'revealedHint.body', 1000),
+  }
+}
+
 export function parseActivityAttemptResult(
   value: unknown,
   activity: StudentActivityView,
@@ -519,6 +559,32 @@ export function parseActivityAttemptResult(
   const feedback = record(result.feedback, 'result.feedback')
   const optionalText = (input: unknown, path: string, max: number) =>
     input === null || input === undefined ? null : text(input, path, max)
+  const equivalentExamples = feedback.equivalentExamples === undefined
+    ? []
+    : list(feedback.equivalentExamples, 'result.feedback.equivalentExamples', 0, 5)
+      .map((example, index) => text(example, 'result.feedback.equivalentExamples[' + index + ']', 500))
+  unique(equivalentExamples, 'result.feedback.equivalentExamples')
+  const errorPattern = feedback.errorPattern == null
+    ? null
+    : (() => {
+      const pattern = record(feedback.errorPattern, 'result.feedback.errorPattern')
+      const occurrences = integer(pattern.occurrences, 'result.feedback.errorPattern.occurrences', 0, 1_000_000)
+      const recurring = boolean(pattern.recurring, 'result.feedback.errorPattern.recurring')
+      if (recurring !== (occurrences >= 3)) {
+        fail('result.feedback.errorPattern.recurring', 'debe corresponder a tres o más apariciones')
+      }
+      const code = text(pattern.code, 'result.feedback.errorPattern.code', 80)
+      if (!/^[a-z0-9][a-z0-9._-]{1,79}$/.test(code)) {
+        fail('result.feedback.errorPattern.code', 'formato de código no válido')
+      }
+      return {
+        code,
+        label: text(pattern.label, 'result.feedback.errorPattern.label', 120),
+        remediation: text(pattern.remediation, 'result.feedback.errorPattern.remediation', 1000),
+        occurrences,
+        recurring,
+      }
+    })()
 
   return {
     schemaVersion: ACTIVITY_SCHEMA_VERSION,
@@ -532,6 +598,9 @@ export function parseActivityAttemptResult(
       summary: text(feedback.summary, 'result.feedback.summary', 1000),
       explanation: optionalText(feedback.explanation, 'result.feedback.explanation', 4000),
       revealedAnswer: optionalText(feedback.revealedAnswer, 'result.feedback.revealedAnswer', 4000),
+      equivalentExamples,
+      detailedExplanation: optionalText(feedback.detailedExplanation, 'result.feedback.detailedExplanation', 4000),
+      errorPattern,
     },
   }
 }
