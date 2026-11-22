@@ -678,7 +678,7 @@ pub async fn reveal_lesson_activity_hint(
     .bind(course_version_id)
     .bind(activity.activity_id)
     .bind(hint.hint_id)
-    .bind(i16::try_from(hint.order).map_err(|_| Status::data_loss("Orden de pista inválido"))?)
+    .bind(i16::from(hint.order))
     .bind(&hint.title)
     .bind(&hint.body)
     .bind(i32::from(hint.penalty_points))
